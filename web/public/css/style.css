@@ -1,0 +1,119 @@
+
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  background-color: black;
+}
+
+#mainImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  object-fit: cover; /* keeps aspect ratio */
+}
+
+a {
+  color: white; /* any valid CSS color */
+}
+
+/* Modal Overlay */
+.modalOverlay {
+  display: none; /* hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.8); /* darker overlay for emphasis */
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  overflow-y: auto; /* allows scrolling if content taller than screen */
+}
+
+/* Modal Box */
+#modalBox {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 90vw;   /* up to 90% of viewport width */
+  width: 800px;      /* default width for larger screens */
+  max-height: 90vh;  /* up to 90% of viewport height */
+  overflow-y: auto;  /* scroll inside modal if content is tall */
+  text-align: left;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  position: relative;
+}
+#modalTitle {
+    font-size: 3rem; /* adjust as needed */
+    text-align: center;
+    margin-bottom: 20px;
+}
+/* Modal Header */
+#modalBox h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Modal Image */
+#modalImage {
+  float: left;
+  max-width: 40%;
+  height: auto;
+  margin: 0 20px 20px 0;
+}
+
+/* Modal Content */
+#modalContent {
+  font-size: 1.5rem;
+  line-height: 1.5;
+}
+
+/* Modal Footer */
+.modalFooter {
+  clear: both; /* ensures button sits below text and image */
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* Close Button */
+#closeBtn {
+  padding: 8px 16px;
+  cursor: pointer;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: #f00;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+
+/* Responsive Adjustments */
+@media screen and (max-width: 768px) {
+  #modalBox {
+    width: 95vw;
+    padding: 15px;
+    max-height: 95vh;
+  }
+
+  #modalImage {
+    float: none;
+    display: block;
+    max-width: 100%;
+    margin: 0 0 15px 0;
+  }
+
+  #modalTitle {
+    font-size: 1.5rem;
+  }
+
+  #modalContent {
+    font-size: 0.95rem;
+  }
+}

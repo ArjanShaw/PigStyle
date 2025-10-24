@@ -1,0 +1,12 @@
+{
+  "label_width_mm": 45.0,
+  "label_height_mm": 16.8,
+  "left_margin_mm": 6.5,
+  "gutter_spacing_mm": 6.5,
+  "top_margin_mm": 14.0,
+  "font_size": 7,
+  "last_genre": "Rock & Pop",
+  "genre_font_size": 96,
+  "genre_font": "Helvetica-Bold",
+  "genre_custom_text": "A"
+}

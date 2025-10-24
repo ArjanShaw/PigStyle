@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<!-- Website template by freewebsitetemplates.com -->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PigStyle Records Loveland</title>
+    <link rel="stylesheet" href="css/style.css" type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <script>
+        // === Positioning Functions ===
+        function movePigStyleText() {
+            const img = document.getElementById("pigstyle-text");
+            img.style.top = '0';
+            img.style.left = '50%';
+            img.style.transform = 'translateX(-50%)';
+        }  
+
+        function moveRecordsText() {
+            const imgRecordText = document.getElementById("records-text");
+            const imgPigStyleText = document.getElementById("pigstyle-text");
+            imgRecordText.style.top = imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 20 + 'px';
+            imgRecordText.style.left = '50%';
+            imgRecordText.style.transform = 'translateX(-50%)';
+        }
+
+        function movePigHead() {
+            const img = document.getElementById("pighead");
+            img.style.left = '0px';
+            img.style.top = '100%';
+            img.style.transform = 'translateY(-100%)';
+            moveyellowrecord();
+        }
+
+        function resizeImage() {
+            const img = document.getElementById("mainImage");
+            img.style.height = window.innerHeight + "px";
+            img.style.width = window.innerWidth + "px";
+        }
+
+        function moveyellowrecord() {
+            const imgRecord = document.getElementById("yellow-record");
+            const imgPigHead = document.getElementById("pighead");
+            imgRecord.style.left = (imgPigHead.offsetLeft + imgPigHead.offsetWidth) + 'px';
+            imgRecord.style.bottom = '200px';
+        }
+
+        function moveBulletedList() {
+            const imgRecordText = document.getElementById("records-text");
+            const hdrs = document.getElementById("headers");
+            hdrs.style.top = imgRecordText.offsetTop + imgRecordText.offsetHeight + 'px';
+            hdrs.style.left = '50%';
+            hdrs.style.transform = 'translateX(-50%)';
+        }
+
+        function resize() {
+            resizeImage();
+            movePigHead();
+            movePigStyleText();
+            moveRecordsText();
+            moveyellowrecord();
+            moveBulletedList();
+        }
+
+        // === Popup Functionality ===
+        function setupPopup() {
+            const links = document.querySelectorAll('.popup-link');
+            const overlay = document.getElementById('vinylOverlay');
+            const modalBox = document.getElementById('modalBox');
+            const titleElem = document.getElementById('modalTitle');
+            const contentElem = document.getElementById('modalContent');
+            const imageElem = document.getElementById('modalImage');
+            const closeBtn = document.getElementById('closeBtn');
+
+            overlay.style.display = 'none';
+
+            links.forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    titleElem.textContent = this.dataset.title || '';
+                    contentElem.innerHTML = this.dataset.content || '';
+                    imageElem.src = this.dataset.img || '';
+                    overlay.style.display = 'flex';
+
+                    const { innerWidth, innerHeight } = window;
+                    const { offsetWidth, offsetHeight } = modalBox;
+                    modalBox.style.position = 'fixed';
+                    modalBox.style.left = (innerWidth - offsetWidth) / 2 + 'px';
+                    modalBox.style.top = (innerHeight - offsetHeight) / 2 + 'px';
+                });
+            });
+
+            closeBtn.addEventListener('click', () => overlay.style.display = 'none');
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
+        }
+
+        function init() {
+            resize();
+            setupPopup();
+        }
+
+        window.addEventListener('load', init);
+        window.addEventListener("resize", init);
+        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) resize(); });
+    </script>
+</head>
+
+<body>
+    <div class="fullscreen-img-container">
+
+        <!-- Background and Decorative Images -->
+        <img style="position: absolute;" id="mainImage" src="images/background.png" alt="logo">
+        <img style="position: absolute;" id="pighead" src="images/pig_head.png" alt="logo">
+        <img style="position: absolute;" id="pigstyle-text" src="images/pigstyle_text.png" alt="logo">
+        <img style="position: absolute;" id="records-text" style="width: 800px;" src="images/records_text.png" alt="logo">
+        <img style="position: absolute;" id="yellow-record" src="images/yellow-record.png" alt="logo">
+
+        <!-- Header Navigation -->
+        <div id="headers" style="font-size: 40px; color: white; position: absolute;" class="header">
+            <div>
+                <ul>
+                    
+                   
+                    <!-- Existing Header Links -->
+                    <li>
+                        <a class="popup-link" data-title="Vinyl" data-content="
+                        <h2>Buy</h2>
+                        Browse our wide selection of vinyl records, from classics to metal.
+                        Perfect for collectors and casual listeners.
+                        <h2>Sell</h2>
+                        Bring in your vinyl records to sell. 
+                        <h2>Commission</h2>
+                        We do commission sales of higher end records ($25+ expected sales price).
+                        Drop by to show us what you have!" 
+                        data-img="images/vinyl_records.jpg">
+                            Vinyl Records: Buy, Sell, Commission
+                        </a>
+                    </li>
+
+                    <li>
+                        <a class="popup-link" data-title="Audio gear" data-content="
+                        <h2>Buy</h2>
+                        We carry turntables, speakers, boomboxes and other audio accessories.
+                        <h2>Sell</h2>
+                        Come in to get an offer on your gently used audio equipment." 
+                        data-img="images/audio-gear.jpg">
+                        Audio Gear: Buy and Sell
+                        </a>
+                    </li>
+
+                    <li>
+                        <a class="popup-link" data-title="Art" data-content="
+                        <h2>Buy</h2>
+                        Discover unique art pieces and collectibles from local artists.
+                        <h2>Commission</h2>
+                        Artists can submit commissioned artwork for display or sale."
+                        data-img="images/art-in-record-store.png">
+                            Art: Buy, Sell
+                        </a>
+                    </li>
+
+                    <li>
+                        <a class="popup-link" data-content="
+                        <h2>Hang out and listen</h2>
+                        Relax in our cozy seating while enjoying music and chatting with fellow vinyl enthusiasts."
+                        data-img="images/recliner.png">
+                            Hang out and listen
+                        </a>
+                    </li>
+
+                    <li>
+                        <a class="popup-link" data-title="Contact Us at PigStyle Records" data-content="
+                        <h2>Contact</h2>
+                        Email: yourname@example.com<br>
+                        Address: 123 Music Lane, Loveland, CO
+                        <h2>Find Us Here</h2>
+                        <iframe src='https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3067.123456789012!2d-105.084321!3d40.397654!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x876c789abc12345%3A0xabcdef1234567890!2sLoveland%2C%20CO!5e0!3m2!1sen!2sus!4v1694765432109!5m2!1sen!2sus' width='100%' height='250' style='border:0;' allowfullscreen='' loading='lazy' referrerpolicy='no-referrer-when-downgrade'></iframe>"
+                        data-img="images/record-store-exterior.jpg">
+                            Contact
+                        </a>
+                    </li>
+
+                    <li>
+                        <a class="popup-link" data-title="Upcoming Events" data-content="
+                        <h2>Events Calendar</h2>
+                        Check out our upcoming events, including live music, open mic nights, and art displays.
+                        <iframe src='https://calendar.google.com/calendar/embed?src=your_calendar_id%40group.calendar.google.com&ctz=America%2FDenver' style='border:0' width='100%' height='400' frameborder='0' scrolling='no'></iframe>"
+                        data-img="images/record-store-exterior.jpg">
+                            Events
+                        </a>
+                    </li>
+					 <li>
+                        <a href="catalog.html"><i class="fa-solid fa-images"></i> Catalog</a>
+                    </li>
+
+                  
+                </ul>
+            </div>
+        </div>
+
+        <!-- Store Info -->
+        <div id="storeInfo" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 24px; text-align: center;">
+            <p id="storeAddress">Address: 123 Music Lane, Vinyl City, VC 45678</p>
+            <p id="storeHours">Hours: Mon-Sat 10am - 8pm, Sun 12pm - 6pm</p>
+            <div id="socialIcons" style="margin-top: 10px;">
+                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-facebook"></i></a>
+                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-instagram"></i></a>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div class="modalOverlay" id="vinylOverlay">
+            <div id="modalBox">
+                <h1 id="modalTitle">Title</h1>
+                <img id="modalImage" src="" alt="Popup Image">
+                <p id="modalContent">Content goes here</p>
+                <div class="modalFooter">
+                    <button id="closeBtn">Close</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

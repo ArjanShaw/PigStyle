@@ -1,8 +1,23 @@
+import sys
+import os
+
+# Add the correct path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'apps/inventory-manager/src'))
+
+# Now import all modules
 import streamlit as st
 from pathlib import Path
-import os
 import glob
 from dotenv import load_dotenv
+from database_manager import DatabaseManager
+from discogs_handler import DiscogsHandler
+from search_tab import SearchTab
+from records_tab import RecordsTab
+from statistics_tab import StatisticsTab
+from genre_mappings_tab import GenreMappingsTab
+from print_tab import PrintTab
+
+# Copy the entire content from the original file below this line
 from database_manager import DatabaseManager
 from discogs_handler import DiscogsHandler
 from search_tab import SearchTab

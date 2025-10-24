@@ -8,3 +8,4 @@ venv/
 .idea/
 .streamlit/
 node_modules/
+apps/inventory-manager/.env

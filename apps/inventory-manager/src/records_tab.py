@@ -22,9 +22,7 @@ class RecordsTab:
             with col1:
                 st.metric("Total Records", stats['records_count'])
             with col2:
-                if st.button("🔄 Refresh", use_container_width=True, help="Refresh database view"):
-                    st.session_state.db_manager.recreate_records_view()
-                    st.success("View refreshed!")
+                if st.button("🔄 Refresh", use_container_width=True, help="Refresh data"):
                     st.rerun()
             with col3:
                 if st.button("📊 Export CSV", use_container_width=True, help="Export all records to CSV"):
@@ -33,8 +31,8 @@ class RecordsTab:
                 if st.button("🔢 Gen Barcodes", use_container_width=True, help="Generate missing barcodes"):
                     self._generate_barcodes_for_existing_records()
             with col5:
-                if st.button("📁 Import CSV", use_container_width=True, help="Import records from CSV"):
-                    self._import_csv_records()
+                if st.button("🖨️ Print Selected", use_container_width=True, help="Print selected records"):
+                    self._send_to_print_tab()
             
             if stats['records_count'] > 0:
                 self._render_search_and_filters()
@@ -100,16 +98,13 @@ class RecordsTab:
         try:
             conn = st.session_state.db_manager._get_connection()
             
-            # Base query - select only the columns we want to display
+            # Simple query - only from records table
             base_query = """
             SELECT 
-                r.id, r.discogs_artist, r.discogs_title, 
-                r.median_price, r.lowest_price, r.highest_price, 
-                g.genre_name as genre,
-                r.image_url, r.barcode, r.format, r.condition, r.created_at
-            FROM records r
-            LEFT JOIN genre_by_artist gba ON r.discogs_artist = gba.artist_name
-            LEFT JOIN genres g ON gba.genre_id = g.id
+                id, discogs_artist, discogs_title, 
+                median_price, lowest_price, highest_price, 
+                image_url, barcode, format, condition, created_at
+            FROM records 
             WHERE 1=1
             """
             
@@ -118,23 +113,23 @@ class RecordsTab:
             # Apply search filter
             if search_term:
                 base_query += """
-                AND (r.discogs_artist LIKE ? 
-                    OR r.discogs_title LIKE ? 
-                    OR r.barcode LIKE ?)
+                AND (discogs_artist LIKE ? 
+                    OR discogs_title LIKE ? 
+                    OR barcode LIKE ?)
                 """
                 search_pattern = f"%{search_term}%"
                 params.extend([search_pattern, search_pattern, search_pattern])
             
             # Apply quick filters
             if filter_option == "No Barcode":
-                base_query += " AND (r.barcode IS NULL OR r.barcode = '')"
+                base_query += " AND (barcode IS NULL OR barcode = '')"
             elif filter_option == "No Price Data":
-                base_query += " AND (r.median_price IS NULL OR r.median_price = 0)"
+                base_query += " AND (median_price IS NULL OR median_price = 0)"
             elif filter_option == "No Genre":
-                base_query += " AND g.genre_name IS NULL"
+                base_query += " AND (genre IS NULL OR genre = '')"
             
             # Add ordering and pagination
-            base_query += " ORDER BY r.created_at DESC LIMIT ? OFFSET ?"
+            base_query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
             params.extend([limit, offset])
             
             df = pd.read_sql_query(base_query, conn, params=params)
@@ -151,30 +146,24 @@ class RecordsTab:
             conn = st.session_state.db_manager._get_connection()
             cursor = conn.cursor()
             
-            base_query = """
-            SELECT COUNT(*) 
-            FROM records r
-            LEFT JOIN genre_by_artist gba ON r.discogs_artist = gba.artist_name
-            LEFT JOIN genres g ON gba.genre_id = g.id
-            WHERE 1=1
-            """
+            base_query = "SELECT COUNT(*) FROM records WHERE 1=1"
             params = []
             
             if search_term:
                 base_query += """
-                AND (r.discogs_artist LIKE ? 
-                    OR r.discogs_title LIKE ? 
-                    OR r.barcode LIKE ?)
+                AND (discogs_artist LIKE ? 
+                    OR discogs_title LIKE ? 
+                    OR barcode LIKE ?)
                 """
                 search_pattern = f"%{search_term}%"
                 params.extend([search_pattern, search_pattern, search_pattern])
             
             if filter_option == "No Barcode":
-                base_query += " AND (r.barcode IS NULL OR r.barcode = '')"
+                base_query += " AND (barcode IS NULL OR barcode = '')"
             elif filter_option == "No Price Data":
-                base_query += " AND (r.median_price IS NULL OR r.median_price = 0)"
+                base_query += " AND (median_price IS NULL OR median_price = 0)"
             elif filter_option == "No Genre":
-                base_query += " AND g.genre_name IS NULL"
+                base_query += " AND (genre IS NULL OR genre = '')"
             
             cursor.execute(base_query, params)
             count = cursor.fetchone()[0]
@@ -220,7 +209,7 @@ class RecordsTab:
         # Display record count and pagination info
         self._render_pagination_info(total_records, current_page, total_pages, search_term, filter_option)
         
-        # Render the records table
+        # Render the records table with selection
         self._render_records_dataframe(records)
         
         # Pagination controls
@@ -259,7 +248,7 @@ class RecordsTab:
             st.write(f"**Page {current_page} of {total_pages}**")
 
     def _render_records_dataframe(self, records: pd.DataFrame):
-        """Render records in an optimized dataframe with clean columns"""
+        """Render records in an optimized dataframe with selection"""
         if len(records) == 0:
             return
         
@@ -273,7 +262,6 @@ class RecordsTab:
                 'Barcode': record.get('barcode', ''),
                 'Condition': f"{record.get('condition', '')}/5",
                 'Format': record.get('format', ''),
-                'Genre': record.get('genre', ''),
                 'Median Price': self._format_currency(record.get('median_price')),
                 'Lowest Price': self._format_currency(record.get('lowest_price')),
                 'Highest Price': self._format_currency(record.get('highest_price')),
@@ -290,53 +278,81 @@ class RecordsTab:
             'Barcode': st.column_config.TextColumn('Barcode', width='small'),
             'Condition': st.column_config.TextColumn('Condition', width='small'),
             'Format': st.column_config.TextColumn('Format', width='small'),
-            'Genre': st.column_config.TextColumn('Genre', width='medium'),
             'Median Price': st.column_config.TextColumn('Median Price', width='small'),
             'Lowest Price': st.column_config.TextColumn('Low Price', width='small'),
             'Highest Price': st.column_config.TextColumn('High Price', width='small'),
             'Added': st.column_config.TextColumn('Added', width='small'),
         }
         
-        # Display with selection enabled
-        selected_df = st.dataframe(
+        # Display dataframe without selection (basic display)
+        st.dataframe(
             display_df,
             column_config=column_config,
             use_container_width=True,
             height=min(600, 35 * len(display_df) + 40),
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row"
+            hide_index=True
         )
         
-        # Handle row selection for actions
-        if selected_df.selection and len(selected_df.selection.rows) > 0:
-            selected_idx = selected_df.selection.rows[0]
-            selected_record = records.iloc[selected_idx]
-            self._render_record_actions(selected_record)
+        # Manual selection using checkboxes
+        st.subheader("Select Records for Actions")
+        
+        # Initialize selection state
+        if 'selected_records' not in st.session_state:
+            st.session_state.selected_records = []
+        
+        # Create checkboxes for each record
+        selected_indices = []
+        for i, (_, record) in enumerate(records.iterrows()):
+            col1, col2 = st.columns([1, 5])
+            with col1:
+                selected = st.checkbox(
+                    "Select",
+                    key=f"select_{i}_{record['id']}",
+                    value=record['id'] in st.session_state.selected_records
+                )
+            with col2:
+                st.write(f"**{record['discogs_artist']}** - {record['discogs_title']}")
+            
+            if selected:
+                selected_indices.append(i)
+        
+        # Update selected records in session state
+        st.session_state.selected_records = [records.iloc[i]['id'] for i in selected_indices]
+        
+        # Show actions for selected records
+        if selected_indices:
+            selected_records = records.iloc[selected_indices]
+            self._render_record_actions(selected_records)
 
-    def _render_record_actions(self, record):
-        """Render actions for selected record"""
+    def _render_record_actions(self, records):
+        """Render actions for selected records"""
         st.divider()
-        st.write(f"**Actions for:** {record['discogs_artist']} - *{record['discogs_title']}*")
+        st.write(f"**Actions for {len(records)} selected records:**")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("🗑️ Delete Record", key=f"delete_{record['id']}", use_container_width=True):
-                if self._delete_record(record['id']):
-                    st.success("Record deleted!")
+            if st.button("🗑️ Delete Selected", use_container_width=True):
+                if self._delete_records(records['id'].tolist()):
+                    st.success(f"Deleted {len(records)} records!")
+                    # Clear selection after deletion
+                    st.session_state.selected_records = []
                     st.session_state.records_updated += 1
                     st.rerun()
         
         with col2:
-            if st.button("📋 Copy Barcode", key=f"copy_{record['id']}", use_container_width=True):
-                st.session_state.clipboard = record['barcode']
-                st.success("Barcode copied to clipboard!")
+            if st.button("🖨️ Print Selected", use_container_width=True):
+                records_list = records.to_dict('records')
+                st.session_state.records_to_print = records_list
+                st.success(f"Sent {len(records_list)} records to Print tab!")
+                # Clear selection after sending to print
+                st.session_state.selected_records = []
         
         with col3:
-            if st.button("🖨️ Print Label", key=f"print_{record['id']}", use_container_width=True):
-                st.session_state.print_record_id = record['id']
-                st.success("Record queued for printing!")
+            if st.button("📋 Copy Barcodes", use_container_width=True):
+                barcodes = ", ".join([str(b) for b in records['barcode'].tolist() if b])
+                st.session_state.clipboard = barcodes
+                st.success("Barcodes copied to clipboard!")
 
     def _render_pagination_controls(self, current_page: int, total_pages: int):
         """Render pagination controls"""
@@ -386,17 +402,17 @@ class RecordsTab:
         except (ValueError, TypeError):
             return ""
 
-    def _delete_record(self, record_id):
-        """Delete a record from the database"""
+    def _delete_records(self, record_ids):
+        """Delete records from the database"""
         try:
             conn = st.session_state.db_manager._get_connection()
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM records WHERE id = ?', (record_id,))
+            cursor.executemany('DELETE FROM records WHERE id = ?', [(id,) for id in record_ids])
             conn.commit()
             conn.close()
             return True
         except Exception as e:
-            st.error(f"Error deleting record: {e}")
+            st.error(f"Error deleting records: {e}")
             return False
 
     def _export_all_records(self):
@@ -470,6 +486,25 @@ class RecordsTab:
         except Exception as e:
             st.error(f"Error generating barcodes: {e}")
 
+    def _send_to_print_tab(self):
+        """Send selected records to print tab"""
+        if 'selected_records' in st.session_state and st.session_state.selected_records:
+            # Get the actual record data for selected IDs
+            selected_ids = st.session_state.selected_records
+            placeholders = ','.join(['?'] * len(selected_ids))
+            
+            conn = st.session_state.db_manager._get_connection()
+            df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders})', conn, params=selected_ids)
+            conn.close()
+            
+            records_list = df.to_dict('records')
+            st.session_state.records_to_print = records_list
+            st.success(f"Sent {len(records_list)} records to Print tab!")
+            # Clear selection
+            st.session_state.selected_records = []
+        else:
+            st.warning("Please select records using the checkboxes above first.")
+
     def _import_csv_records(self):
         """Import and update records from CSV file"""
         st.subheader("Import Records from CSV")
@@ -488,8 +523,8 @@ class RecordsTab:
                 st.write("**CSV Preview:**")
                 st.dataframe(df.head(), use_container_width=True)
                 
-                st.warning("CSV import functionality needs to be updated for the new genre system.")
-                st.info("With the new artist-based genre system, you'll need to use the Genre Mappings tab to assign genres to artists.")
+                st.warning("CSV import functionality is currently disabled.")
+                st.info("Use the Search tab to add new records to the database.")
                 
             except Exception as e:
                 st.error(f"Error importing CSV: {e}")

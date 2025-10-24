@@ -1,6 +1,7 @@
 import streamlit as st
 from pathlib import Path
 import os
+import glob
 from dotenv import load_dotenv
 from database_manager import DatabaseManager
 from discogs_handler import DiscogsHandler
@@ -98,6 +99,36 @@ def persist_database_path(db_path):
         st.error(f"Error persisting database path: {e}")
         return False
 
+def get_available_databases():
+    """Get all .db files in current directory and src directory"""
+    db_files = []
+    
+    # Check current directory
+    current_dir_dbs = glob.glob("*.db")
+    db_files.extend(current_dir_dbs)
+    
+    # Check src directory
+    src_dir_dbs = glob.glob("src/*.db")
+    db_files.extend([f"src/{os.path.basename(db)}" for db in src_dir_dbs])
+    
+    # Also check parent directory
+    parent_dir_dbs = glob.glob("../*.db")
+    db_files.extend([f"../{os.path.basename(db)}" for db in parent_dir_dbs])
+    
+    return db_files
+
+def initialize_database_manager(db_path=None):
+    """Initialize database manager with the given path or persisted path"""
+    if db_path:
+        return DatabaseManager(db_path)
+    
+    persisted_path = get_persisted_database_path()
+    if persisted_path:
+        return DatabaseManager(persisted_path)
+    
+    # Default database
+    return DatabaseManager()
+
 # Get environment variables
 env_vars = get_environment_variables()
 
@@ -115,11 +146,7 @@ st.sidebar.write(f"EBAY_CLIENT_SECRET: {'✅ Set' if EBAY_CLIENT_SECRET else '�
 
 # Initialize session state defaults
 if "db_manager" not in st.session_state:
-    persisted_path = get_persisted_database_path()
-    if persisted_path:
-        st.session_state.db_manager = DatabaseManager(persisted_path)
-    else:
-        st.session_state.db_manager = DatabaseManager()
+    st.session_state.db_manager = initialize_database_manager()
 
 if "search_results" not in st.session_state:
     st.session_state.search_results = {}
@@ -133,6 +160,122 @@ if "last_added" not in st.session_state:
 if "records_updated" not in st.session_state:
     st.session_state.records_updated = 0
 
+class DatabaseSwitcher:
+    def __init__(self):
+        self.available_dbs = get_available_databases()
+    
+    def render(self):
+        """Render database switcher in sidebar"""
+        st.sidebar.header("📁 Database Manager")
+        
+        # Show current database with full path
+        current_db = st.session_state.db_manager.db_path
+        current_db_name = os.path.basename(current_db)
+        
+        st.sidebar.write(f"**Current:** `{current_db}`")
+        
+        # Database selector with browse icon
+        col1, col2 = st.sidebar.columns([3, 1])
+        
+        with col1:
+            selected_db = st.selectbox(
+                "📂 Select Database",
+                self.available_dbs,
+                index=self.available_dbs.index(current_db) if current_db in self.available_dbs else 0,
+                format_func=lambda x: os.path.basename(x)
+            )
+        
+        with col2:
+            st.write("")  # Spacer
+            st.write("")  # Spacer
+            if st.button("🔍", help="Browse for database files"):
+                st.session_state.show_file_browser = True
+        
+        # File browser modal
+        if st.session_state.get('show_file_browser', False):
+            with st.sidebar.expander("📁 File Browser", expanded=True):
+                st.write("Navigate to select a database file:")
+                
+                # Current directory info
+                current_dir = os.getcwd()
+                st.write(f"**Current directory:** `{current_dir}`")
+                
+                # Show .db files in current directory
+                db_files = glob.glob("*.db")
+                if db_files:
+                    st.write("**Database files in current directory:**")
+                    for db_file in db_files:
+                        if st.button(f"📄 {db_file}", key=f"select_{db_file}"):
+                            st.session_state.db_manager = DatabaseManager(db_file)
+                            persist_database_path(db_file)
+                            st.session_state.show_file_browser = False
+                            st.rerun()
+                else:
+                    st.info("No .db files found in current directory")
+                
+                # Manual path input
+                st.write("**Or enter full path:**")
+                manual_path = st.text_input("Database path:", placeholder="/path/to/database.db")
+                if st.button("Load Database", key="load_manual"):
+                    if manual_path and os.path.exists(manual_path) and manual_path.endswith('.db'):
+                        st.session_state.db_manager = DatabaseManager(manual_path)
+                        persist_database_path(manual_path)
+                        st.session_state.show_file_browser = False
+                        st.rerun()
+                    else:
+                        st.error("Invalid database path")
+                
+                if st.button("Close Browser"):
+                    st.session_state.show_file_browser = False
+        
+        # Switch database if selection changed
+        if selected_db != current_db:
+            try:
+                st.session_state.db_manager = DatabaseManager(selected_db)
+                if persist_database_path(selected_db):
+                    st.sidebar.success(f"Switched to: {os.path.basename(selected_db)}")
+                st.rerun()
+            except Exception as e:
+                st.sidebar.error(f"Error loading database: {e}")
+        
+        # Database upload section
+        st.sidebar.subheader("📤 Upload Database")
+        uploaded_file = st.sidebar.file_uploader(
+            "Upload .db file", 
+            type=['db'],
+            key="db_uploader",
+            label_visibility="collapsed"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                # Save uploaded file
+                upload_path = uploaded_file.name
+                with open(upload_path, 'wb') as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                st.session_state.db_manager = DatabaseManager(upload_path)
+                if persist_database_path(upload_path):
+                    st.sidebar.success(f"📥 Uploaded and loaded: {upload_path}")
+                st.rerun()
+            except Exception as e:
+                st.sidebar.error(f"Error uploading database: {e}")
+        
+        # Create new database
+        st.sidebar.subheader("🆕 Create New Database")
+        new_db_name = st.sidebar.text_input("New database name:", value="new_inventory.db")
+        if st.sidebar.button("Create Database", use_container_width=True):
+            try:
+                if not new_db_name.endswith('.db'):
+                    new_db_name += '.db'
+                
+                st.session_state.db_manager = DatabaseManager(new_db_name)
+                if persist_database_path(new_db_name):
+                    st.sidebar.success(f"✅ Created: {new_db_name}")
+                st.rerun()
+            except Exception as e:
+                st.sidebar.error(f"Error creating database: {e}")
+
 class BatchProcessorUI:
     def __init__(self, discogs_handler):
         self.discogs_handler = discogs_handler
@@ -141,14 +284,15 @@ class BatchProcessorUI:
         self.statistics_tab = StatisticsTab()
         self.genre_mappings_tab = GenreMappingsTab()
         self.print_tab = PrintTab()
+        self.db_switcher = DatabaseSwitcher()
         
     def render(self):
         if not self.discogs_handler or not getattr(self.discogs_handler, "user_token", None):
             self._render_error_message()
             return
 
-        # Database file browser
-        self._render_database_selector()
+        # Database switcher
+        self.db_switcher.render()
 
         # Create tabs
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["📥 Search & Add", "📚 Records", "📊 Statistics", "🏷️ Genre Mappings", "🖨️ Print"])
@@ -167,61 +311,6 @@ class BatchProcessorUI:
         
         with tab5:
             self.print_tab.render()
-
-    def _render_database_selector(self):
-        """Allow user to select a different database file"""
-        st.sidebar.subheader("Database")
-        
-        # Current database info
-        current_db = st.session_state.db_manager.db_path
-        st.sidebar.write(f"**Current DB:** {os.path.basename(current_db)}")
-        
-        # File uploader for new database
-        uploaded_db = st.sidebar.file_uploader(
-            "Load different database", 
-            type=['db'],
-            help="Select a SQLite database file to load",
-            key="db_uploader"
-        )
-        
-        if uploaded_db is not None:
-            try:
-                # Save uploaded file temporarily
-                temp_db_path = f"temp_{uploaded_db.name}"
-                with open(temp_db_path, "wb") as f:
-                    f.write(uploaded_db.getvalue())
-                
-                # Reinitialize database manager with new path
-                st.session_state.db_manager = DatabaseManager(temp_db_path)
-                
-                # Persist the new database path
-                if persist_database_path(temp_db_path):
-                    st.sidebar.success(f"Loaded and persisted database: {uploaded_db.name}")
-                else:
-                    st.sidebar.warning(f"Loaded database but failed to persist path: {uploaded_db.name}")
-                
-                # Force rerun to refresh the entire app with new database
-                st.rerun()
-            except Exception as e:
-                st.sidebar.error(f"Error loading database: {e}")
-        
-        # Also allow creating new empty database
-        if st.sidebar.button("Create New Database", use_container_width=True):
-            new_db_name = st.sidebar.text_input("New database name:", value="new_database.db")
-            if st.sidebar.button("Create Database", key="create_db"):
-                try:
-                    new_db_path = new_db_name if new_db_name.endswith('.db') else f"{new_db_name}.db"
-                    st.session_state.db_manager = DatabaseManager(new_db_path)
-                    
-                    # Persist the new database path
-                    if persist_database_path(new_db_path):
-                        st.sidebar.success(f"Created and persisted new database: {new_db_path}")
-                    else:
-                        st.sidebar.warning(f"Created database but failed to persist path: {new_db_path}")
-                    
-                    st.rerun()
-                except Exception as e:
-                    st.sidebar.error(f"Error creating database: {e}")
 
     def _render_error_message(self):
         st.error("🚫 Discogs integration not available")

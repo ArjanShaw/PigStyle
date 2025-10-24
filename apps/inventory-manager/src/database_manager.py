@@ -16,7 +16,7 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        # Records table (without genre column)
+        # Records table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,18 +70,6 @@ class DatabaseManager:
             )
         ''')
         
-        # Create view for records with artist genres
-        cursor.execute('''
-            CREATE VIEW IF NOT EXISTS records_with_genres AS
-            SELECT 
-                r.*,
-                g.genre_name,
-                gba.genre_id
-            FROM records r
-            LEFT JOIN genre_by_artist gba ON r.discogs_artist = gba.artist_name
-            LEFT JOIN genres g ON gba.genre_id = g.id
-        ''')
-        
         conn.commit()
         conn.close()
     
@@ -105,11 +93,6 @@ class DatabaseManager:
                 elif column in ['discogs_have', 'discogs_want']:
                     cursor.execute(f"ALTER TABLE records ADD COLUMN {column} INTEGER DEFAULT 0")
                     print(f"Added missing column: {column}")
-        
-        # Remove genre column if it exists (migrating to new structure)
-        if 'genre' in existing_columns:
-            cursor.execute("ALTER TABLE records DROP COLUMN genre")
-            print("Removed old genre column")
         
         conn.commit()
         conn.close()
@@ -171,13 +154,6 @@ class DatabaseManager:
         conn.close()
         return df
     
-    def get_records_with_genres(self):
-        """Get all records with artist genres"""
-        conn = self._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres ORDER BY created_at DESC', conn)
-        conn.close()
-        return df
-    
     def get_all_failed_searches(self):
         """Get all failed searches from database"""
         conn = self._get_connection()
@@ -189,13 +165,6 @@ class DatabaseManager:
         """Get recent records"""
         conn = self._get_connection()
         df = pd.read_sql(f'SELECT * FROM records ORDER BY created_at DESC LIMIT {limit}', conn)
-        conn.close()
-        return df
-    
-    def get_recent_records_with_genres(self, limit=100):
-        """Get recent records with artist genres"""
-        conn = self._get_connection()
-        df = pd.read_sql(f'SELECT * FROM records_with_genres ORDER BY created_at DESC LIMIT {limit}', conn)
         conn.close()
         return df
     
@@ -393,38 +362,3 @@ class DatabaseManager:
         )
         conn.close()
         return df
-    
-    def search_records_with_genres(self, search_term):
-        """Search for records by search term with genres"""
-        conn = self._get_connection()
-        df = pd.read_sql(
-            'SELECT * FROM records_with_genres WHERE search_term LIKE ? ORDER BY created_at DESC',
-            conn,
-            params=(f'%{search_term}%',)
-        )
-        conn.close()
-        return df
-
-    def recreate_records_view(self):
-        """Recreate the records_with_genres view with updated schema"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Drop the existing view
-        cursor.execute('DROP VIEW IF EXISTS records_with_genres')
-        
-        # Create the updated view
-        cursor.execute('''
-            CREATE VIEW records_with_genres AS
-            SELECT 
-                r.*,
-                g.genre_name,
-                gba.genre_id
-            FROM records r
-            LEFT JOIN genre_by_artist gba ON r.discogs_artist = gba.artist_name
-            LEFT JOIN genres g ON gba.genre_id = g.id
-        ''')
-        
-        conn.commit()
-        conn.close()
-        print("Records view recreated with artist-genre associations")

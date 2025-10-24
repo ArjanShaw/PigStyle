@@ -61,35 +61,19 @@ class PrintTab:
     
     def _render_price_tags_content(self):
         """Render the price tags content"""
-        # Get records from session state
+        # Get records from session state (sent from Records tab)
         records_to_print = st.session_state.get('records_to_print', [])
         
-        # Check if we have records in the database
-        if st.session_state.db_manager.get_database_stats()['records_count'] > 0:
-            # Use session state to cache the records data
-            if 'cached_records_for_printing' not in st.session_state:
-                df_records = st.session_state.db_manager.get_records_with_categories()
-                df_records = df_records.drop_duplicates(subset=['id'])
-                st.session_state.cached_records_for_printing = df_records.to_dict('records')
+        if records_to_print:
+            st.success(f"📦 Received {len(records_to_print)} records from Records tab")
             
-            # Show records sent from records tab
-            if records_to_print:
-                st.success(f"📦 Received {len(records_to_print)} records from Records tab")
-                if st.button("Clear Received Records"):
-                    st.session_state.records_to_print = []
-                    st.rerun()
-            
-            # Record selection
-            st.write("### Select Records to Print")
-            selected_records = st.multiselect(
-                "Choose records to print price tags for:",
-                options=st.session_state.cached_records_for_printing,
-                format_func=lambda x: f"{x['discogs_artist']} - {x['discogs_title']}",
-                key="price_tag_records"
-            )
-            
-            # Combine sent records and selected records
-            all_records_to_print = records_to_print + selected_records
+            # Show selected records
+            st.write("### Records to Print")
+            for i, record in enumerate(records_to_print):
+                artist = record.get('discogs_artist', 'Unknown Artist')
+                title = record.get('discogs_title', 'Unknown Title')
+                price = record.get('median_price', 'N/A')
+                st.write(f"{i+1}. **{artist}** - {title} - ${price}")
             
             # Print settings
             with st.expander("⚙️ Print Settings", expanded=False):
@@ -129,19 +113,16 @@ class PrintTab:
             
             with col1:
                 if st.button("🖨️ Generate Price Tags PDF"):
-                    if all_records_to_print:
-                        try:
-                            pdf_buffer = self._generate_price_tags_pdf(all_records_to_print, start_label)
-                            st.download_button(
-                                label="⬇️ Download Price Tags PDF",
-                                data=pdf_buffer.getvalue(),
-                                file_name=f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                                mime="application/pdf"
-                            )
-                        except Exception as e:
-                            st.error(f"Error generating PDF: {e}")
-                    else:
-                        st.warning("Please select records to print.")
+                    try:
+                        pdf_buffer = self._generate_price_tags_pdf(records_to_print, start_label)
+                        st.download_button(
+                            label="⬇️ Download Price Tags PDF",
+                            data=pdf_buffer.getvalue(),
+                            file_name=f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf"
+                        )
+                    except Exception as e:
+                        st.error(f"Error generating PDF: {e}")
             
             with col2:
                 if st.button("📄 Generate Test Print"):
@@ -155,54 +136,35 @@ class PrintTab:
                         )
                     except Exception as e:
                         st.error(f"Error generating test print: {e}")
+                
+                if st.button("Clear Records"):
+                    st.session_state.records_to_print = []
+                    st.rerun()
         
         else:
-            st.info("No records in database yet. Add some records first!")
+            st.info("No records selected for printing. Go to the Records tab and select records to print.")
     
     def _render_genre_signs(self):
         """Render the genre signs printing interface"""
         st.subheader("Genre Signs Printing")
         
-        # Cache available categories
-        if 'cached_categories' not in st.session_state:
-            df_records = st.session_state.db_manager.get_records_with_categories()
-            available_categories = sorted(df_records['main_category'].unique().tolist())
-            st.session_state.cached_categories = available_categories
-        else:
-            available_categories = st.session_state.cached_categories
+        st.info("Genre signs feature will be implemented in a future update.")
         
-        if available_categories:
-            # Genre selection
-            selected_genre = st.selectbox(
-                "Select genre to print sign for:",
-                options=available_categories,
-                key="genre_selection"
-            )
-            
-            # Font size selection
-            font_size = st.slider(
-                "Font Size",
-                min_value=24,
-                max_value=96,
-                value=48,
-                key="genre_font_size"
-            )
-            
-            # Generate sign
-            if st.button("🖨️ Generate Genre Sign PDF"):
-                try:
-                    pdf_buffer = self._generate_genre_sign_pdf(selected_genre, font_size)
-                    st.download_button(
-                        label="⬇️ Download Genre Sign PDF",
-                        data=pdf_buffer.getvalue(),
-                        file_name=f"genre_sign_{selected_genre.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                        mime="application/pdf"
-                    )
-                except Exception as e:
-                    st.error(f"Error generating genre sign: {e}")
+        # For now, provide a simple text-based genre sign generator
+        genre_text = st.text_input("Enter genre text for sign:", "ROCK")
+        font_size = st.slider("Font Size", min_value=24, max_value=96, value=48, key="genre_font_size")
         
-        else:
-            st.info("No categorized records found. Map some genres first!")
+        if st.button("🖨️ Generate Genre Sign PDF"):
+            try:
+                pdf_buffer = self._generate_genre_sign_pdf(genre_text, font_size)
+                st.download_button(
+                    label="⬇️ Download Genre Sign PDF",
+                    data=pdf_buffer.getvalue(),
+                    file_name=f"genre_sign_{genre_text.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"Error generating genre sign: {e}")
     
     def _generate_price_tags_pdf(self, records, start_label):
         """Generate PDF with price tags"""
@@ -374,14 +336,6 @@ class PrintTab:
             if c.stringWidth(abbreviation, "Helvetica", font_size - 1) > content_width:
                 abbreviation = self._truncate_text(c, abbreviation, content_width, font_size - 1)
             c.drawString(x + padding, y - 20, abbreviation)
-        
-        # File under
-        file_under = record.get('file_under', '')
-        if file_under:
-            c.setFont("Helvetica", font_size)
-            if c.stringWidth(file_under, "Helvetica", font_size) > content_width:
-                file_under = self._truncate_text(c, file_under, content_width, font_size)
-            c.drawString(x + padding, y - 30, file_under)
         
         # Barcode
         barcode = record.get('barcode', '')

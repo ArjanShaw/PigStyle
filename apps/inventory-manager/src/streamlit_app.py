@@ -18,7 +18,6 @@ except:
     pass
 
 # --- Configuration ---
-st.set_page_config(layout="wide")
 IMAGE_FOLDER = Path("images")
 IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
@@ -128,37 +127,6 @@ def initialize_database_manager(db_path=None):
     
     # Default database
     return DatabaseManager()
-
-# Get environment variables
-env_vars = get_environment_variables()
-
-IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
-DISCOGS_USER_TOKEN = env_vars["DISCOGS_USER_TOKEN"]
-EBAY_CLIENT_ID = env_vars["EBAY_CLIENT_ID"]
-EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
-
-# Debug: Show what we got
-st.sidebar.write("### Final Values")
-st.sidebar.write(f"DISCOGS_USER_TOKEN: {'✅ Set' if DISCOGS_USER_TOKEN else '❌ None'}")
-st.sidebar.write(f"IMAGEBB_API_KEY: {'✅ Set' if IMAGEBB_API_KEY else '❌ None'}")
-st.sidebar.write(f"EBAY_CLIENT_ID: {'✅ Set' if EBAY_CLIENT_ID else '❌ None'}")
-st.sidebar.write(f"EBAY_CLIENT_SECRET: {'✅ Set' if EBAY_CLIENT_SECRET else '❌ None'}")
-
-# Initialize session state defaults
-if "db_manager" not in st.session_state:
-    st.session_state.db_manager = initialize_database_manager()
-
-if "search_results" not in st.session_state:
-    st.session_state.search_results = {}
-
-if "current_search" not in st.session_state:
-    st.session_state.current_search = ""
-
-if "last_added" not in st.session_state:
-    st.session_state.last_added = None
-
-if "records_updated" not in st.session_state:
-    st.session_state.records_updated = 0
 
 class DatabaseSwitcher:
     def __init__(self):
@@ -345,23 +313,63 @@ class BatchProcessorUI:
         """)
 
 
-# Initialize Discogs handler
-discogs_handler = None
-if DISCOGS_USER_TOKEN:
-    try:
-        discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN)
-        st.sidebar.success("✅ Discogs handler initialized!")
-    except Exception as e:
-        st.error(f"❌ Failed to initialize Discogs: {e}")
-        discogs_handler = None
-else:
-    st.error("❌ DISCOGS_USER_TOKEN not found")
+def main():
+    """Main function to run the Streamlit app"""
+    # Set page config - this must be the first Streamlit command
+    st.set_page_config(layout="wide")
+    
+    # Get environment variables
+    env_vars = get_environment_variables()
 
-# Initialize the UI
-batch_ui = BatchProcessorUI(discogs_handler) if discogs_handler else None
+    IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
+    DISCOGS_USER_TOKEN = env_vars["DISCOGS_USER_TOKEN"]
+    EBAY_CLIENT_ID = env_vars["EBAY_CLIENT_ID"]
+    EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
 
-# Render the interface
-if batch_ui:
-    batch_ui.render()
-else:
-    st.error("Discogs integration not available. Please check your Discogs API token.")
+    # Debug: Show what we got
+    st.sidebar.write("### Final Values")
+    st.sidebar.write(f"DISCOGS_USER_TOKEN: {'✅ Set' if DISCOGS_USER_TOKEN else '❌ None'}")
+    st.sidebar.write(f"IMAGEBB_API_KEY: {'✅ Set' if IMAGEBB_API_KEY else '❌ None'}")
+    st.sidebar.write(f"EBAY_CLIENT_ID: {'✅ Set' if EBAY_CLIENT_ID else '❌ None'}")
+    st.sidebar.write(f"EBAY_CLIENT_SECRET: {'✅ Set' if EBAY_CLIENT_SECRET else '❌ None'}")
+
+    # Initialize session state defaults
+    if "db_manager" not in st.session_state:
+        st.session_state.db_manager = initialize_database_manager()
+
+    if "search_results" not in st.session_state:
+        st.session_state.search_results = {}
+
+    if "current_search" not in st.session_state:
+        st.session_state.current_search = ""
+
+    if "last_added" not in st.session_state:
+        st.session_state.last_added = None
+
+    if "records_updated" not in st.session_state:
+        st.session_state.records_updated = 0
+
+    # Initialize Discogs handler
+    discogs_handler = None
+    if DISCOGS_USER_TOKEN:
+        try:
+            discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN)
+            st.sidebar.success("✅ Discogs handler initialized!")
+        except Exception as e:
+            st.error(f"❌ Failed to initialize Discogs: {e}")
+            discogs_handler = None
+    else:
+        st.error("❌ DISCOGS_USER_TOKEN not found")
+
+    # Initialize the UI
+    batch_ui = BatchProcessorUI(discogs_handler) if discogs_handler else None
+
+    # Render the interface
+    if batch_ui:
+        batch_ui.render()
+    else:
+        st.error("Discogs integration not available. Please check your Discogs API token.")
+
+
+if __name__ == "__main__":
+    main()

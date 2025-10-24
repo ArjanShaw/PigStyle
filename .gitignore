@@ -9,3 +9,4 @@ venv/
 .streamlit/
 node_modules/
 apps/inventory-manager/.env
+apps/inventory-manager/.env

@@ -1,0 +1,33 @@
+name: Deploy Streamlit App
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/inventory-manager/**'
+      - '.github/workflows/streamlit-deploy.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd apps/inventory-manager
+          pip install -r requirements.txt
+      
+      - name: Test imports
+        run: |
+          cd apps/inventory-manager/src
+          python -c "import streamlit as st; print('Streamlit version:', st.__version__)"
+          python -c "import database_manager; print('Database manager imports successfully')"
+          python -c "import discogs_handler; print('Discogs handler imports successfully')"
+          python -c "import streamlit_app; print('Main app imports successfully')"

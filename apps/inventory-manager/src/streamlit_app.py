@@ -17,14 +17,40 @@ from statistics_tab import StatisticsTab
 from genre_mappings_tab import GenreMappingsTab
 from print_tab import PrintTab
 
-# Copy the entire content from the original file below this line
-from database_manager import DatabaseManager
-from discogs_handler import DiscogsHandler
-from search_tab import SearchTab
-from records_tab import RecordsTab
-from statistics_tab import StatisticsTab
-from genre_mappings_tab import GenreMappingsTab
-from print_tab import PrintTab
+# --- Password Protection ---
+def check_password():
+    """Simple password protection for the app"""
+    # Return True if already authenticated
+    if st.session_state.get("password_correct", False):
+        return True
+    
+    # Show password input
+    st.title("🔒 PigStyle Inventory Manager")
+    st.write("Please enter the password to access the inventory system.")
+    
+    password = st.text_input("Password", type="password", key="password_input")
+    
+    if password:
+        # Check against secret (for Streamlit Cloud) or environment variable (local)
+        correct_password = (
+            st.secrets.get("APP_PASSWORD") if hasattr(st, 'secrets') 
+            else os.getenv("APP_PASSWORD")
+        )
+        
+        if password == correct_password:
+            st.session_state.password_correct = True
+            st.rerun()
+        else:
+            st.error("❌ Incorrect password")
+            st.stop()
+    else:
+        st.stop()
+    
+    return False
+
+# Check password before loading the rest of the app
+if not check_password():
+    st.stop()
 
 # --- Load environment variables ---
 try:
@@ -320,6 +346,7 @@ class BatchProcessorUI:
         IMAGEBB_API_KEY = "your_imgbb_api_key_here"
         EBAY_CLIENT_ID = "your_ebay_client_id_here" 
         EBAY_CLIENT_SECRET = "your_ebay_client_secret_here"
+        APP_PASSWORD = "your_app_password_here"
         ```
         6. Click "Save" and redeploy your app
         

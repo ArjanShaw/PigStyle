@@ -402,7 +402,7 @@ def main():
             discogs_handler = None
     else:
         st.error("❌ DISCOGS_USER_TOKEN not found")
-
+ 
     # Initialize the UI
     batch_ui = BatchProcessorUI(discogs_handler) if discogs_handler else None
 

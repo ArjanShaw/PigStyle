@@ -1,77 +1,178 @@
 ﻿<!DOCTYPE html>
 <html lang='en'>
 <head>
-<meta charset='UTF-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>Record Gallery</title>
-<link rel='stylesheet' href='style.css'>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Record Gallery - PigStyle Records</title>
+    <link rel='stylesheet' href='style.css'>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: url('images/background.png') no-repeat center center fixed; 
+            background-size: cover; 
+            color: #eee; 
+            text-align: center; 
+            margin: 0;
+            padding: 20px;
+        }
+        .gallery-popup { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            max-height: 70vh; 
+            overflow-y: auto; 
+            padding: 20px; 
+        }
+        .card { 
+            display: flex; 
+            flex-direction: row; 
+            align-items: center; 
+            background: #222; 
+            border-radius: 12px; 
+            padding: 10px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); 
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s; 
+        }
+        .card img { 
+            width: 120px; 
+            height: auto; 
+            border-radius: 8px; 
+            margin-right: 15px; 
+        }
+        .card-info { 
+            display: flex; 
+            flex-direction: column; 
+            text-align: left; 
+        }
+        .card-info h3, .card-info p { 
+            margin: 4px 0; 
+        }
+        .card.highlight { 
+            box-shadow: 0 0 15px 4px #0ff; 
+            transform: scale(1.02); 
+            opacity: 1; 
+        }
+        .card.not-highlight { 
+            opacity: 0.5; 
+        }
+        input[type='text'] { 
+            padding: 10px; 
+            width: 60%; 
+            max-width: 400px; 
+            border-radius: 6px; 
+            border: none; 
+            font-size: 1rem; 
+            margin-bottom: 15px; 
+        }
+        header { 
+            text-align: left; 
+            padding: 10px; 
+        }
+        .search-container {
+            margin: 20px 0;
+        }
+        .price {
+            color: #0ff;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-<header style='text-align:left; padding:10px;'>
-<a href='index.html'><img src='images/pigstyle_text.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
-</header>
-<h1>🎵 Record Gallery</h1>
-<div class='search-container'>
-<input type='text' id='searchBox' placeholder='Search artist or record...'>
-</div>
-<div class='gallery-popup' id='gallery'>
-<div class='card highlight' data-info='null division parallel universe'>
-  <img src='https://raw.githubusercontent.com/ArjanShaw/PigStyleRecords/main/Records/Null%20Division%20-%20Parallel%20Universe.png' alt='Parallel Universe'>
-  <div class='card-info'>
-    <h3>Parallel Universe</h3>
-    <p>Null Division</p>
-    <p class='price'>$19.99</p>
-  </div>
-</div>
-<div class='card highlight' data-info='null division syntax dreams'>
-  <img src='https://raw.githubusercontent.com/ArjanShaw/PigStyleRecords/main/Records/Null%20Division%20-%20Syntax%20Dreams.png' alt='Syntax Dreams'>
-  <div class='card-info'>
-    <h3>Syntax Dreams</h3>
-    <p>Null Division</p>
-    <p class='price'>$19.99</p>
-  </div>
-</div>
-<div class='card highlight' data-info='python floyd refactor nights'>
-  <img src='https://raw.githubusercontent.com/ArjanShaw/PigStyleRecords/main/Records/Python%20Floyd%20-%20Refactor%20Nights.png' alt='Refactor Nights'>
-  <div class='card-info'>
-    <h3>Refactor Nights</h3>
-    <p>Python Floyd</p>
-    <p class='price'>$19.99</p>
-  </div>
-</div>
-<div class='card highlight' data-info='queen of loops syntax dreams'>
-  <img src='https://raw.githubusercontent.com/ArjanShaw/PigStyleRecords/main/Records/Queen%20of%20Loops%20-%20Syntax%20Dreams.png' alt='Syntax Dreams'>
-  <div class='card-info'>
-    <h3>Syntax Dreams</h3>
-    <p>Queen of Loops</p>
-    <p class='price'>$19.99</p>
-  </div>
-</div>
-<div class='card highlight' data-info='the bug fighters dark mode symphony'>
-  <img src='https://raw.githubusercontent.com/ArjanShaw/PigStyleRecords/main/Records/The%20Bug%20Fighters%20-%20Dark%20Mode%20Symphony.png' alt='Dark Mode Symphony'>
-  <div class='card-info'>
-    <h3>Dark Mode Symphony</h3>
-    <p>The Bug Fighters</p>
-    <p class='price'>$19.99</p>
-  </div>
-</div>
-<div class='card highlight' data-info='zeppelin infinite loop'>
-  <img src='https://raw.githubusercontent.com/ArjanShaw/PigStyleRecords/main/Records/Zeppelin%20-%20Infinite%20Loop.png' alt='Infinite Loop'>
-  <div class='card-info'>
-    <h3>Infinite Loop</h3>
-    <p>Zeppelin</p>
-    <p class='price'>$19.99</p>
-  </div>
-</div>
-<div class='card highlight' data-info='zeppelin1 binary horizons'>
-  <img src='https://raw.githubusercontent.com/ArjanShaw/PigStyleRecords/main/Records/Zeppelin1%20-%20Binary%20Horizons.png' alt='Binary Horizons'>
-  <div class='card-info'>
-    <h3>Binary Horizons</h3>
-    <p>Zeppelin1</p>
-    <p class='price'>$19.99</p>
-  </div>
-</div>
-</div>
-<script src='script.js'></script>
+    <header>
+        <a href='index.html'><img src='images/pigstyle_text.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
+    </header>
+    <h1>🎵 Record Gallery</h1>
+    <div class='search-container'>
+        <input type='text' id='searchBox' placeholder='Search artist or record...'>
+    </div>
+    <div class='gallery-popup' id='gallery'>
+        <div id='loading'>Loading records...</div>
+    </div>
+
+    <script>
+        // Load data from gallery-data.json
+        async function loadGalleryData() {
+            try {
+                const response = await fetch('gallery-data.json');
+                const records = await response.json();
+                displayRecords(records);
+            } catch (error) {
+                console.error('123 rror loading gallery data:', error);
+                document.getElementById('gallery').innerHTML = '<div>Error loading records. Please try again later.</div>';
+            }
+        }
+
+        // Display records in the gallery
+        function displayRecords(records) {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = ''; // Clear loading message
+
+            records.forEach(record => {
+                const card = document.createElement('div');
+                card.className = 'card highlight';
+                card.setAttribute('data-info', `${record.artist} ${record.title}`.toLowerCase());
+                
+                card.innerHTML = `
+                    <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
+                    <div class="card-info">
+                        <h3>${escapeHtml(record.title)}</h3>
+                        <p>${escapeHtml(record.artist)}</p>
+                        <p class="price">${record.price}</p>
+                        <p>${escapeHtml(record.genre)}</p>
+                    </div>
+                `;
+                
+                gallery.appendChild(card);
+            });
+
+            // Initialize search functionality
+            initializeSearch();
+        }
+
+        // Initialize search functionality
+        function initializeSearch() {
+            const searchBox = document.getElementById('searchBox');
+            const gallery = document.getElementById('gallery');
+            
+            searchBox.addEventListener('input', () => {
+                const term = searchBox.value.toLowerCase();
+                const cards = Array.from(gallery.children);
+                
+                if (!term) {
+                    cards.forEach(card => { 
+                        card.classList.add('highlight'); 
+                        card.classList.remove('not-highlight'); 
+                    });
+                } else {
+                    const matching = [], nonMatching = [];
+                    cards.forEach(card => {
+                        const info = card.getAttribute('data-info');
+                        if (info.includes(term)) { 
+                            card.classList.add('highlight'); 
+                            card.classList.remove('not-highlight'); 
+                            matching.push(card); 
+                        } else { 
+                            card.classList.remove('highlight'); 
+                            card.classList.add('not-highlight'); 
+                            nonMatching.push(card); 
+                        }
+                    });
+                    gallery.innerHTML = '';
+                    matching.forEach(c => gallery.appendChild(c));
+                    nonMatching.forEach(c => gallery.appendChild(c));
+                }
+            });
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load the gallery data when page loads
+        loadGalleryData();
+    </script>
 </body>
 </html>

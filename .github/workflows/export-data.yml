@@ -1,0 +1,44 @@
+name: Export Gallery Data
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC (10 PM PST / 1 AM EST)
+    - cron: '0 6 * * *'
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/inventory-manager/records.db'
+      - 'scripts/export_gallery_data.py'
+
+jobs:
+  export-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        cd apps/inventory-manager
+        pip install -r requirements.txt
+        
+    - name: Export gallery data with store prices
+      run: |
+        python scripts/export_gallery_data.py
+        
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add web/public/gallery-data.json
+        git diff --staged --quiet || git commit -m "🤖 Auto-update gallery data with store prices [skip ci]"
+        git push

@@ -1,3 +1,0 @@
-#INFO,Version=0.0.2,Template= eBay-draft-listings-template_US,,,,,,,,
-Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8),Custom label (SKU),Category ID,Title,UPC,Price,Quantity,Item photo URL,Condition ID,Description,C:Artist
-Add,Vin_Nirvana_Nevermind,176985,Nirvana Nevermind,,2.00,1,https://i.ibb.co/qM07z7c2/discogs-1760756096-0.jpg,3000,Nirvana Nevermind,

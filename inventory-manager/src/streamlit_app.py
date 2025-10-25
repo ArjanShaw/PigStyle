@@ -4,6 +4,11 @@ import os
 # Add the correct path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'apps/inventory-manager/src'))
 
+# Add this import at the top with other imports
+from print_tab import PrintTab
+
+
+
 # Now import all modules
 import streamlit as st
 from pathlib import Path
@@ -30,6 +35,9 @@ IMAGE_FOLDER = Path("images")
 IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
+
+# Database persistence file
+DB_PERSISTENCE_FILE = "current_database.txt"
 
 CATEGORY_MAP = {
     "Vinyl": "176985",
@@ -67,11 +75,42 @@ def get_environment_variables(debug_tab):
                 
     return env_vars
 
+def get_persisted_database_path():
+    """Get the persisted database path from file"""
+    try:
+        if os.path.exists(DB_PERSISTENCE_FILE):
+            with open(DB_PERSISTENCE_FILE, 'r') as f:
+                db_path = f.read().strip()
+                if db_path and os.path.exists(db_path):
+                    return db_path
+    except Exception as e:
+        st.error(f"Error reading persisted database path: {e}")
+    return None
+
+def persist_database_path(db_path):
+    """Persist the database path to file"""
+    try:
+        with open(DB_PERSISTENCE_FILE, 'w') as f:
+            f.write(db_path)
+        return True
+    except Exception as e:
+        st.error(f"Error persisting database path: {e}")
+        return False
+
 def initialize_database_manager():
-    """Initialize database manager"""
+    """Initialize database manager with persisted path or default"""
+    persisted_path = get_persisted_database_path()
+    if persisted_path:
+        return DatabaseManager(persisted_path)
+    
+    # Default database
     return DatabaseManager()
 
 def main():
+
+    # In the main() function, update the PrintTab initialization:
+    print_tab = PrintTab()
+
     """Main function to run the Streamlit app"""
     # Set page config - this must be the first Streamlit command
     st.set_page_config(
@@ -94,7 +133,7 @@ def main():
     # Initialize session state defaults
     if "db_manager" not in st.session_state:
         st.session_state.db_manager = initialize_database_manager()
-        debug_tab.add_log("DATABASE", "Database manager initialized")
+        debug_tab.add_log("DATABASE", f"Database manager initialized with: {st.session_state.db_manager.db_path}")
 
     if "search_results" not in st.session_state:
         st.session_state.search_results = {}

@@ -7,7 +7,60 @@ from reportlab.graphics.barcode import code128
 import io
 import os
 from datetime import datetime
-from config import PrintConfig
+
+class PrintConfig:
+    def __init__(self, config_file="print_config.json"):
+        self.config_file = config_file
+        self.defaults = {
+            "label_width_mm": 45.0,
+            "label_height_mm": 16.80,
+            "left_margin_mm": 6.50,
+            "gutter_spacing_mm": 6.50,
+            "top_margin_mm": 14.00,
+            "font_size": 7,
+            "last_genre": "",
+            "genre_font_size": 48
+        }
+        self.config = self._load_config()
+    
+    def _load_config(self):
+        """Load configuration from file or use defaults"""
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r') as f:
+                    loaded_config = json.load(f)
+                    # Merge with defaults to ensure all keys exist
+                    config = self.defaults.copy()
+                    config.update(loaded_config)
+                    return config
+            except Exception as e:
+                print(f"Error loading config file: {e}. Using defaults.")
+                return self.defaults.copy()
+        else:
+            # Create default config file
+            self._save_config(self.defaults)
+            return self.defaults.copy()
+    
+    def _save_config(self, config):
+        """Save configuration to file"""
+        try:
+            with open(self.config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            print(f"Error saving config file: {e}")
+    
+    def get(self, key, default=None):
+        """Get a configuration value with optional default"""
+        return self.config.get(key, default if default is not None else self.defaults.get(key))
+    
+    def update(self, new_config):
+        """Update configuration and save to file"""
+        self.config.update(new_config)
+        self._save_config(self.config)
+    
+    def get_all(self):
+        """Get all configuration values"""
+        return self.config.copy()
 
 class PrintTab:
     def __init__(self):
@@ -27,9 +80,9 @@ class PrintTab:
         self.font_size = config["font_size"]
         
     def render(self):
-        st.subheader("Print")
+        st.header("🖨️ Print")
         
-        tab1, tab2 = st.tabs(["Price Tags", "Genre Signs"])
+        tab1, tab2 = st.tabs(["🏷️ Price Tags", "🎵 Genre Signs"])
         
         with tab1:
             self._render_price_tags()
@@ -56,8 +109,7 @@ class PrintTab:
             st.image("price_tag_printt_payout_avery5195.png", 
                     caption="Avery 5195 Label Layout")
         except Exception as e:
-            st.error(f"Could not load layout image: {str(e)}")
-            st.info("Layout reference image not available")
+            st.info("Avery 5195 layout: 4 columns × 15 rows = 60 labels per sheet")
     
     def _render_price_tags_content(self):
         """Render the price tags content"""
@@ -70,10 +122,11 @@ class PrintTab:
             # Show selected records
             st.write("### Records to Print")
             for i, record in enumerate(records_to_print):
-                artist = record.get('discogs_artist', 'Unknown Artist')
-                title = record.get('discogs_title', 'Unknown Title')
-                price = record.get('median_price', 'N/A')
-                st.write(f"{i+1}. **{artist}** - {title} - ${price}")
+                artist = record.get('artist', 'Unknown Artist')
+                title = record.get('title', 'Unknown Title')
+                price = record.get('discogs_median_price', 0) or 0
+                price_display = f"${float(price):.2f}" if price else "$N/A"
+                st.write(f"{i+1}. **{artist}** - {title} - {price_display}")
             
             # Print settings
             with st.expander("⚙️ Print Settings", expanded=False):
@@ -137,7 +190,7 @@ class PrintTab:
                     except Exception as e:
                         st.error(f"Error generating test print: {e}")
                 
-                if st.button("Clear Records"):
+                if st.button("🗑️ Clear Records"):
                     st.session_state.records_to_print = []
                     st.rerun()
         
@@ -148,10 +201,14 @@ class PrintTab:
         """Render the genre signs printing interface"""
         st.subheader("Genre Signs Printing")
         
-        st.info("Genre signs feature will be implemented in a future update.")
+        # Get available genres from database
+        try:
+            all_genres = st.session_state.db_manager.get_all_genres()
+            genre_options = all_genres['genre_name'].tolist()
+        except:
+            genre_options = ["ROCK", "JAZZ", "HIP-HOP", "ELECTRONIC", "POP", "METAL", "FOLK", "SOUL"]
         
-        # For now, provide a simple text-based genre sign generator
-        genre_text = st.text_input("Enter genre text for sign:", "ROCK")
+        genre_text = st.selectbox("Select genre:", options=genre_options, key="genre_select")
         font_size = st.slider("Font Size", min_value=24, max_value=96, value=48, key="genre_font_size")
         
         if st.button("🖨️ Generate Genre Sign PDF"):
@@ -313,15 +370,15 @@ class PrintTab:
         font_size = self.font_size
         
         # Artist/title abbreviation
-        artist = record.get('discogs_artist', '')
-        title = record.get('discogs_title', '')
+        artist = record.get('artist', '')
+        title = record.get('title', '')
         abbreviation = self._create_abbreviation(artist, title)
         
         # Price
-        price = record.get('median_price', 0)
+        price = record.get('discogs_median_price', 0)
         if price:
             c.setFont("Helvetica-Bold", font_size + 2)
-            price_text = f"${price:.2f}"
+            price_text = f"${float(price):.2f}"
             c.drawString(x + padding, y - 10, price_text)
         
         # Date

@@ -8,74 +8,7 @@ from pathlib import Path
 from PIL import Image
 from typing import Dict, List, Optional
 
-class DraftCSVHandler:
-    INFO_LINE = "#INFO,Version=0.0.2,Template= eBay-draft-listings-template_US,,,,,,,,"
-    HEADERS = [
-        "Action(SiteID=US|Country=US|Currency=USD|Version=1193|CC=UTF-8)",
-        "Custom label (SKU)",
-        "Category ID",
-        "Title",
-        "UPC",
-        "Price",
-        "Quantity",
-        "Item photo URL",
-        "Condition ID",
-        "Description",
-        "C:Artist",   
-    ]
-
-    REQUIRED_FIELDS = [
-        "Title",
-        "Price",
-        "Item photo URL",
-        "Condition ID",
-        "Description",
-    ]
-
-    def __init__(self, file_path="ebay_drafts.csv"):
-        self.file_path = Path(file_path)
-        self.rows = []
-        self.load_existing()
-
-    def load_existing(self):
-        if self.file_path.exists():
-            with open(self.file_path, newline='', encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    clean_row = {h: (row.get(h, "") or "").strip() for h in self.HEADERS}
-                    if self._is_valid(clean_row):
-                        self.rows.append(clean_row)
-
-    def _is_valid(self, row: dict) -> bool:
-        missing = [field for field in self.REQUIRED_FIELDS if not str(row.get(field, "")).strip()]
-        if missing:
-            return False
-        return True
-
-    def add_row(self, data: dict):
-        clean_row = {h: str(data.get(h, "")).strip() for h in self.HEADERS}
-        if not self._is_valid(clean_row):
-            return False
-        self.rows.append(clean_row)
-        return True
-
-    def save_csv(self, file_obj=None):
-        """
-        Save CSV. If file_obj is provided (like io.StringIO), write to it.
-        Otherwise, write to self.file_path.
-        """
-        valid_rows = [row for row in self.rows if self._is_valid(row)]
-        if file_obj:
-            writer = csv.DictWriter(file_obj, fieldnames=self.HEADERS)
-            file_obj.write(self.INFO_LINE + "\n")
-            writer.writeheader()
-            writer.writerows(valid_rows)
-        else:
-            with open(self.file_path, "w", newline="", encoding="utf-8") as f:
-                f.write(self.INFO_LINE + "\n")
-                writer = csv.DictWriter(f, fieldnames=self.HEADERS)
-                writer.writeheader()
-                writer.writerows(valid_rows)
+# Remove DraftCSVHandler class from this file - it's now in draft_csv_handler.py
 
 class InventoryCSVHandler:
     def __init__(self, file_path="inventory.csv"):

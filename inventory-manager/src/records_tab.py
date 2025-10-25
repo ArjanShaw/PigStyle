@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import sqlite3
 from typing import Dict, List, Optional, Tuple
+from draft_csv_handler import DraftCSVHandler
 
 class RecordsTab:
     def __init__(self):
@@ -22,14 +23,16 @@ class RecordsTab:
             with col1:
                 st.metric("Total Records", stats['records_count'])
             with col2:
-                if st.button("🔄 Refresh", use_container_width=True, help="Refresh data"):
-                    st.rerun()
-            with col3:
                 if st.button("📊 Export CSV", use_container_width=True, help="Export all records to CSV"):
                     self._export_all_records()
+            with col3:
+                if st.button("📦 Ebay List", use_container_width=True, help="Export selected records for eBay"):
+                    self._export_ebay_list()
             with col4:
-                if st.button("🔢 Gen Barcodes", use_container_width=True, help="Generate missing barcodes"):
-                    self._generate_barcodes_for_existing_records()
+                # Only show Gen Barcodes button if there are records without barcodes
+                if stats['no_barcode_count'] > 0:
+                    if st.button("🔢 Gen Barcodes", use_container_width=True, help="Generate missing barcodes"):
+                        self._generate_barcodes_for_existing_records()
             with col5:
                 if st.button("🖨️ Print Selected", use_container_width=True, help="Print selected records"):
                     self._send_to_print_tab()
@@ -42,6 +45,44 @@ class RecordsTab:
                 
         except Exception as e:
             st.error(f"Error loading records: {e}")
+
+    def _export_ebay_list(self):
+        """Export selected records as eBay draft listings"""
+        if not st.session_state.selected_records:
+            st.warning("Please select records first using the checkboxes in the table.")
+            return
+        
+        try:
+            # Get selected records data
+            selected_ids = st.session_state.selected_records
+            placeholders = ','.join(['?'] * len(selected_ids))
+            
+            conn = st.session_state.db_manager._get_connection()
+            df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders})', conn, params=selected_ids)
+            conn.close()
+            
+            records_list = df.to_dict('records')
+            
+            # Generate eBay formatted TXT
+            draft_handler = DraftCSVHandler()
+            ebay_content = draft_handler.generate_ebay_txt_from_records(records_list)
+            
+            # Create download button
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"ebay_drafts_{timestamp}.txt"
+            
+            st.download_button(
+                label="⬇️ Download eBay Drafts",
+                data=ebay_content,
+                file_name=filename,
+                mime="text/plain",
+                key=f"download_ebay_{timestamp}"
+            )
+            
+            st.success(f"✅ eBay draft file ready! {len(records_list)} records formatted for eBay import.")
+                
+        except Exception as e:
+            st.error(f"Error generating eBay list: {e}")
 
     def _get_database_stats_direct(self) -> Dict:
         """Get database statistics directly from records table"""
@@ -129,7 +170,7 @@ class RecordsTab:
                 base_query += " AND (genre IS NULL OR genre = '')"
             
             # Add ordering and pagination
-            base_query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            base_query += " ORDER BY discogs_median_price DESC LIMIT ? OFFSET ?"
             params.extend([limit, offset])
             
             df = pd.read_sql_query(base_query, conn, params=params)
@@ -252,10 +293,6 @@ class RecordsTab:
         if len(records) == 0:
             return
         
-        # Add selection column to the dataframe
-        records_with_selection = records.copy()
-        records_with_selection['Select'] = False
-        
         # Initialize selection state
         if 'selected_records' not in st.session_state:
             st.session_state.selected_records = []
@@ -312,7 +349,10 @@ class RecordsTab:
                 if i < len(edited_df) and edited_df.iloc[i]['Select']:
                     selected_ids.append(original_record['id'])
             
-            st.session_state.selected_records = selected_ids
+            # Only update if selection actually changed
+            if set(selected_ids) != set(st.session_state.selected_records):
+                st.session_state.selected_records = selected_ids
+                st.rerun()
         
         # Show actions for selected records
         if st.session_state.selected_records:
@@ -391,11 +431,11 @@ class RecordsTab:
     def _format_currency(self, value):
         """Format currency values"""
         if not value:
-            return ""
+            return "$N/A"
         try:
             return f"${float(value):.2f}"
         except (ValueError, TypeError):
-            return ""
+            return "$N/A"
 
     def _delete_records(self, record_ids):
         """Delete records from the database"""

@@ -19,6 +19,16 @@ class DatabaseSwitchTab:
         
         return db_files
     
+    def persist_database_path(self, db_path):
+        """Persist the database path to file"""
+        try:
+            with open("current_database.txt", 'w') as f:
+                f.write(db_path)
+            return True
+        except Exception as e:
+            st.error(f"Error persisting database path: {e}")
+            return False
+    
     def render(self):
         st.header("🗃️ Database Manager")
         
@@ -59,7 +69,8 @@ class DatabaseSwitchTab:
                 if st.button("Switch to Selected Database", use_container_width=True):
                     try:
                         st.session_state.db_manager = st.session_state.db_manager.__class__(selected_db)
-                        st.success(f"✅ Switched to: {selected_db}")
+                        if self.persist_database_path(selected_db):
+                            st.success(f"✅ Switched to: {selected_db}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Error switching database: {e}")
@@ -75,7 +86,8 @@ class DatabaseSwitchTab:
                         new_db_name += '.db'
                     
                     st.session_state.db_manager = st.session_state.db_manager.__class__(new_db_name)
-                    st.success(f"✅ Created: {new_db_name}")
+                    if self.persist_database_path(new_db_name):
+                        st.success(f"✅ Created: {new_db_name}")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error creating database: {e}")
@@ -101,7 +113,8 @@ class DatabaseSwitchTab:
                         f.write(uploaded_file.getbuffer())
                     
                     st.session_state.db_manager = st.session_state.db_manager.__class__(upload_path)
-                    st.success(f"✅ Uploaded and loaded: {upload_path}")
+                    if self.persist_database_path(upload_path):
+                        st.success(f"✅ Uploaded and loaded: {upload_path}")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error uploading database: {e}")
@@ -142,7 +155,8 @@ class DatabaseSwitchTab:
                     if os.path.exists(manual_path):
                         try:
                             st.session_state.db_manager = st.session_state.db_manager.__class__(manual_path)
-                            st.success(f"✅ Loaded: {manual_path}")
+                            if self.persist_database_path(manual_path):
+                                st.success(f"✅ Loaded: {manual_path}")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error loading database: {e}")

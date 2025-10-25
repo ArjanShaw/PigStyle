@@ -23,7 +23,10 @@ class StatisticsTab:
                 st.metric("Latest Record", stats['latest_record'][:16] if stats['latest_record'] != "None" else "None")
             
             if stats['records_count'] > 0:
-                self._render_genre_chart()
+                # Use half width for the chart
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    self._render_genre_chart()
             else:
                 st.info("No records available for analytics. Add some records first!")
                 

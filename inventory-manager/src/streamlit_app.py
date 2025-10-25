@@ -4,11 +4,6 @@ import os
 # Add the correct path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'apps/inventory-manager/src'))
 
-# Add this import at the top with other imports
-from print_tab import PrintTab
-
-
-
 # Now import all modules
 import streamlit as st
 from pathlib import Path
@@ -16,11 +11,10 @@ import glob
 from dotenv import load_dotenv
 from database_manager import DatabaseManager
 from discogs_handler import DiscogsHandler
-from search_tab import SearchTab
 from records_tab import RecordsTab
 from statistics_tab import StatisticsTab
 from genre_mappings_tab import GenreMappingsTab
-from print_tab import PrintTab
+from genres_tab import GenresTab
 from debug_tab import DebugTab
 from database_switch_tab import DatabaseSwitchTab
 
@@ -107,10 +101,6 @@ def initialize_database_manager():
     return DatabaseManager()
 
 def main():
-
-    # In the main() function, update the PrintTab initialization:
-    print_tab = PrintTab()
-
     """Main function to run the Streamlit app"""
     # Set page config - this must be the first Streamlit command
     st.set_page_config(
@@ -163,46 +153,39 @@ def main():
         debug_tab.add_log("ERROR", "DISCOGS_USER_TOKEN not found")
  
     # Initialize all tabs
-    search_tab = SearchTab(discogs_handler, debug_tab)
-    records_tab = RecordsTab()
+    records_tab = RecordsTab(discogs_handler, debug_tab)
     statistics_tab = StatisticsTab()
     genre_mappings_tab = GenreMappingsTab()
-    print_tab = PrintTab()
+    genres_tab = GenresTab()
     database_switch_tab = DatabaseSwitchTab()
+    debug_tab = DebugTab()
 
-    # Main app header
-    st.title("🎵 PigStyle Inventory Manager")
-    
-    # Create tabs - now including Debug and Database Switch
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📥 Search & Add", 
-        "📚 Records", 
-        "📊 Statistics", 
-        "🏷️ Genre Mappings", 
-        "🖨️ Print",
+    # Create tabs with new order
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🗃️ Database",
+        "📚 Records", 
+        "🎵 Genres",
+        "🏷️ Artist Genres", 
+        "📊 Statistics",
         "🔧 Debug"
     ])
     
     with tab1:
-        search_tab.render()
+        database_switch_tab.render()
     
     with tab2:
         records_tab.render()
     
     with tab3:
-        statistics_tab.render()
-    
+        genres_tab.render()
+        
     with tab4:
         genre_mappings_tab.render()
-    
+        
     with tab5:
-        print_tab.render()
+        statistics_tab.render()
         
     with tab6:
-        database_switch_tab.render()
-        
-    with tab7:
         debug_tab.render()
 
 

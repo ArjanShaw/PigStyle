@@ -9,33 +9,35 @@ class DatabaseManager:
     def __init__(self, db_path=None):
         self.db_path = db_path or os.getenv('DATABASE_PATH', 'discogs_data.db')
         self._init_database()
-        self._check_and_add_missing_columns()
     
     def _init_database(self):
         """Initialize SQLite database with required tables"""
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        # Records table
+        # Records table - using the actual column names from your schema
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                search_term TEXT NOT NULL,
-                discogs_artist TEXT NOT NULL,
-                discogs_title TEXT NOT NULL,
-                median_price REAL,
-                lowest_price REAL,
-                highest_price REAL,
-                image_url TEXT,
-                year TEXT,
-                fallback_used BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                barcode TEXT,
+                artist TEXT NOT NULL,
+                title TEXT NOT NULL,
+                discogs_median_price REAL,
+                discogs_lowest_price REAL,
+                discogs_highest_price REAL,
+                ebay_median_price REAL,
+                ebay_lowest_price REAL,
+                ebay_highest_price REAL,
                 discogs_have INTEGER DEFAULT 0,
                 discogs_want INTEGER DEFAULT 0,
+                genre TEXT,
+                image_url TEXT,
+                year TEXT,
+                barcode TEXT,
                 catalog_number TEXT,
                 format TEXT,
-                condition TEXT
+                condition TEXT,
+                store_price REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
@@ -73,53 +75,28 @@ class DatabaseManager:
         conn.commit()
         conn.close()
     
-    def _check_and_add_missing_columns(self):
-        """Check for missing columns and add them if needed"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Get existing columns in records table
-        cursor.execute("PRAGMA table_info(records)")
-        existing_columns = [column[1] for column in cursor.fetchall()]
-        
-        # Columns that should exist
-        required_columns = ['catalog_number', 'format', 'barcode', 'year', 'discogs_have', 'discogs_want', 'condition']
-        
-        for column in required_columns:
-            if column not in existing_columns:
-                if column in ['catalog_number', 'format', 'barcode', 'year', 'condition']:
-                    cursor.execute(f"ALTER TABLE records ADD COLUMN {column} TEXT")
-                    print(f"Added missing column: {column}")
-                elif column in ['discogs_have', 'discogs_want']:
-                    cursor.execute(f"ALTER TABLE records ADD COLUMN {column} INTEGER DEFAULT 0")
-                    print(f"Added missing column: {column}")
-        
-        conn.commit()
-        conn.close()
-    
     def _get_connection(self):
         """Get database connection"""
         return sqlite3.connect(self.db_path)
     
     def save_record(self, result_data):
-        """Save record to database"""
+        """Save record to database using correct column names"""
         conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
             INSERT INTO records 
-            (search_term, discogs_artist, discogs_title, median_price, lowest_price, highest_price, 
-             image_url, fallback_used, catalog_number, format, barcode, condition, year, discogs_have, discogs_want)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (artist, title, discogs_median_price, discogs_lowest_price, discogs_highest_price,
+             genre, image_url, catalog_number, format, barcode, condition, year, discogs_have, discogs_want)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            result_data['original_search'],
-            result_data['discogs_artist'],
-            result_data['discogs_title'],
-            result_data['median_price'],
+            result_data.get('artist', result_data.get('discogs_artist', '')),
+            result_data.get('title', result_data.get('discogs_title', '')),
+            result_data.get('median_price'),
             result_data.get('lowest_price'),
             result_data.get('highest_price'),
+            result_data.get('genre', ''),
             result_data.get('image_url', ''),
-            result_data.get('fallback_used', False),
             result_data.get('catalog_number', ''),
             result_data.get('format', ''),
             result_data.get('barcode', ''),
@@ -228,10 +205,10 @@ class DatabaseManager:
         """Get artists that don't have genres assigned yet"""
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT DISTINCT discogs_artist as artist_name
+            SELECT DISTINCT artist as artist_name
             FROM records 
-            WHERE discogs_artist NOT IN (SELECT artist_name FROM genre_by_artist)
-            ORDER BY discogs_artist
+            WHERE artist NOT IN (SELECT artist_name FROM genre_by_artist)
+            ORDER BY artist
         ''', conn)
         conn.close()
         return df
@@ -327,17 +304,29 @@ class DatabaseManager:
     def get_genre_statistics(self):
         """Get statistics about genres and records"""
         conn = self._get_connection()
-        df = pd.read_sql('''
-            SELECT 
-                g.genre_name,
-                COUNT(r.id) as record_count,
-                COUNT(DISTINCT gba.artist_name) as artist_count
-            FROM genres g
-            LEFT JOIN genre_by_artist gba ON g.id = gba.genre_id
-            LEFT JOIN records r ON gba.artist_name = r.discogs_artist
-            GROUP BY g.id, g.genre_name
-            ORDER BY record_count DESC
-        ''', conn)
+        
+        # First check if genre_by_artist table exists and has data
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='genre_by_artist'")
+        genre_table_exists = cursor.fetchone() is not None
+        
+        if not genre_table_exists:
+            # Return empty dataframe if genre tables don't exist
+            df = pd.DataFrame(columns=['genre_name', 'record_count', 'artist_count'])
+        else:
+            # Use the correct query with proper column names
+            df = pd.read_sql('''
+                SELECT 
+                    g.genre_name,
+                    COUNT(r.id) as record_count,
+                    COUNT(DISTINCT gba.artist_name) as artist_count
+                FROM genres g
+                LEFT JOIN genre_by_artist gba ON g.id = gba.genre_id
+                LEFT JOIN records r ON gba.artist_name = r.artist
+                GROUP BY g.id, g.genre_name
+                ORDER BY record_count DESC
+            ''', conn)
+        
         conn.close()
         return df
     
@@ -356,9 +345,9 @@ class DatabaseManager:
         """Search for records by search term"""
         conn = self._get_connection()
         df = pd.read_sql(
-            'SELECT * FROM records WHERE search_term LIKE ? ORDER BY created_at DESC',
+            'SELECT * FROM records WHERE artist LIKE ? OR title LIKE ? ORDER BY created_at DESC',
             conn,
-            params=(f'%{search_term}%',)
+            params=(f'%{search_term}%', f'%{search_term}%')
         )
         conn.close()
         return df

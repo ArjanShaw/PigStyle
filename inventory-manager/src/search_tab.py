@@ -10,15 +10,16 @@ CATEGORY_MAP = {
 }
 
 class SearchTab:
-    def __init__(self, discogs_handler):
+    def __init__(self, discogs_handler, debug_tab):
         self.discogs_handler = discogs_handler
         self.barcode_generator = BarcodeGenerator()
+        self.debug_tab = debug_tab
         
     def render(self):
         st.subheader("Search Discogs")
         
         # Format and Condition selection
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2 = st.columns([1, 1])
         with col1:
             format_selected = st.selectbox(
                 "Format",
@@ -31,12 +32,6 @@ class SearchTab:
                 options=["1", "2", "3", "4", "5"],
                 index=4,
                 key="condition_select"
-            )
-        with col3:
-            verbose_mode = st.checkbox(
-                "Verbose Mode (save payloads to files)",
-                value=False,
-                key="verbose_checkbox"
             )
         
         # Simple search form
@@ -55,7 +50,7 @@ class SearchTab:
         
         # Handle search
         if search_submitted and search_input and search_input.strip():
-            self._perform_search(search_input.strip(), format_selected, verbose_mode)
+            self._perform_search(search_input.strip(), format_selected)
         
         # Handle clear
         if clear_submitted:
@@ -71,41 +66,48 @@ class SearchTab:
         
         # Display search results if available
         if st.session_state.current_search and st.session_state.current_search in st.session_state.search_results:
-            self._render_search_results(st.session_state.current_search, st.session_state.search_results[st.session_state.current_search], format_selected, condition, verbose_mode)
+            self._render_search_results(st.session_state.current_search, st.session_state.search_results[st.session_state.current_search], format_selected, condition)
 
-    def _perform_search(self, search_term, format_selected, verbose_mode):
+    def _perform_search(self, search_term, format_selected):
         """Perform the Discogs search"""
         with st.spinner(f"Searching Discogs for: {search_term}..."):
             try:
-                search_results = self._search_discogs(search_term, format_selected, verbose_mode)
+                search_results = self._search_discogs(search_term, format_selected)
                 
                 if search_results and search_results.get('results'):
                     st.session_state.current_search = search_term
                     st.session_state.search_results[search_term] = search_results
+                    self.debug_tab.add_log("SEARCH", f"Found {len(search_results['results'])} results for: {search_term}")
                 else:
                     st.error(f"No results found for: {search_term}")
+                    self.debug_tab.add_log("SEARCH", f"No results found for: {search_term}")
                     
             except Exception as e:
                 st.error(f"Error searching Discogs: {str(e)}")
+                self.debug_tab.add_log("ERROR", f"Search error for {search_term}: {str(e)}")
 
-    def _search_discogs(self, search_term, format_selected, verbose_mode):
+    def _search_discogs(self, search_term, format_selected):
         """Search Discogs and return multiple results"""
         try:
             search_query = f"{search_term} {format_selected}"
-            filename_base = None
+            filename_base = self._generate_filename(search_term, format_selected)
             
-            if verbose_mode:
-                filename_base = self._generate_filename(search_term, format_selected)
+            self.debug_tab.add_log("DISCOGS", f"Searching: {search_query}")
             
             search_data = self.discogs_handler.search_multiple_results(
                 search_query, 
-                filename_base if verbose_mode else None
+                filename_base
             )
+            
+            if search_data:
+                self.debug_tab.add_log("DISCOGS", f"Search successful: {len(search_data.get('results', []))} results")
+            else:
+                self.debug_tab.add_log("DISCOGS", "Search returned no data")
             
             return search_data
             
         except Exception as e:
-            st.error(f"Error searching Discogs: {str(e)}")
+            self.debug_tab.add_log("ERROR", f"Search error: {str(e)}")
             return None
 
     def _get_discogs_url(self, result):
@@ -128,7 +130,7 @@ class SearchTab:
         
         return None
 
-    def _render_search_results(self, search_term, search_data, format_selected, condition, verbose_mode):
+    def _render_search_results(self, search_term, search_data, format_selected, condition):
         """Render Discogs search results"""
         st.subheader(f"Results for: '{search_term}'")
         
@@ -172,7 +174,7 @@ class SearchTab:
                 with col4:
                     # Add button - this is the key functionality
                     if st.button("Add to DB", key=f"add_{i}_{hash(search_term)}", use_container_width=True):
-                        success = self._add_result_to_database(result, search_term, format_selected, condition, verbose_mode)
+                        success = self._add_result_to_database(result, search_term, format_selected, condition)
                         if success:
                             # Just show success message, don't clear search results
                             st.session_state.last_added = success
@@ -180,7 +182,7 @@ class SearchTab:
                 
                 st.divider()
 
-    def _add_result_to_database(self, result, search_term, format_selected, condition, verbose_mode):
+    def _add_result_to_database(self, result, search_term, format_selected, condition):
         """Add the selected result to the database"""
         try:
             release_id = result.get('id')
@@ -188,12 +190,11 @@ class SearchTab:
                 st.error("No release ID found")
                 return False
             
-            filename_base = None
-            if verbose_mode:
-                filename_base = self._generate_filename(f"{search_term}_release_{release_id}", format_selected)
+            filename_base = self._generate_filename(f"{search_term}_release_{release_id}", format_selected)
             
             # Get pricing information
             with st.spinner("Getting pricing data..."):
+                self.debug_tab.add_log("DISCOGS", f"Getting pricing for release {release_id}")
                 pricing_data = self.discogs_handler.get_release_pricing(
                     str(release_id), 
                     search_term, 
@@ -203,6 +204,7 @@ class SearchTab:
             if not pricing_data or not pricing_data.get('success'):
                 error_msg = pricing_data.get('error', 'Unable to get pricing data') if pricing_data else 'No pricing data returned'
                 st.error(f"Failed to get pricing: {error_msg}")
+                self.debug_tab.add_log("ERROR", f"Pricing failed for {release_id}: {error_msg}")
                 return False
             
             # Extract result information
@@ -216,14 +218,13 @@ class SearchTab:
             # Generate sequential barcode number
             next_barcode = self._generate_next_barcode()
             
-            # Save to database
+            # Save to database - using correct column names
             result_data = {
-                'original_search': search_term,
-                'discogs_artist': artist,
-                'discogs_title': title,
-                'median_price': pricing_data['median_price'],
-                'lowest_price': pricing_data.get('lowest_price'),
-                'highest_price': pricing_data.get('highest_price'),
+                'artist': artist,
+                'title': title,
+                'discogs_median_price': pricing_data['median_price'],
+                'discogs_lowest_price': pricing_data.get('lowest_price'),
+                'discogs_highest_price': pricing_data.get('highest_price'),
                 'genre': genre,
                 'image_url': image_url,
                 'format': format_selected,
@@ -231,14 +232,20 @@ class SearchTab:
                 'barcode': next_barcode,
                 'condition': condition,
                 'year': year,
-                'fallback_used': False
+                'discogs_have': 0,
+                'discogs_want': 0
             }
             
             record_id = st.session_state.db_manager.save_record(result_data)
+            self.debug_tab.add_log("DATABASE", f"Added record to database: {artist} - {title}", {
+                'barcode': next_barcode,
+                'release_id': release_id
+            })
             return next_barcode  # Return barcode for success message
             
         except Exception as e:
             st.error(f"Error adding to database: {str(e)}")
+            self.debug_tab.add_log("ERROR", f"Database add error: {str(e)}")
             return False
 
     def _generate_next_barcode(self):
@@ -340,6 +347,7 @@ class SearchTab:
 
     def _generate_filename(self, search_query, format_name):
         """Generate a safe filename"""
+        import re
         clean_query = re.sub(r'[^\w\s-]', '', search_query)
         clean_query = re.sub(r'[-\s]+', '_', clean_query)
         clean_format = re.sub(r'[^\w\s-]', '', format_name)

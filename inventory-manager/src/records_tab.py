@@ -98,11 +98,11 @@ class RecordsTab:
         try:
             conn = st.session_state.db_manager._get_connection()
             
-            # Simple query - only from records table
+            # Simple query - only from records table with correct column names
             base_query = """
             SELECT 
-                id, discogs_artist, discogs_title, 
-                median_price, lowest_price, highest_price, 
+                id, artist, title, 
+                discogs_median_price, discogs_lowest_price, discogs_highest_price, 
                 image_url, barcode, format, condition, created_at
             FROM records 
             WHERE 1=1
@@ -113,8 +113,8 @@ class RecordsTab:
             # Apply search filter
             if search_term:
                 base_query += """
-                AND (discogs_artist LIKE ? 
-                    OR discogs_title LIKE ? 
+                AND (artist LIKE ? 
+                    OR title LIKE ? 
                     OR barcode LIKE ?)
                 """
                 search_pattern = f"%{search_term}%"
@@ -124,7 +124,7 @@ class RecordsTab:
             if filter_option == "No Barcode":
                 base_query += " AND (barcode IS NULL OR barcode = '')"
             elif filter_option == "No Price Data":
-                base_query += " AND (median_price IS NULL OR median_price = 0)"
+                base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
             elif filter_option == "No Genre":
                 base_query += " AND (genre IS NULL OR genre = '')"
             
@@ -151,8 +151,8 @@ class RecordsTab:
             
             if search_term:
                 base_query += """
-                AND (discogs_artist LIKE ? 
-                    OR discogs_title LIKE ? 
+                AND (artist LIKE ? 
+                    OR title LIKE ? 
                     OR barcode LIKE ?)
                 """
                 search_pattern = f"%{search_term}%"
@@ -161,7 +161,7 @@ class RecordsTab:
             if filter_option == "No Barcode":
                 base_query += " AND (barcode IS NULL OR barcode = '')"
             elif filter_option == "No Price Data":
-                base_query += " AND (median_price IS NULL OR median_price = 0)"
+                base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
             elif filter_option == "No Genre":
                 base_query += " AND (genre IS NULL OR genre = '')"
             
@@ -252,19 +252,29 @@ class RecordsTab:
         if len(records) == 0:
             return
         
-        # Prepare display data with only the columns we want to show
+        # Add selection column to the dataframe
+        records_with_selection = records.copy()
+        records_with_selection['Select'] = False
+        
+        # Initialize selection state
+        if 'selected_records' not in st.session_state:
+            st.session_state.selected_records = []
+        
+        # Prepare display data with selection
         display_data = []
         for _, record in records.iterrows():
+            is_selected = record['id'] in st.session_state.selected_records
             display_data.append({
+                'Select': is_selected,
                 'Cover': record.get('image_url', ''),
-                'Artist': record.get('discogs_artist', ''),
-                'Title': record.get('discogs_title', ''),
+                'Artist': record.get('artist', ''),
+                'Title': record.get('title', ''),
                 'Barcode': record.get('barcode', ''),
                 'Condition': f"{record.get('condition', '')}/5",
                 'Format': record.get('format', ''),
-                'Median Price': self._format_currency(record.get('median_price')),
-                'Lowest Price': self._format_currency(record.get('lowest_price')),
-                'Highest Price': self._format_currency(record.get('highest_price')),
+                'Median Price': self._format_currency(record.get('discogs_median_price')),
+                'Lowest Price': self._format_currency(record.get('discogs_lowest_price')),
+                'Highest Price': self._format_currency(record.get('discogs_highest_price')),
                 'Added': record.get('created_at', '')[:16] if record.get('created_at') else ''
             })
         
@@ -272,6 +282,7 @@ class RecordsTab:
         
         # Configure columns for better display
         column_config = {
+            'Select': st.column_config.CheckboxColumn('Select', width='small'),
             'Cover': st.column_config.ImageColumn('Cover', width='small'),
             'Artist': st.column_config.TextColumn('Artist', width='medium'),
             'Title': st.column_config.TextColumn('Title', width='large'),
@@ -284,44 +295,28 @@ class RecordsTab:
             'Added': st.column_config.TextColumn('Added', width='small'),
         }
         
-        # Display dataframe without selection (basic display)
-        st.dataframe(
+        # Display editable dataframe with selection
+        edited_df = st.data_editor(
             display_df,
             column_config=column_config,
             use_container_width=True,
             height=min(600, 35 * len(display_df) + 40),
-            hide_index=True
+            hide_index=True,
+            key="records_editor"
         )
         
-        # Manual selection using checkboxes
-        st.subheader("Select Records for Actions")
-        
-        # Initialize selection state
-        if 'selected_records' not in st.session_state:
-            st.session_state.selected_records = []
-        
-        # Create checkboxes for each record
-        selected_indices = []
-        for i, (_, record) in enumerate(records.iterrows()):
-            col1, col2 = st.columns([1, 5])
-            with col1:
-                selected = st.checkbox(
-                    "Select",
-                    key=f"select_{i}_{record['id']}",
-                    value=record['id'] in st.session_state.selected_records
-                )
-            with col2:
-                st.write(f"**{record['discogs_artist']}** - {record['discogs_title']}")
+        # Update selection state based on editor changes
+        if edited_df is not None:
+            selected_ids = []
+            for i, (_, original_record) in enumerate(records.iterrows()):
+                if i < len(edited_df) and edited_df.iloc[i]['Select']:
+                    selected_ids.append(original_record['id'])
             
-            if selected:
-                selected_indices.append(i)
-        
-        # Update selected records in session state
-        st.session_state.selected_records = [records.iloc[i]['id'] for i in selected_indices]
+            st.session_state.selected_records = selected_ids
         
         # Show actions for selected records
-        if selected_indices:
-            selected_records = records.iloc[selected_indices]
+        if st.session_state.selected_records:
+            selected_records = records[records['id'].isin(st.session_state.selected_records)]
             self._render_record_actions(selected_records)
 
     def _render_record_actions(self, records):
@@ -503,28 +498,4 @@ class RecordsTab:
             # Clear selection
             st.session_state.selected_records = []
         else:
-            st.warning("Please select records using the checkboxes above first.")
-
-    def _import_csv_records(self):
-        """Import and update records from CSV file"""
-        st.subheader("Import Records from CSV")
-        
-        uploaded_file = st.file_uploader(
-            "Choose a CSV file", 
-            type=['csv'],
-            help="Upload a CSV file with records data"
-        )
-        
-        if uploaded_file is not None:
-            try:
-                # Read the CSV file
-                df = pd.read_csv(uploaded_file)
-                
-                st.write("**CSV Preview:**")
-                st.dataframe(df.head(), use_container_width=True)
-                
-                st.warning("CSV import functionality is currently disabled.")
-                st.info("Use the Search tab to add new records to the database.")
-                
-            except Exception as e:
-                st.error(f"Error importing CSV: {e}")
+            st.warning("Please select records using the checkboxes in the table first.")

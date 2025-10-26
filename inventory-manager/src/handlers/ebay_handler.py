@@ -27,15 +27,30 @@ class EbayHandler:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"}
 
+        self._log_debug("EBAY_TOKEN", f"{self.EBAY_TOKEN_URL} - Getting access token", {
+            'endpoint': self.EBAY_TOKEN_URL,
+            'request': {
+                'headers': headers,
+                'data': data
+            }
+        })
+        
         resp = requests.post(self.EBAY_TOKEN_URL, headers=headers, data=data, auth=(self.client_id, self.client_secret))
         resp.raise_for_status()
         token_data = resp.json()
         self.token = token_data["access_token"]
         self.token_expiry = time.time() + token_data["expires_in"] - 60
         
-        self._log_debug("EBAY_RESPONSE", "Access token obtained successfully", {
+        self._log_debug("EBAY_TOKEN_SUCCESS", f"{self.EBAY_TOKEN_URL} - Access token obtained", {
             'endpoint': self.EBAY_TOKEN_URL,
-            'token_expires_in': token_data["expires_in"]
+            'request': {
+                'headers': headers,
+                'data': data
+            },
+            'response': {
+                'status_code': resp.status_code,
+                'token_expires_in': token_data["expires_in"]
+            }
         })
         
         return self.token
@@ -43,7 +58,7 @@ class EbayHandler:
     def get_ebay_pricing(self, artist, title, category_id="176985", exclude_foreign=True):
         """Get eBay pricing for a record"""
         if not self.get_access_token():
-            self._log_debug("EBAY_ERROR", "No access token available")
+            self._log_debug("EBAY_ERROR", f"{self.EBAY_SEARCH_URL} - No access token available")
             return None
 
         headers = {"Authorization": f"Bearer {self.token}"}
@@ -55,25 +70,22 @@ class EbayHandler:
             "filter": "conditions:USED|NEW"
         }
 
+        self._log_debug("EBAY_SEARCH", f"{self.EBAY_SEARCH_URL} - {query}", {
+            'endpoint': self.EBAY_SEARCH_URL,
+            'request': {
+                'params': params,
+                'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
+            }
+        })
+
         resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
 
         items = data.get("itemSummaries", [])
         
-        self._log_debug("EBAY_RESPONSE", f"eBay search completed: {len(items)} listings found", {
-            'endpoint': self.EBAY_SEARCH_URL,
-            'result_count': len(items),
-            'pricing_sample': [{
-                'title': item.get('title', '')[:50] + '...' if len(item.get('title', '')) > 50 else item.get('title', ''),
-                'price': item.get('price', {}).get('value'),
-                'condition': item.get('condition', 'Unknown')
-            } for item in items[:3]] if items else []
-        })
-
         prices = []
         for item in items:
-            # Filter out foreign listings if requested
             if exclude_foreign:
                 marketplace_id = item.get("listingMarketplaceId")
                 if marketplace_id and marketplace_id != "EBAY_US":
@@ -88,7 +100,6 @@ class EbayHandler:
             sorted_prices = sorted(prices)
             n = len(sorted_prices)
             
-            # Calculate median
             if n % 2 == 1:
                 median = sorted_prices[n//2]
             else:
@@ -101,13 +112,32 @@ class EbayHandler:
                 'ebay_listings_count': len(prices)
             }
             
-            self._log_debug("EBAY_SUCCESS", f"eBay pricing calculated: ${result['ebay_median_price']} median from {len(prices)} prices", {
-                'median_price': result['ebay_median_price'],
-                'price_range': f"${result['ebay_lowest_price']} - ${result['ebay_highest_price']}",
-                'listings_count': len(prices)
+            self._log_debug("EBAY_SEARCH_SUCCESS", f"{self.EBAY_SEARCH_URL} - {query} - ${result['ebay_median_price']} median from {len(prices)} listings", {
+                'endpoint': self.EBAY_SEARCH_URL,
+                'request': {
+                    'params': params,
+                    'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
+                },
+                'response': {
+                    'status_code': resp.status_code,
+                    'listings_count': len(items),
+                    'prices_found': len(prices),
+                    'pricing_result': result
+                }
             })
             
             return result
         else:
-            self._log_debug("EBAY_WARNING", "No eBay pricing data found for the search")
+            self._log_debug("EBAY_SEARCH_NO_DATA", f"{self.EBAY_SEARCH_URL} - {query} - No pricing data found", {
+                'endpoint': self.EBAY_SEARCH_URL,
+                'request': {
+                    'params': params,
+                    'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
+                },
+                'response': {
+                    'status_code': resp.status_code,
+                    'listings_count': len(items),
+                    'items_sample': items[:3] if items else []
+                }
+            })
             return None

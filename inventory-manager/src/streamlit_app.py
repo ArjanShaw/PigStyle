@@ -11,7 +11,7 @@ import glob
 from dotenv import load_dotenv
 from database_manager import DatabaseManager
 from handlers.discogs_handler import DiscogsHandler
-from tabs.inventory import RecordsTab
+from tabs.inventory_tab import InventoryTab
 from tabs.check_in_tab import CheckInTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.debug_tab import DebugTab
@@ -165,7 +165,7 @@ def main():
             ebay_handler = None
  
     # Initialize all tabs - pass the SAME debug_tab instance to all
-    records_tab = RecordsTab(discogs_handler, debug_tab, ebay_handler)
+    records_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler)
     check_in_tab = CheckInTab(discogs_handler, debug_tab, ebay_handler, records_tab.price_handler)
     statistics_tab = StatisticsTab()
     database_switch_tab = DatabaseSwitchTab()

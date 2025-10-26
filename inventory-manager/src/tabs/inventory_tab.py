@@ -19,7 +19,7 @@ from handlers.price_handler import PriceHandler
 from handlers.genre_handler import GenreHandler
 from config import PrintConfig
 
-class RecordsTab:
+class InventoryTab:
     def __init__(self, discogs_handler, debug_tab, ebay_handler=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler

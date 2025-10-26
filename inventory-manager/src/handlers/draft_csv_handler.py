@@ -71,7 +71,7 @@ class DraftCSVHandler:
                 writer.writeheader()
                 writer.writerows(valid_rows)
 
-    def generate_ebay_txt_from_records(self, records):
+    def generate_ebay_txt_from_records(self, records, price_handler=None):
         """Generate eBay formatted TXT content from record data"""
         output = io.StringIO()
         
@@ -83,15 +83,15 @@ class DraftCSVHandler:
         
         # Write data rows
         for record in records:
-            row_data = self._format_record_for_ebay(record)
+            row_data = self._format_record_for_ebay(record, price_handler)
             if row_data:
                 row_values = [str(row_data.get(header, "")) for header in self.HEADERS]
                 output.write(",".join(row_values) + "\n")
         
         return output.getvalue()
 
-    def _format_record_for_ebay(self, record):
-        """Format a single record for eBay import - NO PRICE CHANGES"""
+    def _format_record_for_ebay(self, record, price_handler=None):
+        """Format a single record for eBay import - use calculated eBay price"""
         # Map format to eBay category ID
         category_map = {
             "Vinyl": "176985",
@@ -116,8 +116,12 @@ class DraftCSVHandler:
         barcode = record.get('barcode', '')
         image_url = record.get('image_url', '')
         
-        # USE EXACT PRICE FROM DATABASE - NO CHANGES
-        price = record.get('discogs_median_price', 0) or 0
+        # Calculate eBay price using PriceHandler
+        if price_handler:
+            ebay_price = price_handler.calculate_ebay_price(record.get('ebay_lowest_price'))
+        else:
+            # Fallback: use discogs median price if no price handler
+            ebay_price = record.get('discogs_median_price', 0) or 0
         
         # Simple SKU from barcode or title
         if barcode:
@@ -138,7 +142,7 @@ class DraftCSVHandler:
             "Category ID": category_map.get(format_type, "176985"),
             "Title": ebay_title,
             "UPC": barcode,
-            "Price": f"{float(price):.2f}",
+            "Price": f"{float(ebay_price):.2f}",
             "Quantity": "1",
             "Item photo URL": image_url,
             "Condition ID": condition_map.get(condition, "3000"),

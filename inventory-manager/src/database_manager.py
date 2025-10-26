@@ -27,6 +27,7 @@ class DatabaseManager:
                 ebay_median_price REAL,
                 ebay_lowest_price REAL,
                 ebay_highest_price REAL,
+                price REAL,
                 discogs_have INTEGER DEFAULT 0,
                 discogs_want INTEGER DEFAULT 0,
                 genre TEXT,
@@ -37,9 +38,41 @@ class DatabaseManager:
                 format TEXT,
                 condition TEXT,
                 store_price REAL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                file_at TEXT,
+                status TEXT DEFAULT 'inventory',
+                price_tag_printed BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        
+        # Add price column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE records ADD COLUMN price REAL")
+        except sqlite3.OperationalError:
+            # Column already exists, ignore error
+            pass
+        
+        # Add status column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("ALTER TABLE records ADD COLUMN status TEXT DEFAULT 'inventory'")
+        except sqlite3.OperationalError:
+            # Column already exists, ignore error
+            pass
+        
+        # Add price_tag_printed column if it doesn't exist
+        try:
+            cursor.execute("ALTER TABLE records ADD COLUMN price_tag_printed BOOLEAN DEFAULT 0")
+        except sqlite3.OperationalError:
+            # Column already exists, ignore error
+            pass
+        
+        # Add updated_at column if it doesn't exist
+        try:
+            cursor.execute("ALTER TABLE records ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        except sqlite3.OperationalError:
+            # Column already exists, ignore error
+            pass
         
         # Failed searches table
         cursor.execute('''
@@ -60,15 +93,25 @@ class DatabaseManager:
             )
         ''')
         
-        # Genre by artist cross-reference table
+        # Genre by artist cross-reference table - with UNIQUE constraint on artist_name
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS genre_by_artist (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                artist_name TEXT NOT NULL,
+                artist_name TEXT UNIQUE NOT NULL,
                 genre_id INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (genre_id) REFERENCES genres (id),
-                UNIQUE(artist_name, genre_id)
+                FOREIGN KEY (genre_id) REFERENCES genres (id)
+            )
+        ''')
+        
+        # Expenses table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                description TEXT NOT NULL,
+                amount REAL NOT NULL,
+                receipt_image BLOB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
@@ -87,14 +130,19 @@ class DatabaseManager:
         cursor.execute('''
             INSERT INTO records 
             (artist, title, discogs_median_price, discogs_lowest_price, discogs_highest_price,
-             genre, image_url, catalog_number, format, barcode, condition, year, discogs_have, discogs_want)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ebay_median_price, ebay_lowest_price, ebay_highest_price, price,
+             genre, image_url, catalog_number, format, barcode, condition, year, discogs_have, discogs_want, file_at, status, price_tag_printed)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
-            result_data.get('median_price'),
-            result_data.get('lowest_price'),
-            result_data.get('highest_price'),
+            result_data.get('discogs_median_price'),
+            result_data.get('discogs_lowest_price'),
+            result_data.get('discogs_highest_price'),
+            result_data.get('ebay_median_price'),
+            result_data.get('ebay_lowest_price'),
+            result_data.get('ebay_highest_price'),
+            result_data.get('price'),
             result_data.get('genre', ''),
             result_data.get('image_url', ''),
             result_data.get('catalog_number', ''),
@@ -103,12 +151,104 @@ class DatabaseManager:
             result_data.get('condition', ''),
             result_data.get('year', ''),
             result_data.get('discogs_have', 0),
-            result_data.get('discogs_want', 0)
+            result_data.get('discogs_want', 0),
+            result_data.get('file_at', ''),
+            result_data.get('status', 'inventory'),
+            0  # price_tag_printed starts as False
         ))
         
         conn.commit()
         conn.close()
         return cursor.lastrowid
+    
+    def update_record(self, record_id, updates):
+        """Update a record and mark price tag as dirty if price-related fields change"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Check if any price-related fields are being updated
+        price_related_fields = ['artist', 'title', 'genre', 'barcode', 'discogs_median_price', 
+                               'ebay_median_price', 'price', 'file_at']
+        
+        # Get current values
+        cursor.execute('SELECT artist, title, genre, barcode, discogs_median_price, ebay_median_price, price, file_at FROM records WHERE id = ?', (record_id,))
+        current_values = cursor.fetchone()
+        
+        # Check if any price-related fields are changing
+        price_tag_dirty = False
+        if current_values:
+            current_dict = {
+                'artist': current_values[0],
+                'title': current_values[1],
+                'genre': current_values[2],
+                'barcode': current_values[3],
+                'discogs_median_price': current_values[4],
+                'ebay_median_price': current_values[5],
+                'price': current_values[6],
+                'file_at': current_values[7]
+            }
+            
+            for field in price_related_fields:
+                if field in updates and updates[field] != current_dict[field]:
+                    price_tag_dirty = True
+                    break
+        
+        # Build update query
+        set_clause = []
+        values = []
+        for field, value in updates.items():
+            set_clause.append(f"{field} = ?")
+            values.append(value)
+        
+        # Add updated_at timestamp
+        set_clause.append("updated_at = CURRENT_TIMESTAMP")
+        
+        # If price-related fields changed, mark price tag as not printed
+        if price_tag_dirty:
+            set_clause.append("price_tag_printed = 0")
+        
+        values.append(record_id)
+        
+        query = f"UPDATE records SET {', '.join(set_clause)} WHERE id = ?"
+        cursor.execute(query, values)
+        
+        conn.commit()
+        conn.close()
+        return True
+    
+    def mark_price_tags_printed(self, record_ids):
+        """Mark price tags as printed for given record IDs"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        placeholders = ','.join(['?'] * len(record_ids))
+        cursor.execute(f'UPDATE records SET price_tag_printed = 1 WHERE id IN ({placeholders})', record_ids)
+        
+        conn.commit()
+        conn.close()
+        return True
+    
+    def save_expense(self, description, amount, receipt_image=None):
+        """Save expense to database"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO expenses (description, amount, receipt_image)
+            VALUES (?, ?, ?)
+        ''', (description, amount, receipt_image))
+        
+        conn.commit()
+        expense_id = cursor.lastrowid
+        conn.close()
+        return expense_id
+    
+    def get_all_expenses(self):
+        """Get all expenses from database"""
+        conn = self._get_connection()
+        df = pd.read_sql('SELECT * FROM expenses ORDER BY created_at DESC', conn)
+        conn.close()
+        return df
     
     def save_failed_search(self, search_term, error_details):
         """Save failed search to database"""
@@ -201,6 +341,54 @@ class DatabaseManager:
         conn.close()
         return df
     
+    def get_all_artists_with_genres(self, search_term=None):
+        """Get all artists from records and their assigned genres (including unassigned)"""
+        conn = self._get_connection()
+        
+        if search_term:
+            query = '''
+                SELECT DISTINCT 
+                    r.artist as artist_name,
+                    g.genre_name
+                FROM records r
+                LEFT JOIN genre_by_artist gba ON r.artist = gba.artist_name
+                LEFT JOIN genres g ON gba.genre_id = g.id
+                WHERE r.artist LIKE ?
+                ORDER BY r.artist
+            '''
+            df = pd.read_sql(query, conn, params=(f'%{search_term}%',))
+        else:
+            query = '''
+                SELECT DISTINCT 
+                    r.artist as artist_name,
+                    g.genre_name
+                FROM records r
+                LEFT JOIN genre_by_artist gba ON r.artist = gba.artist_name
+                LEFT JOIN genres g ON gba.genre_id = g.id
+                ORDER BY r.artist
+            '''
+            df = pd.read_sql(query, conn)
+        
+        conn.close()
+        return df
+    
+    def search_artists_with_genres(self, search_term):
+        """Search artists with genres by artist name"""
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT 
+                gba.artist_name,
+                g.genre_name,
+                gba.genre_id,
+                gba.id as mapping_id
+            FROM genre_by_artist gba
+            JOIN genres g ON gba.genre_id = g.id
+            WHERE gba.artist_name LIKE ?
+            ORDER BY gba.artist_name
+        ''', conn, params=(f'%{search_term}%',))
+        conn.close()
+        return df
+    
     def get_artists_without_genres(self):
         """Get artists that don't have genres assigned yet"""
         conn = self._get_connection()
@@ -289,6 +477,25 @@ class DatabaseManager:
             
         return success
     
+    def remove_genre_from_artist_by_name(self, artist_name):
+        """Remove all genre assignments from an artist by name"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                DELETE FROM genre_by_artist 
+                WHERE artist_name = ?
+            ''', (artist_name,))
+            conn.commit()
+            success = True
+        except Exception as e:
+            success = False
+        finally:
+            conn.close()
+            
+        return success
+    
     def get_artist_genre(self, artist_name):
         """Get the genre assigned to an artist"""
         conn = self._get_connection()
@@ -338,6 +545,7 @@ class DatabaseManager:
         cursor.execute('DELETE FROM failed_searches')
         cursor.execute('DELETE FROM genre_by_artist')
         cursor.execute('DELETE FROM genres')
+        cursor.execute('DELETE FROM expenses')
         conn.commit()
         conn.close()
     
@@ -351,3 +559,65 @@ class DatabaseManager:
         )
         conn.close()
         return df
+    
+    def get_record_by_barcode(self, barcode):
+        """Get a record by barcode"""
+        conn = self._get_connection()
+        df = pd.read_sql(
+            'SELECT * FROM records WHERE barcode = ?',
+            conn,
+            params=(barcode,)
+        )
+        conn.close()
+        return df.iloc[0] if len(df) > 0 else None
+    
+    def update_file_at_for_all_records(self):
+        """Update file_at column for all records with genre(file_at) format"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Get all records
+        cursor.execute('SELECT id, artist, genre FROM records')
+        records = cursor.fetchall()
+        
+        updated_count = 0
+        for record in records:
+            record_id = record[0]
+            artist = record[1]
+            genre = record[2] or 'Unknown'
+            file_at_letter = self._calculate_file_at(artist)
+            file_at_value = f"{genre}({file_at_letter})"
+            
+            cursor.execute('UPDATE records SET file_at = ? WHERE id = ?', (file_at_value, record_id))
+            updated_count += 1
+        
+        conn.commit()
+        conn.close()
+        return updated_count
+    
+    def _calculate_file_at(self, artist):
+        """Calculate file_at value for an artist"""
+        if not artist:
+            return "?"
+        
+        # Remove leading/trailing whitespace and convert to lowercase for processing
+        artist_clean = artist.strip().lower()
+        
+        # Handle "The " prefix
+        if artist_clean.startswith('the '):
+            artist_clean = artist_clean[4:]
+        
+        # Handle numbers
+        if artist_clean and artist_clean[0].isdigit():
+            number_words = {
+                '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+                '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+            }
+            first_char = artist_clean[0]
+            return number_words.get(first_char, '?')[0].upper()
+        
+        # Return first character if it's a letter
+        if artist_clean and artist_clean[0].isalpha():
+            return artist_clean[0].upper()
+        
+        return "?"

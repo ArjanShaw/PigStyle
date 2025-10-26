@@ -10,13 +10,15 @@ from pathlib import Path
 import glob
 from dotenv import load_dotenv
 from database_manager import DatabaseManager
-from discogs_handler import DiscogsHandler
-from records_tab import RecordsTab
-from statistics_tab import StatisticsTab
-from genre_mappings_tab import GenreMappingsTab
-from genres_tab import GenresTab
-from debug_tab import DebugTab
-from database_switch_tab import DatabaseSwitchTab
+from handlers.discogs_handler import DiscogsHandler
+from tabs.inventory import RecordsTab
+from tabs.check_in_tab import CheckInTab
+from tabs.statistics_tab import StatisticsTab
+from tabs.debug_tab import DebugTab
+from tabs.database_switch_tab import DatabaseSwitchTab
+from tabs.checkout_tab import CheckoutTab
+from tabs.expenses_tab import ExpensesTab
+from handlers.ebay_handler import EbayHandler
 
 # --- Load environment variables ---
 try:
@@ -33,12 +35,6 @@ PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
 # Database persistence file
 DB_PERSISTENCE_FILE = "current_database.txt"
 
-CATEGORY_MAP = {
-    "Vinyl": "176985",
-    "CDs": "176984", 
-    "Cassettes": "176983"
-}
-
 def get_environment_variables(debug_tab):
     """Get environment variables from either .env file or Streamlit secrets"""
     env_vars = {}
@@ -50,23 +46,33 @@ def get_environment_variables(debug_tab):
         "EBAY_CLIENT_SECRET"
     ]
     
+    # Only log environment variable status once per session
+    if 'env_vars_loaded' not in st.session_state:
+        st.session_state.env_vars_loaded = False
+    
     for var in required_vars:
         try:
             if hasattr(st, 'secrets') and var in st.secrets:
                 env_vars[var] = st.secrets[var]
-                debug_tab.add_log("SECRETS", f"✅ {var} loaded from secrets", {"source": "secrets"})
+                if not st.session_state.env_vars_loaded:
+                    debug_tab.add_log("SECRETS", f"✅ {var} loaded from secrets", {"source": "secrets"})
             else:
                 env_value = os.getenv(var)
                 if env_value:
                     env_vars[var] = env_value
-                    debug_tab.add_log("ENV", f"✅ {var} loaded from environment", {"source": ".env"})
+                    if not st.session_state.env_vars_loaded:
+                        debug_tab.add_log("ENV", f"✅ {var} loaded from environment", {"source": ".env"})
                 else:
                     env_vars[var] = None
-                    debug_tab.add_log("ERROR", f"❌ {var} not found in secrets or environment")
+                    if not st.session_state.env_vars_loaded:
+                        debug_tab.add_log("ERROR", f"❌ {var} not found in secrets or environment")
         except Exception as e:
             env_vars[var] = None
-            debug_tab.add_log("ERROR", f"❌ Error loading {var}: {e}")
-                
+            if not st.session_state.env_vars_loaded:
+                debug_tab.add_log("ERROR", f"❌ Error loading {var}: {e}")
+    
+    # Mark environment variables as loaded for this session
+    st.session_state.env_vars_loaded = True
     return env_vars
 
 def get_persisted_database_path():
@@ -109,7 +115,7 @@ def main():
         layout="wide"
     )
     
-    # Initialize debug tab first
+    # Initialize debug tab FIRST and use the SAME instance everywhere
     debug_tab = DebugTab()
     
     # Get environment variables
@@ -145,48 +151,63 @@ def main():
     if DISCOGS_USER_TOKEN:
         try:
             discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN, debug_tab)
-            debug_tab.add_log("DISCOGS", "Discogs handler initialized successfully")
         except Exception as e:
             debug_tab.add_log("ERROR", f"Failed to initialize Discogs: {e}")
             discogs_handler = None
-    else:
-        debug_tab.add_log("ERROR", "DISCOGS_USER_TOKEN not found")
+    
+    # Initialize eBay handler
+    ebay_handler = None
+    if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
+        try:
+            ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, debug_tab)
+        except Exception as e:
+            debug_tab.add_log("ERROR", f"Failed to initialize eBay: {e}")
+            ebay_handler = None
  
-    # Initialize all tabs
-    records_tab = RecordsTab(discogs_handler, debug_tab)
+    # Initialize all tabs - pass the SAME debug_tab instance to all
+    records_tab = RecordsTab(discogs_handler, debug_tab, ebay_handler)
+    check_in_tab = CheckInTab(discogs_handler, debug_tab, ebay_handler, records_tab.price_handler)
     statistics_tab = StatisticsTab()
-    genre_mappings_tab = GenreMappingsTab()
-    genres_tab = GenresTab()
     database_switch_tab = DatabaseSwitchTab()
-    debug_tab = DebugTab()
+    checkout_tab = CheckoutTab()
+    expenses_tab = ExpensesTab()
+    # Use the SAME debug_tab instance for rendering
 
     # Create tabs with new order
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tabs = st.tabs([
         "🗃️ Database",
-        "📚 Records", 
-        "🎵 Genres",
-        "🏷️ Artist Genres", 
+        "📥 Check In", 
+        "📦 Inventory",
+        "📦 Checkout",
+        "💰 Income",
+        "💰 Expenses",
         "📊 Statistics",
         "🔧 Debug"
     ])
     
-    with tab1:
+    with tabs[0]:
         database_switch_tab.render()
     
-    with tab2:
-        records_tab.render()
+    with tabs[1]:
+        check_in_tab.render()
     
-    with tab3:
-        genres_tab.render()
+    with tabs[2]:
+        records_tab.render_inventory_tab()
+    
+    with tabs[3]:
+        checkout_tab.render()
+    
+    with tabs[4]:
+        records_tab.render_sold_tab()
+    
+    with tabs[5]:
+        expenses_tab.render()
         
-    with tab4:
-        genre_mappings_tab.render()
-        
-    with tab5:
+    with tabs[6]:
         statistics_tab.render()
         
-    with tab6:
-        debug_tab.render()
+    with tabs[7]:
+        debug_tab.render()  # Use the SAME instance
 
 
 if __name__ == "__main__":

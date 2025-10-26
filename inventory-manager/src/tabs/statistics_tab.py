@@ -18,8 +18,6 @@ class StatisticsTab:
             with col1:
                 st.metric("Total Records", stats['records_count'])
             with col2:
-                st.metric("Failed Searches", stats['failed_count'])
-            with col3:
                 st.metric("Latest Record", stats['latest_record'][:16] if stats['latest_record'] != "None" else "None")
             
             if stats['records_count'] > 0:
@@ -34,23 +32,32 @@ class StatisticsTab:
             st.error(f"Error loading statistics: {e}")
 
     def _render_genre_chart(self):
-        """Render only the top 10 genre bar graph"""
+        """Render only the top 10 genre bar graph using assigned genres"""
         try:
-            # Get all records
-            records_df = st.session_state.db_manager.get_all_records()
+            # Get genre statistics from records
+            conn = st.session_state.db_manager._get_connection()
             
-            # Top 10 genres chart
-            if 'genre' in records_df.columns and not records_df['genre'].empty:
-                genre_counts = records_df['genre'].value_counts().head(10).reset_index()
-                genre_counts.columns = ['genre', 'count']
-                
+            # Count records by genre
+            df = pd.read_sql('''
+                SELECT 
+                    genre,
+                    COUNT(*) as record_count
+                FROM records 
+                WHERE genre IS NOT NULL AND genre != ''
+                GROUP BY genre
+                ORDER BY record_count DESC
+                LIMIT 10
+            ''', conn)
+            conn.close()
+            
+            if len(df) > 0:
                 fig = px.bar(
-                    genre_counts,
-                    x='count',
+                    df,
+                    x='record_count',
                     y='genre',
                     orientation='h',
                     title='Top 10 Genres',
-                    color='count',
+                    color='record_count',
                     color_continuous_scale='blues'
                 )
                 fig.update_layout(

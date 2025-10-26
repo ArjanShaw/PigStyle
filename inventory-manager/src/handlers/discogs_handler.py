@@ -30,21 +30,16 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Store request data for verbose mode
-        request_data = {
-            'url': f"{self.base_url}/database/search",
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()},
-            'params': params
-        }
+        endpoint_url = f"{self.base_url}/database/search"
         
-        self._log_debug("DISCOGS_REQUEST", f"Search request: {query}", request_data)
-        
-        # Save request payload if filename_base provided
-        if filename_base:
-            self._save_payload(f"{filename_base}_discogs_search_request.json", request_data)
+        self._log_debug("DISCOGS_REQUEST", f"Search request: {query}", {
+            'endpoint': endpoint_url,
+            'params': params,
+            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
+        })
         
         response = requests.get(
-            f"{self.base_url}/database/search",
+            endpoint_url,
             params=params,
             headers=self.headers,
             timeout=15
@@ -57,21 +52,16 @@ class DiscogsHandler:
         
         data = response.json()
         
-        self._log_debug("DISCOGS_RESPONSE", f"Search response: {len(data.get('results', []))} results", {
+        self._log_debug("DISCOGS_RESPONSE", f"Search completed: {len(data.get('results', []))} results", {
+            'endpoint': endpoint_url,
             'result_count': len(data.get('results', [])),
-            'query': query
+            'response_sample': data.get('results', [])[:2] if data.get('results') else []
         })
-        
-        # Save response payload if filename_base provided
-        if filename_base:
-            self._save_payload(f"{filename_base}_discogs_search_response.json", data)
         
         return data
     
     def get_release_pricing(self, release_id: str, query: str, filename_base: str = None):
         """Get pricing information for a specific release"""
-        self._log_debug("DISCOGS", f"Getting pricing for release {release_id}")
-        
         # First get release details
         release_data = self._get_release_stats(release_id)
         if not release_data:
@@ -85,8 +75,16 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
+        endpoint_url = f"{self.base_url}/marketplace/listings"
+        
+        self._log_debug("DISCOGS_REQUEST", f"Marketplace pricing request for release {release_id}", {
+            'endpoint': endpoint_url,
+            'params': params,
+            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
+        })
+
         response = requests.get(
-            f"{self.base_url}/marketplace/listings",
+            endpoint_url,
             params=params,
             headers=self.headers,
             timeout=15
@@ -113,14 +111,11 @@ class DiscogsHandler:
         
         listings_data = response.json()
         
-        self._log_debug("DISCOGS_RESPONSE", f"Marketplace listings: {len(listings_data.get('listings', []))} listings", {
+        self._log_debug("DISCOGS_RESPONSE", f"Marketplace listings retrieved: {len(listings_data.get('listings', []))} listings", {
+            'endpoint': endpoint_url,
             'listings_count': len(listings_data.get('listings', [])),
-            'release_id': release_id
+            'pricing_sample': [listing.get('price', {}) for listing in listings_data.get('listings', [])[:3]] if listings_data.get('listings') else []
         })
-        
-        # Save response payload if filename_base provided
-        if filename_base:
-            self._save_payload(f"{filename_base}_discogs_listings_response.json", listings_data)
         
         # Extract prices from listings
         prices = []
@@ -137,7 +132,7 @@ class DiscogsHandler:
             result = self._calculate_pricing_stats(prices, len(prices), len(listings_data.get('listings', [])), query, 'marketplace')
             result['image_url'] = image_url
             result['release_data'] = release_data
-            self._log_debug("DISCOGS_SUCCESS", f"Pricing from marketplace: ${result['median_price']} (median)")
+            self._log_debug("DISCOGS_SUCCESS", f"Pricing calculated: ${result['median_price']} median from {len(prices)} prices")
             return result
         else:
             # Fallback to release stats
@@ -157,17 +152,25 @@ class DiscogsHandler:
 
     def _get_release_stats(self, release_id: str):
         """Get release statistics from Discogs API"""
-        self._log_debug("DISCOGS_REQUEST", f"Getting release stats for {release_id}")
+        endpoint_url = f"{self.base_url}/releases/{release_id}"
+        
+        self._log_debug("DISCOGS_REQUEST", f"Getting release stats for {release_id}", {
+            'endpoint': endpoint_url,
+            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
+        })
         
         response = requests.get(
-            f"{self.base_url}/releases/{release_id}",
+            endpoint_url,
             headers=self.headers,
             timeout=10
         )
         
         if response.status_code == 200:
             data = response.json()
-            self._log_debug("DISCOGS_RESPONSE", f"Release stats retrieved for {release_id}")
+            self._log_debug("DISCOGS_RESPONSE", f"Release stats retrieved for {release_id}", {
+                'endpoint': endpoint_url,
+                'release_data_keys': list(data.keys()) if data else []
+            })
             return data
         else:
             error_msg = f"Failed to get release {release_id}: {response.status_code}"
@@ -285,6 +288,5 @@ class DiscogsHandler:
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
-            self._log_debug("FILE", f"Saved payload: {file_path}")
         except Exception as e:
-            self._log_debug("ERROR", f"Error saving payload {filename}: {e}")
+            pass

@@ -34,6 +34,14 @@ class InventoryTab:
         if 'ebay_cutoff_price' not in st.session_state:
             st.session_state.ebay_cutoff_price = 3.99
         
+        # Initialize column visibility states
+        if 'show_ebay_columns' not in st.session_state:
+            st.session_state.show_ebay_columns = True
+        if 'show_discogs_columns' not in st.session_state:
+            st.session_state.show_discogs_columns = True
+        if 'show_filing_columns' not in st.session_state:
+            st.session_state.show_filing_columns = True
+            
         self.price_handler.set_ebay_cutoff_price(st.session_state.ebay_cutoff_price)
         
     def _update_dimensions_from_config(self):
@@ -76,12 +84,30 @@ class InventoryTab:
             if st.button("🔄 Update eBay Prices", use_container_width=True, help="Update eBay prices for selected records"):
                 self._update_ebay_prices_for_selected()
             
-        # Price Settings and Genre Management in two columns
-        col1, col2 = st.columns(2)
-            
-        with col1:
-            # Price Settings
-            st.subheader("Price Settings")
+        # Column visibility controls in expandable section
+        with st.expander("📊 Column Visibility Controls", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.session_state.show_ebay_columns = st.checkbox(
+                    "Show eBay Columns", 
+                    value=st.session_state.show_ebay_columns,
+                    help="Show/hide eBay pricing columns"
+                )
+            with col2:
+                st.session_state.show_discogs_columns = st.checkbox(
+                    "Show Discogs Columns", 
+                    value=st.session_state.show_discogs_columns,
+                    help="Show/hide Discogs pricing columns"
+                )
+            with col3:
+                st.session_state.show_filing_columns = st.checkbox(
+                    "Show Filing Columns", 
+                    value=st.session_state.show_filing_columns,
+                    help="Show/hide filing columns (Genre, File At, Barcode)"
+                )
+        
+        # Price Settings and Genre Management in expandable sections
+        with st.expander("💰 Price Settings", expanded=False):
             new_cutoff = st.number_input(
                 "eBay Cutoff Price",
                 min_value=0.0,
@@ -94,9 +120,8 @@ class InventoryTab:
                 st.session_state.ebay_cutoff_price = new_cutoff
                 self.price_handler.set_ebay_cutoff_price(new_cutoff)
                 st.success(f"eBay cutoff price updated to ${new_cutoff:.2f}")
-                
-            # Genre Management & Import/Export
-            st.subheader("Genre Management & Import/Export")
+            
+        with st.expander("🎵 Genre Management & Import/Export", expanded=False):
             genre_col1, genre_col2 = st.columns(2)
                 
             with genre_col1:
@@ -112,28 +137,21 @@ class InventoryTab:
                 )
                     
                 if uploaded_file is not None:
-                    try:
-                        import_df = pd.read_csv(uploaded_file)
+                    import_df = pd.read_csv(uploaded_file)
                             
-                        if 'id' not in import_df.columns or 'genre' not in import_df.columns:
-                            st.error("CSV must contain 'id' and 'genre' columns")
-                        else:
-                            if st.button("🔄 Update Genres", use_container_width=True):
-                                updated_count = self._update_genres_from_csv(import_df)
-                                if updated_count > 0:
-                                    st.success(f"✅ Updated genres for {updated_count} records!")
-                                    st.session_state.records_updated += 1
-                                    st.rerun()
-                                else:
-                                    st.warning("No genres were updated.")
-                            
-                    except Exception as e:
-                        st.error(f"Error processing import file: {e}")
+                    if 'id' not in import_df.columns or 'genre' not in import_df.columns:
+                        st.error("CSV must contain 'id' and 'genre' columns")
+                    else:
+                        if st.button("🔄 Update Genres", use_container_width=True):
+                            updated_count = self._update_genres_from_csv(import_df)
+                            if updated_count > 0:
+                                st.success(f"✅ Updated genres for {updated_count} records!")
+                                st.session_state.records_updated += 1
+                                st.rerun()
+                            else:
+                                st.warning("No genres were updated.")
             
-        with col2:
-            # Genre Signs Printing in its own box
-            st.subheader("Genre Signs Printing")
-            
+        with st.expander("🖨️ Genre Signs Printing", expanded=False):
             print_option = st.radio(
                 "Print option:",
                 ["Single Genre", "All Genres"],
@@ -149,23 +167,20 @@ class InventoryTab:
             font_size = st.slider("Font Size", min_value=24, max_value=96, value=48, key="genre_font_size")
             
             if st.button("🖨️ Generate Genre Sign PDF", use_container_width=True):
-                try:
-                    if print_option == "All Genres":
-                        genre_options = self.genre_handler.get_unique_genres()
-                        pdf_buffer = self.genre_handler.generate_all_genre_signs_pdf(genre_options, font_size)
-                        filename = f"all_genre_signs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                    else:
-                        pdf_buffer = self.genre_handler.generate_genre_sign_pdf(genre_text, font_size)
-                        filename = f"genre_sign_{genre_text.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                    
-                    st.download_button(
-                        label="⬇️ Download Genre Sign PDF",
-                        data=pdf_buffer.getvalue(),
-                        file_name=filename,
-                        mime="application/pdf"
-                    )
-                except Exception as e:
-                    st.error(f"Error generating genre sign: {e}")
+                if print_option == "All Genres":
+                    genre_options = self.genre_handler.get_unique_genres()
+                    pdf_buffer = self.genre_handler.generate_all_genre_signs_pdf(genre_options, font_size)
+                    filename = f"all_genre_signs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                else:
+                    pdf_buffer = self.genre_handler.generate_genre_sign_pdf(genre_text, font_size)
+                    filename = f"genre_sign_{genre_text.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                
+                st.download_button(
+                    label="⬇️ Download Genre Sign PDF",
+                    data=pdf_buffer.getvalue(),
+                    file_name=filename,
+                    mime="application/pdf"
+                )
             
         # Second row: Search and filters
         col1, col2 = st.columns([2, 1])
@@ -194,98 +209,85 @@ class InventoryTab:
 
     def render_sold_tab(self):
         """Render the sold records table functionality - renamed to Income"""
-        try:
-            # Database statistics - direct count from sold records
-            stats = self._get_database_stats_direct('sold')
-            
-            # Top row: Stats and action buttons
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                st.metric("Sold Records", stats['records_count'])
-            with col2:
-                if st.button("🔄 Return to Inventory", use_container_width=True, help="Return selected sold records to inventory"):
-                    self._return_to_inventory()
-            
-            # Second row: Search and filters
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                search_term = st.text_input(
-                    "Search by artist, title, or barcode:",
-                    key="search_sold",
-                    placeholder="Enter search term..."
-                )
-            
-            with col2:
-                # Quick filters
-                filter_option = st.selectbox(
-                    "Filter by",
-                    options=["All Records", "No Barcode", "No Price Data", "No Genre", "No File At", "No eBay Price"],
-                    key="quick_filter_sold"
-                )
+        # Database statistics - direct count from sold records
+        stats = self._get_database_stats_direct('sold')
+        
+        # Top row: Stats and action buttons
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            st.metric("Sold Records", stats['records_count'])
+        with col2:
+            if st.button("🔄 Return to Inventory", use_container_width=True, help="Return selected sold records to inventory"):
+                self._return_to_inventory()
+        
+        # Second row: Search and filters
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            search_term = st.text_input(
+                "Search by artist, title, or barcode:",
+                key="search_sold",
+                placeholder="Enter search term..."
+            )
+        
+        with col2:
+            # Quick filters
+            filter_option = st.selectbox(
+                "Filter by",
+                options=["All Records", "No Barcode", "No Price Data", "No Genre", "No File At", "No eBay Price"],
+                key="quick_filter_sold"
+            )
 
-            if stats['records_count'] > 0:
-                self._render_records_table('sold', search_term, filter_option)
-            else:
-                st.info("No sold records yet.")
-                
-        except Exception as e:
-            st.error(f"Error loading sold records: {e}")
+        if stats['records_count'] > 0:
+            self._render_records_table('sold', search_term, filter_option)
+        else:
+            st.info("No sold records yet.")
 
     def _export_genre_csv(self):
         """Export ID, Artist, Title, and Genre for all inventory records"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql(
-                "SELECT id, artist, title, genre FROM records WHERE status = 'inventory' ORDER BY artist, title",
-                conn
-            )
-            conn.close()
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql(
+            "SELECT id, artist, title, genre FROM records WHERE status = 'inventory' ORDER BY artist, title",
+            conn
+        )
+        conn.close()
+        
+        if len(df) > 0:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"genre_export_{timestamp}.csv"
             
-            if len(df) > 0:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"genre_export_{timestamp}.csv"
-                
-                csv_data = df.to_csv(index=False)
-                
-                st.download_button(
-                    label="⬇️ Download Genre CSV",
-                    data=csv_data,
-                    file_name=filename,
-                    mime="text/csv",
-                    key=f"download_genre_{timestamp}"
-                )
-                
-                st.success(f"✅ Export ready! {len(df)} inventory records.")
-            else:
-                st.warning("No inventory records to export.")
-                
-        except Exception as e:
-            st.error(f"Error exporting genre CSV: {e}")
+            csv_data = df.to_csv(index=False)
+            
+            st.download_button(
+                label="⬇️ Download Genre CSV",
+                data=csv_data,
+                file_name=filename,
+                mime="text/csv",
+                key=f"download_genre_{timestamp}"
+            )
+            
+            st.success(f"✅ Export ready! {len(df)} inventory records.")
+        else:
+            st.warning("No inventory records to export.")
 
     def _update_genres_from_csv(self, import_df):
         """Update genres from CSV data (only id and genre columns are used)"""
-        try:
-            updated_count = 0
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
+        updated_count = 0
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        
+        for _, row in import_df.iterrows():
+            record_id = row.get('id')
+            new_genre = row.get('genre')
             
-            for _, row in import_df.iterrows():
-                record_id = row.get('id')
-                new_genre = row.get('genre')
-                
-                if record_id and pd.notna(new_genre):
-                    # Use update_record to track changes properly
-                    success = st.session_state.db_manager.update_record(record_id, {'genre': new_genre})
-                    if success:
-                        updated_count += 1
-            
-            conn.close()
-            return updated_count
-            
-        except Exception as e:
-            st.error(f"Error updating genres: {e}")
-            return 0
+            if record_id and pd.notna(new_genre):
+                # Use update_record to track changes properly
+                success = st.session_state.db_manager.update_record(record_id, {'genre': new_genre})
+                if success:
+                    updated_count += 1
+        
+        conn.close()
+        return updated_count
 
     def _return_to_inventory(self):
         """Return selected sold records back to inventory"""
@@ -293,29 +295,22 @@ class InventoryTab:
             st.warning("Please select records first using the checkboxes in the table.")
             return
             
-        try:
-            selected_ids = st.session_state.selected_records
-            if self._update_record_status(selected_ids, 'inventory'):
-                st.success(f"✅ Returned {len(selected_ids)} records to inventory!")
-                # Clear selection after operation
-                st.session_state.selected_records = []
-                st.session_state.records_updated += 1
-                st.rerun()
-        except Exception as e:
-            st.error(f"Error returning records to inventory: {e}")
+        selected_ids = st.session_state.selected_records
+        if self._update_record_status(selected_ids, 'inventory'):
+            st.success(f"✅ Returned {len(selected_ids)} records to inventory!")
+            # Clear selection after operation
+            st.session_state.selected_records = []
+            st.session_state.records_updated += 1
+            st.rerun()
 
     def _update_record_status(self, record_ids, new_status):
         """Update status of records"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.executemany('UPDATE records SET status = ? WHERE id = ?', [(new_status, id) for id in record_ids])
-            conn.commit()
-            conn.close()
-            return True
-        except Exception as e:
-            st.error(f"Error updating record status: {e}")
-            return False
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.executemany('UPDATE records SET status = ? WHERE id = ?', [(new_status, id) for id in record_ids])
+        conn.commit()
+        conn.close()
+        return True
 
     def _update_ebay_prices_for_selected(self):
         """Update eBay prices for selected records"""
@@ -327,54 +322,47 @@ class InventoryTab:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return
         
-        try:
-            selected_ids = st.session_state.selected_records
-            placeholders = ','.join(['?'] * len(selected_ids))
+        selected_ids = st.session_state.selected_records
+        placeholders = ','.join(['?'] * len(selected_ids))
+        
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders})', conn, params=selected_ids)
+        conn.close()
+        
+        updated_count = 0
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, (_, record) in enumerate(df.iterrows()):
+            artist = record.get('artist', '')
+            title = record.get('title', '')
             
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders})', conn, params=selected_ids)
-            conn.close()
+            status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
             
-            updated_count = 0
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+            ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
+            if ebay_pricing:
+                # Use update_record to track changes properly
+                updates = {
+                    'ebay_median_price': ebay_pricing.get('ebay_median_price'),
+                    'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price'),
+                    'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
+                    'ebay_count': ebay_pricing.get('ebay_listings_count', 0)
+                }
+                success = st.session_state.db_manager.update_record(record['id'], updates)
+                if success:
+                    updated_count += 1
             
-            for i, (_, record) in enumerate(df.iterrows()):
-                artist = record.get('artist', '')
-                title = record.get('title', '')
-                
-                status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
-                
-                try:
-                    ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
-                    if ebay_pricing:
-                        # Use update_record to track changes properly
-                        updates = {
-                            'ebay_median_price': ebay_pricing.get('ebay_median_price'),
-                            'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price'),
-                            'ebay_highest_price': ebay_pricing.get('ebay_highest_price')
-                        }
-                        success = st.session_state.db_manager.update_record(record['id'], updates)
-                        if success:
-                            updated_count += 1
-                    
-                except Exception as e:
-                    pass
-                
-                progress_bar.progress((i + 1) / len(df))
-            
-            status_text.empty()
-            progress_bar.empty()
-            
-            if updated_count > 0:
-                st.success(f"✅ Updated eBay prices for {updated_count} records!")
-                st.session_state.records_updated += 1
-                st.rerun()
-            else:
-                st.warning("No eBay prices were updated. Check debug tab for details.")
-                
-        except Exception as e:
-            st.error(f"Error updating eBay prices: {e}")
+            progress_bar.progress((i + 1) / len(df))
+        
+        status_text.empty()
+        progress_bar.empty()
+        
+        if updated_count > 0:
+            st.success(f"✅ Updated eBay prices for {updated_count} records!")
+            st.session_state.records_updated += 1
+            st.rerun()
+        else:
+            st.warning("No eBay prices were updated. Check debug tab for details.")
 
     def _export_ebay_list(self):
         """Export selected records as eBay draft listings"""
@@ -382,196 +370,178 @@ class InventoryTab:
             st.warning("Please select records first using the checkboxes in the table.")
             return
         
-        try:
-            # Get selected records data
-            selected_ids = st.session_state.selected_records
-            placeholders = ','.join(['?'] * len(selected_ids))
-            
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders}) AND status = "inventory"', conn, params=selected_ids)
-            conn.close()
-            
-            records_list = df.to_dict('records')
-            
-            # Generate eBay formatted TXT
-            draft_handler = DraftCSVHandler()
-            ebay_content = draft_handler.generate_ebay_txt_from_records(records_list, self.price_handler)
-            
-            # Create download button
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"ebay_drafts_{timestamp}.txt"
-            
-            st.download_button(
-                label="⬇️ Download eBay Drafts",
-                data=ebay_content,
-                file_name=filename,
-                mime="text/plain",
-                key=f"download_ebay_{timestamp}"
-            )
-            
-            st.success(f"✅ eBay draft file ready! {len(records_list)} records formatted for eBay import.")
-                
-        except Exception as e:
-            st.error(f"Error generating eBay list: {e}")
+        # Get selected records data
+        selected_ids = st.session_state.selected_records
+        placeholders = ','.join(['?'] * len(selected_ids))
+        
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders}) AND status = "inventory"', conn, params=selected_ids)
+        conn.close()
+        
+        records_list = df.to_dict('records')
+        
+        # Generate eBay formatted TXT
+        draft_handler = DraftCSVHandler()
+        ebay_content = draft_handler.generate_ebay_txt_from_records(records_list, self.price_handler)
+        
+        # Create download button
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"ebay_drafts_{timestamp}.txt"
+        
+        st.download_button(
+            label="⬇️ Download eBay Drafts",
+            data=ebay_content,
+            file_name=filename,
+            mime="text/plain",
+            key=f"download_ebay_{timestamp}"
+        )
+        
+        st.success(f"✅ eBay draft file ready! {len(records_list)} records formatted for eBay import.")
 
     def _get_database_stats_direct(self, status='inventory') -> Dict:
         """Get database statistics directly from records table"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('SELECT COUNT(*) FROM records WHERE status = ?', (status,))
-            records_count_result = cursor.fetchone()
-            records_count = records_count_result[0] if records_count_result else 0
-            
-            cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (barcode IS NULL OR barcode = "")', (status,))
-            no_barcode_result = cursor.fetchone()
-            no_barcode_count = no_barcode_result[0] if no_barcode_result else 0
-            
-            cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (file_at IS NULL OR file_at = "")', (status,))
-            no_file_at_result = cursor.fetchone()
-            no_file_at_count = no_file_at_result[0] if no_file_at_result else 0
-            
-            cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (ebay_median_price IS NULL OR ebay_median_price = 0)', (status,))
-            no_ebay_price_result = cursor.fetchone()
-            no_ebay_price_count = no_ebay_price_result[0] if no_ebay_price_result else 0
-            
-            cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND price_tag_printed = 0', (status,))
-            price_tags_not_printed_result = cursor.fetchone()
-            price_tags_not_printed_count = price_tags_not_printed_result[0] if price_tags_not_printed_result else 0
-            
-            conn.close()
-            
-            return {
-                'records_count': int(records_count) if records_count is not None else 0,
-                'no_barcode_count': int(no_barcode_count) if no_barcode_count is not None else 0,
-                'no_file_at_count': int(no_file_at_count) if no_file_at_count is not None else 0,
-                'no_ebay_price_count': int(no_ebay_price_count) if no_ebay_price_count is not None else 0,
-                'price_tags_not_printed_count': int(price_tags_not_printed_count) if price_tags_not_printed_count is not None else 0
-            }
-        except Exception as e:
-            st.error(f"Error getting stats: {e}")
-            return {'records_count': 0, 'no_barcode_count': 0, 'no_file_at_count': 0, 'no_ebay_price_count': 0, 'price_tags_not_printed_count': 0}
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ?', (status,))
+        records_count_result = cursor.fetchone()
+        records_count = records_count_result[0] if records_count_result else 0
+        
+        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (barcode IS NULL OR barcode = "")', (status,))
+        no_barcode_result = cursor.fetchone()
+        no_barcode_count = no_barcode_result[0] if no_barcode_result else 0
+        
+        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (file_at IS NULL OR file_at = "")', (status,))
+        no_file_at_result = cursor.fetchone()
+        no_file_at_count = no_file_at_result[0] if no_file_at_result else 0
+        
+        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (ebay_median_price IS NULL OR ebay_median_price = 0)', (status,))
+        no_ebay_price_result = cursor.fetchone()
+        no_ebay_price_count = no_ebay_price_result[0] if no_ebay_price_result else 0
+        
+        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND price_tag_printed = 0', (status,))
+        price_tags_not_printed_result = cursor.fetchone()
+        price_tags_not_printed_count = price_tags_not_printed_result[0] if price_tags_not_printed_result else 0
+        
+        conn.close()
+        
+        return {
+            'records_count': int(records_count) if records_count is not None else 0,
+            'no_barcode_count': int(no_barcode_count) if no_barcode_count is not None else 0,
+            'no_file_at_count': int(no_file_at_count) if no_file_at_count is not None else 0,
+            'no_ebay_price_count': int(no_ebay_price_count) if no_ebay_price_count is not None else 0,
+            'price_tags_not_printed_count': int(price_tags_not_printed_count) if price_tags_not_printed_count is not None else 0
+        }
 
     def _get_all_records_direct(self, status: str, search_term: str = None, filter_option: str = None) -> pd.DataFrame:
         """Get all records directly from records table with optional filtering"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            
-            # Simple query - only from records table with correct column names
-            base_query = """
-            SELECT 
-                id, artist, title, 
-                discogs_median_price, discogs_lowest_price, discogs_highest_price,
-                ebay_median_price, ebay_lowest_price, ebay_highest_price,
-                image_url, barcode, format, condition, created_at, genre, file_at, price_tag_printed, price
-            FROM records 
-            WHERE status = ?
+        conn = st.session_state.db_manager._get_connection()
+        
+        # Simple query - only from records table with correct column names
+        base_query = """
+        SELECT 
+            id, artist, title, 
+            discogs_median_price, discogs_lowest_price, discogs_highest_price,
+            ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count,
+            image_url, barcode, format, condition, created_at, genre, file_at, price_tag_printed, price
+        FROM records 
+        WHERE status = ?
+        """
+        
+        params = [status]
+        
+        # Apply search filter
+        if search_term:
+            base_query += """
+            AND (artist LIKE ? 
+                OR title LIKE ? 
+                OR barcode LIKE ?)
             """
-            
-            params = [status]
-            
-            # Apply search filter
-            if search_term:
-                base_query += """
-                AND (artist LIKE ? 
-                    OR title LIKE ? 
-                    OR barcode LIKE ?)
-                """
-                search_pattern = f"%{search_term}%"
-                params.extend([search_pattern, search_pattern, search_pattern])
-            
-            # Apply quick filters
-            if filter_option == "No Barcode":
-                base_query += " AND (barcode IS NULL OR barcode = '')"
-            elif filter_option == "No Price Data":
-                base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
-            elif filter_option == "No Genre":
-                base_query += " AND (genre IS NULL OR genre = '')"
-            elif filter_option == "No File At":
-                base_query += " AND (file_at IS NULL OR file_at = '')"
-            elif filter_option == "No eBay Price":
-                base_query += " AND (ebay_median_price IS NULL OR ebay_median_price = 0)"
-            elif filter_option == "Price Tags Not Printed":
-                base_query += " AND price_tag_printed = 0"
-            
-            # FIXED: Proper numerical sorting for ALL price columns with NULLs at bottom
-            base_query += """ 
-            ORDER BY 
-                CASE 
-                    WHEN ebay_median_price IS NULL OR ebay_median_price = '' OR ebay_median_price = 0 THEN 999999
-                    ELSE CAST(ebay_median_price AS REAL)
-                END ASC,
-                CASE 
-                    WHEN discogs_median_price IS NULL OR discogs_median_price = '' OR discogs_median_price = 0 THEN 999999
-                    ELSE CAST(discogs_median_price AS REAL)
-                END ASC,
-                CASE 
-                    WHEN ebay_lowest_price IS NULL OR ebay_lowest_price = '' OR ebay_lowest_price = 0 THEN 999999
-                    ELSE CAST(ebay_lowest_price AS REAL)
-                END ASC,
-                CASE 
-                    WHEN ebay_highest_price IS NULL OR ebay_highest_price = '' OR ebay_highest_price = 0 THEN 999999
-                    ELSE CAST(ebay_highest_price AS REAL)
-                END ASC,
-                CASE 
-                    WHEN discogs_lowest_price IS NULL OR discogs_lowest_price = '' OR discogs_lowest_price = 0 THEN 999999
-                    ELSE CAST(discogs_lowest_price AS REAL)
-                END ASC,
-                CASE 
-                    WHEN discogs_highest_price IS NULL OR discogs_highest_price = '' OR discogs_highest_price = 0 THEN 999999
-                    ELSE CAST(discogs_highest_price AS REAL)
-                END ASC
-            """
-            
-            df = pd.read_sql_query(base_query, conn, params=params)
-            conn.close()
-            return df
-            
-        except Exception as e:
-            st.error(f"Error loading records: {e}")
-            return pd.DataFrame()
+            search_pattern = f"%{search_term}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+        
+        # Apply quick filters
+        if filter_option == "No Barcode":
+            base_query += " AND (barcode IS NULL OR barcode = '')"
+        elif filter_option == "No Price Data":
+            base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
+        elif filter_option == "No Genre":
+            base_query += " AND (genre IS NULL OR genre = '')"
+        elif filter_option == "No File At":
+            base_query += " AND (file_at IS NULL OR file_at = '')"
+        elif filter_option == "No eBay Price":
+            base_query += " AND (ebay_median_price IS NULL OR ebay_median_price = 0)"
+        elif filter_option == "Price Tags Not Printed":
+            base_query += " AND price_tag_printed = 0"
+        
+        # FIXED: Proper numerical sorting for ALL price columns with NULLs at bottom
+        base_query += """ 
+        ORDER BY 
+            CASE 
+                WHEN ebay_median_price IS NULL OR ebay_median_price = '' OR ebay_median_price = 0 THEN 999999
+                ELSE CAST(ebay_median_price AS REAL)
+            END ASC,
+            CASE 
+                WHEN discogs_median_price IS NULL OR discogs_median_price = '' OR discogs_median_price = 0 THEN 999999
+                ELSE CAST(discogs_median_price AS REAL)
+            END ASC,
+            CASE 
+                WHEN ebay_lowest_price IS NULL OR ebay_lowest_price = '' OR ebay_lowest_price = 0 THEN 999999
+                ELSE CAST(ebay_lowest_price AS REAL)
+            END ASC,
+            CASE 
+                WHEN ebay_highest_price IS NULL OR ebay_highest_price = '' OR ebay_highest_price = 0 THEN 999999
+                ELSE CAST(ebay_highest_price AS REAL)
+            END ASC,
+            CASE 
+                WHEN discogs_lowest_price IS NULL OR discogs_lowest_price = '' OR discogs_lowest_price = 0 THEN 999999
+                ELSE CAST(discogs_lowest_price AS REAL)
+            END ASC,
+            CASE 
+                WHEN discogs_highest_price IS NULL OR discogs_highest_price = '' OR discogs_highest_price = 0 THEN 999999
+                ELSE CAST(discogs_highest_price AS REAL)
+            END ASC
+        """
+        
+        df = pd.read_sql_query(base_query, conn, params=params)
+        conn.close()
+        return df
 
     def _get_total_filtered_count(self, status: str, search_term: str = None, filter_option: str = None) -> int:
         """Get total count of records after applying filters"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            
-            base_query = "SELECT COUNT(*) FROM records WHERE status = ?"
-            params = [status]
-            
-            if search_term:
-                base_query += """
-                AND (artist LIKE ? 
-                    OR title LIKE ? 
-                    OR barcode LIKE ?)
-                """
-                search_pattern = f"%{search_term}%"
-                params.extend([search_pattern, search_pattern, search_pattern])
-            
-            if filter_option == "No Barcode":
-                base_query += " AND (barcode IS NULL OR barcode = '')"
-            elif filter_option == "No Price Data":
-                base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
-            elif filter_option == "No Genre":
-                base_query += " AND (genre IS NULL OR genre = '')"
-            elif filter_option == "No File At":
-                base_query += " AND (file_at IS NULL OR file_at = '')"
-            elif filter_option == "No eBay Price":
-                base_query += " AND (ebay_median_price IS NULL OR ebay_median_price = 0)"
-            elif filter_option == "Price Tags Not Printed":
-                base_query += " AND price_tag_printed = 0"
-            
-            cursor.execute(base_query, params)
-            count_result = cursor.fetchone()
-            count = count_result[0] if count_result else 0
-            conn.close()
-            return int(count) if count is not None else 0
-            
-        except Exception as e:
-            st.error(f"Error counting records: {e}")
-            return 0
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        
+        base_query = "SELECT COUNT(*) FROM records WHERE status = ?"
+        params = [status]
+        
+        if search_term:
+            base_query += """
+            AND (artist LIKE ? 
+                OR title LIKE ? 
+                OR barcode LIKE ?)
+            """
+            search_pattern = f"%{search_term}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+        
+        if filter_option == "No Barcode":
+            base_query += " AND (barcode IS NULL OR barcode = '')"
+        elif filter_option == "No Price Data":
+            base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
+        elif filter_option == "No Genre":
+            base_query += " AND (genre IS NULL OR genre = '')"
+        elif filter_option == "No File At":
+            base_query += " AND (file_at IS NULL OR file_at = '')"
+        elif filter_option == "No eBay Price":
+            base_query += " AND (ebay_median_price IS NULL OR ebay_median_price = 0)"
+        elif filter_option == "Price Tags Not Printed":
+            base_query += " AND price_tag_printed = 0"
+        
+        cursor.execute(base_query, params)
+        count_result = cursor.fetchone()
+        count = count_result[0] if count_result else 0
+        conn.close()
+        return int(count) if count is not None else 0
 
     def _render_records_table(self, status, search_term, filter_option):
         """Render records with pagination"""
@@ -619,23 +589,45 @@ class InventoryTab:
             # Calculate eBay price for display
             ebay_price = self.price_handler.calculate_ebay_price(record.get('ebay_lowest_price'))
             
-            display_data.append({
+            display_record = {
                 'Select': is_selected,
                 'Price Tag': price_tag_status,
                 'Cover': record.get('image_url', ''),
                 'Artist': record.get('artist', ''),
                 'Title': record.get('title', ''),
-                'Genre': record.get('genre', ''),  # Added Genre column
-                'Barcode': record.get('barcode', ''),
-                'File At': record.get('file_at', ''),
-                'Condition': record.get('condition', ''),
-                'Format': record.get('format', ''),
                 'Store Price': self._format_currency(record.get('price')),  # Store price from database
                 'eBay Price': self._format_currency(ebay_price),  # Calculated eBay price
-                'Discogs Median': self._format_currency(record.get('discogs_median_price')),
-                'eBay Lowest': self._format_currency(record.get('ebay_lowest_price')),
                 'Added': record.get('created_at', '')[:16] if record.get('created_at') else ''
-            })
+            }
+            
+            # Add eBay columns if enabled
+            if st.session_state.show_ebay_columns:
+                display_record.update({
+                    'eBay Count': record.get('ebay_count', 0) or 0,
+                    'eBay Median': self._format_currency(record.get('ebay_median_price')),
+                    'eBay Lowest': self._format_currency(record.get('ebay_lowest_price')),
+                    'eBay Highest': self._format_currency(record.get('ebay_highest_price'))
+                })
+            
+            # Add Discogs columns if enabled
+            if st.session_state.show_discogs_columns:
+                display_record.update({
+                    'Discogs Median': self._format_currency(record.get('discogs_median_price')),
+                    'Discogs Lowest': self._format_currency(record.get('discogs_lowest_price')),
+                    'Discogs Highest': self._format_currency(record.get('discogs_highest_price'))
+                })
+            
+            # Add filing columns if enabled
+            if st.session_state.show_filing_columns:
+                display_record.update({
+                    'Genre': record.get('genre', ''),
+                    'File At': record.get('file_at', ''),
+                    'Barcode': record.get('barcode', ''),
+                    'Condition': record.get('condition', ''),
+                    'Format': record.get('format', '')
+                })
+            
+            display_data.append(display_record)
         
         display_df = pd.DataFrame(display_data)
         
@@ -646,17 +638,37 @@ class InventoryTab:
             'Cover': st.column_config.ImageColumn('Cover', width='small'),
             'Artist': st.column_config.TextColumn('Artist', width='medium'),
             'Title': st.column_config.TextColumn('Title', width='large'),
-            'Genre': st.column_config.TextColumn('Genre', width='medium'),  # Added Genre column
-            'Barcode': st.column_config.TextColumn('Barcode', width='small'),
-            'File At': st.column_config.TextColumn('File At', width='small'),
-            'Condition': st.column_config.TextColumn('Condition', width='small'),
-            'Format': st.column_config.TextColumn('Format', width='small'),
             'Store Price': st.column_config.TextColumn('Store Price', width='small'),
             'eBay Price': st.column_config.TextColumn('eBay Price', width='small'),
-            'Discogs Median': st.column_config.TextColumn('Discogs Median', width='small'),
-            'eBay Lowest': st.column_config.TextColumn('eBay Lowest', width='small'),
             'Added': st.column_config.TextColumn('Added', width='small'),
         }
+        
+        # Add eBay columns to config if enabled
+        if st.session_state.show_ebay_columns:
+            column_config.update({
+                'eBay Count': st.column_config.NumberColumn('eBay Count', width='small'),
+                'eBay Median': st.column_config.TextColumn('eBay Median', width='small'),
+                'eBay Lowest': st.column_config.TextColumn('eBay Lowest', width='small'),
+                'eBay Highest': st.column_config.TextColumn('eBay Highest', width='small')
+            })
+        
+        # Add Discogs columns to config if enabled
+        if st.session_state.show_discogs_columns:
+            column_config.update({
+                'Discogs Median': st.column_config.TextColumn('Discogs Median', width='small'),
+                'Discogs Lowest': st.column_config.TextColumn('Discogs Lowest', width='small'),
+                'Discogs Highest': st.column_config.TextColumn('Discogs Highest', width='small')
+            })
+        
+        # Add filing columns to config if enabled
+        if st.session_state.show_filing_columns:
+            column_config.update({
+                'Genre': st.column_config.TextColumn('Genre', width='medium'),
+                'File At': st.column_config.TextColumn('File At', width='small'),
+                'Barcode': st.column_config.TextColumn('Barcode', width='small'),
+                'Condition': st.column_config.TextColumn('Condition', width='small'),
+                'Format': st.column_config.TextColumn('Format', width='small')
+            })
         
         # Add select all checkbox
         col1, col2 = st.columns([1, 5])
@@ -693,38 +705,28 @@ class InventoryTab:
             st.warning("Please select records first using the checkboxes in the table.")
             return
             
-        try:
-            selected_ids = st.session_state.selected_records
-            if self._delete_records(selected_ids):
-                st.success(f"Deleted {len(selected_ids)} records!")
-                # Clear selection after deletion
-                st.session_state.selected_records = []
-                st.session_state.records_updated += 1
-                st.rerun()
-        except Exception as e:
-            st.error(f"Error deleting records: {e}")
+        selected_ids = st.session_state.selected_records
+        if self._delete_records(selected_ids):
+            st.success(f"Deleted {len(selected_ids)} records!")
+            # Clear selection after deletion
+            st.session_state.selected_records = []
+            st.session_state.records_updated += 1
+            st.rerun()
 
     def _format_currency(self, value):
         """Format currency values"""
         if not value:
             return "$N/A"
-        try:
-            return f"${float(value):.2f}"
-        except (ValueError, TypeError):
-            return "$N/A"
+        return f"${float(value):.2f}"
 
     def _delete_records(self, record_ids):
         """Delete records from the database"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.executemany('DELETE FROM records WHERE id = ?', [(id,) for id in record_ids])
-            conn.commit()
-            conn.close()
-            return True
-        except Exception as e:
-            st.error(f"Error deleting records: {e}")
-            return False
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.executemany('DELETE FROM records WHERE id = ?', [(id,) for id in record_ids])
+        conn.commit()
+        conn.close()
+        return True
 
     def _generate_barcodes_for_existing_records(self):
         """Generate barcodes for records without them"""
@@ -732,41 +734,37 @@ class InventoryTab:
             st.warning("Please select records first using the checkboxes in the table.")
             return
             
-        try:
-            selected_ids = st.session_state.selected_records
-            placeholders = ','.join(['?'] * len(selected_ids))
+        selected_ids = st.session_state.selected_records
+        placeholders = ','.join(['?'] * len(selected_ids))
+        
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(f'SELECT id FROM records WHERE id IN ({placeholders}) AND (barcode IS NULL OR barcode = "" OR barcode NOT GLOB "[0-9]*")', selected_ids)
+        records_without_barcodes = cursor.fetchall()
+        
+        cursor.execute('SELECT MAX(CAST(barcode AS INTEGER)) as max_barcode FROM records WHERE barcode GLOB "[0-9]*"')
+        result = cursor.fetchone()
+        current_max = result[0] if result[0] is not None else 100000
+        
+        updated_count = 0
+        for record in records_without_barcodes:
+            record_id = record[0]
+            current_max += 1
+            # Use update_record to track changes properly
+            success = st.session_state.db_manager.update_record(record_id, {'barcode': str(current_max)})
+            if success:
+                updated_count += 1
+        
+        conn.close()
+        
+        if updated_count > 0:
+            st.success(f"✅ Generated barcodes for {updated_count} records!")
+        else:
+            st.info("✅ All selected records already have barcodes!")
             
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute(f'SELECT id FROM records WHERE id IN ({placeholders}) AND (barcode IS NULL OR barcode = "" OR barcode NOT GLOB "[0-9]*")', selected_ids)
-            records_without_barcodes = cursor.fetchall()
-            
-            cursor.execute('SELECT MAX(CAST(barcode AS INTEGER)) as max_barcode FROM records WHERE barcode GLOB "[0-9]*"')
-            result = cursor.fetchone()
-            current_max = result[0] if result[0] is not None else 100000
-            
-            updated_count = 0
-            for record in records_without_barcodes:
-                record_id = record[0]
-                current_max += 1
-                # Use update_record to track changes properly
-                success = st.session_state.db_manager.update_record(record_id, {'barcode': str(current_max)})
-                if success:
-                    updated_count += 1
-            
-            conn.close()
-            
-            if updated_count > 0:
-                st.success(f"✅ Generated barcodes for {updated_count} records!")
-            else:
-                st.info("✅ All selected records already have barcodes!")
-                
-            st.session_state.records_updated += 1
-            st.rerun()
-            
-        except Exception as e:
-            st.error(f"Error generating barcodes: {e}")
+        st.session_state.records_updated += 1
+        st.rerun()
 
     def _generate_file_at_for_selected_records(self):
         """Generate file_at values for selected records"""
@@ -774,35 +772,31 @@ class InventoryTab:
             st.warning("Please select records first using the checkboxes in the table.")
             return
             
-        try:
-            selected_ids = st.session_state.selected_records
-            placeholders = ','.join(['?'] * len(selected_ids))
+        selected_ids = st.session_state.selected_records
+        placeholders = ','.join(['?'] * len(selected_ids))
+        
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders})', conn, params=selected_ids)
+        conn.close()
+        
+        updated_count = 0
+        for _, record in df.iterrows():
+            artist = record.get('artist', '')
+            genre = record.get('genre', 'Unknown')
+            file_at_letter = self._calculate_file_at(artist)
+            file_at = f"{genre}({file_at_letter})"
             
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders})', conn, params=selected_ids)
-            conn.close()
-            
-            updated_count = 0
-            for _, record in df.iterrows():
-                artist = record.get('artist', '')
-                genre = record.get('genre', 'Unknown')
-                file_at_letter = self._calculate_file_at(artist)
-                file_at = f"{genre}({file_at_letter})"
-                
-                # Use update_record to track changes properly
-                success = st.session_state.db_manager.update_record(record['id'], {'file_at': file_at})
-                if success:
-                    updated_count += 1
-            
-            if updated_count > 0:
-                st.success(f"✅ Regenerated file_at for {updated_count} records!")
-                st.session_state.records_updated += 1
-                st.rerun()
-            else:
-                st.info("✅ File_at values updated!")
-                
-        except Exception as e:
-            st.error(f"Error generating file_at values: {e}")
+            # Use update_record to track changes properly
+            success = st.session_state.db_manager.update_record(record['id'], {'file_at': file_at})
+            if success:
+                updated_count += 1
+        
+        if updated_count > 0:
+            st.success(f"✅ Regenerated file_at for {updated_count} records!")
+            st.session_state.records_updated += 1
+            st.rerun()
+        else:
+            st.info("✅ File_at values updated!")
 
     def _generate_price_tags_pdf(self):
         """Generate price tags PDF for selected records"""
@@ -810,33 +804,29 @@ class InventoryTab:
             st.warning("Please select records first using the checkboxes in the table.")
             return
         
-        try:
-            # Get selected records data
-            selected_ids = st.session_state.selected_records
-            placeholders = ','.join(['?'] * len(selected_ids))
-            
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders}) AND status = "inventory"', conn, params=selected_ids)
-            conn.close()
-            
-            records_list = df.to_dict('records')
-            pdf_buffer = self._generate_price_tags_pdf_for_records(records_list)
-            
-            # Mark price tags as printed
-            st.session_state.db_manager.mark_price_tags_printed(selected_ids)
-            
-            st.download_button(
-                label="⬇️ Download Price Tags PDF",
-                data=pdf_buffer.getvalue(),
-                file_name=f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                mime="application/pdf"
-            )
-            
-            st.success(f"✅ Price tags PDF ready! {len(records_list)} records marked as printed.")
-            st.session_state.records_updated += 1
-            
-        except Exception as e:
-            st.error(f"Error generating price tags: {e}")
+        # Get selected records data
+        selected_ids = st.session_state.selected_records
+        placeholders = ','.join(['?'] * len(selected_ids))
+        
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql(f'SELECT * FROM records WHERE id IN ({placeholders}) AND status = "inventory"', conn, params=selected_ids)
+        conn.close()
+        
+        records_list = df.to_dict('records')
+        pdf_buffer = self._generate_price_tags_pdf_for_records(records_list)
+        
+        # Mark price tags as printed
+        st.session_state.db_manager.mark_price_tags_printed(selected_ids)
+        
+        st.download_button(
+            label="⬇️ Download Price Tags PDF",
+            data=pdf_buffer.getvalue(),
+            file_name=f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            mime="application/pdf"
+        )
+        
+        st.success(f"✅ Price tags PDF ready! {len(records_list)} records marked as printed.")
+        st.session_state.records_updated += 1
 
     def _generate_price_tags_pdf_for_records(self, records):
         """Generate PDF with price tags for given records"""
@@ -953,17 +943,10 @@ class InventoryTab:
         # Barcode
         barcode = record.get('barcode', '')
         if barcode:
-            try:
-                barcode_obj = code128.Code128(barcode, barWidth=0.4*mm, barHeight=4*mm)
-                barcode_x = x + padding - (5 * mm)
-                barcode_y = y - 42 - (1.5 * mm)
-                barcode_obj.drawOn(c, barcode_x, barcode_y)
-            except:
-                c.setFont("Helvetica", font_size - 2)
-                barcode_text = f"#{barcode}"
-                barcode_x = x + padding - (5 * mm)
-                barcode_y = y - 42 - (1.5 * mm)
-                c.drawString(barcode_x, barcode_y, barcode_text)
+            barcode_obj = code128.Code128(barcode, barWidth=0.4*mm, barHeight=4*mm)
+            barcode_x = x + padding - (5 * mm)
+            barcode_y = y - 42 - (1.5 * mm)
+            barcode_obj.drawOn(c, barcode_x, barcode_y)
 
     def _create_abbreviation(self, artist, title):
         """Create abbreviation from artist and title"""
@@ -1002,3 +985,30 @@ class InventoryTab:
                 high = mid
         
         return text[:low-1] + "..."
+
+    def _calculate_file_at(self, artist):
+        """Calculate file_at value for an artist"""
+        if not artist:
+            return "?"
+        
+        # Remove leading/trailing whitespace and convert to lowercase for processing
+        artist_clean = artist.strip().lower()
+        
+        # Handle "The " prefix
+        if artist_clean.startswith('the '):
+            artist_clean = artist_clean[4:]
+        
+        # Handle numbers
+        if artist_clean and artist_clean[0].isdigit():
+            number_words = {
+                '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+                '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+            }
+            first_char = artist_clean[0]
+            return number_words.get(first_char, '?')[0].upper()
+        
+        # Return first character if it's a letter
+        if artist_clean and artist_clean[0].isalpha():
+            return artist_clean[0].upper()
+        
+        return "?"

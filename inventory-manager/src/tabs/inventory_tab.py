@@ -83,31 +83,12 @@ class InventoryTab:
         with col7:
             if st.button("🔄 Update eBay Prices", use_container_width=True, help="Update eBay prices for selected records"):
                 self._update_ebay_prices_for_selected()
-            
-        # Column visibility controls in expandable section
-        with st.expander("📊 Column Visibility Controls", expanded=False):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.session_state.show_ebay_columns = st.checkbox(
-                    "Show eBay Columns", 
-                    value=st.session_state.show_ebay_columns,
-                    help="Show/hide eBay pricing columns"
-                )
-            with col2:
-                st.session_state.show_discogs_columns = st.checkbox(
-                    "Show Discogs Columns", 
-                    value=st.session_state.show_discogs_columns,
-                    help="Show/hide Discogs pricing columns"
-                )
-            with col3:
-                st.session_state.show_filing_columns = st.checkbox(
-                    "Show Filing Columns", 
-                    value=st.session_state.show_filing_columns,
-                    help="Show/hide filing columns (Genre, File At, Barcode)"
-                )
         
         # Price Settings and Genre Management in expandable sections
         with st.expander("💰 Price Settings", expanded=False):
+            st.subheader("eBay Pricing Strategy")
+            st.write("Dynamic calculation from eBay lowest price with cutoff and .49/.99 rounding")
+            
             new_cutoff = st.number_input(
                 "eBay Cutoff Price",
                 min_value=0.0,
@@ -181,6 +162,25 @@ class InventoryTab:
                     file_name=filename,
                     mime="application/pdf"
                 )
+        
+        # Column visibility controls in expandable section - MOVED BELOW GENRE PRINTING
+        with st.expander("📊 Column Visibility Controls", expanded=False):
+            # Changed from row to array layout
+            st.session_state.show_ebay_columns = st.checkbox(
+                "Show eBay Columns", 
+                value=st.session_state.show_ebay_columns,
+                help="Show/hide eBay pricing columns"
+            )
+            st.session_state.show_discogs_columns = st.checkbox(
+                "Show Discogs Columns", 
+                value=st.session_state.show_discogs_columns,
+                help="Show/hide Discogs pricing columns"
+            )
+            st.session_state.show_filing_columns = st.checkbox(
+                "Show Filing Columns", 
+                value=st.session_state.show_filing_columns,
+                help="Show/hide filing columns (Genre, File At, Barcode)"
+            )
             
         # Second row: Search and filters
         col1, col2 = st.columns([2, 1])
@@ -313,7 +313,7 @@ class InventoryTab:
         return True
 
     def _update_ebay_prices_for_selected(self):
-        """Update eBay prices for selected records"""
+        """Update eBay prices for selected records - NOW STORES IN ebay_sell_at"""
         if not st.session_state.selected_records:
             st.warning("Please select records first using the checkboxes in the table.")
             return
@@ -341,12 +341,20 @@ class InventoryTab:
             
             ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
             if ebay_pricing:
+                # Calculate final eBay selling price
+                ebay_sell_price = self.price_handler.calculate_ebay_price(ebay_pricing.get('ebay_lowest_price'))
+                
+                # Set to NULL if below cutoff - FIXED LOGIC
+                if ebay_sell_price and ebay_sell_price < self.price_handler.ebay_cutoff_price:
+                    ebay_sell_price = None
+                
                 # Use update_record to track changes properly
                 updates = {
                     'ebay_median_price': ebay_pricing.get('ebay_median_price'),
                     'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price'),
                     'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
-                    'ebay_count': ebay_pricing.get('ebay_listings_count', 0)
+                    'ebay_count': ebay_pricing.get('ebay_listings_count', 0),
+                    'ebay_sell_at': ebay_sell_price
                 }
                 success = st.session_state.db_manager.update_record(record['id'], updates)
                 if success:
@@ -358,14 +366,14 @@ class InventoryTab:
         progress_bar.empty()
         
         if updated_count > 0:
-            st.success(f"✅ Updated eBay prices for {updated_count} records!")
+            st.success(f"✅ Updated eBay prices for {updated_count} records! Stored in ebay_sell_at.")
             st.session_state.records_updated += 1
             st.rerun()
         else:
             st.warning("No eBay prices were updated. Check debug tab for details.")
 
     def _export_ebay_list(self):
-        """Export selected records as eBay draft listings"""
+        """Export selected records as eBay draft listings - NOW USES ebay_sell_at"""
         if not st.session_state.selected_records:
             st.warning("Please select records first using the checkboxes in the table.")
             return
@@ -415,7 +423,7 @@ class InventoryTab:
         no_file_at_result = cursor.fetchone()
         no_file_at_count = no_file_at_result[0] if no_file_at_result else 0
         
-        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (ebay_median_price IS NULL OR ebay_median_price = 0)', (status,))
+        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ? AND (ebay_sell_at IS NULL OR ebay_sell_at = 0)', (status,))
         no_ebay_price_result = cursor.fetchone()
         no_ebay_price_count = no_ebay_price_result[0] if no_ebay_price_result else 0
         
@@ -442,7 +450,7 @@ class InventoryTab:
         SELECT 
             id, artist, title, 
             discogs_median_price, discogs_lowest_price, discogs_highest_price,
-            ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count,
+            ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at,
             image_url, barcode, format, condition, created_at, genre, file_at, price_tag_printed, price
         FROM records 
         WHERE status = ?
@@ -470,7 +478,7 @@ class InventoryTab:
         elif filter_option == "No File At":
             base_query += " AND (file_at IS NULL OR file_at = '')"
         elif filter_option == "No eBay Price":
-            base_query += " AND (ebay_median_price IS NULL OR ebay_median_price = 0)"
+            base_query += " AND (ebay_sell_at IS NULL OR ebay_sell_at = 0)"
         elif filter_option == "Price Tags Not Printed":
             base_query += " AND price_tag_printed = 0"
         
@@ -533,7 +541,7 @@ class InventoryTab:
         elif filter_option == "No File At":
             base_query += " AND (file_at IS NULL OR file_at = '')"
         elif filter_option == "No eBay Price":
-            base_query += " AND (ebay_median_price IS NULL OR ebay_median_price = 0)"
+            base_query += " AND (ebay_sell_at IS NULL OR ebay_sell_at = 0)"
         elif filter_option == "Price Tags Not Printed":
             base_query += " AND price_tag_printed = 0"
         
@@ -586,9 +594,6 @@ class InventoryTab:
             is_selected = record['id'] in st.session_state.selected_records
             price_tag_status = "✅" if record.get('price_tag_printed') else "❌"
             
-            # Calculate eBay price for display
-            ebay_price = self.price_handler.calculate_ebay_price(record.get('ebay_lowest_price'))
-            
             display_record = {
                 'Select': is_selected,
                 'Price Tag': price_tag_status,
@@ -596,8 +601,7 @@ class InventoryTab:
                 'Artist': record.get('artist', ''),
                 'Title': record.get('title', ''),
                 'Store Price': self._format_currency(record.get('price')),  # Store price from database
-                'eBay Price': self._format_currency(ebay_price),  # Calculated eBay price
-                'Added': record.get('created_at', '')[:16] if record.get('created_at') else ''
+                'eBay Price': self._format_currency(record.get('ebay_sell_at')),  # NOW FROM ebay_sell_at
             }
             
             # Add eBay columns if enabled
@@ -627,6 +631,9 @@ class InventoryTab:
                     'Format': record.get('format', '')
                 })
             
+            # Add "Added" column at the end
+            display_record['Added'] = record.get('created_at', '')[:16] if record.get('created_at') else ''
+            
             display_data.append(display_record)
         
         display_df = pd.DataFrame(display_data)
@@ -640,7 +647,6 @@ class InventoryTab:
             'Title': st.column_config.TextColumn('Title', width='large'),
             'Store Price': st.column_config.TextColumn('Store Price', width='small'),
             'eBay Price': st.column_config.TextColumn('eBay Price', width='small'),
-            'Added': st.column_config.TextColumn('Added', width='small'),
         }
         
         # Add eBay columns to config if enabled
@@ -670,10 +676,13 @@ class InventoryTab:
                 'Format': st.column_config.TextColumn('Format', width='small')
             })
         
-        # Add select all checkbox
+        # Add "Added" column at the end
+        column_config['Added'] = st.column_config.TextColumn('Added', width='small')
+        
+        # Add select all checkbox with toggle functionality
         col1, col2 = st.columns([1, 5])
         with col1:
-            all_selected = st.checkbox("Select All", key=f"select_all_{status}")
+            all_currently_selected = st.checkbox("Select All", key=f"select_all_{status}")
         
         # Display editable dataframe with selection - FIXED: use full width
         edited_df = st.data_editor(
@@ -685,14 +694,11 @@ class InventoryTab:
             key=f"records_editor_{status}"
         )
         
-        # Handle select all functionality
-        if all_selected:
+        # Handle select all functionality - FIXED TOGGLE BEHAVIOR
+        if all_currently_selected:
             selected_ids = records['id'].tolist()
         else:
             selected_ids = []
-            for i, (_, original_record) in enumerate(records.iterrows()):
-                if i < len(edited_df) and edited_df.iloc[i]['Select']:
-                    selected_ids.append(original_record['id'])
         
         # Update selection state based on editor changes
         if set(selected_ids) != set(st.session_state.selected_records):

@@ -72,7 +72,7 @@ class DraftCSVHandler:
                 writer.writerows(valid_rows)
 
     def generate_ebay_txt_from_records(self, records, price_handler=None):
-        """Generate eBay formatted TXT content from record data"""
+        """Generate eBay formatted TXT content from record data - NOW USES ebay_sell_at"""
         output = io.StringIO()
         
         # Write info line
@@ -91,7 +91,7 @@ class DraftCSVHandler:
         return output.getvalue()
 
     def _format_record_for_ebay(self, record, price_handler=None):
-        """Format a single record for eBay import - use calculated eBay price"""
+        """Format a single record for eBay import - NOW USES ebay_sell_at"""
         # Map format to eBay category ID
         category_map = {
             "Vinyl": "176985",
@@ -116,12 +116,12 @@ class DraftCSVHandler:
         barcode = record.get('barcode', '')
         image_url = record.get('image_url', '')
         
-        # Calculate eBay price using PriceHandler
-        if price_handler:
+        # Use stored ebay_sell_at price from database
+        ebay_price = record.get('ebay_sell_at')
+        
+        # If no stored price, calculate dynamically as fallback
+        if ebay_price is None and price_handler:
             ebay_price = price_handler.calculate_ebay_price(record.get('ebay_lowest_price'))
-        else:
-            # Fallback: use discogs median price if no price handler
-            ebay_price = record.get('discogs_median_price', 0) or 0
         
         # Simple SKU from barcode or title
         if barcode:
@@ -142,7 +142,7 @@ class DraftCSVHandler:
             "Category ID": category_map.get(format_type, "176985"),
             "Title": ebay_title,
             "UPC": barcode,
-            "Price": f"{float(ebay_price):.2f}",
+            "Price": f"{float(ebay_price):.2f}" if ebay_price else "0.00",
             "Quantity": "1",
             "Item photo URL": image_url,
             "Condition ID": condition_map.get(condition, "3000"),

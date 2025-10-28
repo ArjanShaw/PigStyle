@@ -29,7 +29,7 @@ class DatabaseManager:
                 ebay_highest_price REAL,
                 ebay_count INTEGER,
                 ebay_sell_at REAL,
-                price REAL,
+                ebay_low_shipping REAL,
                 genre_id INTEGER NOT NULL,
                 image_url TEXT,
                 year TEXT,
@@ -51,8 +51,8 @@ class DatabaseManager:
         columns_to_add = [
             ('ebay_count', 'INTEGER'),
             ('ebay_sell_at', 'REAL'),
+            ('ebay_low_shipping', 'REAL'),
             ('store_price', 'REAL'),
-            ('price', 'REAL'),
             ('genre_id', 'INTEGER NOT NULL'),
             ('status', 'TEXT DEFAULT "inventory"'),
             ('price_tag_printed', 'BOOLEAN DEFAULT 0'),
@@ -64,6 +64,12 @@ class DatabaseManager:
                 cursor.execute(f"ALTER TABLE records ADD COLUMN {column_name} {column_type}")
             except sqlite3.OperationalError:
                 pass
+        
+        # Remove price column if it exists
+        try:
+            cursor.execute("ALTER TABLE records DROP COLUMN price")
+        except sqlite3.OperationalError:
+            pass
         
         # Failed searches table
         cursor.execute('''
@@ -269,9 +275,9 @@ class DatabaseManager:
         cursor.execute('''
             INSERT INTO records 
             (artist, title, discogs_median_price, discogs_lowest_price, discogs_highest_price,
-             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at,
+             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at, ebay_low_shipping,
              genre_id, image_url, catalog_number, format, barcode, condition, year, file_at, status, price_tag_printed, store_price)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -283,6 +289,7 @@ class DatabaseManager:
             result_data.get('ebay_highest_price'),
             result_data.get('ebay_count'),
             result_data.get('ebay_sell_at'),
+            result_data.get('ebay_low_shipping'),
             result_data.get('genre_id'),
             result_data.get('image_url', ''),
             result_data.get('catalog_number', ''),

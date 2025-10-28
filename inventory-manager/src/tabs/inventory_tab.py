@@ -68,10 +68,6 @@ class InventoryTab:
             st.session_state.record_added = None
         if 'last_condition' not in st.session_state:
             st.session_state.last_condition = "5"  # Default to condition 5
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
         
         # Action type selection - renamed from Search Type
         col1, col2 = st.columns([1, 3])
@@ -96,13 +92,6 @@ class InventoryTab:
             st.session_state.current_search = search_input.strip()
             st.session_state.selected_record = None  # Clear previous selection
             st.session_state.record_added = None  # Clear added record
-            st.session_state.api_logs = []  # Clear previous API logs
-            st.session_state.api_details = {}  # Clear previous API details
-            
-            if search_type == "Add item":
-                st.session_state.api_logs.append(f"🔍 Searching Discogs for: '{search_input.strip()}'")
-            else:
-                st.session_state.api_logs.append(f"🔍 Searching database for: '{search_input.strip()}'")
             
             if search_type == "Add item":
                 results = self.search_handler.perform_discogs_search(search_input.strip())
@@ -110,19 +99,6 @@ class InventoryTab:
             else:
                 results = self.search_handler.perform_database_search(search_input.strip())
                 st.session_state.search_results[search_input.strip()] = results
-        
-        # Show ALL API logs in the same collapsible component
-        if st.session_state.api_logs:
-            with st.expander("📡 API Requests & Responses", expanded=True):
-                for api_title in st.session_state.api_logs:
-                    if api_title in st.session_state.api_details:
-                        details = st.session_state.api_details[api_title]
-                        with st.expander(api_title, expanded=False):
-                            st.write("**Request:**")
-                            st.json(details['request'])
-                            if 'response' in details:
-                                st.write("**Response:**")
-                                st.json(details['response'])
         
         # Show success message and display added record details
         if st.session_state.get('record_added') is not None:
@@ -275,6 +251,19 @@ class InventoryTab:
                     self._update_single_ebay_sell_at(test_record_id.strip())
                 else:
                     self._update_all_ebay_sell_at()
+        
+        # Show eBay API logs in separate expander
+        if 'api_logs' in st.session_state and st.session_state.api_logs:
+            with st.expander("📡 eBay API Requests & Responses", expanded=False):
+                for api_title in st.session_state.api_logs:
+                    if api_title in st.session_state.api_details:
+                        details = st.session_state.api_details[api_title]
+                        with st.expander(api_title, expanded=False):
+                            st.write("**Request:**")
+                            st.json(details['request'])
+                            if 'response' in details:
+                                st.write("**Response:**")
+                                st.json(details['response'])
 
     def _get_database_stats_direct(self, status='inventory') -> dict:
         """Get database statistics directly from records table"""
@@ -438,6 +427,7 @@ class InventoryTab:
                 'Title': record.get('title', ''),
                 'Store Price': self._format_currency(record.get('store_price')),
                 'eBay Sell At': self._format_currency(record.get('ebay_sell_at')),
+                'eBay Low Shipping': self._format_currency(record.get('ebay_low_shipping')),
                 'Genre': record.get('genre', ''),
                 'File At': record.get('file_at', ''),
                 'Barcode': record.get('barcode', ''),
@@ -458,6 +448,7 @@ class InventoryTab:
             'Title': st.column_config.TextColumn('Title', width='large'),
             'Store Price': st.column_config.TextColumn('Store Price', width='small'),
             'eBay Sell At': st.column_config.TextColumn('eBay Sell At', width='small'),
+            'eBay Low Shipping': st.column_config.TextColumn('eBay Low Shipping', width='small'),
             'Genre': st.column_config.TextColumn('Genre', width='medium'),
             'File At': st.column_config.TextColumn('File At', width='small'),
             'Barcode': st.column_config.TextColumn('Barcode', width='small'),
@@ -507,8 +498,8 @@ class InventoryTab:
         SELECT 
             id, artist, title, 
             discogs_median_price, discogs_lowest_price, discogs_highest_price,
-            ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at,
-            image_url, barcode, format, condition, created_at, genre, file_at, price, store_price
+            ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at, ebay_low_shipping,
+            image_url, barcode, format, condition, created_at, genre, file_at, store_price
         FROM records_with_genres 
         WHERE status = ?
         """

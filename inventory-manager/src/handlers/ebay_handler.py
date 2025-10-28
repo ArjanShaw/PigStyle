@@ -84,6 +84,8 @@ class EbayHandler:
         items = data.get("itemSummaries", [])
         
         prices = []
+        shipping_costs = []
+        
         for item in items:
             if exclude_foreign:
                 marketplace_id = item.get("listingMarketplaceId")
@@ -94,6 +96,10 @@ class EbayHandler:
             if "value" in price_data:
                 price = float(price_data["value"])
                 prices.append(price)
+                
+                # Extract shipping cost
+                shipping_cost = self._extract_shipping_cost(item)
+                shipping_costs.append(shipping_cost)
 
         if prices:
             sorted_prices = sorted(prices)
@@ -104,11 +110,19 @@ class EbayHandler:
             else:
                 median = (sorted_prices[n//2 - 1] + sorted_prices[n//2]) / 2
 
+            # Find the lowest shipping cost
+            lowest_shipping = 0.0
+            if shipping_costs:
+                valid_shipping_costs = [cost for cost in shipping_costs if cost is not None]
+                if valid_shipping_costs:
+                    lowest_shipping = min(valid_shipping_costs)
+
             result = {
                 'ebay_median_price': round(median, 2),
                 'ebay_lowest_price': min(prices),
                 'ebay_highest_price': max(prices),
-                'ebay_listings_count': len(prices)
+                'ebay_listings_count': len(prices),
+                'ebay_low_shipping': round(lowest_shipping, 2)
             }
             
             # Log successful search response
@@ -118,7 +132,8 @@ class EbayHandler:
                 'prices_found': len(prices),
                 'median_price': result['ebay_median_price'],
                 'lowest_price': result['ebay_lowest_price'],
-                'highest_price': result['ebay_highest_price']
+                'highest_price': result['ebay_highest_price'],
+                'lowest_shipping': result['ebay_low_shipping']
             })
             
             return result
@@ -130,6 +145,29 @@ class EbayHandler:
                 'no_pricing_data': True
             })
             return None
+
+    def _extract_shipping_cost(self, item):
+        """Extract shipping cost from eBay item data"""
+        try:
+            shipping_options = item.get('shippingOptions', [])
+            if not shipping_options:
+                return 0.0  # Free shipping or no shipping info
+            
+            # Look for the cheapest shipping cost
+            shipping_costs = []
+            for option in shipping_options:
+                shipping_cost = option.get('shippingCost', {})
+                if 'value' in shipping_cost:
+                    cost = float(shipping_cost['value'])
+                    shipping_costs.append(cost)
+            
+            if shipping_costs:
+                return min(shipping_costs)
+            else:
+                return 0.0  # Free shipping
+                
+        except Exception as e:
+            return 0.0  # Default to free shipping on error
 
     def _log_api_call(self, title, request_data):
         """Log API call in unified format"""

@@ -83,12 +83,13 @@ class ExportHandler:
                         'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price'),
                         'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
                         'ebay_count': ebay_pricing.get('ebay_listings_count', 0),
-                        'ebay_sell_at': ebay_sell_price
+                        'ebay_sell_at': ebay_sell_price,
+                        'ebay_low_shipping': ebay_pricing.get('ebay_low_shipping', 0)
                     }
                     success = st.session_state.db_manager.update_record(record_id, updates)
                     if success:
                         updated_count += 1
-                        results.append(f"✅ {artist} - {title}: ${ebay_pricing.get('ebay_median_price', 0):.2f} (found {ebay_pricing.get('ebay_listings_count', 0)} listings)")
+                        results.append(f"✅ {artist} - {title}: ${ebay_pricing.get('ebay_median_price', 0):.2f} (found {ebay_pricing.get('ebay_listings_count', 0)} listings, shipping: ${ebay_pricing.get('ebay_low_shipping', 0):.2f})")
                     else:
                         failed_count += 1
                         results.append(f"❌ {artist} - {title}: Database update failed")
@@ -151,7 +152,8 @@ class ExportHandler:
                     'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price'),
                     'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
                     'ebay_count': ebay_pricing.get('ebay_listings_count', 0),
-                    'ebay_sell_at': ebay_sell_price
+                    'ebay_sell_at': ebay_sell_price,
+                    'ebay_low_shipping': ebay_pricing.get('ebay_low_shipping', 0)
                 }
                 success = st.session_state.db_manager.update_record(record_id, updates)
                 if success:
@@ -160,6 +162,7 @@ class ExportHandler:
                     st.write(f"Lowest: ${ebay_pricing.get('ebay_lowest_price', 0):.2f}")
                     st.write(f"Listings: {ebay_pricing.get('ebay_listings_count', 0)}")
                     st.write(f"Sell At: ${ebay_sell_price:.2f}")
+                    st.write(f"Low Shipping: ${ebay_pricing.get('ebay_low_shipping', 0):.2f}")
                     return 1
                 else:
                     st.error(f"❌ Database update failed for {artist} - {title}")

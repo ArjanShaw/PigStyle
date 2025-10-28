@@ -4,7 +4,7 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Record Gallery - PigStyle Records</title>
-    <link rel='stylesheet' href='catalog_style.css'>
+    <link rel='stylesheet' href='style.css'>
 </head>
 <body>
     <header>
@@ -48,20 +48,7 @@
             gallery.innerHTML = ''; // Clear loading message
 
             records.forEach(record => {
-                const card = document.createElement('div');
-                card.className = 'card highlight';
-                card.setAttribute('data-info', `${record.artist} ${record.title}`.toLowerCase());
-                
-                card.innerHTML = `
-                    <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
-                    <div class="card-info">
-                        <h3>${escapeHtml(record.title)}</h3>
-                        <p>${escapeHtml(record.artist)}</p>
-                        <p class="price">${record.price}</p>
-                        <p class="genre">${escapeHtml(record.genre)}</p>
-                    </div>
-                `;
-                
+                const card = createCardElement(record, true);
                 gallery.appendChild(card);
             });
 
@@ -69,60 +56,74 @@
             initializeSearch();
         }
 
+        // Create a card element
+        function createCardElement(record, isHighlighted) {
+            const card = document.createElement('div');
+            card.className = isHighlighted ? 'card highlight' : 'card not-highlight';
+            card.setAttribute('data-info', `${record.artist} ${record.title}`.toLowerCase());
+            card.setAttribute('data-artist', record.artist.toLowerCase());
+            card.setAttribute('data-title', record.title.toLowerCase());
+            
+            card.innerHTML = `
+                <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
+                <div class="card-info">
+                    <h3>${escapeHtml(record.title)}</h3>
+                    <p>${escapeHtml(record.artist)}</p>
+                    <p class="price">${record.price}</p>
+                    <p class="genre">${escapeHtml(record.genre)}</p>
+                </div>
+            `;
+            
+            return card;
+        }
+
         // Initialize search functionality
         function initializeSearch() {
             const searchBox = document.getElementById('searchBox');
+            const gallery = document.getElementById('gallery');
             
             searchBox.addEventListener('input', () => {
                 const term = searchBox.value.toLowerCase().trim();
+                const cards = Array.from(gallery.querySelectorAll('.card'));
                 
                 if (!term) {
-                    // If search is empty, show all records
-                    displayRecords(allRecords);
+                    // If search is empty, highlight all cards
+                    cards.forEach(card => {
+                        card.classList.add('highlight');
+                        card.classList.remove('not-highlight');
+                    });
+                    // Scroll to top when search is cleared
+                    gallery.scrollTop = 0;
                 } else {
-                    // Filter records based on search term
-                    const filteredRecords = allRecords.filter(record => {
-                        const searchString = `${record.artist} ${record.title}`.toLowerCase();
-                        return searchString.includes(term);
+                    let firstMatch = null;
+                    
+                    // Update highlighting for all cards
+                    cards.forEach(card => {
+                        const artist = card.getAttribute('data-artist');
+                        const title = card.getAttribute('data-title');
+                        const matches = artist.includes(term) || title.includes(term);
+                        
+                        if (matches) {
+                            card.classList.add('highlight');
+                            card.classList.remove('not-highlight');
+                            // Store reference to first matching card
+                            if (!firstMatch) {
+                                firstMatch = card;
+                            }
+                        } else {
+                            card.classList.remove('highlight');
+                            card.classList.add('not-highlight');
+                        }
                     });
                     
-                    // Display filtered records
-                    displayFilteredRecords(filteredRecords);
+                    // Scroll to first matching card if found
+                    if (firstMatch) {
+                        firstMatch.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                    }
                 }
-            });
-        }
-
-        // Display filtered records with proper highlighting
-        function displayFilteredRecords(filteredRecords) {
-            const gallery = document.getElementById('gallery');
-            gallery.innerHTML = ''; // Clear current gallery
-
-            // Create a map of filtered records for quick lookup
-            const filteredMap = new Map();
-            filteredRecords.forEach(record => {
-                filteredMap.set(`${record.artist} ${record.title}`.toLowerCase(), record);
-            });
-
-            // Display all records, but highlight only the filtered ones
-            allRecords.forEach(record => {
-                const card = document.createElement('div');
-                const recordKey = `${record.artist} ${record.title}`.toLowerCase();
-                const isHighlighted = filteredMap.has(recordKey);
-                
-                card.className = isHighlighted ? 'card highlight' : 'card not-highlight';
-                card.setAttribute('data-info', recordKey);
-                
-                card.innerHTML = `
-                    <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
-                    <div class="card-info">
-                        <h3>${escapeHtml(record.title)}</h3>
-                        <p>${escapeHtml(record.artist)}</p>
-                        <p class="price">${record.price}</p>
-                        <p class="genre">${escapeHtml(record.genre)}</p>
-                    </div>
-                `;
-                
-                gallery.appendChild(card);
             });
         }
 

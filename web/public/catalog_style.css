@@ -10,26 +10,27 @@ body {
 .gallery-popup { 
     display: flex;
     flex-direction: column;
-    gap: 20px; 
+    gap: 15px; 
     max-height: 70vh; 
     overflow-y: auto; 
     padding: 10px; 
     width: 100%;
-    max-width: 600px;
+    max-width: 50vw; /* Half the viewport width */
     margin: 0 auto;
 }
 .card { 
     display: flex; 
-    flex-direction: row; 
+    flex-direction: column; /* Stack image and info vertically */
     align-items: center; 
     background: #222; 
     border-radius: 12px; 
-    padding: 15px; 
+    padding: 20px; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
-    transition: all 0.2s ease; 
-    height: 220px;
+    transition: all 0.3s ease; 
+    height: 400px; /* Tall cards */
     width: 100%;
     box-sizing: border-box;
+    overflow: hidden;
 }
 .card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
@@ -39,15 +40,15 @@ body {
     width: 200px; 
     height: 200px; 
     border-radius: 8px; 
-    margin-right: 20px; 
+    margin-bottom: 15px; 
     object-fit: cover;
 }
 .card-info { 
     display: flex; 
     flex-direction: column; 
-    text-align: left; 
+    text-align: center; 
     flex: 1;
-    height: 100%;
+    width: 100%;
     justify-content: space-between;
 }
 .card-info h3 { 
@@ -65,11 +66,11 @@ body {
     font-size: 1rem;
 }
 .card.highlight { 
+    display: flex; /* Show matching cards */
     box-shadow: 0 0 0 2px #0ff; 
-    opacity: 1; 
 }
 .card.not-highlight { 
-    opacity: 0.4; 
+    display: none; /* Completely collapse non-matching cards */
 }
 input[type='text'] { 
     padding: 12px; 

@@ -4,16 +4,38 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Record Gallery - PigStyle Records</title>
-    <link rel='stylesheet' href='catalog_style.css'>
+    <link rel='stylesheet' href='style.css'>
 </head>
 <body>
     <header>
         <a href='index.html'><img src='images/pigstyle_text.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
     </header>
-    <h1>🎵 Record Gallery</h1>
-    <div class='search-container'>
-        <input type='text' id='searchBox' placeholder='Search artist or record...'>
+    
+    <div class="header-section">
+        <h1>🎵 Record Gallery</h1>
+        <div class='search-container'>
+            <input type='text' id='searchBox' placeholder='Search artist or record...'>
+        </div>
+        
+        <div class="filters-container">
+            <div class="filter-group">
+                <label for="artistFilter">Filter by Artist:</label>
+                <select id="artistFilter" class="filter-select">
+                    <option value="">All Artists</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="priceFilter">Price Range:</label>
+                <div class="price-inputs">
+                    <input type="number" id="minPrice" class="price-input" placeholder="Min" min="0">
+                    <span class="price-separator">-</span>
+                    <input type="number" id="maxPrice" class="price-input" placeholder="Max" min="0">
+                </div>
+            </div>
+        </div>
     </div>
+    
     <div class='gallery-popup' id='gallery'>
         <div id='loading'>
             <div class="loading-dots">
@@ -36,10 +58,24 @@
                 const response = await fetch('gallery-data.json');
                 allRecords = await response.json();
                 displayRecords(allRecords);
+                populateArtistFilter();
             } catch (error) {
                 console.error('Error loading gallery data:', error);
                 document.getElementById('gallery').innerHTML = '<div>Error loading records. Please try again later.</div>';
             }
+        }
+
+        // Populate artist filter dropdown
+        function populateArtistFilter() {
+            const artistFilter = document.getElementById('artistFilter');
+            const artists = [...new Set(allRecords.map(record => record.artist))].sort();
+            
+            artists.forEach(artist => {
+                const option = document.createElement('option');
+                option.value = artist;
+                option.textContent = artist;
+                artistFilter.appendChild(option);
+            });
         }
 
         // Display records in the gallery
@@ -52,8 +88,9 @@
                 gallery.appendChild(card);
             });
 
-            // Initialize search functionality
+            // Initialize search and filter functionality
             initializeSearch();
+            initializeFilters();
         }
 
         // Create a card element
@@ -62,6 +99,7 @@
             card.className = isHighlighted ? 'card highlight' : 'card not-highlight';
             card.setAttribute('data-artist', record.artist.toLowerCase());
             card.setAttribute('data-title', record.title.toLowerCase());
+            card.setAttribute('data-price', parseFloat(record.price.replace('$', '')));
             
             card.innerHTML = `
                 <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
@@ -82,48 +120,72 @@
             const gallery = document.getElementById('gallery');
             
             searchBox.addEventListener('input', () => {
-                const term = searchBox.value.toLowerCase().trim();
-                const cards = Array.from(gallery.querySelectorAll('.card'));
+                applyAllFilters();
+            });
+        }
+
+        // Initialize filter functionality
+        function initializeFilters() {
+            const artistFilter = document.getElementById('artistFilter');
+            const minPrice = document.getElementById('minPrice');
+            const maxPrice = document.getElementById('maxPrice');
+            
+            artistFilter.addEventListener('change', applyAllFilters);
+            minPrice.addEventListener('input', applyAllFilters);
+            maxPrice.addEventListener('input', applyAllFilters);
+        }
+
+        // Apply all filters (search, artist, price)
+        function applyAllFilters() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase().trim();
+            const selectedArtist = document.getElementById('artistFilter').value;
+            const minPriceValue = parseFloat(document.getElementById('minPrice').value) || 0;
+            const maxPriceValue = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+            
+            const gallery = document.getElementById('gallery');
+            const cards = Array.from(gallery.querySelectorAll('.card'));
+            
+            let firstMatch = null;
+            
+            cards.forEach(card => {
+                const artist = card.getAttribute('data-artist');
+                const title = card.getAttribute('data-title');
+                const price = parseFloat(card.getAttribute('data-price'));
                 
-                if (!term) {
-                    // If search is empty, show all cards
-                    cards.forEach(card => {
-                        card.classList.remove('not-highlight');
-                        card.classList.add('highlight');
-                    });
-                    // Scroll to top when search is cleared
-                    gallery.scrollTop = 0;
-                } else {
-                    let firstMatch = null;
-                    
-                    // Update visibility for all cards
-                    cards.forEach(card => {
-                        const artist = card.getAttribute('data-artist');
-                        const title = card.getAttribute('data-title');
-                        const matches = artist.includes(term) || title.includes(term);
-                        
-                        if (matches) {
-                            card.classList.remove('not-highlight');
-                            card.classList.add('highlight');
-                            // Store reference to first matching card
-                            if (!firstMatch) {
-                                firstMatch = card;
-                            }
-                        } else {
-                            card.classList.remove('highlight');
-                            card.classList.add('not-highlight');
-                        }
-                    });
-                    
-                    // Scroll to first matching card if found
-                    if (firstMatch) {
-                        firstMatch.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'center' 
-                        });
+                // Check search term match
+                const searchMatch = !searchTerm || 
+                    artist.includes(searchTerm) || 
+                    title.includes(searchTerm);
+                
+                // Check artist filter match
+                const artistMatch = !selectedArtist || 
+                    artist === selectedArtist.toLowerCase();
+                
+                // Check price range match
+                const priceMatch = price >= minPriceValue && price <= maxPriceValue;
+                
+                // Show card only if it matches all active filters
+                const shouldShow = searchMatch && artistMatch && priceMatch;
+                
+                if (shouldShow) {
+                    card.classList.remove('not-highlight');
+                    card.classList.add('highlight');
+                    if (!firstMatch) {
+                        firstMatch = card;
                     }
+                } else {
+                    card.classList.remove('highlight');
+                    card.classList.add('not-highlight');
                 }
             });
+            
+            // Scroll to first matching card if found
+            if (firstMatch) {
+                firstMatch.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }
         }
 
         // Helper function to escape HTML

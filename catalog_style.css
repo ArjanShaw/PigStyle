@@ -15,44 +15,47 @@ body {
     overflow-y: auto; 
     padding: 10px; 
     width: 100%;
-    max-width: 60vw; /* Slightly wider to accommodate side-by-side layout */
+    max-width: 60vw;
     margin: 0 auto;
 }
 .card { 
     display: flex; 
-    flex-direction: row; /* Image left, text right */
-    align-items: flex-start; /* Align items to top */
+    flex-direction: row;
+    align-items: flex-start;
     background: #222; 
     border-radius: 12px; 
     padding: 15px; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
     transition: all 0.3s ease; 
-    min-height: 150px; /* Reduced height for side-by-side */
     height: auto;
     width: 100%;
     box-sizing: border-box;
     overflow: hidden;
+    min-height: 0; /* Remove minimum height constraint */
 }
 .card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     transform: translateY(-2px);
 }
-.card img { 
-    width: 120px; 
-    height: 120px; 
+.card-image { 
+    flex: 0 0 50%; /* Take 50% of card width */
+    margin-right: 20px;
+}
+.card-image img { 
+    width: 100%; 
+    height: auto; 
+    aspect-ratio: 1; /* Make it square */
     border-radius: 8px; 
-    margin-right: 20px; 
     object-fit: cover;
-    flex-shrink: 0;
 }
 .card-info { 
     display: flex; 
     flex-direction: column; 
     text-align: left; 
     flex: 1;
-    height: 100%;
-    justify-content: flex-start; /* Align content to top */
+    justify-content: flex-start;
     gap: 8px;
+    min-height: 0; /* Allow content to determine height */
 }
 .card-info h3 { 
     margin: 0; 
@@ -64,11 +67,11 @@ body {
     font-size: 1rem;
 }
 .card.highlight { 
-    display: flex; /* Show matching cards */
+    display: flex;
     box-shadow: 0 0 0 2px #0ff; 
 }
 .card.not-highlight { 
-    display: none; /* Completely collapse non-matching cards */
+    display: none;
 }
 
 /* Header and search section */
@@ -90,6 +93,13 @@ body {
 }
 
 .filter-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.price-filter-group {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -150,6 +160,10 @@ header {
     color: #0ff;
     font-weight: bold;
     font-size: 1.3rem;
+}
+.artist {
+    font-weight: bold;
+    color: #fff;
 }
 .genre {
     color: #aaa;
@@ -218,22 +232,6 @@ header {
 }
 
 /* Ensure cards are properly sized on different screens */
-@media (max-height: 800px) {
-    .card {
-        min-height: 140px;
-    }
-}
-
-@media (max-height: 600px) {
-    .card {
-        min-height: 130px;
-    }
-    .card img {
-        width: 100px;
-        height: 100px;
-    }
-}
-
 @media (max-width: 768px) {
     .gallery-popup {
         max-width: 90vw;
@@ -246,11 +244,29 @@ header {
         align-items: center;
     }
     .card {
-        min-height: 120px;
+        flex-direction: column;
     }
-    .card img {
-        width: 80px;
-        height: 80px;
-        margin-right: 15px;
+    .card-image {
+        flex: 0 0 auto;
+        margin-right: 0;
+        margin-bottom: 15px;
+        width: 100%;
+    }
+    .card-image img {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .card-image img {
+        max-width: 250px;
+    }
+    .price-inputs {
+        flex-direction: column;
+        gap: 5px;
+    }
+    .price-separator {
+        display: none;
     }
 }

@@ -23,14 +23,14 @@
                 <select id="artistFilter" class="filter-select">
                     <option value="">All Artists</option>
                 </select>
-            </div>
-            
-            <div class="filter-group">
-                <label for="priceFilter">Price Range:</label>
-                <div class="price-inputs">
-                    <input type="number" id="minPrice" class="price-input" placeholder="Min" min="0">
-                    <span class="price-separator">-</span>
-                    <input type="number" id="maxPrice" class="price-input" placeholder="Max" min="0">
+                
+                <div class="price-filter-group">
+                    <label for="priceFilter">Price Range:</label>
+                    <div class="price-inputs">
+                        <input type="number" id="minPrice" class="price-input" placeholder="Min" min="0">
+                        <span class="price-separator">-</span>
+                        <input type="number" id="maxPrice" class="price-input" placeholder="Max" min="0">
+                    </div>
                 </div>
             </div>
         </div>
@@ -102,10 +102,12 @@
             card.setAttribute('data-price', parseFloat(record.price.replace('$', '')));
             
             card.innerHTML = `
-                <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
+                <div class="card-image">
+                    <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
+                </div>
                 <div class="card-info">
                     <h3>${escapeHtml(record.title)}</h3>
-                    <p>${escapeHtml(record.artist)}</p>
+                    <p class="artist">${escapeHtml(record.artist)}</p>
                     <p class="price">${record.price}</p>
                     <p class="genre">${escapeHtml(record.genre)}</p>
                 </div>

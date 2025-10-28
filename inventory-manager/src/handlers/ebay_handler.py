@@ -85,8 +85,14 @@ class EbayHandler:
 
         items = data.get("itemSummaries", [])
         
-        prices = []
-        shipping_costs = []
+        listings = []
+        
+        # Get shipping cost from config for CALC items
+        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        try:
+            shipping_cost = float(shipping_cost)
+        except (ValueError, TypeError):
+            shipping_cost = 5.72
         
         for item in items:
             if exclude_foreign:
@@ -96,70 +102,101 @@ class EbayHandler:
 
             price_data = item.get("price", {})
             if "value" in price_data:
-                price = float(price_data["value"])
-                prices.append(price)
+                base_price = float(price_data["value"])
                 
                 # Extract shipping cost from the item data
-                shipping_cost = self._extract_shipping_cost(item)
-                shipping_costs.append(shipping_cost)
+                shipping_info = self._extract_shipping_info(item)
+                shipping_type = shipping_info['type']
+                shipping_cost_value = shipping_info['cost']
+                
+                # Calculate total cost (base + shipping)
+                if shipping_type == 'CALC':
+                    total_cost = base_price + shipping_cost
+                elif shipping_cost_value is not None:
+                    total_cost = base_price + shipping_cost_value
+                else:
+                    total_cost = base_price  # For FREE shipping
+                
+                listings.append({
+                    'base_price': base_price,
+                    'shipping_type': shipping_type,
+                    'shipping_cost': shipping_cost_value,
+                    'total_cost': total_cost
+                })
 
-        if prices:
-            sorted_prices = sorted(prices)
-            n = len(sorted_prices)
+        if listings:
+            # Sort by total cost to find the cheapest listing
+            listings.sort(key=lambda x: x['total_cost'])
+            cheapest_listing = listings[0]
             
+            # Calculate median base price
+            base_prices = [listing['base_price'] for listing in listings]
+            base_prices.sort()
+            n = len(base_prices)
             if n % 2 == 1:
-                median = sorted_prices[n//2]
+                median_base = base_prices[n//2]
             else:
-                median = (sorted_prices[n//2 - 1] + sorted_prices[n//2]) / 2
-
-            # Find the lowest shipping cost
-            lowest_shipping = 0.0
-            if shipping_costs:
-                valid_shipping_costs = [cost for cost in shipping_costs if cost is not None]
-                if valid_shipping_costs:
-                    lowest_shipping = min(valid_shipping_costs)
+                median_base = (base_prices[n//2 - 1] + base_prices[n//2]) / 2
+            
+            # Calculate median total cost
+            total_costs = [listing['total_cost'] for listing in listings]
+            total_costs.sort()
+            if n % 2 == 1:
+                median_total = total_costs[n//2]
+            else:
+                median_total = (total_costs[n//2 - 1] + total_costs[n//2]) / 2
 
             result = {
-                'ebay_median_price': round(median, 2),
-                'ebay_lowest_price': min(prices),
-                'ebay_highest_price': max(prices),
-                'ebay_listings_count': len(prices),
-                'ebay_low_shipping': round(lowest_shipping, 2)
+                'ebay_median_price': round(median_base, 2),
+                'ebay_lowest_price': round(cheapest_listing['base_price'], 2),  # Base price from cheapest total listing
+                'ebay_highest_price': max(base_prices),
+                'ebay_listings_count': len(listings),
+                'ebay_low_shipping': round(cheapest_listing['shipping_cost'] or 0, 2),
+                'ebay_low_total': round(cheapest_listing['total_cost'], 2)
             }
             
             return result
         else:
             return None
 
-    def _extract_shipping_cost(self, item):
-        """Extract shipping cost from eBay item data"""
+    def _extract_shipping_info(self, item):
+        """Extract shipping information from eBay item data"""
         try:
             # Try to get shipping cost from shippingOptions first
             shipping_options = item.get('shippingOptions', [])
             if shipping_options:
                 for option in shipping_options:
-                    shipping_cost = option.get('shippingCost', {})
-                    if 'value' in shipping_cost:
-                        cost = float(shipping_cost['value'])
-                        return cost
+                    shipping_cost_type = option.get('shippingCostType', '')
+                    if shipping_cost_type == 'CALCULATED':
+                        return {'type': 'CALC', 'cost': None}
+                    elif shipping_cost_type == 'FIXED':
+                        shipping_cost = option.get('shippingCost', {})
+                        if 'value' in shipping_cost:
+                            cost = float(shipping_cost['value'])
+                            return {'type': 'FIXED', 'cost': cost}
             
             # If no shipping options, check for calculated shipping
             shipping_cost_summary = item.get('shippingCostSummary', {})
             if shipping_cost_summary:
-                shipping_cost = shipping_cost_summary.get('shippingCost', {})
-                if 'value' in shipping_cost:
-                    cost = float(shipping_cost['value'])
-                    return cost
+                shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
+                if shipping_cost_type == 'CALCULATED':
+                    return {'type': 'CALC', 'cost': None}
+                elif shipping_cost_type == 'FIXED':
+                    shipping_cost = shipping_cost_summary.get('shippingCost', {})
+                    if 'value' in shipping_cost:
+                        cost = float(shipping_cost['value'])
+                        return {'type': 'FIXED', 'cost': cost}
             
             # Check for fixed shipping cost
             if 'shippingCostFixed' in item:
-                return float(item['shippingCostFixed'])
-                
-            # If we get here, assume free shipping
-            return 0.0
+                cost = float(item['shippingCostFixed'])
+                return {'type': 'FIXED', 'cost': cost}
+            
+            # If no shipping cost found, assume free shipping
+            return {'type': 'FREE', 'cost': 0}
                 
         except Exception as e:
-            return 0.0  # Default to free shipping on error
+            return {'type': 'FREE', 'cost': 0}
 
     def get_item_details(self, item_id):
         """Get detailed information for a specific eBay item"""

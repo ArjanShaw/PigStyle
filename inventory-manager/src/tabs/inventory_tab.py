@@ -291,6 +291,13 @@ class InventoryTab:
         with st.expander("📊 Individual eBay Listings", expanded=False):
             st.subheader("Individual Listings Analysis")
             
+            # Get shipping cost from config for CALC items
+            shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+            try:
+                shipping_cost = float(shipping_cost)
+            except (ValueError, TypeError):
+                shipping_cost = 5.72
+            
             # Create table data with proper numeric values for sorting
             table_data = []
             for item in item_summaries:
@@ -301,10 +308,20 @@ class InventoryTab:
                 # Determine shipping type and cost
                 shipping_info = self._extract_shipping_info(item)
                 shipping_type = shipping_info['type']
-                shipping_cost = shipping_info['cost']
+                shipping_cost_value = shipping_info['cost']
                 
-                # Calculate base + shipping
-                base_and_shipping = base_price + shipping_cost
+                # Calculate assumed shipping cost - only for CALC shipping, otherwise null
+                assumed_shipping_cost = None
+                if shipping_type == 'CALC':
+                    assumed_shipping_cost = shipping_cost
+                
+                # Calculate base + shipping (use actual shipping cost when available, assumed for CALC)
+                if shipping_type == 'CALC':
+                    base_and_shipping = base_price + shipping_cost
+                elif shipping_cost_value is not None:
+                    base_and_shipping = base_price + shipping_cost_value
+                else:
+                    base_and_shipping = base_price  # For FREE shipping
                 
                 # Get URL
                 item_url = item.get('itemWebUrl', '')
@@ -314,10 +331,14 @@ class InventoryTab:
                     'Title': item.get('title', '')[:80] + '...' if len(item.get('title', '')) > 80 else item.get('title', ''),
                     'Base Price': base_price,
                     'Shipping Type': shipping_type,
-                    'Shipping Cost': shipping_cost,
+                    'Shipping Cost': shipping_cost_value,
+                    'Assumed Shipping Cost': assumed_shipping_cost,
                     'Base + Shipping': base_and_shipping,
                     'URL': item_url
                 })
+            
+            # Sort by Base + Shipping to find the cheapest total cost
+            table_data.sort(key=lambda x: x['Base + Shipping'])
             
             # Create and display dataframe with proper column configuration
             if table_data:
@@ -333,6 +354,10 @@ class InventoryTab:
                     "Shipping Type": st.column_config.TextColumn("Shipping Type"),
                     "Shipping Cost": st.column_config.NumberColumn(
                         "Shipping Cost",
+                        format="$%.2f"
+                    ),
+                    "Assumed Shipping Cost": st.column_config.NumberColumn(
+                        "Assumed Shipping Cost",
                         format="$%.2f"
                     ),
                     "Base + Shipping": st.column_config.NumberColumn(
@@ -357,17 +382,26 @@ class InventoryTab:
             shipping_options = item.get('shippingOptions', [])
             if shipping_options:
                 for option in shipping_options:
-                    shipping_cost = option.get('shippingCost', {})
-                    if 'value' in shipping_cost:
-                        cost = float(shipping_cost['value'])
-                        return {'type': 'FIXED', 'cost': cost}
+                    shipping_cost_type = option.get('shippingCostType', '')
+                    if shipping_cost_type == 'CALCULATED':
+                        return {'type': 'CALC', 'cost': None}
+                    elif shipping_cost_type == 'FIXED':
+                        shipping_cost = option.get('shippingCost', {})
+                        if 'value' in shipping_cost:
+                            cost = float(shipping_cost['value'])
+                            return {'type': 'FIXED', 'cost': cost}
             
-            # Check for calculated shipping
+            # Check for calculated shipping in shippingCostSummary
             shipping_cost_summary = item.get('shippingCostSummary', {})
             if shipping_cost_summary:
                 shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
                 if shipping_cost_type == 'CALCULATED':
-                    return {'type': 'CALC', 'cost': 0}
+                    return {'type': 'CALC', 'cost': None}
+                elif shipping_cost_type == 'FIXED':
+                    shipping_cost = shipping_cost_summary.get('shippingCost', {})
+                    if 'value' in shipping_cost:
+                        cost = float(shipping_cost['value'])
+                        return {'type': 'FIXED', 'cost': cost}
             
             # Check for fixed shipping cost
             if 'shippingCostFixed' in item:

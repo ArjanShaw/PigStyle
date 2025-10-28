@@ -136,6 +136,12 @@ class DatabaseManager:
         # Create triggers
         self._create_triggers(cursor, conn)
         
+        # Insert default SHIPPING_COST configuration
+        cursor.execute('''
+            INSERT OR IGNORE INTO app_config (config_key, config_value)
+            VALUES ('SHIPPING_COST', '5.72')
+        ''')
+        
         conn.commit()
         conn.close()
     

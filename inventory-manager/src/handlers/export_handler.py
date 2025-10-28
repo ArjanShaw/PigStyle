@@ -74,22 +74,34 @@ class ExportHandler:
             try:
                 ebay_pricing = ebay_handler.get_ebay_pricing(artist, title)
                 if ebay_pricing:
-                    # Calculate final eBay selling price (ebay_sell_at will be set by trigger)
-                    ebay_sell_price = self.price_handler.calculate_ebay_price(ebay_pricing.get('ebay_lowest_price'))
+                    # Get SHIPPING_COST from config
+                    shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+                    try:
+                        shipping_cost = float(shipping_cost)
+                    except (ValueError, TypeError):
+                        shipping_cost = 5.72
+                    
+                    # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
+                    ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
+                    ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
+                    ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                    
+                    # Ensure ebay_sell_at is not negative
+                    ebay_sell_at = max(ebay_sell_at, 0)
                     
                     # Use update_record to track changes properly
                     updates = {
                         'ebay_median_price': ebay_pricing.get('ebay_median_price'),
-                        'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price'),
+                        'ebay_lowest_price': ebay_lowest_price,
                         'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
                         'ebay_count': ebay_pricing.get('ebay_listings_count', 0),
-                        'ebay_sell_at': ebay_sell_price,
-                        'ebay_low_shipping': ebay_pricing.get('ebay_low_shipping', 0)
+                        'ebay_sell_at': ebay_sell_at,
+                        'ebay_low_shipping': ebay_low_shipping
                     }
                     success = st.session_state.db_manager.update_record(record_id, updates)
                     if success:
                         updated_count += 1
-                        results.append(f"✅ {artist} - {title}: ${ebay_pricing.get('ebay_median_price', 0):.2f} (found {ebay_pricing.get('ebay_listings_count', 0)} listings, shipping: ${ebay_pricing.get('ebay_low_shipping', 0):.2f})")
+                        results.append(f"✅ {artist} - {title}: {ebay_pricing.get('ebay_listings_count', 0)} listings")
                     else:
                         failed_count += 1
                         results.append(f"❌ {artist} - {title}: Database update failed")
@@ -143,26 +155,33 @@ class ExportHandler:
         try:
             ebay_pricing = ebay_handler.get_ebay_pricing(artist, title)
             if ebay_pricing:
-                # Calculate final eBay selling price
-                ebay_sell_price = self.price_handler.calculate_ebay_price(ebay_pricing.get('ebay_lowest_price'))
+                # Get SHIPPING_COST from config
+                shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+                try:
+                    shipping_cost = float(shipping_cost)
+                except (ValueError, TypeError):
+                    shipping_cost = 5.72
+                
+                # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
+                ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
+                ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
+                ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                
+                # Ensure ebay_sell_at is not negative
+                ebay_sell_at = max(ebay_sell_at, 0)
                 
                 # Use update_record to track changes properly
                 updates = {
                     'ebay_median_price': ebay_pricing.get('ebay_median_price'),
-                    'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price'),
+                    'ebay_lowest_price': ebay_lowest_price,
                     'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
                     'ebay_count': ebay_pricing.get('ebay_listings_count', 0),
-                    'ebay_sell_at': ebay_sell_price,
-                    'ebay_low_shipping': ebay_pricing.get('ebay_low_shipping', 0)
+                    'ebay_sell_at': ebay_sell_at,
+                    'ebay_low_shipping': ebay_low_shipping
                 }
                 success = st.session_state.db_manager.update_record(record_id, updates)
                 if success:
                     st.success(f"✅ Updated eBay prices for {artist} - {title}")
-                    st.write(f"Median: ${ebay_pricing.get('ebay_median_price', 0):.2f}")
-                    st.write(f"Lowest: ${ebay_pricing.get('ebay_lowest_price', 0):.2f}")
-                    st.write(f"Listings: {ebay_pricing.get('ebay_listings_count', 0)}")
-                    st.write(f"Sell At: ${ebay_sell_price:.2f}")
-                    st.write(f"Low Shipping: ${ebay_pricing.get('ebay_low_shipping', 0):.2f}")
                     return 1
                 else:
                     st.error(f"❌ Database update failed for {artist} - {title}")
@@ -193,30 +212,45 @@ class ExportHandler:
         
         results = []
         
+        # Get SHIPPING_COST from config
+        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        try:
+            shipping_cost = float(shipping_cost)
+        except (ValueError, TypeError):
+            shipping_cost = 5.72
+        
         for i, (_, record) in enumerate(df.iterrows()):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
             ebay_lowest_price = record.get('ebay_lowest_price')
+            ebay_low_shipping = record.get('ebay_low_shipping')
             
             status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
             
             try:
-                if ebay_lowest_price and ebay_lowest_price > 0:
-                    # Calculate eBay sell price from existing lowest price
-                    ebay_sell_price = self.price_handler.calculate_ebay_price(ebay_lowest_price)
+                if ebay_lowest_price is not None and ebay_low_shipping is not None:
+                    # Convert to float to ensure numeric operations
+                    ebay_lowest_price = float(ebay_lowest_price)
+                    ebay_low_shipping = float(ebay_low_shipping)
+                    
+                    # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
+                    ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                    
+                    # Ensure ebay_sell_at is not negative
+                    ebay_sell_at = max(ebay_sell_at, 0)
                     
                     # Update only the ebay_sell_at field
-                    success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_price})
+                    success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})
                     if success:
                         updated_count += 1
-                        results.append(f"✅ {artist} - {title}: ${ebay_sell_price:.2f} (from ${ebay_lowest_price:.2f})")
+                        results.append(f"✅ {artist} - {title}")
                     else:
                         failed_count += 1
                         results.append(f"❌ {artist} - {title}: Database update failed")
                 else:
                     failed_count += 1
-                    results.append(f"❌ {artist} - {title}: No eBay lowest price available")
+                    results.append(f"❌ {artist} - {title}: Missing eBay price data")
                     
             except Exception as e:
                 failed_count += 1
@@ -257,24 +291,37 @@ class ExportHandler:
         artist = record.get('artist', '')
         title = record.get('title', '')
         ebay_lowest_price = record.get('ebay_lowest_price')
+        ebay_low_shipping = record.get('ebay_low_shipping')
         
         try:
-            if ebay_lowest_price and ebay_lowest_price > 0:
-                # Calculate eBay sell price from existing lowest price
-                ebay_sell_price = self.price_handler.calculate_ebay_price(ebay_lowest_price)
+            if ebay_lowest_price is not None and ebay_low_shipping is not None:
+                # Get SHIPPING_COST from config
+                shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+                try:
+                    shipping_cost = float(shipping_cost)
+                except (ValueError, TypeError):
+                    shipping_cost = 5.72
+                
+                # Convert to float to ensure numeric operations
+                ebay_lowest_price = float(ebay_lowest_price)
+                ebay_low_shipping = float(ebay_low_shipping)
+                
+                # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
+                ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                
+                # Ensure ebay_sell_at is not negative
+                ebay_sell_at = max(ebay_sell_at, 0)
                 
                 # Update only the ebay_sell_at field
-                success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_price})
+                success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})
                 if success:
                     st.success(f"✅ Updated eBay sell price for {artist} - {title}")
-                    st.write(f"Lowest Price: ${ebay_lowest_price:.2f}")
-                    st.write(f"Sell At: ${ebay_sell_price:.2f}")
                     return 1
                 else:
                     st.error(f"❌ Database update failed for {artist} - {title}")
                     return 0
             else:
-                st.warning(f"❌ No eBay lowest price available for {artist} - {title}")
+                st.warning(f"❌ Missing eBay price data for {artist} - {title}")
                 return 0
                 
         except Exception as e:

@@ -32,6 +32,7 @@ body {
     max-width: 100%; /* Still respect container max */
     box-sizing: border-box;
     overflow: hidden;
+    min-height: 200px; /* CHANGED: Ensure minimum visible height */
 }
 .card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
@@ -53,6 +54,10 @@ body {
     width: auto; /* Natural content width */
     justify-content: flex-start;
     gap: 8px;
+    min-height: 180px; /* CHANGED: Match image height */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* CHANGED: Center content vertically */
 }
 .card-info h3 { 
     margin: 0; 
@@ -243,6 +248,7 @@ header {
     .card {
         flex-direction: column;
         width: 100%; /* Full width on mobile */
+        min-height: auto; /* Reset min-height on mobile */
     }
     .card-image {
         flex: 0 0 auto;
@@ -257,6 +263,7 @@ header {
     .card-info {
         width: 100%;
         text-align: center;
+        min-height: auto; /* Reset min-height on mobile */
     }
 }
 

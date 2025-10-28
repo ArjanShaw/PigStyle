@@ -1,0 +1,328 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+class RecordOperationsHandler:
+    def __init__(self, discogs_handler=None, ebay_handler=None):
+        self.discogs_handler = discogs_handler
+        self.ebay_handler = ebay_handler
+
+    def add_inventory_record(self, record_data, condition, genre, search_term):
+        """Add inventory record to database with both Discogs and eBay data"""
+        try:
+            release_id = record_data.get('discogs_id')
+            
+            if not release_id:
+                st.error("No release ID found")
+                return False, None
+            
+            # Get format from session state or default
+            format_selected = st.session_state.get('format_select', 'Vinyl')
+            
+            # Get Discogs pricing information
+            if self.discogs_handler:
+                # Log Discogs API call
+                discogs_url = f"https://api.discogs.com/marketplace/listings?release_id={release_id}"
+                st.session_state.api_logs.append(f"📡 Calling Discogs API: {discogs_url}")
+                
+                pricing_data = self.discogs_handler.get_release_pricing(
+                    str(release_id), 
+                    search_term, 
+                    f"release_{release_id}"
+                )
+                
+                # Log Discogs result
+                if pricing_data and pricing_data.get('success'):
+                    st.session_state.api_logs.append(f"✅ Discogs: ${pricing_data['median_price']:.2f} median from {pricing_data.get('prices_found', 0)} prices")
+                    
+                    # Add expander for Discogs API details
+                    with st.expander("📡 Discogs API Details"):
+                        st.write("**Request:**")
+                        st.json({
+                            "url": discogs_url,
+                            "release_id": release_id,
+                            "search_term": search_term
+                        })
+                        st.write("**Response:**")
+                        st.json({
+                            "median_price": pricing_data['median_price'],
+                            "lowest_price": pricing_data.get('lowest_price'),
+                            "highest_price": pricing_data.get('highest_price'),
+                            "prices_found": pricing_data.get('prices_found', 0),
+                            "listings_with_prices": pricing_data.get('listings_with_prices', 0)
+                        })
+                else:
+                    error_msg = pricing_data.get('error', 'Unable to get pricing data') if pricing_data else 'No pricing data returned'
+                    st.session_state.api_logs.append(f"❌ Discogs: {error_msg}")
+            else:
+                st.error("Discogs handler not available")
+                return False, None
+            
+            if not pricing_data or not pricing_data.get('success'):
+                error_msg = pricing_data.get('error', 'Unable to get pricing data') if pricing_data else 'No pricing data returned'
+                st.error(f"Failed to get Discogs pricing: {error_msg}")
+                return False, None
+            
+            # Extract result information
+            artist = record_data.get('artist', '')
+            title = record_data.get('title', '')
+            image_url = record_data.get('image_url', '')
+            year = record_data.get('year', '')
+            catalog_number = record_data.get('catalog_number', '')
+            
+            # Get eBay pricing if handler is available
+            ebay_pricing = None
+            if self.ebay_handler and artist and title:
+                # Log eBay API call
+                ebay_url = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+                st.session_state.api_logs.append(f"📡 Calling eBay API: {ebay_url}")
+                
+                try:
+                    ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
+                    if ebay_pricing:
+                        st.session_state.api_logs.append(f"✅ eBay: ${ebay_pricing.get('ebay_median_price', 0):.2f} median from {ebay_pricing.get('ebay_listings_count', 0)} listings")
+                        
+                        # Add expander for eBay API details
+                        with st.expander("📡 eBay API Details"):
+                            st.write("**Request:**")
+                            st.json({
+                                "url": ebay_url,
+                                "artist": artist,
+                                "title": title,
+                                "query": f"{artist} {title}"
+                            })
+                            st.write("**Response:**")
+                            st.json({
+                                "ebay_median_price": ebay_pricing.get('ebay_median_price'),
+                                "ebay_lowest_price": ebay_pricing.get('ebay_lowest_price'),
+                                "ebay_highest_price": ebay_pricing.get('ebay_highest_price'),
+                                "ebay_listings_count": ebay_pricing.get('ebay_listings_count', 0)
+                            })
+                    else:
+                        st.session_state.api_logs.append("❌ eBay: No pricing data found")
+                except Exception as e:
+                    st.warning(f"Could not fetch eBay pricing: {e}")
+                    st.session_state.api_logs.append(f"❌ eBay API error: {e}")
+                    ebay_pricing = None
+            
+            # Get genre_id for the genre
+            genre_id = None
+            if genre:
+                conn = st.session_state.db_manager._get_connection()
+                cursor = conn.cursor()
+                cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre,))
+                genre_result = cursor.fetchone()
+                if genre_result:
+                    genre_id = genre_result[0]
+                else:
+                    # Create new genre
+                    cursor.execute('INSERT INTO genres (genre_name) VALUES (?)', (genre,))
+                    genre_id = cursor.lastrowid
+                    conn.commit()
+                conn.close()
+            
+            # Calculate store price from Discogs median price
+            store_price = self._calculate_store_price(pricing_data['median_price'])
+            
+            # Save to database - include both Discogs and eBay data
+            # The ebay_sell_at will be calculated by database trigger when ebay_lowest_price is set
+            result_data = {
+                'artist': artist,
+                'title': title,
+                'discogs_median_price': pricing_data['median_price'],
+                'discogs_lowest_price': pricing_data.get('lowest_price'),
+                'discogs_highest_price': pricing_data.get('highest_price'),
+                # eBay data - use actual values if available, otherwise NULL
+                'ebay_median_price': ebay_pricing.get('ebay_median_price') if ebay_pricing else None,
+                'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price') if ebay_pricing else None,
+                'ebay_highest_price': ebay_pricing.get('ebay_highest_price') if ebay_pricing else None,
+                'ebay_count': ebay_pricing.get('ebay_listings_count') if ebay_pricing else None,
+                'ebay_sell_at': None,  # Will be set by database trigger
+                'genre_id': genre_id,
+                'image_url': image_url,
+                'format': format_selected,
+                'catalog_number': catalog_number,
+                'barcode': '',  # Will be generated by trigger
+                'condition': condition,
+                'year': year,
+                'file_at': '',  # Will be generated by trigger
+                'status': 'inventory',
+                'store_price': store_price,
+            }
+            
+            st.session_state.api_logs.append("💾 Saving record to database...")
+            record_id = st.session_state.db_manager.save_record(result_data)
+            
+            # Force update file_at after record is created
+            if genre_id and artist:
+                self._update_file_at(record_id, artist, genre_id)
+            
+            # Get the generated barcode for success message
+            record = st.session_state.db_manager.get_record_by_barcode(str(record_id))
+            barcode = record.get('barcode') if record else str(record_id)
+            
+            return True, record_id
+            
+        except Exception as e:
+            st.error(f"Error adding to database: {str(e)}")
+            st.session_state.api_logs.append(f"❌ Database error: {str(e)}")
+            return False, None
+
+    def _calculate_store_price(self, discogs_median_price):
+        """Calculate store price from Discogs median price"""
+        import math
+        
+        if discogs_median_price is None or discogs_median_price <= 0:
+            return 0.0
+        
+        try:
+            # Round up to nearest whole number then subtract 0.01 to get .99
+            rounded_up = math.ceil(discogs_median_price)
+            store_price = rounded_up - 0.01
+            return round(store_price, 2)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _update_file_at(self, record_id, artist, genre_id):
+        """Manually update file_at column for the record"""
+        try:
+            conn = st.session_state.db_manager._get_connection()
+            cursor = conn.cursor()
+            
+            # Get genre name
+            cursor.execute('SELECT genre_name FROM genres WHERE id = ?', (genre_id,))
+            genre_result = cursor.fetchone()
+            genre = genre_result[0] if genre_result else 'Unknown'
+            
+            # Calculate file_at letter
+            file_at_letter = self._calculate_file_at(artist)
+            file_at_value = f"{genre}({file_at_letter})"
+            
+            # Update file_at
+            cursor.execute('UPDATE records SET file_at = ? WHERE id = ?', (file_at_value, record_id))
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            print(f"Error updating file_at: {e}")
+
+    def _calculate_file_at(self, artist):
+        """Calculate file_at value for an artist"""
+        if not artist:
+            return "?"
+        
+        artist_clean = artist.strip().lower()
+        
+        if artist_clean.startswith('the '):
+            artist_clean = artist_clean[4:]
+        
+        if artist_clean and artist_clean[0].isdigit():
+            number_words = {
+                '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+                '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+            }
+            first_char = artist_clean[0]
+            return number_words.get(first_char, '?')[0].upper()
+        
+        if artist_clean and artist_clean[0].isalpha():
+            return artist_clean[0].upper()
+        
+        return "?"
+
+    def update_database_record(self, record_data, condition, genre):
+        """Update database record"""
+        try:
+            record_id = record_data['id']
+            
+            # Get genre_id for the genre
+            genre_id = None
+            if genre:
+                conn = st.session_state.db_manager._get_connection()
+                cursor = conn.cursor()
+                cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre,))
+                genre_result = cursor.fetchone()
+                if genre_result:
+                    genre_id = genre_result[0]
+                conn.close()
+            
+            updates = {
+                'condition': condition,
+                'genre_id': genre_id
+            }
+            
+            success = st.session_state.db_manager.update_record(record_id, updates)
+            return success
+                
+        except Exception as e:
+            st.error(f"Error updating record: {str(e)}")
+            return False
+
+    def get_suggested_genre(self, artist):
+        """Get suggested genre based on existing records by the same artist"""
+        try:
+            conn = st.session_state.db_manager._get_connection()
+            df = pd.read_sql(
+                'SELECT genre FROM records_with_genres WHERE artist = ? AND genre IS NOT NULL AND genre != "" LIMIT 1',
+                conn,
+                params=(artist,)
+            )
+            conn.close()
+            
+            if len(df) > 0:
+                return df.iloc[0]['genre']
+            return ""
+        except Exception as e:
+            return ""
+
+    def process_checkout(self, checkout_records):
+        """Process checkout of selected records"""
+        try:
+            updated_count = 0
+            for record in checkout_records:
+                record_id = record.get('id')
+                if record_id:
+                    success = st.session_state.db_manager.update_record(record_id, {'status': 'sold'})
+                    if success:
+                        updated_count += 1
+            
+            return updated_count
+                
+        except Exception as e:
+            st.error(f"Error processing checkout: {e}")
+            return 0
+
+    def generate_receipt_content(self, checkout_records):
+        """Generate receipt content for checkout records"""
+        try:
+            receipt_lines = []
+            receipt_lines.append("PIGSTYLE RECORDS - CHECKOUT RECEIPT")
+            receipt_lines.append("=" * 40)
+            receipt_lines.append(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+            receipt_lines.append(f"Items: {len(checkout_records)}")
+            receipt_lines.append("")
+            
+            total = 0
+            for i, record in enumerate(checkout_records, 1):
+                artist = record.get('artist', 'Unknown Artist')
+                title = record.get('title', 'Unknown Title')
+                price = record.get('store_price', 0) or 0
+                total += price
+                
+                # Truncate long titles for receipt format
+                if len(title) > 30:
+                    title = title[:27] + "..."
+                if len(artist) > 20:
+                    artist = artist[:17] + "..."
+                
+                receipt_lines.append(f"{i:2d}. {artist:<20} {title:<30} ${price:>6.2f}")
+            
+            receipt_lines.append("")
+            receipt_lines.append("=" * 40)
+            receipt_lines.append(f"TOTAL: ${total:>33.2f}")
+            receipt_lines.append("")
+            receipt_lines.append("Thank you for your purchase!")
+            
+            return "\n".join(receipt_lines)
+            
+        except Exception as e:
+            return f"Error generating receipt: {e}"

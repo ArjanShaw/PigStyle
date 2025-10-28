@@ -12,11 +12,9 @@ from dotenv import load_dotenv
 from database_manager import DatabaseManager
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
-from tabs.check_in_tab import CheckInTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.debug_tab import DebugTab
 from tabs.database_switch_tab import DatabaseSwitchTab
-from tabs.checkout_tab import CheckoutTab
 from tabs.expenses_tab import ExpensesTab
 from handlers.ebay_handler import EbayHandler
 
@@ -165,20 +163,16 @@ def main():
             ebay_handler = None
  
     # Initialize all tabs - pass the SAME debug_tab instance to all
-    records_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler)
-    check_in_tab = CheckInTab(discogs_handler, debug_tab, ebay_handler, records_tab.price_handler)
+    inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler)
     statistics_tab = StatisticsTab()
     database_switch_tab = DatabaseSwitchTab()
-    checkout_tab = CheckoutTab()
     expenses_tab = ExpensesTab()
     # Use the SAME debug_tab instance for rendering
 
-    # Create tabs with new order
+    # Create tabs with new order (REMOVED CHECKOUT TAB)
     tabs = st.tabs([
         "🗃️ Database",
-        "📥 Check In", 
-        "📦 Inventory",
-        "📦 Checkout",
+        "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
         "💰 Income",
         "💰 Expenses",
         "📊 Statistics",
@@ -189,24 +183,18 @@ def main():
         database_switch_tab.render()
     
     with tabs[1]:
-        check_in_tab.render()
+        inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
     
     with tabs[2]:
-        records_tab.render_inventory_tab()
+        inventory_tab.render_sold_tab()
     
     with tabs[3]:
-        checkout_tab.render()
-    
-    with tabs[4]:
-        records_tab.render_sold_tab()
-    
-    with tabs[5]:
         expenses_tab.render()
         
-    with tabs[6]:
+    with tabs[4]:
         statistics_tab.render()
         
-    with tabs[7]:
+    with tabs[5]:
         debug_tab.render()  # Use the SAME instance
 
 

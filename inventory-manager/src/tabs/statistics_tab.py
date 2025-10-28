@@ -32,17 +32,17 @@ class StatisticsTab:
             st.error(f"Error loading statistics: {e}")
 
     def _render_genre_chart(self):
-        """Render only the top 10 genre bar graph using assigned genres"""
+        """Render only the top 10 genre bar graph using records_with_genres view"""
         try:
-            # Get genre statistics from records
+            # Get genre statistics from records_with_genres view
             conn = st.session_state.db_manager._get_connection()
             
-            # Count records by genre
+            # Count records by genre using the view
             df = pd.read_sql('''
                 SELECT 
                     genre,
                     COUNT(*) as record_count
-                FROM records 
+                FROM records_with_genres 
                 WHERE genre IS NOT NULL AND genre != ''
                 GROUP BY genre
                 ORDER BY record_count DESC

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import io
+from PIL import Image
 
 class ExpensesTab:
     def __init__(self):
@@ -10,76 +11,116 @@ class ExpensesTab:
     def render(self):
         st.header("💰 Expenses")
         
-        tab1, tab2 = st.tabs(["➕ Add Expense", "📋 View Expenses"])
+        tab1, tab2 = st.tabs(["➕ Add Expenses", "📋 View Expenses"])
         
         with tab1:
-            self._render_add_expense()
+            self._render_add_expenses()
         
         with tab2:
             self._render_view_expenses()
 
-    def _render_add_expense(self):
-        """Render the add expense form"""
-        st.subheader("Add New Expense")
+    def _render_add_expenses(self):
+        """Render the add expenses form with individual file management"""
+        st.subheader("Add New Expenses")
         
-        with st.form(key="expense_form"):
-            description = st.text_input(
-                "Description",
-                placeholder="Enter expense description..."
-            )
+        # Multiple file upload
+        st.write("**Receipt Photos:**")
+        receipt_uploads = st.file_uploader(
+            "Upload receipt photos",
+            type=['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
+            accept_multiple_files=True,
+            help="Upload multiple receipt photos from your local filesystem"
+        )
+        
+        if receipt_uploads:
+            st.write(f"**Managing {len(receipt_uploads)} receipt(s):**")
             
-            amount = st.number_input(
-                "Amount",
-                min_value=0.0,
-                step=0.01,
-                format="%.2f",
-                help="Enter the expense amount"
-            )
-            
-            # Camera input for receipt photo
-            st.write("**Receipt Photo:**")
-            camera_input = st.camera_input(
-                "Take a photo of the receipt",
-                help="Use your camera to take a photo of the receipt"
-            )
-            
-            # File uploader as fallback
-            receipt_upload = st.file_uploader(
-                "Or upload receipt photo",
-                type=['jpg', 'jpeg', 'png'],
-                help="Upload a photo of the receipt"
-            )
-            
-            submitted = st.form_submit_button("Save Expense", use_container_width=True)
-            
-            if submitted:
-                if not description:
-                    st.error("Please enter a description")
-                    return
+            # Create a form for each uploaded file
+            expense_data = []
+            for i, uploaded_file in enumerate(receipt_uploads):
+                st.divider()
+                col1, col2 = st.columns([1, 3])
                 
-                if amount <= 0:
-                    st.error("Please enter a valid amount")
-                    return
-                
-                try:
-                    # Use camera input if available, otherwise use file upload
-                    receipt_bytes = None
-                    if camera_input is not None:
-                        receipt_bytes = camera_input.getvalue()
-                    elif receipt_upload is not None:
-                        receipt_bytes = receipt_upload.getvalue()
+                with col1:
+                    # Display the image with much larger preview
+                    st.image(uploaded_file, width=600, caption=f"Receipt {i+1} - {uploaded_file.name}")
                     
-                    # Save to database
-                    expense_id = st.session_state.db_manager.save_expense(description, amount, receipt_bytes)
+                    # Add expandable full-screen view
+                    with st.expander("🔍 View Full Size"):
+                        # Display at full resolution using container width
+                        st.image(uploaded_file, use_container_width=True)
                     
-                    if expense_id:
-                        st.success(f"✅ Expense saved! Amount: ${amount:.2f}")
+                    if st.button("Remove", key=f"remove_{i}"):
+                        receipt_uploads.pop(i)
                         st.rerun()
-                    else:
-                        st.error("Failed to save expense")
+                
+                with col2:
+                    # Individual expense details for each receipt
+                    st.write(f"**Receipt {i+1}: {uploaded_file.name}**")
+                    description = st.text_input(
+                        f"Description {i+1}",
+                        placeholder="Enter description for this receipt...",
+                        key=f"desc_{i}"
+                    )
+                    amount = st.number_input(
+                        f"Amount {i+1}",
+                        min_value=None,  # Allow negative values for returns
+                        step=0.01,
+                        format="%.2f",
+                        help="Enter amount for this receipt (negative for returns)",
+                        key=f"amount_{i}"
+                    )
+                    
+                    # Store the data for this receipt
+                    expense_data.append({
+                        'file': uploaded_file,
+                        'description': description,
+                        'amount': amount
+                    })
+            
+            st.divider()
+            
+            # Submit all button
+            if st.button("💾 Save All Expenses", use_container_width=True):
+                # Validate and save all expenses
+                saved_count = 0
+                errors = []
+                
+                for i, expense in enumerate(expense_data):
+                    if not expense['description']:
+                        errors.append(f"Receipt {i+1}: Description is required")
+                        continue
+                    
+                    if expense['amount'] is None:
+                        errors.append(f"Receipt {i+1}: Amount is required")
+                        continue
+                    
+                    try:
+                        receipt_bytes = expense['file'].getvalue()
+                        expense_id = st.session_state.db_manager.save_expense(
+                            expense['description'], 
+                            expense['amount'], 
+                            receipt_bytes
+                        )
                         
-                except Exception as e:
-                    st.error(f"Error saving expense: {e}")
+                        if expense_id:
+                            saved_count += 1
+                        else:
+                            errors.append(f"Receipt {i+1}: Failed to save to database")
+                            
+                    except Exception as e:
+                        errors.append(f"Receipt {i+1}: {str(e)}")
+                
+                # Show results
+                if saved_count > 0:
+                    st.success(f"✅ {saved_count} expense(s) saved successfully!")
+                
+                if errors:
+                    for error in errors:
+                        st.error(error)
+                
+                if saved_count > 0:
+                    st.rerun()
 
     def _render_view_expenses(self):
         """Render the expenses list"""
@@ -89,42 +130,53 @@ class ExpensesTab:
             expenses = st.session_state.db_manager.get_all_expenses()
             
             if len(expenses) > 0:
-                # Calculate total
+                # Calculate total (includes negative amounts for returns)
                 total_amount = expenses['amount'].sum()
                 
                 # Display summary
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Total Expenses", f"${total_amount:.2f}")
+                    st.metric("Net Expenses", f"${total_amount:.2f}")
                 with col2:
                     st.metric("Number of Expenses", len(expenses))
+                with col3:
+                    receipt_count = expenses[expenses['receipt_image'].notnull()].shape[0]
+                    st.metric("Receipts Attached", receipt_count)
                 
-                # Prepare display data
-                display_data = []
+                # Prepare display data with image previews
                 for _, expense in expenses.iterrows():
-                    display_data.append({
-                        'Date': expense.get('created_at', '')[:16],
-                        'Description': expense.get('description', ''),
-                        'Amount': f"${expense.get('amount', 0):.2f}",
-                        'Receipt': "📷" if expense.get('receipt_image') else "❌"
-                    })
-                
-                display_df = pd.DataFrame(display_data)
-                
-                # Configure columns
-                column_config = {
-                    'Date': st.column_config.TextColumn('Date', width='small'),
-                    'Description': st.column_config.TextColumn('Description', width='medium'),
-                    'Amount': st.column_config.TextColumn('Amount', width='small'),
-                    'Receipt': st.column_config.TextColumn('Receipt', width='small'),
-                }
-                
-                st.dataframe(
-                    display_df,
-                    column_config=column_config,
-                    use_container_width=True,
-                    hide_index=True
-                )
+                    with st.container():
+                        col1, col2, col3 = st.columns([1, 3, 1])
+                        
+                        with col1:
+                            if expense.get('receipt_image'):
+                                # Display receipt image with expandable view
+                                try:
+                                    # Convert blob back to image for display
+                                    image_data = expense['receipt_image']
+                                    if image_data:
+                                        image = Image.open(io.BytesIO(image_data))
+                                        st.image(image, width=400, caption="Receipt")
+                                        
+                                        # Full size expandable view
+                                        with st.expander("🔍 View Full Receipt"):
+                                            st.image(image, use_container_width=True)
+                                except Exception as e:
+                                    st.write("📷 (Image unavailable)")
+                            else:
+                                st.write("❌ No receipt")
+                        
+                        with col2:
+                            amount = expense.get('amount', 0)
+                            amount_color = "red" if amount < 0 else "black"
+                            st.write(f"**{expense.get('description', 'No description')}**")
+                            st.write(f"**Amount:** <span style='color:{amount_color}'>${amount:.2f}</span>", unsafe_allow_html=True)
+                            st.write(f"**Date:** {expense.get('created_at', '')[:16]}")
+                        
+                        with col3:
+                            st.write(f"**ID:** {expense.get('id', '')}")
+                        
+                        st.divider()
                 
                 # Export button
                 if st.button("📊 Export CSV", use_container_width=True):

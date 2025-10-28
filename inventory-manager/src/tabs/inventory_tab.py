@@ -35,13 +35,13 @@ class InventoryTab:
         with col1:
             st.metric("Inventory Records", stats['records_count'])
         
-        # Unified Inventory Operations
-        with st.expander("📦 Inventory Operations", expanded=False):
+        # Inventory
+        with st.expander("📦 Inventory", expanded=False):
             self._render_unified_operations()
             
-        # eBay Settings
-        with st.expander("💰 eBay", expanded=False):
-            self._render_ebay_section()
+        # Pricing Settings
+        with st.expander("💰 Pricing", expanded=False):
+            self._render_pricing_section()
             
         # Genre Management & Import/Export & Signs Printing
         with st.expander("🎵 Genre Management & Printing", expanded=False):
@@ -225,11 +225,27 @@ class InventoryTab:
         except Exception as e:
             st.error(f"Error processing checkout: {e}")
 
-    def _render_ebay_section(self):
-        """Render eBay settings and actions"""
-        st.subheader("eBay Pricing Strategy")
-        st.write("Dynamic calculation from eBay lowest price with .49/.99 rounding")
-        st.write("Store price calculated automatically from Discogs median price")
+    def _render_pricing_section(self):
+        """Render pricing settings and actions"""
+        st.subheader("Pricing Strategy")
+        
+        # Detailed pricing calculation explanation
+        st.write("""
+        **eBay Sell Price Calculation:**
+        1. Find lowest eBay listing price + shipping cost
+        2. Subtract configured shipping cost ($5.72)
+        3. Cap at Discogs median price if available
+        4. Round down to nearest .49 or .99 price point
+        5. Apply minimum price of $0.00
+        
+        **Store Price Calculation:**
+        1. Use Discogs median price
+        2. Round down to nearest .49 or .99 price point
+        3. Apply minimum store price (configurable, default $1.99)
+        
+        **Note:** Adding records only imports raw pricing data from Discogs/eBay. 
+        Use the buttons below to calculate your custom prices.
+        """)
         
         # Test record input
         st.subheader("Test Single Record")
@@ -237,8 +253,8 @@ class InventoryTab:
         with col1:
             test_record_id = st.text_input("Record ID for testing:", placeholder="Enter record ID")
         
-        # eBay action buttons
-        col1, col2 = st.columns(2)
+        # Pricing action buttons
+        col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("🔄 Update eBay Prices", use_container_width=True, help="Call eBay API to update pricing data for all inventory"):
                 if test_record_id and test_record_id.strip():
@@ -251,10 +267,16 @@ class InventoryTab:
                     self._update_single_ebay_sell_at(test_record_id.strip())
                 else:
                     self._update_all_ebay_sell_at()
+        with col3:
+            if st.button("🏪 Update Store Price", use_container_width=True, help="Calculate store price from Discogs median price using .49/.99 rounding"):
+                if test_record_id and test_record_id.strip():
+                    self._calculate_single_store_price(test_record_id.strip())
+                else:
+                    self._calculate_all_store_prices()
         
-        # Show eBay API logs in separate expander
+        # Show API logs in separate expander
         if 'api_logs' in st.session_state and st.session_state.api_logs:
-            with st.expander("📡 eBay API Requests & Responses", expanded=False):
+            with st.expander("📡 API Requests & Responses", expanded=False):
                 for api_title in st.session_state.api_logs:
                     if api_title in st.session_state.api_details:
                         details = st.session_state.api_details[api_title]
@@ -281,11 +303,6 @@ class InventoryTab:
                 break
         
         if not recent_ebay_response:
-            return
-            
-        # Extract itemSummaries from the response
-        item_summaries = recent_ebay_response.get('itemSummaries', [])
-        if not item_summaries:
             return
             
         with st.expander("📊 Individual eBay Listings", expanded=False):
@@ -468,6 +485,147 @@ class InventoryTab:
         if updated_count > 0:
             st.session_state.records_updated += 1
             st.rerun()
+
+    def _calculate_all_store_prices(self):
+        """Calculate store prices for all inventory records using Discogs median price"""
+        updated_count = self._update_all_store_prices()
+        
+        if updated_count > 0:
+            st.session_state.records_updated += 1
+            st.rerun()
+
+    def _calculate_single_store_price(self, record_id):
+        """Calculate store price for a single record using Discogs median price"""
+        updated_count = self._update_single_store_price(record_id)
+        
+        if updated_count > 0:
+            st.session_state.records_updated += 1
+            st.rerun()
+
+    def _update_all_store_prices(self):
+        """Update store prices for all inventory records using Discogs median price with .49/.99 rounding"""
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql('SELECT * FROM records_with_genres WHERE status = "inventory"', conn)
+        conn.close()
+        
+        # Get MIN_STORE_PRICE from config, default to 1.99
+        min_store_price = st.session_state.db_manager.get_config_value('MIN_STORE_PRICE', '1.99')
+        try:
+            min_store_price = float(min_store_price)
+        except (ValueError, TypeError):
+            min_store_price = 1.99
+        
+        updated_count = 0
+        failed_count = 0
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        results_container = st.container()
+        
+        with results_container:
+            st.subheader("Store Price Update Progress")
+            results_placeholder = st.empty()
+        
+        results = []
+        
+        for i, (_, record) in enumerate(df.iterrows()):
+            artist = record.get('artist', '')
+            title = record.get('title', '')
+            record_id = record.get('id')
+            discogs_median_price = record.get('discogs_median_price')
+            
+            status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
+            
+            try:
+                if discogs_median_price is not None and discogs_median_price > 0:
+                    # Use the same rounding function as eBay sell prices
+                    store_price = self.export_handler._round_down_to_49_or_99(float(discogs_median_price))
+                    
+                    # Apply MIN_STORE_PRICE minimum
+                    store_price = max(store_price, min_store_price)
+                    
+                    # Update the store_price field
+                    success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
+                    if success:
+                        updated_count += 1
+                        results.append(f"✅ {artist} - {title}: ${discogs_median_price:.2f} → ${store_price:.2f}")
+                    else:
+                        failed_count += 1
+                        results.append(f"❌ {artist} - {title}: Database update failed")
+                else:
+                    # No Discogs price available
+                    failed_count += 1
+                    results.append(f"❌ {artist} - {title}: No Discogs price available")
+                    
+            except Exception as e:
+                failed_count += 1
+                results.append(f"❌ {artist} - {title}: {str(e)}")
+            
+            # Update progress
+            progress_bar.progress((i + 1) / len(df))
+            
+            # Update results display every 5 records or at the end
+            if (i + 1) % 5 == 0 or (i + 1) == len(df):
+                with results_placeholder:
+                    # Show last 10 results
+                    display_results = results[-10:] if len(results) > 10 else results
+                    for result in display_results:
+                        st.write(result)
+        
+        status_text.empty()
+        progress_bar.empty()
+        
+        # Show final summary
+        with results_container:
+            st.success(f"✅ Store price update completed!")
+            st.write(f"**Results:** {updated_count} updated, {failed_count} failed")
+            
+        return updated_count
+
+    def _update_single_store_price(self, record_id):
+        """Update store price for a single record using Discogs median price with .49/.99 rounding"""
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql('SELECT * FROM records_with_genres WHERE id = ?', conn, params=(record_id,))
+        conn.close()
+        
+        if len(df) == 0:
+            st.error(f"Record ID {record_id} not found")
+            return 0
+        
+        # Get MIN_STORE_PRICE from config, default to 1.99
+        min_store_price = st.session_state.db_manager.get_config_value('MIN_STORE_PRICE', '1.99')
+        try:
+            min_store_price = float(min_store_price)
+        except (ValueError, TypeError):
+            min_store_price = 1.99
+        
+        record = df.iloc[0]
+        artist = record.get('artist', '')
+        title = record.get('title', '')
+        discogs_median_price = record.get('discogs_median_price')
+        
+        try:
+            if discogs_median_price is not None and discogs_median_price > 0:
+                # Use the same rounding function as eBay sell prices
+                store_price = self.export_handler._round_down_to_49_or_99(float(discogs_median_price))
+                
+                # Apply MIN_STORE_PRICE minimum
+                store_price = max(store_price, min_store_price)
+                
+                # Update the store_price field
+                success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
+                if success:
+                    st.success(f"✅ Updated store price for {artist} - {title}: ${discogs_median_price:.2f} → ${store_price:.2f}")
+                    return 1
+                else:
+                    st.error(f"❌ Database update failed for {artist} - {title}")
+                    return 0
+            else:
+                st.error(f"❌ No Discogs price available for {artist} - {title}")
+                return 0
+                
+        except Exception as e:
+            st.error(f"❌ Error updating {artist} - {title}: {str(e)}")
+            return 0
 
     def render_sold_tab(self):
         """Render the sold records table functionality - renamed to Income"""

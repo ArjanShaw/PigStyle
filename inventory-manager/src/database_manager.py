@@ -144,6 +144,12 @@ class DatabaseManager:
             VALUES ('SHIPPING_COST', '5.72')
         ''')
         
+        # Insert default MIN_STORE_PRICE configuration
+        cursor.execute('''
+            INSERT OR IGNORE INTO app_config (config_key, config_value)
+            VALUES ('MIN_STORE_PRICE', '1.99')
+        ''')
+        
         conn.commit()
         conn.close()
     

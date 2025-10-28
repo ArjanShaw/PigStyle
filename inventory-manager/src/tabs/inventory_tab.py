@@ -255,14 +255,26 @@ class InventoryTab:
         st.write("Dynamic calculation from eBay lowest price with .49/.99 rounding")
         st.write("Store price calculated automatically from Discogs median price")
         
+        # Test record input
+        st.subheader("Test Single Record")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            test_record_id = st.text_input("Record ID for testing:", placeholder="Enter record ID")
+        
         # eBay action buttons
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("📦 eBay List", use_container_width=True, help="Export selected records for eBay"):
-                self.export_handler.export_ebay_list()
+            if st.button("🔄 Update eBay Prices", use_container_width=True, help="Call eBay API to update pricing data for all inventory"):
+                if test_record_id and test_record_id.strip():
+                    self._update_single_ebay_prices(test_record_id.strip())
+                else:
+                    self._update_all_ebay_prices()
         with col2:
-            if st.button("🔄 Update All eBay Prices", use_container_width=True, help="Update eBay prices for entire inventory"):
-                self._update_all_ebay_prices()
+            if st.button("💰 Update eBay Sell At", use_container_width=True, help="Calculate eBay sell prices from existing lowest prices"):
+                if test_record_id and test_record_id.strip():
+                    self._update_single_ebay_sell_at(test_record_id.strip())
+                else:
+                    self._update_all_ebay_sell_at()
 
     def _get_database_stats_direct(self, status='inventory') -> dict:
         """Get database statistics directly from records table"""
@@ -286,6 +298,34 @@ class InventoryTab:
             return
         
         updated_count = self.export_handler.update_all_ebay_prices(self.ebay_handler)
+        
+        if updated_count > 0:
+            st.session_state.records_updated += 1
+            st.rerun()
+
+    def _update_single_ebay_prices(self, record_id):
+        """Update eBay prices for a single record"""
+        if not self.ebay_handler:
+            st.error("eBay handler not available. Check your eBay API credentials.")
+            return
+        
+        updated_count = self.export_handler.update_single_ebay_prices(self.ebay_handler, record_id)
+        
+        if updated_count > 0:
+            st.session_state.records_updated += 1
+            st.rerun()
+
+    def _update_all_ebay_sell_at(self):
+        """Update eBay sell prices for all inventory records using existing lowest prices"""
+        updated_count = self.export_handler.update_all_ebay_sell_at()
+        
+        if updated_count > 0:
+            st.session_state.records_updated += 1
+            st.rerun()
+
+    def _update_single_ebay_sell_at(self, record_id):
+        """Update eBay sell price for a single record using existing lowest price"""
+        updated_count = self.export_handler.update_single_ebay_sell_at(record_id)
         
         if updated_count > 0:
             st.session_state.records_updated += 1

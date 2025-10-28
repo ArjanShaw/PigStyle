@@ -16,8 +16,8 @@
             padding: 20px;
         }
         .gallery-popup { 
-            display: flex; 
-            flex-direction: column; 
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
             gap: 20px; 
             max-height: 70vh; 
             overflow-y: auto; 
@@ -75,6 +75,13 @@
             color: #0ff;
             font-weight: bold;
         }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .gallery-popup {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -97,7 +104,7 @@
                 const records = await response.json();
                 displayRecords(records);
             } catch (error) {
-                console.error('123 rror loading gallery data:', error);
+                console.error('Error loading gallery data:', error);
                 document.getElementById('gallery').innerHTML = '<div>Error loading records. Please try again later.</div>';
             }
         }

@@ -13,8 +13,6 @@ def export_gallery_data():
     
     # Database paths to try
     db_paths = [
-        "apps/inventory-manager/records.db",
-        "apps/inventory-manager/src/records.db", 
         "data/records.db"
     ]
     

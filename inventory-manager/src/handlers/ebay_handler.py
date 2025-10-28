@@ -8,6 +8,7 @@ from pathlib import Path
 class EbayHandler:
     EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
     EBAY_SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+    EBAY_ITEM_URL = "https://api.ebay.com/buy/browse/v1/item/"
 
     def __init__(self, client_id, client_secret, debug_tab=None):
         self.client_id = client_id
@@ -45,10 +46,7 @@ class EbayHandler:
         self.token_expiry = time.time() + token_data["expires_in"] - 60
         
         # Log token response
-        self._log_api_response(api_title, {
-            'status_code': resp.status_code,
-            'token_expires_in': token_data["expires_in"]
-        })
+        self._log_api_response(api_title, token_data)
         
         return self.token
 
@@ -64,7 +62,8 @@ class EbayHandler:
             "q": query, 
             "limit": 50, 
             "category_ids": category_id,
-            "filter": "conditions:USED|NEW"
+            "filter": "conditions:USED|NEW",
+            "fieldgroups": "EXTENDED"  # Get more detailed info including shipping
         }
 
         # Log search API call with unified format
@@ -80,6 +79,9 @@ class EbayHandler:
         resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
+
+        # Log the ACTUAL raw response from eBay - no wrapper, just the raw JSON
+        self._log_api_response(api_title, data)
 
         items = data.get("itemSummaries", [])
         
@@ -97,7 +99,7 @@ class EbayHandler:
                 price = float(price_data["value"])
                 prices.append(price)
                 
-                # Extract shipping cost
+                # Extract shipping cost from the item data
                 shipping_cost = self._extract_shipping_cost(item)
                 shipping_costs.append(shipping_cost)
 
@@ -125,49 +127,73 @@ class EbayHandler:
                 'ebay_low_shipping': round(lowest_shipping, 2)
             }
             
-            # Log successful search response
-            self._log_api_response(api_title, {
-                'status_code': resp.status_code,
-                'listings_count': len(items),
-                'prices_found': len(prices),
-                'median_price': result['ebay_median_price'],
-                'lowest_price': result['ebay_lowest_price'],
-                'highest_price': result['ebay_highest_price'],
-                'lowest_shipping': result['ebay_low_shipping']
-            })
-            
             return result
         else:
-            # Log no data response
-            self._log_api_response(api_title, {
-                'status_code': resp.status_code,
-                'listings_count': len(items),
-                'no_pricing_data': True
-            })
             return None
 
     def _extract_shipping_cost(self, item):
         """Extract shipping cost from eBay item data"""
         try:
+            # Try to get shipping cost from shippingOptions first
             shipping_options = item.get('shippingOptions', [])
-            if not shipping_options:
-                return 0.0  # Free shipping or no shipping info
+            if shipping_options:
+                for option in shipping_options:
+                    shipping_cost = option.get('shippingCost', {})
+                    if 'value' in shipping_cost:
+                        cost = float(shipping_cost['value'])
+                        return cost
             
-            # Look for the cheapest shipping cost
-            shipping_costs = []
-            for option in shipping_options:
-                shipping_cost = option.get('shippingCost', {})
+            # If no shipping options, check for calculated shipping
+            shipping_cost_summary = item.get('shippingCostSummary', {})
+            if shipping_cost_summary:
+                shipping_cost = shipping_cost_summary.get('shippingCost', {})
                 if 'value' in shipping_cost:
                     cost = float(shipping_cost['value'])
-                    shipping_costs.append(cost)
+                    return cost
             
-            if shipping_costs:
-                return min(shipping_costs)
-            else:
-                return 0.0  # Free shipping
+            # Check for fixed shipping cost
+            if 'shippingCostFixed' in item:
+                return float(item['shippingCostFixed'])
+                
+            # If we get here, assume free shipping
+            return 0.0
                 
         except Exception as e:
             return 0.0  # Default to free shipping on error
+
+    def get_item_details(self, item_id):
+        """Get detailed information for a specific eBay item"""
+        if not self.get_access_token():
+            return None
+
+        headers = {"Authorization": f"Bearer {self.token}"}
+        url = f"{self.EBAY_ITEM_URL}{item_id}"
+
+        # Log item API call
+        api_title = f"📦 eBay Item API: {url}"
+        self._log_api_call(api_title, {
+            'endpoint': url,
+            'request': {
+                'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
+            }
+        })
+
+        try:
+            resp = requests.get(url, headers=headers, timeout=10)
+            resp.raise_for_status()
+            item_data = resp.json()
+            
+            # Log successful response - raw eBay data
+            self._log_api_response(api_title, item_data)
+            
+            return item_data
+        except Exception as e:
+            # Log error response
+            self._log_api_response(api_title, {
+                'status_code': resp.status_code if 'resp' in locals() else 'No response',
+                'error': str(e)
+            })
+            return None
 
     def _log_api_call(self, title, request_data):
         """Log API call in unified format"""

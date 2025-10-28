@@ -264,6 +264,121 @@ class InventoryTab:
                             if 'response' in details:
                                 st.write("**Response:**")
                                 st.json(details['response'])
+        
+        # Show individual listings table
+        self._render_individual_listings_table()
+
+    def _render_individual_listings_table(self):
+        """Render a table with individual eBay listings showing base price and shipping costs"""
+        if 'api_details' not in st.session_state:
+            return
+            
+        # Find the most recent eBay search response
+        recent_ebay_response = None
+        for api_title, details in st.session_state.api_details.items():
+            if "eBay Search API" in api_title and 'response' in details:
+                recent_ebay_response = details['response']
+                break
+        
+        if not recent_ebay_response:
+            return
+            
+        # Extract itemSummaries from the response
+        item_summaries = recent_ebay_response.get('itemSummaries', [])
+        if not item_summaries:
+            return
+            
+        with st.expander("📊 Individual eBay Listings", expanded=False):
+            st.subheader("Individual Listings Analysis")
+            
+            # Create table data with proper numeric values for sorting
+            table_data = []
+            for item in item_summaries:
+                # Get base price
+                price_data = item.get('price', {})
+                base_price = float(price_data.get('value', 0))
+                
+                # Determine shipping type and cost
+                shipping_info = self._extract_shipping_info(item)
+                shipping_type = shipping_info['type']
+                shipping_cost = shipping_info['cost']
+                
+                # Calculate base + shipping
+                base_and_shipping = base_price + shipping_cost
+                
+                # Get URL
+                item_url = item.get('itemWebUrl', '')
+                
+                # Create table row with numeric values for sorting
+                table_data.append({
+                    'Title': item.get('title', '')[:80] + '...' if len(item.get('title', '')) > 80 else item.get('title', ''),
+                    'Base Price': base_price,
+                    'Shipping Type': shipping_type,
+                    'Shipping Cost': shipping_cost,
+                    'Base + Shipping': base_and_shipping,
+                    'URL': item_url
+                })
+            
+            # Create and display dataframe with proper column configuration
+            if table_data:
+                df = pd.DataFrame(table_data)
+                
+                # Configure columns for proper display and sorting
+                column_config = {
+                    "Title": st.column_config.TextColumn("Title"),
+                    "Base Price": st.column_config.NumberColumn(
+                        "Base Price",
+                        format="$%.2f"
+                    ),
+                    "Shipping Type": st.column_config.TextColumn("Shipping Type"),
+                    "Shipping Cost": st.column_config.NumberColumn(
+                        "Shipping Cost",
+                        format="$%.2f"
+                    ),
+                    "Base + Shipping": st.column_config.NumberColumn(
+                        "Base + Shipping",
+                        format="$%.2f"
+                    ),
+                    "URL": st.column_config.LinkColumn("URL")
+                }
+                
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    height=400,
+                    hide_index=True,
+                    column_config=column_config
+                )
+
+    def _extract_shipping_info(self, item):
+        """Extract shipping information from eBay item data"""
+        try:
+            # Check shipping options first
+            shipping_options = item.get('shippingOptions', [])
+            if shipping_options:
+                for option in shipping_options:
+                    shipping_cost = option.get('shippingCost', {})
+                    if 'value' in shipping_cost:
+                        cost = float(shipping_cost['value'])
+                        return {'type': 'FIXED', 'cost': cost}
+            
+            # Check for calculated shipping
+            shipping_cost_summary = item.get('shippingCostSummary', {})
+            if shipping_cost_summary:
+                shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
+                if shipping_cost_type == 'CALCULATED':
+                    return {'type': 'CALC', 'cost': 0}
+            
+            # Check for fixed shipping cost
+            if 'shippingCostFixed' in item:
+                cost = float(item['shippingCostFixed'])
+                return {'type': 'FIXED', 'cost': cost}
+            
+            # If no shipping cost found, assume free shipping
+            return {'type': 'FREE', 'cost': 0}
+                
+        except Exception as e:
+            return {'type': 'FREE', 'cost': 0}
 
     def _get_database_stats_direct(self, status='inventory') -> dict:
         """Get database statistics directly from records table"""

@@ -9,7 +9,6 @@ class DisplayHandler:
             st.warning("No results found on Discogs")
             return
         
-        st.write(f"Found **{len(results)}** results:")
         self._render_unified_results(results, search_type)
 
     def render_database_results(self, results, search_type):
@@ -18,13 +17,18 @@ class DisplayHandler:
             st.warning("No records found in database")
             return
         
-        st.write(f"Found **{len(results)}** records:")
         self._render_unified_results(results, search_type)
 
     def _render_unified_results(self, results, result_type):
         """Render unified results component for both Discogs and Database searches"""
         for i, record in enumerate(results):
-            col1, col2, col3 = st.columns([1, 3, 1])
+            if result_type == "Add item":
+                # For Discogs results, use 3 columns (no delete button)
+                col1, col2, col3 = st.columns([1, 3, 1])
+            else:
+                # For database results, use 4 columns to include delete button
+                col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
+                
             with col1:
                 image_url = record.get('image_url', '')
                 if image_url:
@@ -39,7 +43,7 @@ class DisplayHandler:
                 st.write(f"**{artist} - {title}**")
                 
                 # Type-specific fields
-                if result_type == "Database Search":
+                if result_type == "Edit or Delete item":
                     barcode = record.get('barcode', '')
                     file_at = record.get('file_at', '')
                     price = record.get('price', '')
@@ -53,15 +57,27 @@ class DisplayHandler:
             with col3:
                 if st.button("Select", key=f"select_{result_type}_{i}", use_container_width=True):
                     st.session_state.selected_record = {
-                        'type': 'discogs' if result_type == "Discogs Search" else 'database',
+                        'type': 'discogs' if result_type == "Add item" else 'database',
                         'data': record,
                         'index': i
                     }
                     st.rerun()
+            
+            # Add delete button only for database results
+            if result_type == "Edit or Delete item":
+                with col4:
+                    if st.button("🗑️ Delete", key=f"delete_{i}", use_container_width=True, type="secondary"):
+                        record_id = record.get('id')
+                        if record_id and self._delete_record(record_id):
+                            st.success("Record deleted successfully!")
+                            # Remove from current results
+                            results.pop(i)
+                            st.rerun()
+            
             st.divider()
         
         # Checkout option only for database search
-        if (result_type == "Database Search" and 
+        if (result_type == "Edit or Delete item" and 
             st.session_state.selected_record and 
             st.session_state.selected_record['type'] == 'database'):
             

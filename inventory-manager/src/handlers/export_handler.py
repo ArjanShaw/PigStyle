@@ -77,10 +77,6 @@ class ExportHandler:
                     # Calculate final eBay selling price (ebay_sell_at will be set by trigger)
                     ebay_sell_price = self.price_handler.calculate_ebay_price(ebay_pricing.get('ebay_lowest_price'))
                     
-                    # Set to NULL if below cutoff
-                    if ebay_sell_price and ebay_sell_price < self.price_handler.ebay_cutoff_price:
-                        ebay_sell_price = None
-                    
                     # Use update_record to track changes properly
                     updates = {
                         'ebay_median_price': ebay_pricing.get('ebay_median_price'),

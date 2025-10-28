@@ -55,7 +55,7 @@ class InventoryTab:
         """Render the unified search/add/checkout operations"""
         # Initialize session state for search
         if 'search_type' not in st.session_state:
-            st.session_state.search_type = "Database Search"
+            st.session_state.search_type = "Edit or Delete item"
         if 'current_search' not in st.session_state:
             st.session_state.current_search = ""
         if 'search_results' not in st.session_state:
@@ -73,12 +73,12 @@ class InventoryTab:
         if 'api_details' not in st.session_state:
             st.session_state.api_details = {}
         
-        # Search type selection
+        # Action type selection - renamed from Search Type
         col1, col2 = st.columns([1, 3])
         with col1:
             search_type = st.radio(
-                "Search Type:",
-                ["Discogs Search", "Database Search"],
+                "Action:",
+                ["Add item", "Edit or Delete item"],
                 key="search_type_radio"
             )
         
@@ -99,71 +99,30 @@ class InventoryTab:
             st.session_state.api_logs = []  # Clear previous API logs
             st.session_state.api_details = {}  # Clear previous API details
             
-            # Log the search with API URL for Discogs
-            if search_type == "Discogs Search":
-                discogs_search_url = f"https://api.discogs.com/database/search?q={search_input.strip()}&type=release&per_page=50&currency=USD"
-                st.session_state.api_logs.append(f"📡 Calling Discogs API: {discogs_search_url}")
-                
-                # Store API details for expander
-                st.session_state.api_details['discogs_search'] = {
-                    'request': {
-                        'url': discogs_search_url,
-                        'method': 'GET',
-                        'headers': {
-                            'User-Agent': 'PigStyleInventory/1.0',
-                            'Authorization': 'Discogs token=***'
-                        },
-                        'params': {
-                            'q': search_input.strip(),
-                            'type': 'release',
-                            'per_page': 50,
-                            'currency': 'USD'
-                        }
-                    }
-                }
+            if search_type == "Add item":
+                st.session_state.api_logs.append(f"🔍 Searching Discogs for: '{search_input.strip()}'")
             else:
-                st.session_state.api_logs.append(f"🔍 Searching {search_type}: '{search_input.strip()}'")
+                st.session_state.api_logs.append(f"🔍 Searching database for: '{search_input.strip()}'")
             
-            if search_type == "Discogs Search":
+            if search_type == "Add item":
                 results = self.search_handler.perform_discogs_search(search_input.strip())
                 st.session_state.search_results[search_input.strip()] = results
-                
-                # Store response details
-                if 'discogs_search' in st.session_state.api_details:
-                    st.session_state.api_details['discogs_search']['response'] = {
-                        'status_code': 200,
-                        'results_count': len(results) if results else 0,
-                        'results_sample': results[:2] if results else []
-                    }
-                
-                if results:
-                    st.session_state.api_logs.append(f"✅ Found {len(results)} results on Discogs")
-                else:
-                    st.session_state.api_logs.append("❌ No results found on Discogs")
             else:
                 results = self.search_handler.perform_database_search(search_input.strip())
                 st.session_state.search_results[search_input.strip()] = results
-                if results:
-                    st.session_state.api_logs.append(f"✅ Found {len(results)} records in database")
-                else:
-                    st.session_state.api_logs.append("❌ No records found in database")
         
-        # Show API logs with expandable details
+        # Show ALL API logs in the same collapsible component
         if st.session_state.api_logs:
-            with st.expander("📡 API Requests", expanded=True):
-                for i, log in enumerate(st.session_state.api_logs):
-                    if "Calling Discogs API:" in log:
-                        # Create expandable section for Discogs API call
-                        with st.expander(f"{log}", expanded=False):
-                            if 'discogs_search' in st.session_state.api_details:
-                                details = st.session_state.api_details['discogs_search']
-                                st.write("**Request:**")
-                                st.json(details['request'])
-                                if 'response' in details:
-                                    st.write("**Response:**")
-                                    st.json(details['response'])
-                    else:
-                        st.write(log)
+            with st.expander("📡 API Requests & Responses", expanded=True):
+                for api_title in st.session_state.api_logs:
+                    if api_title in st.session_state.api_details:
+                        details = st.session_state.api_details[api_title]
+                        with st.expander(api_title, expanded=False):
+                            st.write("**Request:**")
+                            st.json(details['request'])
+                            if 'response' in details:
+                                st.write("**Response:**")
+                                st.json(details['response'])
         
         # Show success message and display added record details
         if st.session_state.get('record_added') is not None:
@@ -185,7 +144,7 @@ class InventoryTab:
         # Display search results
         if (st.session_state.current_search and 
             st.session_state.current_search in st.session_state.search_results and
-            st.session_state.record_added is None):  # FIXED: Check for None instead of truth value
+            st.session_state.record_added is None):
             
             results = st.session_state.search_results[st.session_state.current_search]
             
@@ -194,20 +153,20 @@ class InventoryTab:
                 self.display_handler.render_selected_record_only(st.session_state.selected_record)
             else:
                 # Show all results
-                if search_type == "Discogs Search":
+                if search_type == "Add item":
                     self.display_handler.render_discogs_results(results, search_type)
                 else:
                     self.display_handler.render_database_results(results, search_type)
         
         # Edit properties and action button (only show when selection is made and no record was just added)
         if (st.session_state.selected_record and 
-            st.session_state.record_added is None):  # FIXED: Check for None instead of truth value
+            st.session_state.record_added is None):
             self.display_handler.render_edit_section(st.session_state.selected_record, self._handle_add_record, self._handle_update_record, st.session_state.last_condition)
         
         # Checkout section for database search
-        if (search_type == "Database Search" and 
+        if (search_type == "Edit or Delete item" and 
             st.session_state.checkout_records and
-            st.session_state.record_added is None):  # FIXED: Check for None instead of truth value
+            st.session_state.record_added is None):
             self.display_handler.render_checkout_section(st.session_state.checkout_records, self._process_checkout)
 
     def _handle_add_record(self, condition, genre):
@@ -216,11 +175,6 @@ class InventoryTab:
             record_data = st.session_state.selected_record['data']
             # Store the condition for next time
             st.session_state.last_condition = condition
-            
-            # Log the addition process
-            artist = record_data.get('artist', 'Unknown Artist')
-            title = record_data.get('title', 'Unknown Title')
-            st.session_state.api_logs.append(f"📝 Adding record: {artist} - {title}")
             
             success, record_id = self.record_ops_handler.add_inventory_record(
                 record_data, 
@@ -238,7 +192,6 @@ class InventoryTab:
                 if record is not None:
                     # Convert Series to dict to avoid truth value issues
                     st.session_state.record_added = record.to_dict() if hasattr(record, 'to_dict') else record
-                    st.session_state.api_logs.append(f"✅ Successfully added record with ID: {record_id}")
                 else:
                     # Fallback: create basic record data
                     st.session_state.record_added = {
@@ -246,18 +199,15 @@ class InventoryTab:
                         'store_price': 0,
                         'ebay_sell_at': 0
                     }
-                    st.session_state.api_logs.append(f"⚠️ Record added but couldn't retrieve details")
                 
                 st.session_state.selected_record = None
                 st.session_state.records_updated += 1
                 st.rerun()
             else:
                 st.error("Failed to add record to database")
-                st.session_state.api_logs.append("❌ Failed to add record to database")
                 
         except Exception as e:
             st.error(f"Error adding to database: {str(e)}")
-            st.session_state.api_logs.append(f"❌ Error: {str(e)}")
 
     def _handle_update_record(self, condition, genre):
         """Handle updating a database record"""
@@ -302,20 +252,8 @@ class InventoryTab:
     def _render_ebay_section(self):
         """Render eBay settings and actions"""
         st.subheader("eBay Pricing Strategy")
-        st.write("Dynamic calculation from eBay lowest price with cutoff and .49/.99 rounding")
+        st.write("Dynamic calculation from eBay lowest price with .49/.99 rounding")
         st.write("Store price calculated automatically from Discogs median price")
-        
-        new_cutoff = st.number_input(
-            "eBay Cutoff Price",
-            min_value=0.0,
-            max_value=100.0,
-            value=self.price_handler.ebay_cutoff_price,
-            step=0.5,
-            help="Minimum price for eBay listings"
-        )
-        if new_cutoff != self.price_handler.ebay_cutoff_price:
-            self.price_handler.set_ebay_cutoff_price(new_cutoff)
-            st.success(f"eBay cutoff price updated to ${new_cutoff:.2f}")
         
         # eBay action buttons
         col1, col2 = st.columns(2)

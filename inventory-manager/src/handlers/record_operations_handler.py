@@ -21,39 +21,12 @@ class RecordOperationsHandler:
             
             # Get Discogs pricing information
             if self.discogs_handler:
-                # Log Discogs API call
-                discogs_url = f"https://api.discogs.com/marketplace/listings?release_id={release_id}"
-                st.session_state.api_logs.append(f"📡 Calling Discogs API: {discogs_url}")
-                
+                # Note: The actual API call logging is now handled within discogs_handler
                 pricing_data = self.discogs_handler.get_release_pricing(
                     str(release_id), 
                     search_term, 
                     f"release_{release_id}"
                 )
-                
-                # Log Discogs result
-                if pricing_data and pricing_data.get('success'):
-                    st.session_state.api_logs.append(f"✅ Discogs: ${pricing_data['median_price']:.2f} median from {pricing_data.get('prices_found', 0)} prices")
-                    
-                    # Add expander for Discogs API details
-                    with st.expander("📡 Discogs API Details"):
-                        st.write("**Request:**")
-                        st.json({
-                            "url": discogs_url,
-                            "release_id": release_id,
-                            "search_term": search_term
-                        })
-                        st.write("**Response:**")
-                        st.json({
-                            "median_price": pricing_data['median_price'],
-                            "lowest_price": pricing_data.get('lowest_price'),
-                            "highest_price": pricing_data.get('highest_price'),
-                            "prices_found": pricing_data.get('prices_found', 0),
-                            "listings_with_prices": pricing_data.get('listings_with_prices', 0)
-                        })
-                else:
-                    error_msg = pricing_data.get('error', 'Unable to get pricing data') if pricing_data else 'No pricing data returned'
-                    st.session_state.api_logs.append(f"❌ Discogs: {error_msg}")
             else:
                 st.error("Discogs handler not available")
                 return False, None
@@ -72,37 +45,18 @@ class RecordOperationsHandler:
             
             # Get eBay pricing if handler is available
             ebay_pricing = None
+            ebay_sell_at = None
             if self.ebay_handler and artist and title:
-                # Log eBay API call
-                ebay_url = "https://api.ebay.com/buy/browse/v1/item_summary/search"
-                st.session_state.api_logs.append(f"📡 Calling eBay API: {ebay_url}")
-                
+                # Note: The actual API call logging is now handled within ebay_handler
                 try:
                     ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
                     if ebay_pricing:
-                        st.session_state.api_logs.append(f"✅ eBay: ${ebay_pricing.get('ebay_median_price', 0):.2f} median from {ebay_pricing.get('ebay_listings_count', 0)} listings")
-                        
-                        # Add expander for eBay API details
-                        with st.expander("📡 eBay API Details"):
-                            st.write("**Request:**")
-                            st.json({
-                                "url": ebay_url,
-                                "artist": artist,
-                                "title": title,
-                                "query": f"{artist} {title}"
-                            })
-                            st.write("**Response:**")
-                            st.json({
-                                "ebay_median_price": ebay_pricing.get('ebay_median_price'),
-                                "ebay_lowest_price": ebay_pricing.get('ebay_lowest_price'),
-                                "ebay_highest_price": ebay_pricing.get('ebay_highest_price'),
-                                "ebay_listings_count": ebay_pricing.get('ebay_listings_count', 0)
-                            })
-                    else:
-                        st.session_state.api_logs.append("❌ eBay: No pricing data found")
+                        # Calculate eBay sell price immediately
+                        ebay_lowest = ebay_pricing.get('ebay_lowest_price')
+                        if ebay_lowest and ebay_lowest > 0:
+                            ebay_sell_at = self._calculate_ebay_sell_price(ebay_lowest)
                 except Exception as e:
                     st.warning(f"Could not fetch eBay pricing: {e}")
-                    st.session_state.api_logs.append(f"❌ eBay API error: {e}")
                     ebay_pricing = None
             
             # Get genre_id for the genre
@@ -125,7 +79,7 @@ class RecordOperationsHandler:
             store_price = self._calculate_store_price(pricing_data['median_price'])
             
             # Save to database - include both Discogs and eBay data
-            # The ebay_sell_at will be calculated by database trigger when ebay_lowest_price is set
+            # Set ebay_sell_at directly instead of relying on trigger
             result_data = {
                 'artist': artist,
                 'title': title,
@@ -137,7 +91,7 @@ class RecordOperationsHandler:
                 'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price') if ebay_pricing else None,
                 'ebay_highest_price': ebay_pricing.get('ebay_highest_price') if ebay_pricing else None,
                 'ebay_count': ebay_pricing.get('ebay_listings_count') if ebay_pricing else None,
-                'ebay_sell_at': None,  # Will be set by database trigger
+                'ebay_sell_at': ebay_sell_at,  # Set directly instead of relying on trigger
                 'genre_id': genre_id,
                 'image_url': image_url,
                 'format': format_selected,
@@ -150,7 +104,6 @@ class RecordOperationsHandler:
                 'store_price': store_price,
             }
             
-            st.session_state.api_logs.append("💾 Saving record to database...")
             record_id = st.session_state.db_manager.save_record(result_data)
             
             # Force update file_at after record is created
@@ -165,7 +118,6 @@ class RecordOperationsHandler:
             
         except Exception as e:
             st.error(f"Error adding to database: {str(e)}")
-            st.session_state.api_logs.append(f"❌ Database error: {str(e)}")
             return False, None
 
     def _calculate_store_price(self, discogs_median_price):
@@ -180,6 +132,33 @@ class RecordOperationsHandler:
             rounded_up = math.ceil(discogs_median_price)
             store_price = rounded_up - 0.01
             return round(store_price, 2)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _calculate_ebay_sell_price(self, ebay_lowest_price):
+        """Calculate eBay sell price from eBay lowest price"""
+        import math
+        
+        if ebay_lowest_price is None or ebay_lowest_price <= 0:
+            return 0.0
+        
+        try:
+            # Convert to float and ensure it's a valid number
+            ebay_price = float(ebay_lowest_price)
+            if ebay_price <= 0:
+                return 0.0
+            
+            # Round down to nearest .49 or .99 (no cutoff)
+            base_price = math.floor(ebay_price)
+            
+            # If the decimal part is >= 0.50, use .99, otherwise use .49
+            decimal_part = ebay_price - base_price
+            if decimal_part >= 0.50:
+                ebay_price = base_price + 0.99
+            else:
+                ebay_price = base_price + 0.49
+            
+            return round(ebay_price, 2)
         except (ValueError, TypeError):
             return 0.0
 

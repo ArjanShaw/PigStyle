@@ -2,12 +2,8 @@ import math
 import pandas as pd
 
 class PriceHandler:
-    def __init__(self, ebay_cutoff_price=3.99):
-        self.ebay_cutoff_price = ebay_cutoff_price
-    
-    def set_ebay_cutoff_price(self, cutoff_price):
-        """Set the eBay cutoff price"""
-        self.ebay_cutoff_price = cutoff_price
+    def __init__(self):
+        pass
     
     def calculate_store_price(self, discogs_median_price):
         """
@@ -37,7 +33,7 @@ class PriceHandler:
     def calculate_ebay_price(self, ebay_lowest_price):
         """
         Calculate eBay price from eBay lowest price.
-        Rounds down to .49 or .99 with cutoff at self.ebay_cutoff_price
+        Rounds down to .49 or .99 (no cutoff)
         """
         # Handle None, NaN, or invalid values
         if (ebay_lowest_price is None or 
@@ -51,11 +47,7 @@ class PriceHandler:
             if ebay_price <= 0:
                 return 0.0
             
-            # Apply cutoff - don't go below the cutoff price
-            if ebay_price < self.ebay_cutoff_price:
-                ebay_price = self.ebay_cutoff_price
-            
-            # Round down to nearest .49 or .99
+            # Round down to nearest .49 or .99 (no cutoff)
             base_price = math.floor(ebay_price)
             
             # If the decimal part is >= 0.50, use .99, otherwise use .49

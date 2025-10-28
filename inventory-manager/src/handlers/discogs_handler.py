@@ -2,6 +2,7 @@ import requests
 import json
 import re
 import time
+import streamlit as st
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -30,7 +31,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        self._log_debug("DISCOGS_SEARCH", f"{endpoint_url} - {query}", {
+        # Log the API call with unified format
+        api_title = f"🔍 Discogs Search API: {endpoint_url}"
+        self._log_api_call(api_title, {
             'endpoint': endpoint_url,
             'request': {
                 'params': params,
@@ -52,17 +55,11 @@ class DiscogsHandler:
         
         data = response.json()
         
-        self._log_debug("DISCOGS_SEARCH_SUCCESS", f"{endpoint_url} - {query} - {len(data.get('results', []))} results", {
-            'endpoint': endpoint_url,
-            'request': {
-                'params': params,
-                'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-            },
-            'response': {
-                'status_code': response.status_code,
-                'result_count': len(data.get('results', [])),
-                'results_sample': data.get('results', [])[:2] if data.get('results') else []
-            }
+        # Log successful response
+        self._log_api_response(api_title, {
+            'status_code': response.status_code,
+            'result_count': len(data.get('results', [])),
+            'results_sample': data.get('results', [])[:2] if data.get('results') else []
         })
         
         return data
@@ -76,7 +73,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        self._log_debug("DISCOGS_PRICING", f"{endpoint_url} - Release {release_id}", {
+        # Log the API call with unified format
+        api_title = f"💰 Discogs Pricing API: {endpoint_url}?release_id={release_id}"
+        self._log_api_call(api_title, {
             'endpoint': endpoint_url,
             'request': {
                 'params': params,
@@ -106,13 +105,26 @@ class DiscogsHandler:
                 result = self._calculate_pricing_stats([price], 1, 1, query, 'release_stats')
                 result['image_url'] = image_url
                 result['release_data'] = release_data
-                self._log_debug("DISCOGS_PRICING_FALLBACK", f"{endpoint_url} - Release {release_id} - Using release stats: ${price}")
+                
+                # Log fallback response
+                self._log_api_response(api_title, {
+                    'status_code': response.status_code,
+                    'fallback_used': True,
+                    'price_from_stats': price,
+                    'release_data_available': True
+                })
                 return result
             else:
                 result = self._create_no_results_response(1, query)
                 result['image_url'] = image_url
                 result['release_data'] = release_data
-                self._log_debug("DISCOGS_PRICING_NO_DATA", f"{endpoint_url} - Release {release_id} - No pricing data found")
+                
+                # Log no data response
+                self._log_api_response(api_title, {
+                    'status_code': response.status_code,
+                    'fallback_used': False,
+                    'no_pricing_data': True
+                })
                 return result
         
         listings_data = response.json()
@@ -132,18 +144,15 @@ class DiscogsHandler:
             result = self._calculate_pricing_stats(prices, len(prices), len(listings_data.get('listings', [])), query, 'marketplace')
             result['image_url'] = image_url
             result['release_data'] = release_data
-            self._log_debug("DISCOGS_PRICING_SUCCESS", f"{endpoint_url} - Release {release_id} - ${result['median_price']} median from {len(prices)} prices", {
-                'endpoint': endpoint_url,
-                'request': {
-                    'params': params,
-                    'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-                },
-                'response': {
-                    'status_code': response.status_code,
-                    'listings_count': len(listings_data.get('listings', [])),
-                    'prices_found': len(prices),
-                    'pricing_result': result
-                }
+            
+            # Log successful pricing response
+            self._log_api_response(api_title, {
+                'status_code': response.status_code,
+                'listings_count': len(listings_data.get('listings', [])),
+                'prices_found': len(prices),
+                'median_price': result['median_price'],
+                'lowest_price': result['lowest_price'],
+                'highest_price': result['highest_price']
             })
             return result
         else:
@@ -152,20 +161,33 @@ class DiscogsHandler:
                 result = self._calculate_pricing_stats([price], 1, 1, query, 'release_stats')
                 result['image_url'] = image_url
                 result['release_data'] = release_data
-                self._log_debug("DISCOGS_PRICING_FALLBACK", f"{endpoint_url} - Release {release_id} - Using release stats fallback: ${price}")
+                
+                # Log fallback response
+                self._log_api_response(api_title, {
+                    'status_code': response.status_code,
+                    'fallback_used': True,
+                    'price_from_stats': price
+                })
                 return result
             else:
                 result = self._create_no_results_response(len(listings_data.get('listings', [])), query)
                 result['image_url'] = image_url
                 result['release_data'] = release_data
-                self._log_debug("DISCOGS_PRICING_NO_DATA", f"{endpoint_url} - Release {release_id} - No pricing data available")
+                
+                # Log no data response
+                self._log_api_response(api_title, {
+                    'status_code': response.status_code,
+                    'no_pricing_data': True
+                })
                 return result
 
     def _get_release_stats(self, release_id: str):
         """Get release statistics from Discogs API"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
         
-        self._log_debug("DISCOGS_RELEASE", f"{endpoint_url} - Release {release_id}", {
+        # Log the API call with unified format
+        api_title = f"📊 Discogs Release API: {endpoint_url}"
+        self._log_api_call(api_title, {
             'endpoint': endpoint_url,
             'request': {
                 'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
@@ -180,15 +202,11 @@ class DiscogsHandler:
         
         if response.status_code == 200:
             data = response.json()
-            self._log_debug("DISCOGS_RELEASE_SUCCESS", f"{endpoint_url} - Release {release_id}", {
-                'endpoint': endpoint_url,
-                'request': {
-                    'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-                },
-                'response': {
-                    'status_code': response.status_code,
-                    'release_data_keys': list(data.keys()) if data else []
-                }
+            
+            # Log successful response
+            self._log_api_response(api_title, {
+                'status_code': response.status_code,
+                'release_data_keys': list(data.keys()) if data else []
             })
             return data
         else:
@@ -301,3 +319,18 @@ class DiscogsHandler:
         file_path = payloads_folder / filename
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+
+    def _log_api_call(self, title, request_data):
+        """Log API call in unified format"""
+        if 'api_logs' not in st.session_state:
+            st.session_state.api_logs = []
+        if 'api_details' not in st.session_state:
+            st.session_state.api_details = {}
+            
+        st.session_state.api_logs.append(title)
+        st.session_state.api_details[title] = {'request': request_data}
+
+    def _log_api_response(self, title, response_data):
+        """Log API response in unified format"""
+        if 'api_details' in st.session_state and title in st.session_state.api_details:
+            st.session_state.api_details[title]['response'] = response_data

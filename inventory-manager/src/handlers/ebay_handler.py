@@ -1,3 +1,4 @@
+import streamlit as st
 import requests
 import time
 import re
@@ -27,7 +28,9 @@ class EbayHandler:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"}
 
-        self._log_debug("EBAY_TOKEN", f"{self.EBAY_TOKEN_URL} - Getting access token", {
+        # Log token API call
+        api_title = f"🔑 eBay Token API: {self.EBAY_TOKEN_URL}"
+        self._log_api_call(api_title, {
             'endpoint': self.EBAY_TOKEN_URL,
             'request': {
                 'headers': headers,
@@ -41,16 +44,10 @@ class EbayHandler:
         self.token = token_data["access_token"]
         self.token_expiry = time.time() + token_data["expires_in"] - 60
         
-        self._log_debug("EBAY_TOKEN_SUCCESS", f"{self.EBAY_TOKEN_URL} - Access token obtained", {
-            'endpoint': self.EBAY_TOKEN_URL,
-            'request': {
-                'headers': headers,
-                'data': data
-            },
-            'response': {
-                'status_code': resp.status_code,
-                'token_expires_in': token_data["expires_in"]
-            }
+        # Log token response
+        self._log_api_response(api_title, {
+            'status_code': resp.status_code,
+            'token_expires_in': token_data["expires_in"]
         })
         
         return self.token
@@ -70,7 +67,9 @@ class EbayHandler:
             "filter": "conditions:USED|NEW"
         }
 
-        self._log_debug("EBAY_SEARCH", f"{self.EBAY_SEARCH_URL} - {query}", {
+        # Log search API call with unified format
+        api_title = f"🛒 eBay Search API: {self.EBAY_SEARCH_URL}?q={query}"
+        self._log_api_call(api_title, {
             'endpoint': self.EBAY_SEARCH_URL,
             'request': {
                 'params': params,
@@ -112,32 +111,37 @@ class EbayHandler:
                 'ebay_listings_count': len(prices)
             }
             
-            self._log_debug("EBAY_SEARCH_SUCCESS", f"{self.EBAY_SEARCH_URL} - {query} - ${result['ebay_median_price']} median from {len(prices)} listings", {
-                'endpoint': self.EBAY_SEARCH_URL,
-                'request': {
-                    'params': params,
-                    'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
-                },
-                'response': {
-                    'status_code': resp.status_code,
-                    'listings_count': len(items),
-                    'prices_found': len(prices),
-                    'pricing_result': result
-                }
+            # Log successful search response
+            self._log_api_response(api_title, {
+                'status_code': resp.status_code,
+                'listings_count': len(items),
+                'prices_found': len(prices),
+                'median_price': result['ebay_median_price'],
+                'lowest_price': result['ebay_lowest_price'],
+                'highest_price': result['ebay_highest_price']
             })
             
             return result
         else:
-            self._log_debug("EBAY_SEARCH_NO_DATA", f"{self.EBAY_SEARCH_URL} - {query} - No pricing data found", {
-                'endpoint': self.EBAY_SEARCH_URL,
-                'request': {
-                    'params': params,
-                    'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
-                },
-                'response': {
-                    'status_code': resp.status_code,
-                    'listings_count': len(items),
-                    'items_sample': items[:3] if items else []
-                }
+            # Log no data response
+            self._log_api_response(api_title, {
+                'status_code': resp.status_code,
+                'listings_count': len(items),
+                'no_pricing_data': True
             })
             return None
+
+    def _log_api_call(self, title, request_data):
+        """Log API call in unified format"""
+        if 'api_logs' not in st.session_state:
+            st.session_state.api_logs = []
+        if 'api_details' not in st.session_state:
+            st.session_state.api_details = {}
+            
+        st.session_state.api_logs.append(title)
+        st.session_state.api_details[title] = {'request': request_data}
+
+    def _log_api_response(self, title, response_data):
+        """Log API response in unified format"""
+        if 'api_details' in st.session_state and title in st.session_state.api_details:
+            st.session_state.api_details[title]['response'] = response_data

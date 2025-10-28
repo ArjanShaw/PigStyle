@@ -117,12 +117,6 @@ class DatabaseManager:
             )
         ''')
         
-        # Insert default eBay cutoff price if not exists
-        cursor.execute('''
-            INSERT OR IGNORE INTO app_config (config_key, config_value) 
-            VALUES ('ebay_cutoff_price', '3.99')
-        ''')
-        
         # Create view for records with genre names
         cursor.execute('''
             CREATE VIEW IF NOT EXISTS records_with_genres AS
@@ -253,7 +247,6 @@ class DatabaseManager:
                 SET ebay_sell_at = (
                     SELECT 
                         CASE 
-                            WHEN NEW.ebay_lowest_price < (SELECT config_value FROM app_config WHERE config_key = 'ebay_cutoff_price') THEN NULL
                             WHEN (NEW.ebay_lowest_price - FLOOR(NEW.ebay_lowest_price)) >= 0.5 THEN
                                 FLOOR(NEW.ebay_lowest_price) + 0.99
                             ELSE
@@ -320,38 +313,9 @@ class DatabaseManager:
         return df.iloc[0] if len(df) > 0 else None
     
     def update_record(self, record_id, updates):
-        """Update a record and mark price tag as dirty if price-related fields change"""
+        """Update a record"""
         conn = self._get_connection()
         cursor = conn.cursor()
-        
-        # Check if any price-related fields are being updated
-        price_related_fields = ['artist', 'title', 'genre_id', 'barcode', 'discogs_median_price', 
-                               'ebay_median_price', 'price', 'file_at', 'store_price', 'ebay_sell_at']
-        
-        # Get current values
-        cursor.execute('SELECT artist, title, genre_id, barcode, discogs_median_price, ebay_median_price, price, file_at, store_price, ebay_sell_at FROM records WHERE id = ?', (record_id,))
-        current_values = cursor.fetchone()
-        
-        # Check if any price-related fields are changing
-        price_tag_dirty = False
-        if current_values:
-            current_dict = {
-                'artist': current_values[0],
-                'title': current_values[1],
-                'genre_id': current_values[2],
-                'barcode': current_values[3],
-                'discogs_median_price': current_values[4],
-                'ebay_median_price': current_values[5],
-                'price': current_values[6],
-                'file_at': current_values[7],
-                'store_price': current_values[8],
-                'ebay_sell_at': current_values[9]
-            }
-            
-            for field in price_related_fields:
-                if field in updates and updates[field] != current_dict[field]:
-                    price_tag_dirty = True
-                    break
         
         # Build update query
         set_clause = []
@@ -362,10 +326,6 @@ class DatabaseManager:
         
         # Add updated_at timestamp
         set_clause.append("updated_at = CURRENT_TIMESTAMP")
-        
-        # If price-related fields changed, mark price tag as not printed
-        if price_tag_dirty:
-            set_clause.append("price_tag_printed = 0")
         
         values.append(record_id)
         

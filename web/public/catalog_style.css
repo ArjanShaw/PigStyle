@@ -10,12 +10,12 @@ body {
 .gallery-popup { 
     display: flex;
     flex-direction: column;
-    gap: 15px; 
+    gap: 20px; 
     max-height: 70vh; 
     overflow-y: auto; 
     padding: 10px; 
     width: 100%;
-    max-width: 500px;
+    max-width: 600px;
     margin: 0 auto;
 }
 .card { 
@@ -23,23 +23,23 @@ body {
     flex-direction: row; 
     align-items: center; 
     background: #222; 
-    border-radius: 8px; 
-    padding: 12px; 
+    border-radius: 12px; 
+    padding: 15px; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
     transition: all 0.2s ease; 
-    height: 140px;
+    height: 220px;
     width: 100%;
     box-sizing: border-box;
 }
 .card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     transform: translateY(-2px);
 }
 .card img { 
-    width: 100px; 
-    height: 100px; 
-    border-radius: 6px; 
-    margin-right: 15px; 
+    width: 200px; 
+    height: 200px; 
+    border-radius: 8px; 
+    margin-right: 20px; 
     object-fit: cover;
 }
 .card-info { 
@@ -51,8 +51,8 @@ body {
     justify-content: space-between;
 }
 .card-info h3 { 
-    margin: 0 0 8px 0; 
-    font-size: 1.1rem;
+    margin: 0 0 12px 0; 
+    font-size: 1.3rem;
     line-height: 1.3;
     max-height: 2.6em;
     overflow: hidden;
@@ -61,8 +61,8 @@ body {
     -webkit-box-orient: vertical;
 }
 .card-info p { 
-    margin: 4px 0; 
-    font-size: 0.9rem;
+    margin: 6px 0; 
+    font-size: 1rem;
 }
 .card.highlight { 
     box-shadow: 0 0 0 2px #0ff; 
@@ -91,11 +91,11 @@ header {
 .price {
     color: #0ff;
     font-weight: bold;
-    font-size: 1.1rem;
+    font-size: 1.3rem;
 }
 .genre {
     color: #aaa;
-    font-size: 0.85rem;
+    font-size: 0.95rem;
 }
 
 /* Custom scrollbar for eBay-like feel */

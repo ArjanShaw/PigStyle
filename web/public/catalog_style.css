@@ -17,45 +17,42 @@ body {
     width: 100%;
     max-width: 60vw;
     margin: 0 auto;
+    align-items: center; /* Center cards instead of stretching */
 }
 .card { 
     display: flex; 
     flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     background: #222; 
     border-radius: 12px; 
     padding: 15px; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
     transition: all 0.3s ease; 
-    height: auto;
-    width: 100%;
+    width: fit-content; /* Card only as wide as content */
+    max-width: 100%; /* Still respect container max */
     box-sizing: border-box;
     overflow: hidden;
-    min-height: 0; /* Remove minimum height constraint */
 }
 .card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     transform: translateY(-2px);
 }
 .card-image { 
-    flex: 0 0 50%; /* Take 50% of card width */
+    flex: 0 0 180px; /* Fixed image width */
     margin-right: 20px;
 }
 .card-image img { 
-    width: 100%; 
-    height: auto; 
-    aspect-ratio: 1; /* Make it square */
+    width: 180px; /* Larger fixed size */
+    height: 180px; 
     border-radius: 8px; 
     object-fit: cover;
 }
 .card-info { 
-    display: flex; 
-    flex-direction: column; 
+    flex: none; /* Critical: prevents expansion, uses content width */
     text-align: left; 
-    flex: 1;
+    width: auto; /* Natural content width */
     justify-content: flex-start;
     gap: 8px;
-    min-height: 0; /* Allow content to determine height */
 }
 .card-info h3 { 
     margin: 0; 
@@ -245,6 +242,7 @@ header {
     }
     .card {
         flex-direction: column;
+        width: 100%; /* Full width on mobile */
     }
     .card-image {
         flex: 0 0 auto;
@@ -255,6 +253,10 @@ header {
     .card-image img {
         max-width: 300px;
         margin: 0 auto;
+    }
+    .card-info {
+        width: 100%;
+        text-align: center;
     }
 }
 
@@ -270,7 +272,3 @@ header {
         display: none;
     }
 }
-
-.card { border: 2px solid red; }
-.card-info { border: 2px solid blue; }
-.gallery-popup { border: 2px solid green; }

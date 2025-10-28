@@ -270,3 +270,7 @@ header {
         display: none;
     }
 }
+
+.card { border: 2px solid red; }
+.card-info { border: 2px solid blue; }
+.gallery-popup { border: 2px solid green; }

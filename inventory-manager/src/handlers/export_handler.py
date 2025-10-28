@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from handlers.draft_csv_handler import DraftCSVHandler
+import math
 
 class ExportHandler:
     def __init__(self, price_handler, genre_handler):
@@ -41,6 +42,19 @@ class ExportHandler:
         )
         
         st.success(f"✅ eBay draft file ready! {len(records_list)} records formatted for eBay import.")
+
+    def _round_down_to_49_or_99(self, price):
+        """Round down to nearest .49 or .99"""
+        if price <= 0:
+            return 0.0
+        
+        base_price = math.floor(price)
+        decimal_part = price - base_price
+        
+        if decimal_part >= 0.50:
+            return base_price + 0.99
+        else:
+            return base_price + 0.49
 
     def update_all_ebay_prices(self, ebay_handler):
         """Update eBay prices for all inventory records"""
@@ -84,10 +98,13 @@ class ExportHandler:
                     # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
                     ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
                     ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
-                    ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                    ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
                     
                     # Ensure ebay_sell_at is not negative
-                    ebay_sell_at = max(ebay_sell_at, 0)
+                    ebay_sell_at_raw = max(ebay_sell_at_raw, 0)
+                    
+                    # Round down to nearest .49 or .99
+                    ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
                     
                     # Use update_record to track changes properly
                     updates = {
@@ -96,7 +113,8 @@ class ExportHandler:
                         'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
                         'ebay_count': ebay_pricing.get('ebay_listings_count', 0),
                         'ebay_sell_at': ebay_sell_at,
-                        'ebay_low_shipping': ebay_low_shipping
+                        'ebay_low_shipping': ebay_low_shipping,
+                        'ebay_low_url': ebay_pricing.get('ebay_search_url', '')
                     }
                     success = st.session_state.db_manager.update_record(record_id, updates)
                     if success:
@@ -165,10 +183,13 @@ class ExportHandler:
                 # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
                 ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
                 ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
-                ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
                 
                 # Ensure ebay_sell_at is not negative
-                ebay_sell_at = max(ebay_sell_at, 0)
+                ebay_sell_at_raw = max(ebay_sell_at_raw, 0)
+                
+                # Round down to nearest .49 or .99
+                ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
                 
                 # Use update_record to track changes properly
                 updates = {
@@ -177,7 +198,8 @@ class ExportHandler:
                     'ebay_highest_price': ebay_pricing.get('ebay_highest_price'),
                     'ebay_count': ebay_pricing.get('ebay_listings_count', 0),
                     'ebay_sell_at': ebay_sell_at,
-                    'ebay_low_shipping': ebay_low_shipping
+                    'ebay_low_shipping': ebay_low_shipping,
+                    'ebay_low_url': ebay_pricing.get('ebay_search_url', '')
                 }
                 success = st.session_state.db_manager.update_record(record_id, updates)
                 if success:
@@ -235,10 +257,13 @@ class ExportHandler:
                     ebay_low_shipping = float(ebay_low_shipping)
                     
                     # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
-                    ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                    ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
                     
                     # Ensure ebay_sell_at is not negative
-                    ebay_sell_at = max(ebay_sell_at, 0)
+                    ebay_sell_at_raw = max(ebay_sell_at_raw, 0)
+                    
+                    # Round down to nearest .49 or .99
+                    ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
                     
                     # Update only the ebay_sell_at field
                     success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})
@@ -307,10 +332,13 @@ class ExportHandler:
                 ebay_low_shipping = float(ebay_low_shipping)
                 
                 # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
-                ebay_sell_at = ebay_lowest_price + ebay_low_shipping - shipping_cost
+                ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
                 
                 # Ensure ebay_sell_at is not negative
-                ebay_sell_at = max(ebay_sell_at, 0)
+                ebay_sell_at_raw = max(ebay_sell_at_raw, 0)
+                
+                # Round down to nearest .49 or .99
+                ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
                 
                 # Update only the ebay_sell_at field
                 success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})

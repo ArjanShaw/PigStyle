@@ -152,7 +152,8 @@ class EbayHandler:
                 'ebay_highest_price': max(base_prices),
                 'ebay_listings_count': len(listings),
                 'ebay_low_shipping': round(cheapest_listing['shipping_cost'] or 0, 2),
-                'ebay_low_total': round(cheapest_listing['total_cost'], 2)
+                'ebay_low_total': round(cheapest_listing['total_cost'], 2),
+                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}"
             }
             
             return result

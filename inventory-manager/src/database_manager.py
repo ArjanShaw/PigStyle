@@ -30,6 +30,7 @@ class DatabaseManager:
                 ebay_count INTEGER,
                 ebay_sell_at REAL,
                 ebay_low_shipping REAL,
+                ebay_low_url TEXT,
                 genre_id INTEGER NOT NULL,
                 image_url TEXT,
                 year TEXT,
@@ -52,6 +53,7 @@ class DatabaseManager:
             ('ebay_count', 'INTEGER'),
             ('ebay_sell_at', 'REAL'),
             ('ebay_low_shipping', 'REAL'),
+            ('ebay_low_url', 'TEXT'),
             ('store_price', 'REAL'),
             ('genre_id', 'INTEGER NOT NULL'),
             ('status', 'TEXT DEFAULT "inventory"'),
@@ -247,27 +249,6 @@ class DatabaseManager:
                 WHERE id = NEW.id;
             END
         ''')
-        
-        # Trigger for ebay_sell_at when ebay_lowest_price is set or updated
-        cursor.execute('''
-            CREATE TRIGGER IF NOT EXISTS calculate_ebay_sell_at
-            AFTER UPDATE OF ebay_lowest_price ON records
-            FOR EACH ROW
-            WHEN (NEW.ebay_lowest_price IS NOT NULL AND NEW.ebay_lowest_price > 0)
-            BEGIN
-                UPDATE records 
-                SET ebay_sell_at = (
-                    SELECT 
-                        CASE 
-                            WHEN (NEW.ebay_lowest_price - FLOOR(NEW.ebay_lowest_price)) >= 0.5 THEN
-                                FLOOR(NEW.ebay_lowest_price) + 0.99
-                            ELSE
-                                FLOOR(NEW.ebay_lowest_price) + 0.49
-                        END
-                )
-                WHERE id = NEW.id;
-            END
-        ''')
     
     def _get_connection(self):
         """Get database connection"""
@@ -281,9 +262,9 @@ class DatabaseManager:
         cursor.execute('''
             INSERT INTO records 
             (artist, title, discogs_median_price, discogs_lowest_price, discogs_highest_price,
-             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at, ebay_low_shipping,
+             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at, ebay_low_shipping, ebay_low_url,
              genre_id, image_url, catalog_number, format, barcode, condition, year, file_at, status, price_tag_printed, store_price)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -296,6 +277,7 @@ class DatabaseManager:
             result_data.get('ebay_count'),
             result_data.get('ebay_sell_at'),
             result_data.get('ebay_low_shipping'),
+            result_data.get('ebay_low_url', ''),
             result_data.get('genre_id'),
             result_data.get('image_url', ''),
             result_data.get('catalog_number', ''),

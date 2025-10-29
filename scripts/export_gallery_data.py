@@ -34,15 +34,15 @@ def export_gallery_data():
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Get all records with only the fields we need
-        cursor.execute("SELECT artist, title, genre, store_price, image_url FROM records ORDER BY artist, title")
+        # Get all records with only the fields we need - INCLUDING YOUTUBE_URL
+        cursor.execute("SELECT artist, title, genre, store_price, image_url, youtube_url FROM records ORDER BY artist, title")
         records = cursor.fetchall()
         print(f"📊 Found {len(records)} records")
         
         # Convert to gallery format - only essential fields
         gallery_data = []
         for record in records:
-            artist, title, genre, store_price, image_url = record
+            artist, title, genre, store_price, image_url, youtube_url = record
             
             # Format price
             if store_price and store_price > 0:
@@ -55,7 +55,8 @@ def export_gallery_data():
                 'title': title or 'Unknown Title', 
                 'genre': genre or 'Unknown Genre',
                 'price': price_display,
-                'image': image_url or 'images/default-record.jpg'
+                'image': image_url or 'images/default-record.jpg',
+                'youtube_url': youtube_url or ''  # Include YouTube URL
             })
         
         # Create web/public directory if it doesn't exist

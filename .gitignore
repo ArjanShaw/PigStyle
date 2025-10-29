@@ -8,3 +8,5 @@ venv/
 node_modules/
 apps/inventory-manager/.env
 .env
+data/records.db
+data/records.db

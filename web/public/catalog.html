@@ -4,7 +4,335 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Record Gallery - PigStyle Records</title>
-    <link rel='stylesheet' href='catalog_style.css'>
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        header {
+            background-color: #1a1a1a;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-section {
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+        
+        /* Search and filter styles */
+        .search-container {
+            margin-bottom: 20px;
+        }
+        
+        #searchBox {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .filters-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        
+        .price-filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .price-inputs {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .price-input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .price-separator {
+            margin: 0 5px;
+        }
+        
+        /* Gallery styles */
+        #gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+        
+        .card.highlight {
+            opacity: 1;
+        }
+        
+        .card.not-highlight {
+            opacity: 0.3;
+        }
+        
+        .card-video {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            background-color: #000;
+        }
+        
+        .card-video iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .card-video:hover .video-overlay {
+            opacity: 1;
+        }
+        
+        .card-image {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+        }
+        
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .card-info {
+            padding: 15px;
+        }
+        
+        .card-info h3 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .card-info .artist {
+            margin: 0 0 5px 0;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        
+        .card-info .price {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            font-weight: bold;
+            color: #27ae60;
+        }
+        
+        .card-info .genre {
+            margin: 0;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .youtube-badge {
+            display: inline-block;
+            background: #e74c3c;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        
+        /* Autoplay controls */
+        .autoplay-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .autoplay-toggle {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .autoplay-toggle input {
+            margin-right: 8px;
+        }
+        
+        .autoplay-options {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+        
+        .autoplay-btn {
+            padding: 6px 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .autoplay-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .autoplay-btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        /* Loading animation */
+        #loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            grid-column: 1 / -1;
+        }
+        
+        .loading-dots {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .loading-dots div {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #3498db;
+            animation: loading-bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .loading-dots div:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots div:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots div:nth-child(3) { animation-delay: 0s; }
+        .loading-dots div:nth-child(4) { animation-delay: 0.16s; }
+        
+        @keyframes loading-bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            } 40% { 
+                transform: scale(1.0);
+            }
+        }
+        
+        /* Error and no records messages */
+        .error-message, .no-records {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-size: 18px;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            #gallery {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                padding: 15px;
+            }
+            
+            .filters-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .filter-group {
+                flex-direction: column;
+                align-items: flex-start;
+                width: 100%;
+            }
+            
+            .price-filter-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .autoplay-controls {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .autoplay-options {
+                margin-left: 0;
+                margin-top: 10px;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -13,6 +341,19 @@
     
     <div class="header-section">
         <h1>🎵 Record Gallery</h1>
+        
+        <!-- Autoplay Controls -->
+        <div class="autoplay-controls">
+            <div class="autoplay-toggle">
+                <input type="checkbox" id="autoplayToggle">
+                <label for="autoplayToggle">Enable Video Autoplay</label>
+            </div>
+            <div class="autoplay-options">
+                <button class="autoplay-btn" id="playAllBtn" disabled>Play All Videos</button>
+                <button class="autoplay-btn" id="stopAllBtn" disabled>Stop All Videos</button>
+            </div>
+        </div>
+        
         <div class='search-container'>
             <input type='text' id='searchBox' placeholder='Search artist or record...'>
         </div>
@@ -51,6 +392,8 @@
     <script>
         // Store all records globally for search functionality
         let allRecords = [];
+        let autoplayEnabled = false;
+        let youtubePlayers = {}; // Store YouTube player instances
 
         // Load data from gallery-data.json
         async function loadGalleryData() {
@@ -77,10 +420,65 @@
                 console.log(`Loaded ${allRecords.length} records`);
                 displayRecords(allRecords);
                 populateArtistFilter();
+                initializeAutoplayControls();
             } catch (error) {
                 console.error('Error loading gallery data:', error);
                 document.getElementById('gallery').innerHTML = '<div class="error-message">Error loading records. Please try again later.</div>';
             }
+        }
+
+        // Initialize autoplay controls
+        function initializeAutoplayControls() {
+            const autoplayToggle = document.getElementById('autoplayToggle');
+            const playAllBtn = document.getElementById('playAllBtn');
+            const stopAllBtn = document.getElementById('stopAllBtn');
+            
+            autoplayToggle.addEventListener('change', function() {
+                autoplayEnabled = this.checked;
+                playAllBtn.disabled = !autoplayEnabled;
+                stopAllBtn.disabled = !autoplayEnabled;
+                
+                if (autoplayEnabled) {
+                    // Enable autoplay for all YouTube videos
+                    enableAutoplayForAllVideos();
+                } else {
+                    // Disable autoplay for all YouTube videos
+                    disableAutoplayForAllVideos();
+                }
+            });
+            
+            playAllBtn.addEventListener('click', playAllVideos);
+            stopAllBtn.addEventListener('click', stopAllVideos);
+        }
+
+        // Enable autoplay for all YouTube videos
+        function enableAutoplayForAllVideos() {
+            Object.values(youtubePlayers).forEach(player => {
+                if (player && typeof player.playVideo === 'function') {
+                    player.playVideo();
+                }
+            });
+        }
+
+        // Disable autoplay for all YouTube videos
+        function disableAutoplayForAllVideos() {
+            Object.values(youtubePlayers).forEach(player => {
+                if (player && typeof player.pauseVideo === 'function') {
+                    player.pauseVideo();
+                }
+            });
+        }
+
+        // Play all videos
+        function playAllVideos() {
+            if (autoplayEnabled) {
+                enableAutoplayForAllVideos();
+            }
+        }
+
+        // Stop all videos
+        function stopAllVideos() {
+            disableAutoplayForAllVideos();
         }
 
         // Populate artist filter dropdown
@@ -161,19 +559,19 @@
             let mediaContent = '';
             
             if (hasYouTube) {
-                // Create YouTube iframe
+                // Create YouTube iframe with autoplay parameters
+                const playerId = `youtube-player-${youtubeId}`;
                 mediaContent = `
                     <div class="card-video">
-                        <iframe 
-                            src="https://www.youtube.com/embed/${youtubeId}" 
-                            frameborder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen
-                            loading="lazy">
-                        </iframe>
+                        <div id="${playerId}"></div>
                         <div class="video-overlay">🎵 Click to play</div>
                     </div>
                 `;
+                
+                // Load YouTube player after card is added to DOM
+                setTimeout(() => {
+                    loadYouTubePlayer(playerId, youtubeId);
+                }, 100);
             } else {
                 // Create image fallback
                 mediaContent = `
@@ -195,6 +593,52 @@
             `;
             
             return card;
+        }
+
+        // Load YouTube player
+        function loadYouTubePlayer(playerId, videoId) {
+            // Check if YouTube API is available
+            if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+                // Load YouTube IFrame API if not already loaded
+                if (!document.getElementById('youtube-api')) {
+                    const tag = document.createElement('script');
+                    tag.id = 'youtube-api';
+                    tag.src = 'https://www.youtube.com/iframe_api';
+                    const firstScriptTag = document.getElementsByTagName('script')[0];
+                    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+                }
+                
+                // Wait for API to load
+                window.onYouTubeIframeAPIReady = function() {
+                    createPlayer(playerId, videoId);
+                };
+            } else {
+                createPlayer(playerId, videoId);
+            }
+        }
+
+        // Create YouTube player instance
+        function createPlayer(playerId, videoId) {
+            const player = new YT.Player(playerId, {
+                height: '200',
+                width: '100%',
+                videoId: videoId,
+                playerVars: {
+                    'autoplay': autoplayEnabled ? 1 : 0,
+                    'controls': 1,
+                    'rel': 0,
+                    'modestbranding': 1
+                },
+                events: {
+                    'onReady': function(event) {
+                        youtubePlayers[playerId] = event.target;
+                        console.log(`YouTube player ${playerId} ready`);
+                    },
+                    'onStateChange': function(event) {
+                        // Handle player state changes if needed
+                    }
+                }
+            });
         }
 
         // Initialize search functionality

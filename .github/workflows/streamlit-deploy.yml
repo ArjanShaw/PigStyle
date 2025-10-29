@@ -21,12 +21,12 @@ jobs:
       
       - name: Install dependencies
         run: |
-          cd apps/inventory-manager
+          cd inventory-manager
           pip install -r requirements.txt
       
       - name: Test imports
         run: |
-          cd apps/inventory-manager/src
+          cd inventory-manager/src
           python -c "import streamlit as st; print('Streamlit version:', st.__version__)"
           python -c "import database_manager; print('Database manager imports successfully')"
           python -c "import discogs_handler; print('Discogs handler imports successfully')"

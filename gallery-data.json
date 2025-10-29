@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-10-29T22:54:07Z",
+    "last_updated": "2025-10-29T23:34:33Z",
     "total_records": 590,
     "format_version": "2.0"
   },
@@ -6034,10 +6034,10 @@
       "barcode": "200000995623",
       "store_price": 1.99,
       "file_at": "Rock(S)",
-      "youtube_url": null,
+      "youtube_url": "https://www.youtube.com/watch?v=HWSCUfirecI",
       "catalog_number": "LP-12359",
       "format": "Vinyl",
-      "condition": "3"
+      "condition": "2"
     },
     {
       "id": 470,

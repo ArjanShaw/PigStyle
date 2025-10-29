@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-10-29T23:34:33Z",
+    "last_updated": "2025-10-29T23:49:44Z",
     "total_records": 590,
     "format_version": "2.0"
   },
@@ -714,10 +714,10 @@
       "barcode": "200000173567",
       "store_price": 1.99,
       "file_at": "Rock(L)",
-      "youtube_url": null,
+      "youtube_url": "https://www.youtube.com/watch?v=gwc2QJFXpb4",
       "catalog_number": null,
       "format": "Vinyl",
-      "condition": "5"
+      "condition": "3"
     },
     {
       "id": 52,

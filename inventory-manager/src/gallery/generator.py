@@ -9,41 +9,51 @@ class GalleryJSONManager:
     def __init__(self, db_manager):
         self.db_manager = db_manager
         
-        # Try multiple possible locations for the web directory
-        possible_paths = [
-            # Server path (if web exists in project root)
-            Path("/mount/src/pigstyle/inventory-manager/web/public"),
-            # Local development path
-            Path(__file__).parent.parent.parent / "web" / "public",
-            # Current directory fallback
-            Path(".") / "gallery_data",
-            # Absolute path fallback
-            Path("/tmp/gallery_data")
+        # The web server directory - this is CRITICAL
+        # This should be the directory that serves https://pigstylerecords.com/
+        # Common web server directories:
+        web_server_paths = [
+            # Common Apache/Nginx paths
+            Path("/var/www/html"),
+            Path("/var/www/pigstylerecords.com/public_html"),
+            Path("/var/www/pigstylerecords.com/html"),
+            Path("/srv/www/pigstylerecords.com/public_html"),
+            # Common user directories
+            Path("/home/pigstyle/public_html"),
+            Path("/home/pigstyle/www"),
+            Path("/home/pigstyle/web"),
+            # Development paths
+            Path("/mount/src/pigstyle/web/public"),  # Your current path
+            Path("./web/public"),  # Relative fallback
         ]
         
-        # Find the first path that exists or is writable
+        # Find the correct web server directory
         self.web_base_path = None
-        for path in possible_paths:
-            if path.exists() and os.access(path, os.W_OK):
-                self.web_base_path = path
-                break
-            # If directory doesn't exist but parent is writable, create it
-            elif path.parent.exists() and os.access(path.parent, os.W_OK):
-                path.mkdir(parents=True, exist_ok=True)
-                self.web_base_path = path
-                break
+        for path in web_server_paths:
+            if path.exists():
+                # Check if catalog.html exists in this directory
+                catalog_path = path / "catalog.html"
+                if catalog_path.exists():
+                    self.web_base_path = path
+                    print(f"✅ Found web directory: {path}")
+                    print(f"✅ Catalog.html exists at: {catalog_path}")
+                    break
+                else:
+                    print(f"❌ {path} exists but no catalog.html")
         
-        # If no suitable path found, use current directory
+        # If no directory found, use a fallback and show warning
         if self.web_base_path is None:
-            self.web_base_path = Path(".") / "gallery_data"
+            self.web_base_path = Path("/tmp/pigstyle_web_fallback")
             self.web_base_path.mkdir(parents=True, exist_ok=True)
+            print(f"⚠️  WARNING: Using fallback directory: {self.web_base_path}")
+            print("⚠️  The JSON will be created but your website won't see it!")
         
         self.json_path = self.web_base_path / "gallery-data.json"
         self.temp_path = self.web_base_path / "gallery-data.json.tmp"
         
-        print(f"Using gallery JSON path: {self.json_path}")
-        print(f"Directory exists: {self.web_base_path.exists()}")
-        print(f"Directory is writable: {os.access(self.web_base_path, os.W_OK)}")
+        print(f"🎯 JSON will be saved to: {self.json_path}")
+        print(f"📁 Directory exists: {self.web_base_path.exists()}")
+        print(f"✍️  Directory is writable: {os.access(self.web_base_path, os.W_OK)}")
         
         self._rebuild_lock = threading.Lock()
         self._last_rebuild_time = 0
@@ -52,21 +62,16 @@ class GalleryJSONManager:
     def trigger_rebuild(self, async_mode=True):
         """Trigger a JSON rebuild, optionally in background thread"""
         if async_mode:
-            # Start rebuild in background thread
             thread = threading.Thread(target=self._rebuild_in_thread, daemon=True)
             thread.start()
             return True
         else:
-            # Synchronous rebuild
             return self._perform_rebuild()
     
     def _rebuild_in_thread(self):
-        """Wrapper to run rebuild in thread"""
         self._perform_rebuild()
     
     def _perform_rebuild(self):
-        """Perform the actual JSON rebuild with locking"""
-        # Acquire lock to prevent concurrent rebuilds
         if not self._rebuild_lock.acquire(blocking=False):
             print("JSON rebuild already in progress, skipping...")
             return False
@@ -75,7 +80,7 @@ class GalleryJSONManager:
             self._rebuild_in_progress = True
             start_time = time.time()
             
-            print(f"Starting gallery JSON rebuild to: {self.json_path}")
+            print(f"🎯 Starting gallery JSON rebuild to: {self.json_path}")
             
             # Ensure directory exists
             self.web_base_path.mkdir(parents=True, exist_ok=True)
@@ -85,7 +90,7 @@ class GalleryJSONManager:
             
             # Get all records from database
             records = self._fetch_all_records()
-            print(f"Fetched {len(records)} records from database")
+            print(f"📊 Fetched {len(records)} records from database")
             
             # Build JSON structure
             json_data = self._build_json_structure(records)
@@ -95,27 +100,40 @@ class GalleryJSONManager:
             
             if success:
                 duration = time.time() - start_time
-                print(f"Gallery JSON rebuild completed in {duration:.2f}s - {len(records)} records")
+                print(f"✅ Gallery JSON rebuild completed in {duration:.2f}s - {len(records)} records")
                 self._last_rebuild_time = time.time()
+                
+                # Verify the file was created
+                if self.json_path.exists():
+                    file_size = self.json_path.stat().st_size
+                    print(f"📄 JSON file created: {file_size} bytes")
+                    
+                    # Check if catalog.html can access it
+                    catalog_path = self.web_base_path / "catalog.html"
+                    if catalog_path.exists():
+                        print(f"🌐 Website should now see the JSON at: https://pigstylerecords.com/gallery-data.json")
+                    else:
+                        print(f"⚠️  Warning: catalog.html not found in {self.web_base_path}")
+                else:
+                    print("❌ WARNING: JSON file was not created!")
+                    
             else:
-                print("Gallery JSON rebuild failed")
+                print("❌ Gallery JSON rebuild failed")
                 
             return success
             
         except Exception as e:
-            print(f"Gallery JSON rebuild error: {e}")
+            print(f"❌ Gallery JSON rebuild error: {e}")
             import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            print(f"📋 Traceback: {traceback.format_exc()}")
             return False
         finally:
             self._rebuild_in_progress = False
             self._rebuild_lock.release()
     
     def _fetch_all_records(self):
-        """Fetch all records efficiently with a single query"""
         conn = self.db_manager._get_connection()
         
-        # Single optimized query for all needed fields
         query = """
         SELECT 
             id, artist, title, image_url, genre, barcode,
@@ -131,7 +149,6 @@ class GalleryJSONManager:
         return df.to_dict('records')
     
     def _build_json_structure(self, records):
-        """Build the complete JSON structure"""
         return {
             "meta": {
                 "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -142,7 +159,6 @@ class GalleryJSONManager:
         }
     
     def _write_json_file(self, json_data):
-        """Write JSON data to file with atomic safety"""
         # Write to temporary file first
         with open(self.temp_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, indent=2, ensure_ascii=False)
@@ -153,12 +169,13 @@ class GalleryJSONManager:
         return True
     
     def get_rebuild_status(self):
-        """Get current rebuild status"""
         return {
             "in_progress": self._rebuild_in_progress,
             "last_rebuild_time": self._last_rebuild_time
         }
     
     def get_json_path(self):
-        """Get the current JSON file path"""
         return str(self.json_path)
+    
+    def get_web_directory(self):
+        return str(self.web_base_path)

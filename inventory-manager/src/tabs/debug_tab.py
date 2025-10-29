@@ -1,5 +1,7 @@
 import streamlit as st
 from datetime import datetime
+import json
+from pathlib import Path
 
 class DebugTab:
     def __init__(self):
@@ -23,6 +25,41 @@ class DebugTab:
     
     def render(self):
         st.header("🔧 Debug Logs")
+        
+        # Add manual JSON rebuild test
+        st.subheader("🔄 Gallery JSON Test")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
+                if st.session_state.get('gallery_json_manager'):
+                    with st.spinner("Rebuilding gallery JSON..."):
+                        success = st.session_state.gallery_json_manager.trigger_rebuild(async_mode=False)
+                    if success:
+                        st.success("✅ Gallery JSON rebuilt successfully!")
+                    else:
+                        st.error("❌ Gallery JSON rebuild failed")
+                else:
+                    st.error("Gallery JSON manager not initialized")
+        
+        with col2:
+            if st.session_state.get('gallery_json_manager'):
+                status = st.session_state.gallery_json_manager.get_rebuild_status()
+                st.write(f"**Status:** {'Rebuilding...' if status['in_progress'] else 'Ready'}")
+        
+        # Check if JSON file exists
+        json_path = Path("../../web/public/gallery-data.json")
+        if json_path.exists():
+            try:
+                with open(json_path, 'r') as f:
+                    data = json.load(f)
+                    st.success(f"✅ JSON file exists: {data['meta']['total_records']} records")
+                    st.write(f"Last updated: {data['meta']['last_updated']}")
+            except Exception as e:
+                st.error(f"❌ Error reading JSON: {e}")
+        else:
+            st.warning("⚠️ JSON file not found yet")
         
         if not st.session_state.debug_logs:
             st.info("No debug logs yet. Actions will appear here as they happen.")

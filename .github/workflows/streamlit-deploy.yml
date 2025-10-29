@@ -21,9 +21,10 @@ jobs:
       
       - name: Install dependencies
         run: |
-          # Remove the cd apps/ part - inventory-manager is in root
           cd inventory-manager
           pip install -r requirements.txt
+          # Add the missing YouTube API dependency
+          pip install google-api-python-client
       
       - name: Test imports
         run: |

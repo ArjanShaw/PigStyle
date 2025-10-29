@@ -6,8 +6,9 @@ from datetime import datetime
 class DatabaseManager:
     """Handles all database operations for Discogs data"""
     
-    def __init__(self, db_path=None):
+    def __init__(self, db_path=None, gallery_json_manager=None):
         self.db_path = db_path or os.getenv('DATABASE_PATH', 'discogs_data.db')
+        self.gallery_json_manager = gallery_json_manager
         self._init_database()
     
     def _init_database(self):
@@ -307,6 +308,11 @@ class DatabaseManager:
         conn.commit()
         success = cursor.rowcount > 0
         conn.close()
+        
+        # Trigger JSON rebuild after successful deletion
+        if success and self.gallery_json_manager:
+            self.gallery_json_manager.trigger_rebuild(async_mode=True)
+            
         return success
     
     def save_expense(self, description, amount, receipt_image=None):

@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
+import re
 
 class RecordOperationsHandler:
-    def __init__(self, discogs_handler=None, ebay_handler=None):
+    def __init__(self, discogs_handler=None, ebay_handler=None, gallery_json_manager=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
+        self.gallery_json_manager = gallery_json_manager
 
     def add_inventory_record(self, record_data, condition, genre, search_term):
         """Add inventory record to database with both Discogs and eBay data - NO custom price calculations"""
@@ -104,6 +106,10 @@ class RecordOperationsHandler:
             if genre_id and artist:
                 self._update_file_at(record_id, artist, genre_id)
             
+            # Trigger JSON rebuild after successful addition
+            if record_id and self.gallery_json_manager:
+                self.gallery_json_manager.trigger_rebuild(async_mode=True)
+            
             # Get the generated barcode for success message
             record = st.session_state.db_manager.get_record_by_barcode(str(record_id))
             barcode = record.get('barcode') if record else str(record_id)
@@ -182,6 +188,11 @@ class RecordOperationsHandler:
             }
             
             success = st.session_state.db_manager.update_record(record_id, updates)
+            
+            # Trigger JSON rebuild after successful update
+            if success and self.gallery_json_manager:
+                self.gallery_json_manager.trigger_rebuild(async_mode=True)
+                
             return success
                 
         except Exception as e:

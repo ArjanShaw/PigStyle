@@ -12,18 +12,19 @@ from handlers.youtube_handler import YouTubeHandler
 from config import PrintConfig
 
 class InventoryTab:
-    def __init__(self, discogs_handler, debug_tab, ebay_handler=None):
+    def __init__(self, discogs_handler, debug_tab, ebay_handler=None, gallery_json_manager=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
         self.debug_tab = debug_tab
+        self.gallery_json_manager = gallery_json_manager
         self.config = PrintConfig()
         self.price_handler = PriceHandler()
         self.genre_handler = GenreHandler()
         self.youtube_handler = YouTubeHandler(debug_tab)
         
-        # Initialize handlers - pass ebay_handler to record_ops_handler
+        # Initialize handlers - pass ebay_handler and gallery_json_manager to record_ops_handler
         self.search_handler = SearchHandler(discogs_handler)
-        self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler)
+        self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler, gallery_json_manager)
         self.display_handler = DisplayHandler(self.youtube_handler)
         self.export_handler = ExportHandler(self.price_handler, self.genre_handler)
 

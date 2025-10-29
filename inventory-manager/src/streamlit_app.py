@@ -18,6 +18,7 @@ from tabs.debug_tab import DebugTab
 from tabs.database_switch_tab import DatabaseSwitchTab
 from tabs.expenses_tab import ExpensesTab
 from handlers.ebay_handler import EbayHandler
+from gallery.generator import GalleryJSONManager
 
 # --- Load environment variables ---
 try:
@@ -130,6 +131,11 @@ def main():
         st.session_state.db_manager = initialize_database_manager()
         debug_tab.add_log("DATABASE", f"Database manager initialized with: {st.session_state.db_manager.db_path}")
 
+    # Initialize Gallery JSON Manager AFTER db_manager is set
+    if "gallery_json_manager" not in st.session_state:
+        st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
+        debug_tab.add_log("GALLERY", "Gallery JSON manager initialized")
+
     if "search_results" not in st.session_state:
         st.session_state.search_results = {}
 
@@ -164,7 +170,7 @@ def main():
             ebay_handler = None
  
     # Initialize all tabs - pass the SAME debug_tab instance to all
-    inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler)
+    inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler, st.session_state.gallery_json_manager)
     statistics_tab = StatisticsTab()
     database_switch_tab = DatabaseSwitchTab()
     expenses_tab = ExpensesTab()

@@ -34,8 +34,27 @@ def export_gallery_data():
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Get all records with only the fields we need - INCLUDING YOUTUBE_URL
-        cursor.execute("SELECT artist, title, genre, store_price, image_url, youtube_url FROM records ORDER BY artist, title")
+        # Check if records_with_genres view exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='view' AND name='records_with_genres'")
+        view_exists = cursor.fetchone()
+        
+        if view_exists:
+            # Use the view that includes genre names
+            print("✅ Using records_with_genres view")
+            cursor.execute("""
+                SELECT artist, title, genre, store_price, image_url, youtube_url 
+                FROM records_with_genres 
+                ORDER BY artist, title
+            """)
+        else:
+            # Fallback to basic records table (without genre)
+            print("⚠️  Using records table (no genre available)")
+            cursor.execute("""
+                SELECT artist, title, NULL as genre, store_price, image_url, youtube_url 
+                FROM records 
+                ORDER BY artist, title
+            """)
+        
         records = cursor.fetchall()
         print(f"📊 Found {len(records)} records")
         
@@ -74,6 +93,8 @@ def export_gallery_data():
         
     except Exception as e:
         print(f"❌ Error exporting data: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 if __name__ == "__main__":

@@ -245,16 +245,16 @@ class EbayHandler:
 
     def _log_api_call(self, title, request_data):
         """Log API call in unified format"""
-        if 'add_item_api_logs' not in st.session_state:
-            st.session_state.add_item_api_logs = []
-        if 'add_item_api_details' not in st.session_state:
-            st.session_state.add_item_api_details = {}
+        if 'api_logs' not in st.session_state:
+            st.session_state.api_logs = []
+        if 'api_details' not in st.session_state:
+            st.session_state.api_details = {}
             
-        st.session_state.add_item_api_logs.append(title)
-        st.session_state.add_item_api_details[title] = {'request': request_data}
+        st.session_state.api_logs.append(title)
+        st.session_state.api_details[title] = {'request': request_data}
 
     def _log_api_response(self, title, response_data, duration):
         """Log API response in unified format"""
-        if 'add_item_api_details' in st.session_state and title in st.session_state.add_item_api_details:
-            st.session_state.add_item_api_details[title]['response'] = response_data
-            st.session_state.add_item_api_details[title]['duration'] = duration
+        if 'api_details' in st.session_state and title in st.session_state.api_details:
+            st.session_state.api_details[title]['response'] = response_data
+            st.session_state.api_details[title]['duration'] = duration

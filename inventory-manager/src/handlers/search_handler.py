@@ -91,7 +91,8 @@ class SearchHandler:
                     'file_at': record.get('file_at', ''),
                     'price': f"${record.get('store_price', 0) or 0:.2f}",
                     'condition': record.get('condition', ''),
-                    'genre': record.get('genre', '')
+                    'genre': record.get('genre', ''),
+                    'youtube_url': record.get('youtube_url', '')  # Include YouTube URL in search results
                 }
                 formatted_results.append(formatted_result)
             

@@ -1,8 +1,12 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import re
 
 class DisplayHandler:
+    def __init__(self, youtube_handler=None):
+        self.youtube_handler = youtube_handler
+
     def render_discogs_results(self, results, search_type):
         """Render Discogs search results"""
         if not results:
@@ -47,7 +51,11 @@ class DisplayHandler:
                     barcode = record.get('barcode', '')
                     file_at = record.get('file_at', '')
                     price = record.get('price', '')
+                    youtube_url = record.get('youtube_url', '')
+                    
                     st.write(f"Barcode: {barcode} | File: {file_at} | Price: {price}")
+                    if youtube_url:
+                        st.write("🎵 YouTube video linked")
                 else:  # discogs
                     catalog = record.get('catalog_number', '')
                     st.write(f"Catalog: {catalog}")
@@ -74,12 +82,7 @@ class DisplayHandler:
             
             st.divider()
         
-        # Checkout option only for database search
-        if (result_type == "Edit or Delete item" and 
-            st.session_state.selected_record and 
-            st.session_state.selected_record['type'] == 'database'):
-            
-            st.info("Checkout functionality is not available. The status column has been removed from the database.")
+        # REMOVED API LOGS FROM HERE - MOVED TO MAIN LEVEL
 
     def render_selected_record_only(self, selected_record):
         """Render only the selected record"""
@@ -105,8 +108,12 @@ class DisplayHandler:
                 barcode = record.get('barcode', '')
                 file_at = record.get('file_at', '')
                 price = record.get('price', '')
-                st.write(f"Barcode: {barcode} | File: {file_at} | Price: {price}")
+                youtube_url = record.get('youtube_url', '')
                 
+                st.write(f"Barcode: {barcode} | File: {file_at} | Price: {price}")
+                if youtube_url:
+                    st.write("🎵 YouTube video linked")
+                    
                 # Add delete button for database records
                 if st.button("🗑️ Delete Record", type="secondary", use_container_width=True, key="delete_record_view"):
                     if self._delete_record(record['id']):
@@ -122,7 +129,7 @@ class DisplayHandler:
             st.rerun()
 
     def render_edit_section(self, selected_record, add_callback, update_callback, last_condition="5"):
-        """Render the edit properties section"""
+        """Render the edit properties section with YouTube URL functionality"""
         st.subheader("Edit Properties")
         
         record_data = selected_record['data']
@@ -189,6 +196,108 @@ class DisplayHandler:
                 suggestion_source = self._get_suggestion_source(record_data, suggested_genre)
                 st.caption(f"Suggested: {suggested_genre} ({suggestion_source})")
         
+        # YouTube section
+        st.subheader("🎵 YouTube Video")
+        
+        # Show current YouTube video if it exists
+        current_youtube_url = ""
+        if selected_record['type'] == 'database':
+            current_youtube_url = record_data.get('youtube_url', '')
+        
+        if current_youtube_url:
+            st.success("YouTube video linked to this record")
+            # Show embedded YouTube video
+            video_id = self.youtube_handler.extract_youtube_id(current_youtube_url) if self.youtube_handler else self._extract_youtube_id(current_youtube_url)
+            if video_id:
+                st.components.v1.iframe(
+                    f"https://www.youtube.com/embed/{video_id}",
+                    width=560,
+                    height=315
+                )
+                # Add remove button
+                if st.button("❌ Remove YouTube Link", key="remove_youtube"):
+                    if selected_record['type'] == 'database':
+                        success = st.session_state.db_manager.update_record(
+                            record_data['id'], 
+                            {'youtube_url': None}
+                        )
+                        if success:
+                            st.success("✅ YouTube link removed!")
+                            record_data['youtube_url'] = None
+                            st.rerun()
+        
+        # YouTube search button
+        if st.button("🔍 Search YouTube for this record", use_container_width=True, key="search_youtube"):
+            if record_data.get('artist') and record_data.get('title'):
+                search_query = f"{record_data['artist']} {record_data['title']}"
+                if self.youtube_handler:
+                    youtube_results = self.youtube_handler.search_youtube_videos(search_query, record_data)
+                    st.session_state.youtube_search_results = youtube_results
+                    st.success(f"Found {len(youtube_results)} YouTube videos for '{search_query}'")
+                else:
+                    st.error("YouTube handler not available")
+            else:
+                st.warning("Please enter artist and title first")
+        
+        # Show YouTube search results if available
+        if 'youtube_search_results' in st.session_state and st.session_state.youtube_search_results:
+            st.subheader("YouTube Search Results")
+            st.info("Click on a video to link it to this record")
+            
+            for i, video in enumerate(st.session_state.youtube_search_results):
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    if video.get('thumbnail'):
+                        st.image(video['thumbnail'], width=120)
+                    
+                    # Extract video ID for embedding
+                    video_id = self.youtube_handler.extract_youtube_id(video['url']) if self.youtube_handler else self._extract_youtube_id(video['url'])
+                    
+                    # Show play button that displays the actual video
+                    if st.button(f"▶️ Play Video {i+1}", key=f"play_{i}", use_container_width=True):
+                        # Store which video to play in session state
+                        st.session_state.playing_video_index = i
+                
+                with col2:
+                    st.write(f"**{video.get('title', 'No title')}**")
+                    st.write(f"Channel: {video.get('channel', 'Unknown')}")
+                    
+                    # Link this video to the record
+                    if st.button("🔗 Link This Video", key=f"link_{i}", use_container_width=True):
+                        # Update the record with this YouTube URL
+                        if selected_record['type'] == 'database':
+                            # Update existing record
+                            success = st.session_state.db_manager.update_record(
+                                record_data['id'], 
+                                {'youtube_url': video['url']}
+                            )
+                            if success:
+                                st.success("✅ YouTube video linked to record!")
+                                # Update the current record data
+                                record_data['youtube_url'] = video['url']
+                                # Clear search results
+                                st.session_state.youtube_search_results = []
+                                st.rerun()
+                            else:
+                                st.error("❌ Failed to link YouTube video")
+                        else:
+                            # For new records, store in session state to be used when adding
+                            record_data['youtube_url'] = video['url']
+                            st.success("✅ YouTube video will be linked when record is added!")
+                            # Clear search results
+                            st.session_state.youtube_search_results = []
+                            st.rerun()
+                
+                # Show embedded video if this is the one being played
+                if st.session_state.get('playing_video_index') == i and video_id:
+                    st.components.v1.iframe(
+                        f"https://www.youtube.com/embed/{video_id}",
+                        width=400,
+                        height=225
+                    )
+                
+                st.divider()
+        
         # Single submit button - only enable if genre is selected
         if selected_record['type'] == 'discogs':
             if st.button("Add to Database", use_container_width=True, disabled=not genre, key="add_to_database"):
@@ -197,7 +306,20 @@ class DisplayHandler:
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Update Record", use_container_width=True, disabled=not genre, key="update_record"):
-                    update_callback(condition, genre)
+                    # Include YouTube URL in updates
+                    updates = {
+                        'condition': condition,
+                        'genre_id': self._get_genre_id(genre),
+                        'youtube_url': record_data.get('youtube_url', '')
+                    }
+                    success = st.session_state.db_manager.update_record(record_data['id'], updates)
+                    if success:
+                        st.success("✅ Record updated successfully!")
+                        st.session_state.records_updated += 1
+                        st.session_state.selected_record = None
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to update record")
             with col2:
                 # Add delete button in edit section for database records
                 if st.button("🗑️ Delete Record", type="secondary", use_container_width=True, key="delete_record_edit"):
@@ -206,6 +328,38 @@ class DisplayHandler:
                         st.success("Record deleted successfully!")
                         st.session_state.selected_record = None
                         st.rerun()
+
+    def _extract_youtube_id(self, url):
+        """Extract YouTube video ID from URL (fallback method)"""
+        try:
+            # Handle various YouTube URL formats
+            patterns = [
+                r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)',
+                r'youtube\.com\/embed\/([^&\n?]+)',
+                r'youtube\.com\/v\/([^&\n?]+)'
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, url)
+                if match:
+                    return match.group(1)
+            return None
+        except:
+            return None
+
+    def _get_genre_id(self, genre_name):
+        """Get genre ID for a genre name"""
+        if not genre_name:
+            return None
+        try:
+            conn = st.session_state.db_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre_name,))
+            result = cursor.fetchone()
+            conn.close()
+            return result[0] if result else None
+        except Exception as e:
+            return None
 
     def _get_suggested_genre(self, record_data):
         """Get suggested genre based on artist history and Discogs genre"""

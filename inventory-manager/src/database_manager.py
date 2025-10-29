@@ -38,6 +38,7 @@ class DatabaseManager:
                 format TEXT,
                 condition TEXT,
                 store_price REAL,
+                youtube_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 discogs_genre TEXT,
@@ -53,7 +54,8 @@ class DatabaseManager:
             ('store_price', 'REAL'),
             ('genre_id', 'INTEGER'),
             ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
-            ('discogs_genre', 'TEXT')
+            ('discogs_genre', 'TEXT'),
+            ('youtube_url', 'TEXT')
         ]
         
         for column_name, column_type in columns_to_add:
@@ -121,7 +123,7 @@ class DatabaseManager:
                 r.*,
                 g.genre_name as genre
             FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN genres g ON r.id = g.id
         ''')
         
         # Create triggers
@@ -229,8 +231,8 @@ class DatabaseManager:
             (artist, title, barcode, genre_id, image_url,
              discogs_median_price, discogs_lowest_price, discogs_highest_price,
              ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_low_shipping, ebay_low_url,
-             catalog_number, format, condition, file_at, store_price, discogs_genre)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             catalog_number, format, condition, file_at, store_price, discogs_genre, youtube_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -251,7 +253,8 @@ class DatabaseManager:
             result_data.get('condition', ''),
             result_data.get('file_at', ''),
             result_data.get('store_price'),
-            result_data.get('discogs_genre')
+            result_data.get('discogs_genre'),
+            result_data.get('youtube_url')
         ))
         
         conn.commit()

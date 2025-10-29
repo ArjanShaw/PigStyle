@@ -7,3 +7,4 @@ python-dotenv
 reportlab
 Pillow
 python-barcode
+google-api-python-client

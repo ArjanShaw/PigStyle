@@ -8,6 +8,7 @@ from handlers.display_handler import DisplayHandler
 from handlers.export_handler import ExportHandler
 from handlers.price_handler import PriceHandler
 from handlers.genre_handler import GenreHandler
+from handlers.youtube_handler import YouTubeHandler
 from config import PrintConfig
 
 class InventoryTab:
@@ -18,11 +19,12 @@ class InventoryTab:
         self.config = PrintConfig()
         self.price_handler = PriceHandler()
         self.genre_handler = GenreHandler()
+        self.youtube_handler = YouTubeHandler(debug_tab)
         
         # Initialize handlers - pass ebay_handler to record_ops_handler
         self.search_handler = SearchHandler(discogs_handler)
         self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler)
-        self.display_handler = DisplayHandler()
+        self.display_handler = DisplayHandler(self.youtube_handler)
         self.export_handler = ExportHandler(self.price_handler, self.genre_handler)
 
     def render(self):
@@ -51,6 +53,9 @@ class InventoryTab:
         # Price Tag Management
         with st.expander("🖨️ Price Tag Management", expanded=False):
             self.display_handler.render_price_tag_management()
+            
+        # API Requests & Responses - MOVED TO SAME LEVEL
+        self._render_api_logs_section()
 
     def _render_unified_operations(self):
         """Render the unified search/add/checkout operations"""
@@ -120,35 +125,6 @@ class InventoryTab:
                 results = self.search_handler.perform_database_search(search_input.strip())
                 st.session_state.search_results[search_input.strip()] = results
         
-        # Show API logs for Add Item searches
-        if (search_type == "Add item" and 
-            st.session_state.current_search and 
-            st.session_state.current_search in st.session_state.search_results and
-            'add_item_api_logs' in st.session_state and st.session_state.add_item_api_logs):
-            
-            with st.expander("📡 API Requests & Responses (Add Item)", expanded=False):
-                for api_title in st.session_state.add_item_api_logs:
-                    if api_title in st.session_state.add_item_api_details:
-                        details = st.session_state.add_item_api_details[api_title]
-                        duration = details.get('duration', 'N/A')
-                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
-                        with st.expander(display_title, expanded=False):
-                            st.write("**Request:**")
-                            st.json(details['request'])
-                            if 'response' in details:
-                                st.write("**Response:**")
-                                st.json(details['response'])
-        
-        # Show success message and display added record details
-        if st.session_state.get('record_added') is not None:
-            record_data = st.session_state.record_added
-            
-            # Display success message with record details - removed store price and eBay sell at
-            file_at = record_data.get('file_at', 'N/A')
-            success_message = f"✅ Record added to database! | File At: {file_at}"
-                
-            st.success(success_message)
-        
         # Display search results
         if (st.session_state.current_search and 
             st.session_state.current_search in st.session_state.search_results and
@@ -192,11 +168,11 @@ class InventoryTab:
             )
             
             if success:
-                # Clear add item API logs after successful addition
-                if 'add_item_api_logs' in st.session_state:
-                    st.session_state.add_item_api_logs = []
-                if 'add_item_api_details' in st.session_state:
-                    st.session_state.add_item_api_details = {}
+                # Clear API logs after successful addition
+                if 'api_logs' in st.session_state:
+                    st.session_state.api_logs = []
+                if 'api_details' in st.session_state:
+                    st.session_state.api_details = {}
                 
                 # Get the full record data using the row ID
                 import time
@@ -311,21 +287,6 @@ class InventoryTab:
                 else:
                     self._calculate_all_store_prices()
         
-        # Show API logs in separate expander
-        if 'api_logs' in st.session_state and st.session_state.api_logs:
-            with st.expander("📡 API Requests & Responses", expanded=False):
-                for api_title in st.session_state.api_logs:
-                    if api_title in st.session_state.api_details:
-                        details = st.session_state.api_details[api_title]
-                        duration = details.get('duration', 'N/A')
-                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
-                        with st.expander(display_title, expanded=False):
-                            st.write("**Request:**")
-                            st.json(details['request'])
-                            if 'response' in details:
-                                st.write("**Response:**")
-                                st.json(details['response'])
-        
         # Show individual listings table
         self._render_individual_listings_table()
 
@@ -435,6 +396,22 @@ class InventoryTab:
                     hide_index=True,
                     column_config=column_config
                 )
+
+    def _render_api_logs_section(self):
+        """Render API logs section at the same level as other main sections"""
+        if 'api_logs' in st.session_state and st.session_state.api_logs:
+            with st.expander("📡 API Requests & Responses", expanded=False):
+                for api_title in st.session_state.api_logs:
+                    if api_title in st.session_state.api_details:
+                        details = st.session_state.api_details[api_title]
+                        duration = details.get('duration', 'N/A')
+                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
+                        with st.expander(display_title, expanded=False):
+                            st.write("**Request:**")
+                            st.json(details['request'])
+                            if 'response' in details:
+                                st.write("**Response:**")
+                                st.json(details['response'])
 
     def _extract_shipping_info(self, item):
         """Extract shipping information from eBay item data"""

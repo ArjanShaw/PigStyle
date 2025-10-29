@@ -364,7 +364,7 @@ class DisplayHandler:
                         updated_count = self._update_genres_from_csv(import_df)
                         if updated_count > 0:
                             st.success(f"✅ Updated genres for {updated_count} records!")
-                            st.session_state.records_updated += 1
+                            st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
                             st.rerun()
                         else:
                             st.warning("No genres were updated.")
@@ -398,7 +398,7 @@ class DisplayHandler:
         try:
             success = st.session_state.db_manager.delete_record(record_id)
             if success:
-                st.session_state.records_updated += 1
+                st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
                 return True
             else:
                 st.error("Failed to delete record")

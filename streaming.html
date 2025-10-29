@@ -67,7 +67,14 @@
         .current-track .artist {
             font-size: 1.8rem;
             color: #e74c3c;
-            margin: 0 0 15px 0;
+            margin: 0 0 10px 0;
+            font-weight: bold;
+        }
+        
+        .current-track .price {
+            font-size: 1.5rem;
+            color: #27ae60;
+            margin: 0 0 10px 0;
             font-weight: bold;
         }
         
@@ -126,6 +133,31 @@
         
         .nav-btn:active {
             transform: scale(0.95);
+        }
+        
+        /* Buy button */
+        .buy-btn {
+            background: rgba(39, 174, 96, 0.8);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .buy-btn:hover {
+            background: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+        }
+        
+        .buy-btn:active {
+            transform: translateY(0);
         }
         
         /* Genre selector */
@@ -208,6 +240,19 @@
             background: rgba(0, 0, 0, 0.7);
         }
         
+        /* Price badge */
+        .price-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin: 10px 0;
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+        }
+        
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .current-track h2 {
@@ -216,6 +261,10 @@
             
             .current-track .artist {
                 font-size: 1.4rem;
+            }
+            
+            .current-track .price {
+                font-size: 1.3rem;
             }
             
             .video-container {
@@ -231,6 +280,11 @@
             .genre-selector {
                 position: static;
                 margin-bottom: 20px;
+            }
+            
+            .price-badge {
+                font-size: 1.1rem;
+                padding: 6px 12px;
             }
         }
     </style>
@@ -265,7 +319,9 @@
             <div class="current-track">
                 <h2 id="trackTitle">Track Title</h2>
                 <p class="artist" id="trackArtist">Artist Name</p>
+                <div class="price-badge" id="trackPrice">$0.00</div>
                 <p class="genre" id="trackGenre">Genre</p>
+                <button class="buy-btn" id="buyBtn">Add to Cart</button>
             </div>
             
             <div class="video-container">
@@ -377,6 +433,9 @@
             // Add event listeners for navigation
             document.getElementById('prevBtn').addEventListener('click', playPreviousTrack);
             document.getElementById('nextBtn').addEventListener('click', playNextTrack);
+            
+            // Add event listener for buy button
+            document.getElementById('buyBtn').addEventListener('click', handleBuyClick);
         }
 
         // Load YouTube API
@@ -405,6 +464,10 @@
             document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
             document.getElementById('trackGenre').textContent = currentRecord.genre || 'Unknown Genre';
             
+            // Update price
+            const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
+            document.getElementById('trackPrice').textContent = price;
+            
             // Create or update YouTube player
             if (!youtubePlayer) {
                 youtubePlayer = new YT.Player('youtube-player', {
@@ -428,6 +491,24 @@
                     youtubePlayer.playVideo();
                 }
             }
+        }
+
+        // Handle buy button click
+        function handleBuyClick() {
+            const currentRecord = filteredRecords[currentTrackIndex];
+            const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
+            
+            // Show a simple alert for demonstration
+            // In a real application, this would add to a shopping cart
+            alert(`Added to cart: ${currentRecord.title} by ${currentRecord.artist} - ${price}`);
+            
+            // You could also implement a more sophisticated cart system here
+            console.log('Added to cart:', {
+                title: currentRecord.title,
+                artist: currentRecord.artist,
+                price: currentRecord.store_price,
+                genre: currentRecord.genre
+            });
         }
 
         // YouTube player ready callback

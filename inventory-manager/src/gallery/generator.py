@@ -10,7 +10,6 @@ class GalleryJSONManager:
         self.db_manager = db_manager
         
         # Use the correct absolute path to web/public
-        # Assuming this file is in: inventory-manager/src/gallery/generator.py
         current_dir = Path(__file__).parent  # src/gallery
         src_dir = current_dir.parent  # src
         project_root = src_dir.parent  # inventory-manager
@@ -36,61 +35,53 @@ class GalleryJSONManager:
             thread.start()
             return True
         else:
-            # Synchronous rebuild
+            # Synchronous rebuild - NO ERROR HANDLING
             return self._perform_rebuild()
     
     def _rebuild_in_thread(self):
-        """Wrapper to run rebuild in thread"""
+        """Wrapper to run rebuild in thread - NO ERROR HANDLING"""
         self._perform_rebuild()
     
     def _perform_rebuild(self):
-        """Perform the actual JSON rebuild with locking"""
+        """Perform the actual JSON rebuild with locking - NO ERROR HANDLING"""
         # Acquire lock to prevent concurrent rebuilds
         if not self._rebuild_lock.acquire(blocking=False):
             print("JSON rebuild already in progress, skipping...")
             return False
         
-        try:
-            self._rebuild_in_progress = True
-            start_time = time.time()
+        self._rebuild_in_progress = True
+        start_time = time.time()
+        
+        print(f"Starting gallery JSON rebuild...")
+        print(f"Target path: {self.json_path}")
+        
+        # Check if directory exists and is writable
+        if not self.web_base_path.exists():
+            raise Exception(f"Directory does not exist: {self.web_base_path}")
+        
+        if not os.access(self.web_base_path, os.W_OK):
+            raise Exception(f"Directory not writable: {self.web_base_path}")
+        
+        # Get all records from database
+        records = self._fetch_all_records()
+        print(f"Fetched {len(records)} records from database")
+        
+        # Build JSON structure
+        json_data = self._build_json_structure(records)
+        
+        # Write to file
+        success = self._write_json_file(json_data)
+        
+        if success:
+            duration = time.time() - start_time
+            print(f"Gallery JSON rebuild completed in {duration:.2f}s - {len(records)} records")
+            self._last_rebuild_time = time.time()
+        else:
+            print("Gallery JSON rebuild failed")
             
-            print(f"Starting gallery JSON rebuild...")
-            print(f"Target path: {self.json_path}")
-            
-            # Check if directory exists and is writable
-            if not self.web_base_path.exists():
-                raise Exception(f"Directory does not exist: {self.web_base_path}")
-            
-            if not os.access(self.web_base_path, os.W_OK):
-                raise Exception(f"Directory not writable: {self.web_base_path}")
-            
-            # Get all records from database
-            records = self._fetch_all_records()
-            print(f"Fetched {len(records)} records from database")
-            
-            # Build JSON structure
-            json_data = self._build_json_structure(records)
-            
-            # Write to file
-            success = self._write_json_file(json_data)
-            
-            if success:
-                duration = time.time() - start_time
-                print(f"Gallery JSON rebuild completed in {duration:.2f}s - {len(records)} records")
-                self._last_rebuild_time = time.time()
-            else:
-                print("Gallery JSON rebuild failed")
-                
-            return success
-            
-        except Exception as e:
-            print(f"Gallery JSON rebuild error: {e}")
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")
-            return False
-        finally:
-            self._rebuild_in_progress = False
-            self._rebuild_lock.release()
+        self._rebuild_in_progress = False
+        self._rebuild_lock.release()
+        return success
     
     def _fetch_all_records(self):
         """Fetch all records efficiently with a single query"""
@@ -123,7 +114,7 @@ class GalleryJSONManager:
         }
     
     def _write_json_file(self, json_data):
-        """Write JSON data to file with atomic safety"""
+        """Write JSON data to file with atomic safety - NO ERROR HANDLING"""
         # Write to temporary file first
         with open(self.temp_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, indent=2, ensure_ascii=False)

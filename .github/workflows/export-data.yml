@@ -28,7 +28,7 @@ jobs:
         
     - name: Install dependencies
       run: |
-        cd apps/inventory-manager
+        cd inventory-manager
         pip install -r requirements.txt
         
     - name: Export gallery data with store prices

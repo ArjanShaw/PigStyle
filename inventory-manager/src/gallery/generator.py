@@ -6,12 +6,24 @@ from pathlib import Path
 import pandas as pd
 
 class GalleryJSONManager:
-    def __init__(self, db_manager, web_base_path="../../web/public"):
+    def __init__(self, db_manager):
         self.db_manager = db_manager
-        self.web_base_path = Path(web_base_path)
+        
+        # Use the correct absolute path to web/public
+        # Assuming this file is in: inventory-manager/src/gallery/generator.py
+        current_dir = Path(__file__).parent  # src/gallery
+        src_dir = current_dir.parent  # src
+        project_root = src_dir.parent  # inventory-manager
+        self.web_base_path = project_root / "web" / "public"
+        
         self.json_path = self.web_base_path / "gallery-data.json"
         self.temp_path = self.web_base_path / "gallery-data.json.tmp"
-        self.backup_path = self.web_base_path / "gallery-data.json.backup"
+        
+        print(f"JSON will be saved to: {self.json_path}")
+        print(f"Directory exists: {self.web_base_path.exists()}")
+        if self.web_base_path.exists():
+            print(f"Directory is writable: {os.access(self.web_base_path, os.W_OK)}")
+        
         self._rebuild_lock = threading.Lock()
         self._last_rebuild_time = 0
         self._rebuild_in_progress = False
@@ -24,16 +36,15 @@ class GalleryJSONManager:
             thread.start()
             return True
         else:
-            # Synchronous rebuild - NO TRY/CATCH
+            # Synchronous rebuild
             return self._perform_rebuild()
     
     def _rebuild_in_thread(self):
-        """Wrapper to run rebuild in thread with proper error handling"""
-        # NO TRY/CATCH - let the error propagate
+        """Wrapper to run rebuild in thread"""
         self._perform_rebuild()
     
     def _perform_rebuild(self):
-        """Perform the actual JSON rebuild with locking - NO TRY/CATCH"""
+        """Perform the actual JSON rebuild with locking"""
         # Acquire lock to prevent concurrent rebuilds
         if not self._rebuild_lock.acquire(blocking=False):
             print("JSON rebuild already in progress, skipping...")
@@ -43,10 +54,19 @@ class GalleryJSONManager:
             self._rebuild_in_progress = True
             start_time = time.time()
             
-            print("Starting gallery JSON rebuild...")
+            print(f"Starting gallery JSON rebuild...")
+            print(f"Target path: {self.json_path}")
+            
+            # Check if directory exists and is writable
+            if not self.web_base_path.exists():
+                raise Exception(f"Directory does not exist: {self.web_base_path}")
+            
+            if not os.access(self.web_base_path, os.W_OK):
+                raise Exception(f"Directory not writable: {self.web_base_path}")
             
             # Get all records from database
             records = self._fetch_all_records()
+            print(f"Fetched {len(records)} records from database")
             
             # Build JSON structure
             json_data = self._build_json_structure(records)
@@ -57,11 +77,17 @@ class GalleryJSONManager:
             if success:
                 duration = time.time() - start_time
                 print(f"Gallery JSON rebuild completed in {duration:.2f}s - {len(records)} records")
+                self._last_rebuild_time = time.time()
             else:
                 print("Gallery JSON rebuild failed")
                 
             return success
             
+        except Exception as e:
+            print(f"Gallery JSON rebuild error: {e}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            return False
         finally:
             self._rebuild_in_progress = False
             self._rebuild_lock.release()
@@ -98,19 +124,9 @@ class GalleryJSONManager:
     
     def _write_json_file(self, json_data):
         """Write JSON data to file with atomic safety"""
-        # NO TRY/CATCH - let the error propagate
-        # Ensure web directory exists
-        self.web_base_path.mkdir(parents=True, exist_ok=True)
-        
         # Write to temporary file first
         with open(self.temp_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, indent=2, ensure_ascii=False)
-        
-        # Backup existing file if it exists
-        if self.json_path.exists():
-            if self.backup_path.exists():
-                self.backup_path.unlink()  # Remove old backup
-            self.json_path.rename(self.backup_path)
         
         # Atomic rename from temp to final
         self.temp_path.rename(self.json_path)

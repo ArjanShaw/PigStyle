@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import time
 from handlers.search_handler import SearchHandler
 from handlers.record_operations_handler import RecordOperationsHandler
 from handlers.display_handler import DisplayHandler
@@ -28,7 +29,7 @@ class InventoryTab:
         """Render the combined inventory, check-in, and checkout functionality"""
         
         # Database statistics - direct count from inventory records
-        stats = self._get_database_stats_direct('inventory')
+        stats = self._get_database_stats_direct()
             
         # Top row: Stats
         col1, col2 = st.columns([1, 1])
@@ -213,7 +214,12 @@ class InventoryTab:
                 
                 st.session_state.selected_record = None
                 st.session_state.records_updated += 1
+                
+                # Log rerun timing
+                start_time = time.time()
                 st.rerun()
+                duration = time.time() - start_time
+                self.debug_tab.add_log("RERUN", f"Rerun called after add record - Duration: {duration:.3f}s")
             else:
                 st.error("Failed to add record to database")
                 
@@ -233,7 +239,12 @@ class InventoryTab:
                 st.success("✅ Record updated successfully!")
                 st.session_state.records_updated += 1
                 st.session_state.selected_record = None
+                
+                # Log rerun timing
+                start_time = time.time()
                 st.rerun()
+                duration = time.time() - start_time
+                self.debug_tab.add_log("RERUN", f"Rerun called after update record - Duration: {duration:.3f}s")
             else:
                 st.error("❌ Failed to update record")
                 
@@ -243,22 +254,13 @@ class InventoryTab:
     def _process_checkout(self):
         """Process checkout of selected records"""
         try:
-            updated_count = self.record_ops_handler.process_checkout(st.session_state.checkout_records)
-            
-            if updated_count > 0:
-                receipt_content = self.record_ops_handler.generate_receipt_content(st.session_state.checkout_records)
-                st.session_state.receipt_content = receipt_content
-                st.session_state.show_receipt_download = True
-                
-                st.session_state.checkout_records = []
-                st.session_state.records_updated += 1
-                st.success(f"✅ Processed {updated_count} records for checkout!")
-                st.rerun()
-            else:
-                st.error("Failed to update any records.")
+            # Since we removed the status column, checkout is not functional anymore
+            st.warning("Checkout functionality is not available. The status column has been removed from the database.")
+            return 0
                 
         except Exception as e:
             st.error(f"Error processing checkout: {e}")
+            return 0
 
     def _render_pricing_section(self):
         """Render pricing settings and actions"""
@@ -473,12 +475,12 @@ class InventoryTab:
         except Exception as e:
             return {'type': 'FREE', 'cost': 0}
 
-    def _get_database_stats_direct(self, status='inventory') -> dict:
+    def _get_database_stats_direct(self) -> dict:
         """Get database statistics directly from records table"""
         conn = st.session_state.db_manager._get_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT COUNT(*) FROM records WHERE status = ?', (status,))
+        cursor.execute('SELECT COUNT(*) FROM records')
         records_count_result = cursor.fetchone()
         records_count = records_count_result[0] if records_count_result else 0
         
@@ -498,7 +500,10 @@ class InventoryTab:
         
         if updated_count > 0:
             st.session_state.records_updated += 1
+            start_time = time.time()
             st.rerun()
+            duration = time.time() - start_time
+            self.debug_tab.add_log("RERUN", f"Rerun called after update all eBay prices - Duration: {duration:.3f}s")
 
     def _update_single_ebay_prices(self, record_id):
         """Update eBay prices for a single record"""
@@ -510,7 +515,10 @@ class InventoryTab:
         
         if updated_count > 0:
             st.session_state.records_updated += 1
+            start_time = time.time()
             st.rerun()
+            duration = time.time() - start_time
+            self.debug_tab.add_log("RERUN", f"Rerun called after update single eBay prices - Duration: {duration:.3f}s")
 
     def _update_all_ebay_sell_at(self):
         """Update eBay sell prices for all inventory records using existing lowest prices"""
@@ -518,7 +526,10 @@ class InventoryTab:
         
         if updated_count > 0:
             st.session_state.records_updated += 1
+            start_time = time.time()
             st.rerun()
+            duration = time.time() - start_time
+            self.debug_tab.add_log("RERUN", f"Rerun called after update all eBay sell at - Duration: {duration:.3f}s")
 
     def _update_single_ebay_sell_at(self, record_id):
         """Update eBay sell price for a single record using existing lowest price"""
@@ -526,7 +537,10 @@ class InventoryTab:
         
         if updated_count > 0:
             st.session_state.records_updated += 1
+            start_time = time.time()
             st.rerun()
+            duration = time.time() - start_time
+            self.debug_tab.add_log("RERUN", f"Rerun called after update single eBay sell at - Duration: {duration:.3f}s")
 
     def _calculate_all_store_prices(self):
         """Calculate store prices for all inventory records using Discogs median price"""
@@ -534,7 +548,10 @@ class InventoryTab:
         
         if updated_count > 0:
             st.session_state.records_updated += 1
+            start_time = time.time()
             st.rerun()
+            duration = time.time() - start_time
+            self.debug_tab.add_log("RERUN", f"Rerun called after calculate all store prices - Duration: {duration:.3f}s")
 
     def _calculate_single_store_price(self, record_id):
         """Calculate store price for a single record using Discogs median price"""
@@ -542,12 +559,15 @@ class InventoryTab:
         
         if updated_count > 0:
             st.session_state.records_updated += 1
+            start_time = time.time()
             st.rerun()
+            duration = time.time() - start_time
+            self.debug_tab.add_log("RERUN", f"Rerun called after calculate single store price - Duration: {duration:.3f}s")
 
     def _update_all_store_prices(self):
         """Update store prices for all inventory records using Discogs median price with .49/.99 rounding"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE status = "inventory"', conn)
+        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
         conn.close()
         
         # Get MIN_STORE_PRICE from config, default to 1.99
@@ -671,166 +691,28 @@ class InventoryTab:
 
     def render_sold_tab(self):
         """Render the sold records table functionality - renamed to Income"""
-        # Database statistics - direct count from sold records
-        stats = self._get_database_stats_direct('sold')
-        
-        # Top row: Stats and action buttons
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            st.metric("Sold Records", stats['records_count'])
-        with col2:
-            if st.button("🔄 Return to Inventory", use_container_width=True, help="Return selected sold records to inventory"):
-                self._return_to_inventory()
-        
-        # Second row: Search and filters
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            search_term = st.text_input(
-                "Search by artist, title, or barcode:",
-                key="search_sold",
-                placeholder="Enter search term..."
-            )
-        
-        with col2:
-            # Quick filters
-            filter_option = st.selectbox(
-                "Filter by",
-                options=["All Records", "No Barcode", "No Price Data", "No Genre", "No File At", "No eBay Price"],
-                key="quick_filter_sold"
-            )
-
-        if stats['records_count'] > 0:
-            self._render_records_table('sold', search_term, filter_option)
-        else:
-            st.info("No sold records yet.")
+        st.info("The 'Sold Records' functionality is not available. The status column has been removed from the database.")
+        return
 
     def _return_to_inventory(self):
         """Return selected sold records back to inventory"""
-        if not st.session_state.selected_records:
-            st.warning("Please select records first using the checkboxes in the table.")
-            return
-            
-        selected_ids = st.session_state.selected_records
-        if self._update_record_status(selected_ids, 'inventory'):
-            st.success(f"✅ Returned {len(selected_ids)} records to inventory!")
-            st.session_state.selected_records = []
-            st.session_state.records_updated += 1
-            st.rerun()
+        st.warning("Return to inventory functionality is not available. The status column has been removed from the database.")
+        return
 
     def _update_record_status(self, record_ids, new_status):
-        """Update status of records"""
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.executemany('UPDATE records SET status = ? WHERE id = ?', [(new_status, id) for id in record_ids])
-        conn.commit()
-        conn.close()
-        return True
+        """Update status of records - not available anymore"""
+        st.warning("Record status update functionality is not available. The status column has been removed from the database.")
+        return False
 
     def _render_records_table(self, status, search_term, filter_option):
         """Render records with pagination"""
-        
-        # Get current filter state
-        search_term = st.session_state.get(f'search_{status}', '')
-        filter_option = st.session_state.get(f'quick_filter_{status}', 'All Records')
-        
-        # Get total count for pagination
-        total_records = self._get_total_filtered_count(status, search_term, filter_option)
-        
-        if total_records == 0:
-            st.info("No records found matching your criteria.")
-            return
-        
-        # Load all records (no pagination)
-        records = self._get_all_records_direct(status, search_term, filter_option)
-        
-        # Display record count
-        if search_term:
-            st.write(f"**Showing {len(records)} of {total_records} {status} records matching '{search_term}'**")
-        elif filter_option != "All Records":
-            st.write(f"**Showing {len(records)} of {total_records} {status} {filter_option.lower()}**")
-        else:
-            st.write(f"**Showing {len(records)} {status} records**")
-        
-        # Render the records table with selection
-        self._render_records_dataframe(records, status)
+        st.info(f"The '{status} records' table is not available. The status column has been removed from the database.")
+        return
 
     def _render_records_dataframe(self, records: pd.DataFrame, status: str):
         """Render records in an optimized dataframe with selection"""
-        if len(records) == 0:
-            return
-        
-        # Initialize selection state
-        if 'selected_records' not in st.session_state:
-            st.session_state.selected_records = []
-        
-        # Prepare display data with selection
-        display_data = []
-        for _, record in records.iterrows():
-            is_selected = record['id'] in st.session_state.selected_records
-            
-            display_record = {
-                'Select': is_selected,
-                'Cover': record.get('image_url', ''),
-                'Artist': record.get('artist', ''),
-                'Title': record.get('title', ''),
-                'Store Price': self._format_currency(record.get('store_price')),
-                'eBay Sell At': self._format_currency(record.get('ebay_sell_at')),
-                'eBay Low Shipping': self._format_currency(record.get('ebay_low_shipping')),
-                'Genre': record.get('genre', ''),
-                'File At': record.get('file_at', ''),
-                'Barcode': record.get('barcode', ''),
-                'Condition': record.get('condition', ''),
-                'Format': record.get('format', ''),
-                'Added': record.get('created_at', '')[:16] if record.get('created_at') else ''
-            }
-            
-            display_data.append(display_record)
-        
-        display_df = pd.DataFrame(display_data)
-        
-        # Configure columns for better display
-        column_config = {
-            'Select': st.column_config.CheckboxColumn('Select', width='small'),
-            'Cover': st.column_config.ImageColumn('Cover', width='small'),
-            'Artist': st.column_config.TextColumn('Artist', width='medium'),
-            'Title': st.column_config.TextColumn('Title', width='large'),
-            'Store Price': st.column_config.TextColumn('Store Price', width='small'),
-            'eBay Sell At': st.column_config.TextColumn('eBay Sell At', width='small'),
-            'eBay Low Shipping': st.column_config.TextColumn('eBay Low Shipping', width='small'),
-            'Genre': st.column_config.TextColumn('Genre', width='medium'),
-            'File At': st.column_config.TextColumn('File At', width='small'),
-            'Barcode': st.column_config.TextColumn('Barcode', width='small'),
-            'Condition': st.column_config.TextColumn('Condition', width='small'),
-            'Format': st.column_config.TextColumn('Format', width='small'),
-            'Added': st.column_config.TextColumn('Added', width='small')
-        }
-        
-        # Add select all checkbox with toggle functionality
-        col1, col2 = st.columns([1, 5])
-        with col1:
-            all_currently_selected = st.checkbox("Select All", key=f"select_all_{status}")
-        
-        # Display editable dataframe with selection - FIXED: use full width
-        edited_df = st.data_editor(
-            display_df,
-            column_config=column_config,
-            use_container_width=True,
-            height=min(600, 35 * len(display_df) + 40),
-            hide_index=True,
-            key=f"records_editor_{status}"
-        )
-        
-        # Handle select all functionality - FIXED TOGGLE BEHAVIOR
-        if all_currently_selected:
-            selected_ids = records['id'].tolist()
-        else:
-            selected_ids = []
-        
-        # Update selection state based on editor changes
-        if set(selected_ids) != set(st.session_state.selected_records):
-            st.session_state.selected_records = selected_ids
-            st.rerun()
+        st.info(f"The records table is not available. The status column has been removed from the database.")
+        return
 
     def _format_currency(self, value):
         """Format currency values"""
@@ -840,106 +722,10 @@ class InventoryTab:
 
     def _get_all_records_direct(self, status: str, search_term: str = None, filter_option: str = None) -> pd.DataFrame:
         """Get all records directly from records_with_genres view with optional filtering"""
-        conn = st.session_state.db_manager._get_connection()
-        
-        # Simple query - using the records_with_genres view
-        base_query = """
-        SELECT 
-            id, artist, title, 
-            discogs_median_price, discogs_lowest_price, discogs_highest_price,
-            ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at, ebay_low_shipping,
-            image_url, barcode, format, condition, created_at, genre, file_at, store_price
-        FROM records_with_genres 
-        WHERE status = ?
-        """
-        
-        params = [status]
-        
-        # Apply search filter
-        if search_term:
-            base_query += """
-            AND (artist LIKE ? 
-                OR title LIKE ? 
-                OR barcode LIKE ?)
-            """
-            search_pattern = f"%{search_term}%"
-            params.extend([search_pattern, search_pattern, search_pattern])
-        
-        # Apply quick filters
-        if filter_option == "No Barcode":
-            base_query += " AND (barcode IS NULL OR barcode = '')"
-        elif filter_option == "No Price Data":
-            base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
-        elif filter_option == "No Genre":
-            base_query += " AND (genre IS NULL OR genre = '')"
-        elif filter_option == "No File At":
-            base_query += " AND (file_at IS NULL OR file_at = '')"
-        elif filter_option == "No eBay Price":
-            base_query += " AND (ebay_sell_at IS NULL OR ebay_sell_at = 0)"
-        
-        # FIXED: Proper numerical sorting for ALL price columns with NULLs at bottom
-        base_query += """ 
-        ORDER BY 
-            CASE 
-                WHEN ebay_median_price IS NULL OR ebay_median_price = '' OR ebay_median_price = 0 THEN 999999
-                ELSE CAST(ebay_median_price AS REAL)
-            END ASC,
-            CASE 
-                WHEN discogs_median_price IS NULL OR discogs_median_price = '' OR discogs_median_price = 0 THEN 999999
-                ELSE CAST(discogs_median_price AS REAL)
-            END ASC,
-            CASE 
-                WHEN ebay_lowest_price IS NULL OR ebay_lowest_price = '' OR ebay_lowest_price = 0 THEN 999999
-                ELSE CAST(ebay_lowest_price AS REAL)
-            END ASC,
-            CASE 
-                WHEN ebay_highest_price IS NULL OR ebay_highest_price = '' OR ebay_highest_price = 0 THEN 999999
-                ELSE CAST(ebay_highest_price AS REAL)
-            END ASC,
-            CASE 
-                WHEN discogs_lowest_price IS NULL OR discogs_lowest_price = '' OR discogs_lowest_price = 0 THEN 999999
-                ELSE CAST(discogs_lowest_price AS REAL)
-            END ASC,
-            CASE 
-                WHEN discogs_highest_price IS NULL OR discogs_highest_price = '' OR discogs_highest_price = 0 THEN 999999
-                ELSE CAST(discogs_highest_price AS REAL)
-            END ASC
-        """
-        
-        df = pd.read_sql_query(base_query, conn, params=params)
-        conn.close()
-        return df
+        # Return empty dataframe since status functionality is removed
+        return pd.DataFrame()
 
     def _get_total_filtered_count(self, status: str, search_term: str = None, filter_option: str = None) -> int:
         """Get total count of records after applying filters"""
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        
-        base_query = "SELECT COUNT(*) FROM records WHERE status = ?"
-        params = [status]
-        
-        if search_term:
-            base_query += """
-            AND (artist LIKE ? 
-                OR title LIKE ? 
-                OR barcode LIKE ?)
-            """
-            search_pattern = f"%{search_term}%"
-            params.extend([search_pattern, search_pattern, search_pattern])
-        
-        if filter_option == "No Barcode":
-            base_query += " AND (barcode IS NULL OR barcode = '')"
-        elif filter_option == "No Price Data":
-            base_query += " AND (discogs_median_price IS NULL OR discogs_median_price = 0)"
-        elif filter_option == "No Genre":
-            base_query += " AND (genre_id IS NULL)"
-        elif filter_option == "No File At":
-            base_query += " AND (file_at IS NULL OR file_at = '')"
-        elif filter_option == "No eBay Price":
-            base_query += " AND (ebay_sell_at IS NULL OR ebay_sell_at = 0)"
-        
-        cursor.execute(base_query, params)
-        count_result = cursor.fetchone()
-        count = count_result[0] if count_result else 0
-        conn.close()
-        return int(count) if count is not None else 0
+        # Return 0 since status functionality is removed
+        return 0

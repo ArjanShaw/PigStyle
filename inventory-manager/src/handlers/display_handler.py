@@ -49,10 +49,8 @@ class DisplayHandler:
                     price = record.get('price', '')
                     st.write(f"Barcode: {barcode} | File: {file_at} | Price: {price}")
                 else:  # discogs
-                    year = record.get('year', 'Unknown')
-                    genre = record.get('genre', 'Unknown')
                     catalog = record.get('catalog_number', '')
-                    st.write(f"Year: {year} | Genre: {genre} | Catalog: {catalog}")
+                    st.write(f"Catalog: {catalog}")
                 
             with col3:
                 if st.button("Select", key=f"select_{result_type}_{i}", use_container_width=True):
@@ -81,15 +79,7 @@ class DisplayHandler:
             st.session_state.selected_record and 
             st.session_state.selected_record['type'] == 'database'):
             
-            checkout_checked = st.checkbox(
-                "Check out selected record",
-                key="checkout_checkbox"
-            )
-            
-            if checkout_checked:
-                record_data = st.session_state.selected_record['data']
-                if 'id' in record_data and record_data['id'] not in [r.get('id') for r in st.session_state.checkout_records]:
-                    st.session_state.checkout_records.append(record_data)
+            st.info("Checkout functionality is not available. The status column has been removed from the database.")
 
     def render_selected_record_only(self, selected_record):
         """Render only the selected record"""
@@ -124,10 +114,8 @@ class DisplayHandler:
                         st.session_state.selected_record = None
                         st.rerun()
             else:
-                year = record.get('year', 'Unknown')
-                genre = record.get('genre', 'Unknown')
                 catalog = record.get('catalog_number', '')
-                st.write(f"Year: {year} | Genre: {genre} | Catalog: {catalog}")
+                st.write(f"Catalog: {catalog}")
         
         if st.button("← Back to Results", key="back_to_results"):
             st.session_state.selected_record = None
@@ -329,14 +317,7 @@ class DisplayHandler:
             return
         
         st.subheader("Checkout")
-        st.write(f"**Items to checkout:** {len(checkout_records)}")
-        
-        # Display checkout items
-        for record in checkout_records:
-            st.write(f"- {record.get('artist', '')} - {record.get('title', '')} (${record.get('store_price', 0) or 0:.2f})")
-        
-        if st.button("🧾 Print Receipt & Mark as Sold", use_container_width=True, key="checkout_button"):
-            checkout_callback()
+        st.info("Checkout functionality is not available. The status column has been removed from the database.")
 
     def render_genre_management(self):
         """Render genre management, import/export, and printing"""
@@ -423,7 +404,7 @@ class DisplayHandler:
         try:
             conn = st.session_state.db_manager._get_connection()
             genres_df = pd.read_sql(
-                "SELECT DISTINCT genre FROM records WHERE genre IS NOT NULL AND genre != '' AND status = 'inventory' ORDER BY genre",
+                "SELECT DISTINCT genre FROM records_with_genres WHERE genre IS NOT NULL AND genre != '' ORDER BY genre",
                 conn
             )
             conn.close()
@@ -439,7 +420,7 @@ class DisplayHandler:
         """Export ID, Artist, Title, and Genre for all inventory records"""
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql(
-            "SELECT id, artist, title, genre FROM records_with_genres WHERE status = 'inventory' ORDER BY artist, title",
+            "SELECT id, artist, title, genre FROM records_with_genres ORDER BY artist, title",
             conn
         )
         conn.close()

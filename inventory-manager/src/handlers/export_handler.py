@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import time
 from handlers.draft_csv_handler import DraftCSVHandler
 import math
 
@@ -20,7 +21,7 @@ class ExportHandler:
         placeholders = ','.join(['?'] * len(selected_ids))
         
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql(f'SELECT * FROM records_with_genres WHERE id IN ({placeholders}) AND status = "inventory"', conn, params=selected_ids)
+        df = pd.read_sql(f'SELECT * FROM records_with_genres WHERE id IN ({placeholders})', conn, params=selected_ids)
         conn.close()
         
         records_list = df.to_dict('records')
@@ -118,7 +119,7 @@ class ExportHandler:
             return 0
         
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE status = "inventory"', conn)
+        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
         conn.close()
         
         updated_count = 0
@@ -272,7 +273,7 @@ class ExportHandler:
     def update_all_ebay_sell_at(self):
         """Update eBay sell prices for all inventory records using existing lowest prices"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE status = "inventory"', conn)
+        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
         conn.close()
         
         updated_count = 0

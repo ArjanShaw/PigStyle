@@ -21,6 +21,10 @@ class DatabaseManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 artist TEXT NOT NULL,
                 title TEXT NOT NULL,
+                barcode TEXT,
+                genre_id INTEGER,
+                file_at TEXT,
+                image_url TEXT,
                 discogs_median_price REAL,
                 discogs_lowest_price REAL,
                 discogs_highest_price REAL,
@@ -28,20 +32,12 @@ class DatabaseManager:
                 ebay_lowest_price REAL,
                 ebay_highest_price REAL,
                 ebay_count INTEGER,
-                ebay_sell_at REAL,
                 ebay_low_shipping REAL,
                 ebay_low_url TEXT,
-                genre_id INTEGER NOT NULL,
-                image_url TEXT,
-                year TEXT,
-                barcode TEXT,
                 catalog_number TEXT,
                 format TEXT,
                 condition TEXT,
                 store_price REAL,
-                file_at TEXT,
-                status TEXT DEFAULT 'inventory',
-                price_tag_printed BOOLEAN DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 discogs_genre TEXT,
@@ -52,13 +48,10 @@ class DatabaseManager:
         # Add columns if they don't exist
         columns_to_add = [
             ('ebay_count', 'INTEGER'),
-            ('ebay_sell_at', 'REAL'),
             ('ebay_low_shipping', 'REAL'),
             ('ebay_low_url', 'TEXT'),
             ('store_price', 'REAL'),
-            ('genre_id', 'INTEGER NOT NULL'),
-            ('status', 'TEXT DEFAULT "inventory"'),
-            ('price_tag_printed', 'BOOLEAN DEFAULT 0'),
+            ('genre_id', 'INTEGER'),
             ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
             ('discogs_genre', 'TEXT')
         ]
@@ -68,12 +61,6 @@ class DatabaseManager:
                 cursor.execute(f"ALTER TABLE records ADD COLUMN {column_name} {column_type}")
             except sqlite3.OperationalError:
                 pass
-        
-        # Remove price column if it exists
-        try:
-            cursor.execute("ALTER TABLE records DROP COLUMN price")
-        except sqlite3.OperationalError:
-            pass
         
         # Failed searches table
         cursor.execute('''
@@ -227,13 +214,6 @@ class DatabaseManager:
                 WHERE id = NEW.id;
             END
         ''')
-        
-        # Remove store_price triggers since we don't calculate automatically anymore
-        try:
-            cursor.execute('DROP TRIGGER IF EXISTS calculate_store_price')
-            cursor.execute('DROP TRIGGER IF EXISTS calculate_store_price_on_insert')
-        except:
-            pass
     
     def _get_connection(self):
         """Get database connection"""
@@ -246,13 +226,17 @@ class DatabaseManager:
         
         cursor.execute('''
             INSERT INTO records 
-            (artist, title, discogs_median_price, discogs_lowest_price, discogs_highest_price,
-             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at, ebay_low_shipping, ebay_low_url,
-             genre_id, image_url, catalog_number, format, barcode, condition, year, file_at, status, price_tag_printed, store_price, discogs_genre)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (artist, title, barcode, genre_id, image_url,
+             discogs_median_price, discogs_lowest_price, discogs_highest_price,
+             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_low_shipping, ebay_low_url,
+             catalog_number, format, condition, file_at, store_price, discogs_genre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
+            result_data.get('barcode', ''),
+            result_data.get('genre_id'),
+            result_data.get('image_url', ''),
             result_data.get('discogs_median_price'),
             result_data.get('discogs_lowest_price'),
             result_data.get('discogs_highest_price'),
@@ -260,19 +244,12 @@ class DatabaseManager:
             result_data.get('ebay_lowest_price'),
             result_data.get('ebay_highest_price'),
             result_data.get('ebay_count'),
-            result_data.get('ebay_sell_at'),
             result_data.get('ebay_low_shipping'),
             result_data.get('ebay_low_url', ''),
-            result_data.get('genre_id'),
-            result_data.get('image_url', ''),
             result_data.get('catalog_number', ''),
             result_data.get('format', ''),
-            result_data.get('barcode', ''),
             result_data.get('condition', ''),
-            result_data.get('year', ''),
             result_data.get('file_at', ''),
-            result_data.get('status', 'inventory'),
-            0,  # price_tag_printed starts as False
             result_data.get('store_price'),
             result_data.get('discogs_genre')
         ))
@@ -328,18 +305,6 @@ class DatabaseManager:
         success = cursor.rowcount > 0
         conn.close()
         return success
-    
-    def mark_price_tags_printed(self, record_ids):
-        """Mark price tags as printed for given record IDs"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        placeholders = ','.join(['?'] * len(record_ids))
-        cursor.execute(f'UPDATE records SET price_tag_printed = 1 WHERE id IN ({placeholders})', record_ids)
-        
-        conn.commit()
-        conn.close()
-        return True
     
     def save_expense(self, description, amount, receipt_image=None):
         """Save expense to database"""

@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'apps/inventory-manager/**'
+      - 'inventory-manager/**'
       - '.github/workflows/streamlit-deploy.yml'
 
 jobs:
@@ -21,6 +21,7 @@ jobs:
       
       - name: Install dependencies
         run: |
+          # Remove the cd apps/ part - inventory-manager is in root
           cd inventory-manager
           pip install -r requirements.txt
       
@@ -29,5 +30,5 @@ jobs:
           cd inventory-manager/src
           python -c "import streamlit as st; print('Streamlit version:', st.__version__)"
           python -c "import database_manager; print('Database manager imports successfully')"
-          python -c "import discogs_handler; print('Discogs handler imports successfully')"
+          python -c "from handlers.discogs_handler import DiscogsHandler; print('Discogs handler imports successfully')"
           python -c "import streamlit_app; print('Main app imports successfully')"

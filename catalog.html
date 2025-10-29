@@ -93,6 +93,25 @@
             initializeFilters();
         }
 
+        // Extract YouTube video ID from URL
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)/,
+                /youtube\.com\/embed\/([^&\n?]+)/,
+                /youtube\.com\/v\/([^&\n?]+)/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) {
+                    return match[1];
+                }
+            }
+            return null;
+        }
+
         // Create a card element
         function createCardElement(record, isHighlighted) {
             const card = document.createElement('div');
@@ -101,15 +120,43 @@
             card.setAttribute('data-title', record.title.toLowerCase());
             card.setAttribute('data-price', parseFloat(record.price.replace('$', '')));
             
+            // Check if we have a YouTube URL
+            const youtubeId = extractYouTubeId(record.youtube_url);
+            const hasYouTube = youtubeId !== null;
+            
+            let mediaContent = '';
+            
+            if (hasYouTube) {
+                // Create YouTube iframe
+                mediaContent = `
+                    <div class="card-video">
+                        <iframe 
+                            src="https://www.youtube.com/embed/${youtubeId}" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen
+                            loading="lazy">
+                        </iframe>
+                        <div class="video-overlay">🎵 Click to play</div>
+                    </div>
+                `;
+            } else {
+                // Create image fallback
+                mediaContent = `
+                    <div class="card-image">
+                        <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
+                    </div>
+                `;
+            }
+            
             card.innerHTML = `
-                <div class="card-image">
-                    <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
-                </div>
+                ${mediaContent}
                 <div class="card-info">
                     <h3>${escapeHtml(record.title)}</h3>
                     <p class="artist">${escapeHtml(record.artist)}</p>
                     <p class="price">${record.price}</p>
                     <p class="genre">${escapeHtml(record.genre)}</p>
+                    ${hasYouTube ? '<div class="youtube-badge">🎵 Video Available</div>' : ''}
                 </div>
             `;
             

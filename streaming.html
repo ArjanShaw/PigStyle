@@ -135,31 +135,6 @@
             transform: scale(0.95);
         }
         
-        /* Buy button */
-        .buy-btn {
-            background: rgba(39, 174, 96, 0.8);
-            border: none;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 15px;
-            font-weight: bold;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .buy-btn:hover {
-            background: #27ae60;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-        }
-        
-        .buy-btn:active {
-            transform: translateY(0);
-        }
-        
         /* Genre selector */
         .genre-selector {
             position: absolute;
@@ -321,7 +296,6 @@
                 <p class="artist" id="trackArtist">Artist Name</p>
                 <div class="price-badge" id="trackPrice">$0.00</div>
                 <p class="genre" id="trackGenre">Genre</p>
-                <button class="buy-btn" id="buyBtn">Add to Cart</button>
             </div>
             
             <div class="video-container">
@@ -433,9 +407,6 @@
             // Add event listeners for navigation
             document.getElementById('prevBtn').addEventListener('click', playPreviousTrack);
             document.getElementById('nextBtn').addEventListener('click', playNextTrack);
-            
-            // Add event listener for buy button
-            document.getElementById('buyBtn').addEventListener('click', handleBuyClick);
         }
 
         // Load YouTube API
@@ -491,24 +462,6 @@
                     youtubePlayer.playVideo();
                 }
             }
-        }
-
-        // Handle buy button click
-        function handleBuyClick() {
-            const currentRecord = filteredRecords[currentTrackIndex];
-            const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
-            
-            // Show a simple alert for demonstration
-            // In a real application, this would add to a shopping cart
-            alert(`Added to cart: ${currentRecord.title} by ${currentRecord.artist} - ${price}`);
-            
-            // You could also implement a more sophisticated cart system here
-            console.log('Added to cart:', {
-                title: currentRecord.title,
-                artist: currentRecord.artist,
-                price: currentRecord.store_price,
-                genre: currentRecord.genre
-            });
         }
 
         // YouTube player ready callback

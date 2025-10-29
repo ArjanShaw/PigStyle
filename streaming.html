@@ -1,0 +1,486 @@
+﻿<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Streaming Station - PigStyle Records</title>
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        header {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .station-title {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .station-title h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            color: #e74c3c;
+        }
+        
+        .station-title p {
+            margin: 5px 0 0 0;
+            opacity: 0.8;
+        }
+        
+        /* Main player container */
+        .player-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: calc(100vh - 200px);
+            padding: 20px;
+            position: relative;
+        }
+        
+        .current-track {
+            text-align: center;
+            margin-bottom: 30px;
+            max-width: 800px;
+        }
+        
+        .current-track h2 {
+            font-size: 2.5rem;
+            margin: 0 0 10px 0;
+            color: white;
+        }
+        
+        .current-track .artist {
+            font-size: 1.8rem;
+            color: #e74c3c;
+            margin: 0 0 15px 0;
+            font-weight: bold;
+        }
+        
+        .current-track .genre {
+            font-size: 1.2rem;
+            color: #bdc3c7;
+            margin: 0;
+        }
+        
+        /* Video player */
+        .video-container {
+            width: 90%;
+            max-width: 1000px;
+            height: 500px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: #000;
+            position: relative;
+        }
+        
+        .video-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        /* Navigation controls */
+        .nav-controls {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 30px;
+        }
+        
+        .nav-btn {
+            background: rgba(231, 76, 60, 0.8);
+            border: none;
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-btn:hover {
+            background: #e74c3c;
+            transform: scale(1.1);
+        }
+        
+        .nav-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* Genre selector */
+        .genre-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+        
+        .genre-select {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #2c3e50;
+            font-size: 1rem;
+            cursor: pointer;
+            min-width: 150px;
+        }
+        
+        /* Loading animation */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        
+        .loading-dots {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .loading-dots div {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            animation: loading-bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .loading-dots div:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots div:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots div:nth-child(3) { animation-delay: 0s; }
+        .loading-dots div:nth-child(4) { animation-delay: 0.16s; }
+        
+        @keyframes loading-bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            } 40% { 
+                transform: scale(1.0);
+            }
+        }
+        
+        /* Error message */
+        .error-message {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+            font-size: 1.2rem;
+        }
+        
+        /* Back to catalog link */
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 15px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        
+        .back-link:hover {
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .current-track h2 {
+                font-size: 1.8rem;
+            }
+            
+            .current-track .artist {
+                font-size: 1.4rem;
+            }
+            
+            .video-container {
+                height: 300px;
+            }
+            
+            .nav-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+            
+            .genre-selector {
+                position: static;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href='catalog.html' class='back-link'>← Back to Catalog</a>
+        <div class="genre-selector">
+            <select id="genreFilter" class="genre-select">
+                <option value="">All Genres</option>
+            </select>
+        </div>
+    </header>
+    
+    <div class="station-title">
+        <h1>🎵 PigStyle Streaming Station</h1>
+        <p>Enjoy continuous music from our collection</p>
+    </div>
+    
+    <div class="player-container">
+        <div id="loading" class="loading">
+            <div class="loading-dots">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+            <p>Loading streaming station...</p>
+        </div>
+        
+        <div id="playerContent" style="display: none;">
+            <div class="current-track">
+                <h2 id="trackTitle">Track Title</h2>
+                <p class="artist" id="trackArtist">Artist Name</p>
+                <p class="genre" id="trackGenre">Genre</p>
+            </div>
+            
+            <div class="video-container">
+                <div id="youtube-player"></div>
+            </div>
+            
+            <div class="nav-controls">
+                <button class="nav-btn" id="prevBtn">◀</button>
+                <button class="nav-btn" id="nextBtn">▶</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Store all records and filtered records
+        let allRecords = [];
+        let filteredRecords = [];
+        let currentTrackIndex = 0;
+        let youtubePlayer = null;
+        let autoplayEnabled = true;
+
+        // Load data from gallery-data.json
+        async function loadStreamingData() {
+            try {
+                console.log('Loading streaming data...');
+                const response = await fetch('gallery-data.json');
+                const data = await response.json();
+                
+                // Handle both data structures:
+                if (data && data.records && Array.isArray(data.records)) {
+                    allRecords = data.records;
+                } else if (Array.isArray(data)) {
+                    allRecords = data;
+                } else {
+                    console.error('Unexpected data structure:', data);
+                    allRecords = [];
+                }
+                
+                // Filter records to only those with YouTube videos
+                filteredRecords = allRecords.filter(record => {
+                    return extractYouTubeId(record.youtube_url) !== null;
+                });
+                
+                console.log(`Loaded ${filteredRecords.length} streamable records`);
+                
+                if (filteredRecords.length === 0) {
+                    document.getElementById('loading').innerHTML = '<div class="error-message">No streamable records found in the database.</div>';
+                    return;
+                }
+                
+                populateGenreFilter();
+                initializePlayer();
+                
+            } catch (error) {
+                console.error('Error loading streaming data:', error);
+                document.getElementById('loading').innerHTML = '<div class="error-message">Error loading streaming station. Please try again later.</div>';
+            }
+        }
+
+        // Populate genre filter dropdown
+        function populateGenreFilter() {
+            const genreFilter = document.getElementById('genreFilter');
+            const genres = [...new Set(filteredRecords.map(record => record.genre))].sort();
+            
+            genres.forEach(genre => {
+                const option = document.createElement('option');
+                option.value = genre;
+                option.textContent = genre;
+                genreFilter.appendChild(option);
+            });
+            
+            // Add event listener for genre filter
+            genreFilter.addEventListener('change', function() {
+                applyGenreFilter(this.value);
+            });
+        }
+
+        // Apply genre filter
+        function applyGenreFilter(genre) {
+            if (!genre) {
+                filteredRecords = allRecords.filter(record => extractYouTubeId(record.youtube_url) !== null);
+            } else {
+                filteredRecords = allRecords.filter(record => 
+                    record.genre === genre && extractYouTubeId(record.youtube_url) !== null
+                );
+            }
+            
+            if (filteredRecords.length === 0) {
+                // If no records after filtering, show message and stop player
+                document.getElementById('playerContent').style.display = 'none';
+                document.getElementById('loading').innerHTML = '<div class="error-message">No records found for this genre.</div>';
+                return;
+            }
+            
+            // Reset to first track and start playing
+            currentTrackIndex = 0;
+            loadCurrentTrack();
+        }
+
+        // Initialize the player
+        function initializePlayer() {
+            // Hide loading, show player
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('playerContent').style.display = 'block';
+            
+            // Load YouTube API and first track
+            loadYouTubeAPI();
+            
+            // Add event listeners for navigation
+            document.getElementById('prevBtn').addEventListener('click', playPreviousTrack);
+            document.getElementById('nextBtn').addEventListener('click', playNextTrack);
+        }
+
+        // Load YouTube API
+        function loadYouTubeAPI() {
+            // Load YouTube IFrame API
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            
+            // This function will be called by YouTube API when ready
+            window.onYouTubeIframeAPIReady = function() {
+                loadCurrentTrack();
+            };
+        }
+
+        // Load current track
+        function loadCurrentTrack() {
+            if (filteredRecords.length === 0) return;
+            
+            const currentRecord = filteredRecords[currentTrackIndex];
+            const youtubeId = extractYouTubeId(currentRecord.youtube_url);
+            
+            // Update track info
+            document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
+            document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
+            document.getElementById('trackGenre').textContent = currentRecord.genre || 'Unknown Genre';
+            
+            // Create or update YouTube player
+            if (!youtubePlayer) {
+                youtubePlayer = new YT.Player('youtube-player', {
+                    height: '100%',
+                    width: '100%',
+                    videoId: youtubeId,
+                    playerVars: {
+                        'autoplay': autoplayEnabled ? 1 : 0,
+                        'controls': 1,
+                        'rel': 0,
+                        'modestbranding': 1
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            } else {
+                youtubePlayer.loadVideoById(youtubeId);
+                if (autoplayEnabled) {
+                    youtubePlayer.playVideo();
+                }
+            }
+        }
+
+        // YouTube player ready callback
+        function onPlayerReady(event) {
+            console.log('YouTube player ready');
+            if (autoplayEnabled) {
+                event.target.playVideo();
+            }
+        }
+
+        // YouTube player state change callback
+        function onPlayerStateChange(event) {
+            // When video ends, play next track
+            if (event.data === YT.PlayerState.ENDED) {
+                playNextTrack();
+            }
+        }
+
+        // Play previous track
+        function playPreviousTrack() {
+            currentTrackIndex = (currentTrackIndex - 1 + filteredRecords.length) % filteredRecords.length;
+            loadCurrentTrack();
+        }
+
+        // Play next track
+        function playNextTrack() {
+            currentTrackIndex = (currentTrackIndex + 1) % filteredRecords.length;
+            loadCurrentTrack();
+        }
+
+        // Extract YouTube video ID from URL
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)/,
+                /youtube\.com\/embed\/([^&\n?]+)/,
+                /youtube\.com\/v\/([^&\n?]+)/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) {
+                    return match[1];
+                }
+            }
+            return null;
+        }
+
+        // Load the streaming data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStreamingData();
+        });
+    </script>
+</body>
+</html>

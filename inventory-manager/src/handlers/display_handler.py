@@ -137,13 +137,36 @@ class DisplayHandler:
         """Render the edit properties section"""
         st.subheader("Edit Properties")
         
-        # Prepopulate genre based on artist
-        suggested_genre = ""
-        artist = selected_record['data'].get('artist', '')
+        record_data = selected_record['data']
         
-        if artist:
-            # Use the record operations handler to get suggested genre
-            suggested_genre = self._get_suggested_genre(artist)
+        # For Discogs records, show editable artist field with cleaned version
+        if selected_record['type'] == 'discogs':
+            raw_artist = record_data.get('artist', '')
+            cleaned_artist = record_data.get('cleaned_artist', raw_artist)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                # Editable artist field pre-populated with cleaned version
+                edited_artist = st.text_input(
+                    "Artist:",
+                    value=cleaned_artist,
+                    key="artist_edit"
+                )
+            with col2:
+                title = st.text_input(
+                    "Title:",
+                    value=record_data.get('title', ''),
+                    key="title_edit"
+                )
+            
+            # Update the record data with edited values
+            record_data['artist'] = edited_artist
+            record_data['title'] = title
+            
+            st.write(f"*Original artist from Discogs: {raw_artist}*")
+        
+        # Get suggested genre based on artist and Discogs genre
+        suggested_genre = self._get_suggested_genre(record_data)
         
         col1, col2 = st.columns(2)
         with col1:
@@ -172,6 +195,11 @@ class DisplayHandler:
                 index=default_index,
                 key="genre_edit"
             )
+            
+            # Show where the suggestion came from
+            if suggested_genre:
+                suggestion_source = self._get_suggestion_source(record_data, suggested_genre)
+                st.caption(f"Suggested: {suggested_genre} ({suggestion_source})")
         
         # Single submit button - only enable if genre is selected
         if selected_record['type'] == 'discogs':
@@ -190,6 +218,110 @@ class DisplayHandler:
                         st.success("Record deleted successfully!")
                         st.session_state.selected_record = None
                         st.rerun()
+
+    def _get_suggested_genre(self, record_data):
+        """Get suggested genre based on artist history and Discogs genre"""
+        artist = record_data.get('artist', '')
+        discogs_genre = record_data.get('genre', '')
+        
+        # Priority 1: Check if artist exists in database and get most common genre
+        if artist:
+            artist_genre = self._get_artist_most_common_genre(artist)
+            if artist_genre:
+                return artist_genre
+        
+        # Priority 2: Check Discogs genre and map to existing genres
+        if discogs_genre:
+            mapped_genre = self._map_discogs_genre(discogs_genre)
+            if mapped_genre:
+                return mapped_genre
+        
+        return ""
+
+    def _get_suggestion_source(self, record_data, suggested_genre):
+        """Get the source of the genre suggestion"""
+        artist = record_data.get('artist', '')
+        discogs_genre = record_data.get('genre', '')
+        
+        # Check if it came from artist history
+        if artist:
+            artist_genre = self._get_artist_most_common_genre(artist)
+            if artist_genre == suggested_genre:
+                return "artist history"
+        
+        # Check if it came from Discogs genre mapping
+        if discogs_genre:
+            mapped_genre = self._map_discogs_genre(discogs_genre)
+            if mapped_genre == suggested_genre:
+                return "Discogs genre mapping"
+        
+        return "unknown"
+
+    def _get_artist_most_common_genre(self, artist):
+        """Get the most common genre for an artist from existing records"""
+        try:
+            conn = st.session_state.db_manager._get_connection()
+            df = pd.read_sql('''
+                SELECT genre, COUNT(*) as count 
+                FROM records_with_genres 
+                WHERE artist = ? AND genre IS NOT NULL AND genre != '' 
+                GROUP BY genre 
+                ORDER BY count DESC 
+                LIMIT 1
+            ''', conn, params=(artist,))
+            conn.close()
+            
+            if len(df) > 0:
+                return df.iloc[0]['genre']
+            return ""
+        except Exception as e:
+            return ""
+
+    def _map_discogs_genre(self, discogs_genre):
+        """Map Discogs genre to existing genres in database"""
+        try:
+            # Clean the Discogs genre (remove "Folk, World, & Country" type formatting)
+            clean_genre = discogs_genre.split(',')[0].strip()
+            
+            # Check if this exact genre exists
+            conn = st.session_state.db_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (clean_genre,))
+            result = cursor.fetchone()
+            if result:
+                conn.close()
+                return result[0]
+            
+            # Check for partial matches or common mappings
+            common_mappings = {
+                'Rock': ['Rock', 'Alternative Rock', 'Classic Rock'],
+                'Jazz': ['Jazz'],
+                'Hip Hop': ['Hip-Hop', 'Rap'],
+                'Electronic': ['Electronic', 'Techno', 'House'],
+                'Pop': ['Pop'],
+                'Folk': ['Folk'],
+                'Country': ['Country'],
+                'Blues': ['Blues'],
+                'Classical': ['Classical'],
+                'Reggae': ['Reggae'],
+                'Soul': ['Soul', 'Funk'],
+                'Metal': ['Metal', 'Heavy Metal']
+            }
+            
+            for main_genre, variants in common_mappings.items():
+                for variant in variants:
+                    if variant.lower() in clean_genre.lower():
+                        # Check if main genre exists
+                        cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (main_genre,))
+                        result = cursor.fetchone()
+                        if result:
+                            conn.close()
+                            return main_genre
+            
+            conn.close()
+            return ""
+        except Exception as e:
+            return ""
 
     def render_checkout_section(self, checkout_records, checkout_callback):
         """Render checkout section"""
@@ -274,23 +406,6 @@ class DisplayHandler:
         except Exception as e:
             st.error(f"Error deleting record: {e}")
             return False
-
-    def _get_suggested_genre(self, artist):
-        """Get suggested genre based on existing records by the same artist"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql(
-                'SELECT genre FROM records_with_genres WHERE artist = ? AND genre IS NOT NULL AND genre != "" LIMIT 1',
-                conn,
-                params=(artist,)
-            )
-            conn.close()
-            
-            if len(df) > 0:
-                return df.iloc[0]['genre']
-            return ""
-        except Exception as e:
-            return ""
 
     def _get_all_genres(self):
         """Get all available genres from database"""

@@ -36,14 +36,15 @@ class RecordOperationsHandler:
                 st.error(f"Failed to get Discogs pricing: {error_msg}")
                 return False, None
             
-            # Extract result information
-            artist = record_data.get('artist', '')
-            title = record_data.get('title', '')
+            # Extract result information - use the edited artist name if available
+            artist = record_data.get('artist', '')  # This will be the edited version
+            title = record_data.get('title', '')    # This will be the edited version
             image_url = record_data.get('image_url', '')
             year = record_data.get('year', '')
             catalog_number = record_data.get('catalog_number', '')
+            discogs_genre = record_data.get('genre', '')  # Store the original Discogs genre
             
-            # Get eBay pricing if handler is available
+            # Get eBay pricing if handler is available - use the edited artist name
             ebay_pricing = None
             if self.ebay_handler and artist and title:
                 # Note: The actual API call logging is now handled within ebay_handler
@@ -72,8 +73,8 @@ class RecordOperationsHandler:
             # Save to database - include raw Discogs and eBay data only
             # NO custom price calculations (ebay_sell_at and store_price will be NULL initially)
             result_data = {
-                'artist': artist,
-                'title': title,
+                'artist': artist,  # Use the edited artist name
+                'title': title,    # Use the edited title
                 'discogs_median_price': pricing_data['median_price'],
                 'discogs_lowest_price': pricing_data.get('lowest_price'),
                 'discogs_highest_price': pricing_data.get('highest_price'),
@@ -95,7 +96,8 @@ class RecordOperationsHandler:
                 'status': 'inventory',
                 # Store these as NULL initially - will be calculated separately
                 'store_price': None,
-                'ebay_sell_at': None
+                'ebay_sell_at': None,
+                'discogs_genre': discogs_genre  # Store the original Discogs genre
             }
             
             record_id = st.session_state.db_manager.save_record(result_data)
@@ -187,23 +189,6 @@ class RecordOperationsHandler:
         except Exception as e:
             st.error(f"Error updating record: {str(e)}")
             return False
-
-    def get_suggested_genre(self, artist):
-        """Get suggested genre based on existing records by the same artist"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql(
-                'SELECT genre FROM records_with_genres WHERE artist = ? AND genre IS NOT NULL AND genre != "" LIMIT 1',
-                conn,
-                params=(artist,)
-            )
-            conn.close()
-            
-            if len(df) > 0:
-                return df.iloc[0]['genre']
-            return ""
-        except Exception as e:
-            return ""
 
     def process_checkout(self, checkout_records):
         """Process checkout of selected records"""

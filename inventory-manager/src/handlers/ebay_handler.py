@@ -31,6 +31,7 @@ class EbayHandler:
 
         # Log token API call
         api_title = f"🔑 eBay Token API: {self.EBAY_TOKEN_URL}"
+        start_time = time.time()
         self._log_api_call(api_title, {
             'endpoint': self.EBAY_TOKEN_URL,
             'request': {
@@ -45,8 +46,10 @@ class EbayHandler:
         self.token = token_data["access_token"]
         self.token_expiry = time.time() + token_data["expires_in"] - 60
         
+        duration = round(time.time() - start_time, 2)
+        
         # Log token response
-        self._log_api_response(api_title, token_data)
+        self._log_api_response(api_title, token_data, duration)
         
         return self.token
 
@@ -68,6 +71,7 @@ class EbayHandler:
 
         # Log search API call with unified format
         api_title = f"🛒 eBay Search API: {self.EBAY_SEARCH_URL}?q={query}"
+        start_time = time.time()
         self._log_api_call(api_title, {
             'endpoint': self.EBAY_SEARCH_URL,
             'request': {
@@ -80,8 +84,10 @@ class EbayHandler:
         resp.raise_for_status()
         data = resp.json()
 
+        duration = round(time.time() - start_time, 2)
+
         # Log the ACTUAL raw response from eBay - no wrapper, just the raw JSON
-        self._log_api_response(api_title, data)
+        self._log_api_response(api_title, data, duration)
 
         items = data.get("itemSummaries", [])
         
@@ -209,6 +215,7 @@ class EbayHandler:
 
         # Log item API call
         api_title = f"📦 eBay Item API: {url}"
+        start_time = time.time()
         self._log_api_call(api_title, {
             'endpoint': url,
             'request': {
@@ -221,29 +228,33 @@ class EbayHandler:
             resp.raise_for_status()
             item_data = resp.json()
             
+            duration = round(time.time() - start_time, 2)
+            
             # Log successful response - raw eBay data
-            self._log_api_response(api_title, item_data)
+            self._log_api_response(api_title, item_data, duration)
             
             return item_data
         except Exception as e:
+            duration = round(time.time() - start_time, 2)
             # Log error response
             self._log_api_response(api_title, {
                 'status_code': resp.status_code if 'resp' in locals() else 'No response',
                 'error': str(e)
-            })
+            }, duration)
             return None
 
     def _log_api_call(self, title, request_data):
         """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
+        if 'add_item_api_logs' not in st.session_state:
+            st.session_state.add_item_api_logs = []
+        if 'add_item_api_details' not in st.session_state:
+            st.session_state.add_item_api_details = {}
             
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {'request': request_data}
+        st.session_state.add_item_api_logs.append(title)
+        st.session_state.add_item_api_details[title] = {'request': request_data}
 
-    def _log_api_response(self, title, response_data):
+    def _log_api_response(self, title, response_data, duration):
         """Log API response in unified format"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
+        if 'add_item_api_details' in st.session_state and title in st.session_state.add_item_api_details:
+            st.session_state.add_item_api_details[title]['response'] = response_data
+            st.session_state.add_item_api_details[title]['duration'] = duration

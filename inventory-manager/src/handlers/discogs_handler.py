@@ -33,6 +33,7 @@ class DiscogsHandler:
         
         # Log the API call with unified format
         api_title = f"🔍 Discogs Search API: {endpoint_url}"
+        start_time = time.time()
         self._log_api_call(api_title, {
             'endpoint': endpoint_url,
             'request': {
@@ -48,6 +49,8 @@ class DiscogsHandler:
             timeout=15
         )
         
+        duration = round(time.time() - start_time, 2)
+        
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
             self._log_debug("DISCOGS_ERROR", f"{endpoint_url} - {query} - {error_msg}")
@@ -60,7 +63,7 @@ class DiscogsHandler:
             'status_code': response.status_code,
             'result_count': len(data.get('results', [])),
             'results_sample': data.get('results', [])[:2] if data.get('results') else []
-        })
+        }, duration)
         
         return data
     
@@ -75,6 +78,7 @@ class DiscogsHandler:
         
         # Log the API call with unified format
         api_title = f"💰 Discogs Pricing API: {endpoint_url}?release_id={release_id}"
+        start_time = time.time()
         self._log_api_call(api_title, {
             'endpoint': endpoint_url,
             'request': {
@@ -89,6 +93,8 @@ class DiscogsHandler:
             headers=self.headers,
             timeout=15
         )
+        
+        duration = round(time.time() - start_time, 2)
         
         if response.status_code != 200:
             self._log_debug("DISCOGS_PRICING_ERROR", f"{endpoint_url} - Release {release_id} - Status {response.status_code}")
@@ -112,7 +118,7 @@ class DiscogsHandler:
                     'fallback_used': True,
                     'price_from_stats': price,
                     'release_data_available': True
-                })
+                }, duration)
                 return result
             else:
                 result = self._create_no_results_response(1, query)
@@ -124,7 +130,7 @@ class DiscogsHandler:
                     'status_code': response.status_code,
                     'fallback_used': False,
                     'no_pricing_data': True
-                })
+                }, duration)
                 return result
         
         listings_data = response.json()
@@ -153,7 +159,7 @@ class DiscogsHandler:
                 'median_price': result['median_price'],
                 'lowest_price': result['lowest_price'],
                 'highest_price': result['highest_price']
-            })
+            }, duration)
             return result
         else:
             price = self._extract_price_from_release(release_data)
@@ -167,7 +173,7 @@ class DiscogsHandler:
                     'status_code': response.status_code,
                     'fallback_used': True,
                     'price_from_stats': price
-                })
+                }, duration)
                 return result
             else:
                 result = self._create_no_results_response(len(listings_data.get('listings', [])), query)
@@ -178,7 +184,7 @@ class DiscogsHandler:
                 self._log_api_response(api_title, {
                     'status_code': response.status_code,
                     'no_pricing_data': True
-                })
+                }, duration)
                 return result
 
     def _get_release_stats(self, release_id: str):
@@ -187,6 +193,7 @@ class DiscogsHandler:
         
         # Log the API call with unified format
         api_title = f"📊 Discogs Release API: {endpoint_url}"
+        start_time = time.time()
         self._log_api_call(api_title, {
             'endpoint': endpoint_url,
             'request': {
@@ -200,6 +207,8 @@ class DiscogsHandler:
             timeout=10
         )
         
+        duration = round(time.time() - start_time, 2)
+        
         if response.status_code == 200:
             data = response.json()
             
@@ -207,7 +216,7 @@ class DiscogsHandler:
             self._log_api_response(api_title, {
                 'status_code': response.status_code,
                 'release_data_keys': list(data.keys()) if data else []
-            })
+            }, duration)
             return data
         else:
             error_msg = f"Failed to get release {release_id}: {response.status_code}"
@@ -322,15 +331,16 @@ class DiscogsHandler:
 
     def _log_api_call(self, title, request_data):
         """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
+        if 'add_item_api_logs' not in st.session_state:
+            st.session_state.add_item_api_logs = []
+        if 'add_item_api_details' not in st.session_state:
+            st.session_state.add_item_api_details = {}
             
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {'request': request_data}
+        st.session_state.add_item_api_logs.append(title)
+        st.session_state.add_item_api_details[title] = {'request': request_data}
 
-    def _log_api_response(self, title, response_data):
+    def _log_api_response(self, title, response_data, duration):
         """Log API response in unified format"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
+        if 'add_item_api_details' in st.session_state and title in st.session_state.add_item_api_details:
+            st.session_state.add_item_api_details[title]['response'] = response_data
+            st.session_state.add_item_api_details[title]['duration'] = duration

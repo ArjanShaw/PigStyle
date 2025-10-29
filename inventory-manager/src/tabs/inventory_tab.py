@@ -85,13 +85,32 @@ class InventoryTab:
             key="unified_search_input"
         )
         
-        search_submitted = st.button("🔍 Search", use_container_width=True)
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            search_submitted = st.button("🔍 Search", use_container_width=True)
         
-        # Handle search
+        # Handle Enter key press in search input
+        if st.session_state.get('unified_search_input') and st.session_state.unified_search_input.strip():
+            if st.session_state.unified_search_input != st.session_state.get('last_search', ''):
+                st.session_state.current_search = st.session_state.unified_search_input.strip()
+                st.session_state.selected_record = None
+                st.session_state.record_added = None
+                
+                if search_type == "Add item":
+                    results = self.search_handler.perform_discogs_search(st.session_state.unified_search_input.strip())
+                    st.session_state.search_results[st.session_state.unified_search_input.strip()] = results
+                else:
+                    results = self.search_handler.perform_database_search(st.session_state.unified_search_input.strip())
+                    st.session_state.search_results[st.session_state.unified_search_input.strip()] = results
+                
+                st.session_state.last_search = st.session_state.unified_search_input.strip()
+                st.rerun()
+        
+        # Handle search button click
         if search_submitted and search_input and search_input.strip():
             st.session_state.current_search = search_input.strip()
-            st.session_state.selected_record = None  # Clear previous selection
-            st.session_state.record_added = None  # Clear added record
+            st.session_state.selected_record = None
+            st.session_state.record_added = None
             
             if search_type == "Add item":
                 results = self.search_handler.perform_discogs_search(search_input.strip())
@@ -100,20 +119,32 @@ class InventoryTab:
                 results = self.search_handler.perform_database_search(search_input.strip())
                 st.session_state.search_results[search_input.strip()] = results
         
+        # Show API logs for Add Item searches
+        if (search_type == "Add item" and 
+            st.session_state.current_search and 
+            st.session_state.current_search in st.session_state.search_results and
+            'add_item_api_logs' in st.session_state and st.session_state.add_item_api_logs):
+            
+            with st.expander("📡 API Requests & Responses (Add Item)", expanded=False):
+                for api_title in st.session_state.add_item_api_logs:
+                    if api_title in st.session_state.add_item_api_details:
+                        details = st.session_state.add_item_api_details[api_title]
+                        duration = details.get('duration', 'N/A')
+                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
+                        with st.expander(display_title, expanded=False):
+                            st.write("**Request:**")
+                            st.json(details['request'])
+                            if 'response' in details:
+                                st.write("**Response:**")
+                                st.json(details['response'])
+        
         # Show success message and display added record details
         if st.session_state.get('record_added') is not None:
             record_data = st.session_state.record_added
             
-            # Display success message with record details inside the success box
+            # Display success message with record details - removed store price and eBay sell at
             file_at = record_data.get('file_at', 'N/A')
-            store_price = record_data.get('store_price')
-            ebay_sell_at = record_data.get('ebay_sell_at')
-            
-            success_message = f"✅ Record added to database! | File At: {file_at} | Store Price: ${store_price:.2f}" if store_price else f"✅ Record added to database! | File At: {file_at} | Store Price: N/A"
-            if ebay_sell_at:
-                success_message += f" | eBay Sell At: ${ebay_sell_at:.2f}"
-            else:
-                success_message += " | eBay Sell At: N/A"
+            success_message = f"✅ Record added to database! | File At: {file_at}"
                 
             st.success(success_message)
         
@@ -160,6 +191,12 @@ class InventoryTab:
             )
             
             if success:
+                # Clear add item API logs after successful addition
+                if 'add_item_api_logs' in st.session_state:
+                    st.session_state.add_item_api_logs = []
+                if 'add_item_api_details' in st.session_state:
+                    st.session_state.add_item_api_details = {}
+                
                 # Get the full record data using the row ID
                 import time
                 time.sleep(0.5)  # Small delay to ensure triggers complete
@@ -172,8 +209,6 @@ class InventoryTab:
                     # Fallback: create basic record data
                     st.session_state.record_added = {
                         'file_at': '',
-                        'store_price': 0,
-                        'ebay_sell_at': 0
                     }
                 
                 st.session_state.selected_record = None
@@ -280,7 +315,9 @@ class InventoryTab:
                 for api_title in st.session_state.api_logs:
                     if api_title in st.session_state.api_details:
                         details = st.session_state.api_details[api_title]
-                        with st.expander(api_title, expanded=False):
+                        duration = details.get('duration', 'N/A')
+                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
+                        with st.expander(display_title, expanded=False):
                             st.write("**Request:**")
                             st.json(details['request'])
                             if 'response' in details:
@@ -297,9 +334,11 @@ class InventoryTab:
             
         # Find the most recent eBay search response
         recent_ebay_response = None
+        recent_ebay_title = None
         for api_title, details in st.session_state.api_details.items():
             if "eBay Search API" in api_title and 'response' in details:
                 recent_ebay_response = details['response']
+                recent_ebay_title = api_title
                 break
         
         if not recent_ebay_response:
@@ -314,6 +353,9 @@ class InventoryTab:
                 shipping_cost = float(shipping_cost)
             except (ValueError, TypeError):
                 shipping_cost = 5.72
+            
+            # Extract item summaries from eBay response
+            item_summaries = recent_ebay_response.get('itemSummaries', [])
             
             # Create table data with proper numeric values for sorting
             table_data = []

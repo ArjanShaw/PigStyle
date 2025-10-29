@@ -44,6 +44,7 @@ class DatabaseManager:
                 price_tag_printed BOOLEAN DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                discogs_genre TEXT,
                 FOREIGN KEY (genre_id) REFERENCES genres (id)
             )
         ''')
@@ -58,7 +59,8 @@ class DatabaseManager:
             ('genre_id', 'INTEGER NOT NULL'),
             ('status', 'TEXT DEFAULT "inventory"'),
             ('price_tag_printed', 'BOOLEAN DEFAULT 0'),
-            ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+            ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+            ('discogs_genre', 'TEXT')
         ]
         
         for column_name, column_type in columns_to_add:
@@ -226,35 +228,12 @@ class DatabaseManager:
             END
         ''')
         
-        # Trigger for store_price when discogs_median_price is set or updated
-        cursor.execute('''
-            CREATE TRIGGER IF NOT EXISTS calculate_store_price
-            AFTER UPDATE OF discogs_median_price ON records
-            FOR EACH ROW
-            WHEN (NEW.discogs_median_price IS NOT NULL AND NEW.discogs_median_price > 0)
-            BEGIN
-                UPDATE records 
-                SET store_price = (
-                    SELECT (CEILING(NEW.discogs_median_price) - 0.01)
-                )
-                WHERE id = NEW.id;
-            END
-        ''')
-        
-        # Trigger for store_price when new record is inserted with discogs_median_price
-        cursor.execute('''
-            CREATE TRIGGER IF NOT EXISTS calculate_store_price_on_insert
-            AFTER INSERT ON records
-            FOR EACH ROW
-            WHEN (NEW.discogs_median_price IS NOT NULL AND NEW.discogs_median_price > 0)
-            BEGIN
-                UPDATE records 
-                SET store_price = (
-                    SELECT (CEILING(NEW.discogs_median_price) - 0.01)
-                )
-                WHERE id = NEW.id;
-            END
-        ''')
+        # Remove store_price triggers since we don't calculate automatically anymore
+        try:
+            cursor.execute('DROP TRIGGER IF EXISTS calculate_store_price')
+            cursor.execute('DROP TRIGGER IF EXISTS calculate_store_price_on_insert')
+        except:
+            pass
     
     def _get_connection(self):
         """Get database connection"""
@@ -269,8 +248,8 @@ class DatabaseManager:
             INSERT INTO records 
             (artist, title, discogs_median_price, discogs_lowest_price, discogs_highest_price,
              ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_sell_at, ebay_low_shipping, ebay_low_url,
-             genre_id, image_url, catalog_number, format, barcode, condition, year, file_at, status, price_tag_printed, store_price)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             genre_id, image_url, catalog_number, format, barcode, condition, year, file_at, status, price_tag_printed, store_price, discogs_genre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -294,7 +273,8 @@ class DatabaseManager:
             result_data.get('file_at', ''),
             result_data.get('status', 'inventory'),
             0,  # price_tag_printed starts as False
-            result_data.get('store_price')
+            result_data.get('store_price'),
+            result_data.get('discogs_genre')
         ))
         
         conn.commit()

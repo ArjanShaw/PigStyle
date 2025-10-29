@@ -6,6 +6,24 @@ class SearchHandler:
     def __init__(self, discogs_handler):
         self.discogs_handler = discogs_handler
 
+    def clean_artist_name(self, artist_name):
+        """
+        Clean artist name by removing discogs suffixes like (n) and *
+        """
+        if not artist_name:
+            return artist_name
+        
+        # Remove patterns like (2), (3), etc.
+        cleaned = re.sub(r'\s*\(\d+\)\s*$', '', artist_name)
+        
+        # Remove trailing asterisk and any surrounding whitespace
+        cleaned = re.sub(r'\s*\*\s*$', '', cleaned)
+        
+        # Remove trailing slash and anything after it
+        cleaned = re.sub(r'\s*\/.*$', '', cleaned)
+        
+        return cleaned.strip()
+
     def perform_discogs_search(self, search_term):
         """Perform Discogs search"""
         with st.spinner(f"Searching Discogs for: {search_term}..."):
@@ -24,9 +42,13 @@ class SearchHandler:
                     # Convert Discogs results to same format as database results
                     formatted_results = []
                     for result in search_data['results']:
+                        raw_artist = self._extract_artist_from_result(result)
+                        cleaned_artist = self.clean_artist_name(raw_artist)
+                        
                         formatted_result = {
                             'type': 'discogs',
-                            'artist': self._extract_artist_from_result(result),
+                            'artist': raw_artist,  # Keep original for display
+                            'cleaned_artist': cleaned_artist,  # Cleaned version for database
                             'title': self._extract_title_from_result(result),
                             'image_url': self._extract_image_from_result(result),
                             'year': result.get('year', 'Unknown'),

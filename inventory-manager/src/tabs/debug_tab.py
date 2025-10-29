@@ -54,19 +54,22 @@ class DebugTab:
             if st.session_state.get('gallery_json_manager'):
                 status = st.session_state.gallery_json_manager.get_rebuild_status()
                 st.write(f"**Status:** {'Rebuilding...' if status['in_progress'] else 'Ready'}")
+                json_path = st.session_state.gallery_json_manager.get_json_path()
+                st.write(f"**JSON Path:** `{json_path}`")
         
-        # Check if JSON file exists
-        json_path = Path("../../web/public/gallery-data.json")
-        if json_path.exists():
-            try:
-                with open(json_path, 'r') as f:
-                    data = json.load(f)
-                    st.success(f"✅ JSON file exists: {data['meta']['total_records']} records")
-                    st.write(f"Last updated: {data['meta']['last_updated']}")
-            except Exception as e:
-                st.error(f"❌ Error reading JSON: {e}")
-        else:
-            st.warning("⚠️ JSON file not found yet")
+        # Check if JSON file exists using the manager's path
+        if st.session_state.get('gallery_json_manager'):
+            json_path = Path(st.session_state.gallery_json_manager.get_json_path())
+            if json_path.exists():
+                try:
+                    with open(json_path, 'r') as f:
+                        data = json.load(f)
+                        st.success(f"✅ JSON file exists: {data['meta']['total_records']} records")
+                        st.write(f"Last updated: {data['meta']['last_updated']}")
+                except Exception as e:
+                    st.error(f"❌ Error reading JSON: {e}")
+            else:
+                st.warning("⚠️ JSON file not found yet")
         
         if not st.session_state.debug_logs:
             st.info("No debug logs yet. Actions will appear here as they happen.")

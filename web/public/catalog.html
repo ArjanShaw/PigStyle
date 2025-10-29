@@ -119,11 +119,6 @@
             opacity: 0.3;
         }
         
-        .card.playing {
-            box-shadow: 0 0 0 3px #e74c3c, 0 5px 15px rgba(0,0,0,0.2);
-            transform: translateY(-5px);
-        }
-        
         .card-video {
             position: relative;
             width: 100%;
@@ -210,92 +205,6 @@
             margin-top: 8px;
         }
         
-        /* Autoplay controls */
-        .autoplay-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-            padding: 10px 15px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .autoplay-toggle {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .autoplay-toggle input {
-            margin-right: 8px;
-        }
-        
-        .autoplay-options {
-            display: flex;
-            gap: 10px;
-            margin-left: auto;
-        }
-        
-        .autoplay-btn {
-            padding: 6px 12px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        
-        .autoplay-btn:hover {
-            background-color: #2980b9;
-        }
-        
-        .autoplay-btn:disabled {
-            background-color: #bdc3c7;
-            cursor: not-allowed;
-        }
-        
-        .now-playing-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: 15px;
-            padding: 5px 10px;
-            background-color: #e74c3c;
-            color: white;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-        
-        .now-playing-indicator .pulse {
-            width: 10px;
-            height: 10px;
-            background-color: white;
-            border-radius: 50%;
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
-            }
-            
-            70% {
-                transform: scale(1);
-                box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
-            }
-            
-            100% {
-                transform: scale(0.95);
-                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
-            }
-        }
-        
         /* Loading animation */
         #loading {
             display: flex;
@@ -364,47 +273,17 @@
                 width: 100%;
                 justify-content: space-between;
             }
-            
-            .autoplay-controls {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .autoplay-options {
-                margin-left: 0;
-                margin-top: 10px;
-            }
-            
-            .now-playing-indicator {
-                margin-left: 0;
-                margin-top: 10px;
-            }
         }
     </style>
 </head>
 <body>
     <header>
         <a href='index.html'><img src='images/pigstyle_text.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
+        <a href='streaming.html' style='float:right; color:white; margin-top:15px;'>🎵 Go to Streaming Station</a>
     </header>
     
     <div class="header-section">
         <h1>🎵 Record Gallery</h1>
-        
-        <!-- Autoplay Controls -->
-        <div class="autoplay-controls">
-            <div class="autoplay-toggle">
-                <input type="checkbox" id="autoplayToggle">
-                <label for="autoplayToggle">Enable Video Autoplay</label>
-            </div>
-            <div class="autoplay-options">
-                <button class="autoplay-btn" id="playAllBtn" disabled>Play All Videos</button>
-                <button class="autoplay-btn" id="stopAllBtn" disabled>Stop All Videos</button>
-            </div>
-            <div class="now-playing-indicator" id="nowPlayingIndicator" style="display: none;">
-                <div class="pulse"></div>
-                <span>Now Playing</span>
-            </div>
-        </div>
         
         <div class='search-container'>
             <input type='text' id='searchBox' placeholder='Search artist or record...'>
@@ -444,11 +323,6 @@
     <script>
         // Store all records globally for search functionality
         let allRecords = [];
-        let autoplayEnabled = false;
-        let youtubePlayers = {}; // Store YouTube player instances
-        let currentlyPlayingCard = null;
-        let autoplaySequence = null;
-        let autoplayIndex = 0;
 
         // Load data from gallery-data.json
         async function loadGalleryData() {
@@ -475,176 +349,10 @@
                 console.log(`Loaded ${allRecords.length} records`);
                 displayRecords(allRecords);
                 populateArtistFilter();
-                initializeAutoplayControls();
             } catch (error) {
                 console.error('Error loading gallery data:', error);
                 document.getElementById('gallery').innerHTML = '<div class="error-message">Error loading records. Please try again later.</div>';
             }
-        }
-
-        // Initialize autoplay controls
-        function initializeAutoplayControls() {
-            const autoplayToggle = document.getElementById('autoplayToggle');
-            const playAllBtn = document.getElementById('playAllBtn');
-            const stopAllBtn = document.getElementById('stopAllBtn');
-            
-            autoplayToggle.addEventListener('change', function() {
-                autoplayEnabled = this.checked;
-                playAllBtn.disabled = !autoplayEnabled;
-                stopAllBtn.disabled = !autoplayEnabled;
-                
-                if (autoplayEnabled) {
-                    // Start autoplay sequence
-                    startAutoplaySequence();
-                } else {
-                    // Stop autoplay sequence
-                    stopAutoplaySequence();
-                }
-            });
-            
-            playAllBtn.addEventListener('click', startAutoplaySequence);
-            stopAllBtn.addEventListener('click', stopAutoplaySequence);
-        }
-
-        // Start autoplay sequence
-        function startAutoplaySequence() {
-            if (!autoplayEnabled) return;
-            
-            // Stop any currently playing video
-            stopCurrentlyPlaying();
-            
-            // Get all YouTube cards
-            const youtubeCards = Array.from(document.querySelectorAll('.card'))
-                .filter(card => card.querySelector('.card-video iframe') || card.querySelector('.card-video div[id^="youtube-player-"]'));
-            
-            if (youtubeCards.length === 0) {
-                alert('No YouTube videos found in the current view.');
-                return;
-            }
-            
-            // Reset index
-            autoplayIndex = 0;
-            
-            // Show now playing indicator
-            document.getElementById('nowPlayingIndicator').style.display = 'flex';
-            
-            // Start playing the first video
-            playNextInSequence(youtubeCards);
-        }
-
-        // Play next video in sequence
-        function playNextInSequence(youtubeCards) {
-            if (autoplayIndex >= youtubeCards.length || !autoplayEnabled) {
-                // End of sequence
-                stopAutoplaySequence();
-                return;
-            }
-            
-            const card = youtubeCards[autoplayIndex];
-            const playerId = getPlayerIdFromCard(card);
-            
-            if (playerId && youtubePlayers[playerId]) {
-                // Scroll card into view
-                scrollCardIntoView(card);
-                
-                // Highlight the playing card
-                setCurrentlyPlayingCard(card);
-                
-                // Play the video
-                youtubePlayers[playerId].playVideo();
-                
-                // Set up event to play next video when current ends
-                youtubePlayers[playerId].addEventListener('onStateChange', function(event) {
-                    if (event.data === YT.PlayerState.ENDED) {
-                        // Move to next video after a short delay
-                        setTimeout(() => {
-                            autoplayIndex++;
-                            playNextInSequence(youtubeCards);
-                        }, 1000);
-                    }
-                });
-            } else {
-                // If no player found, skip to next
-                autoplayIndex++;
-                playNextInSequence(youtubeCards);
-            }
-        }
-
-        // Get player ID from card
-        function getPlayerIdFromCard(card) {
-            const videoContainer = card.querySelector('.card-video');
-            if (!videoContainer) return null;
-            
-            // Check for iframe
-            const iframe = videoContainer.querySelector('iframe');
-            if (iframe) {
-                return iframe.id;
-            }
-            
-            // Check for YouTube player div
-            const playerDiv = videoContainer.querySelector('div[id^="youtube-player-"]');
-            if (playerDiv) {
-                return playerDiv.id;
-            }
-            
-            return null;
-        }
-
-        // Scroll card into view with smooth animation
-        function scrollCardIntoView(card) {
-            const cardRect = card.getBoundingClientRect();
-            const isInView = (
-                cardRect.top >= 0 &&
-                cardRect.left >= 0 &&
-                cardRect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-                cardRect.right <= (window.innerWidth || document.documentElement.clientWidth)
-            );
-            
-            if (!isInView) {
-                card.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'center',
-                    inline: 'nearest'
-                });
-            }
-        }
-
-        // Set currently playing card with visual indicator
-        function setCurrentlyPlayingCard(card) {
-            // Remove playing class from previous card
-            if (currentlyPlayingCard) {
-                currentlyPlayingCard.classList.remove('playing');
-            }
-            
-            // Add playing class to new card
-            card.classList.add('playing');
-            currentlyPlayingCard = card;
-        }
-
-        // Stop currently playing video
-        function stopCurrentlyPlaying() {
-            if (currentlyPlayingCard) {
-                currentlyPlayingCard.classList.remove('playing');
-                
-                const playerId = getPlayerIdFromCard(currentlyPlayingCard);
-                if (playerId && youtubePlayers[playerId]) {
-                    youtubePlayers[playerId].pauseVideo();
-                }
-                
-                currentlyPlayingCard = null;
-            }
-        }
-
-        // Stop autoplay sequence
-        function stopAutoplaySequence() {
-            autoplayEnabled = false;
-            document.getElementById('autoplayToggle').checked = false;
-            document.getElementById('playAllBtn').disabled = true;
-            document.getElementById('stopAllBtn').disabled = true;
-            document.getElementById('nowPlayingIndicator').style.display = 'none';
-            
-            stopCurrentlyPlaying();
-            autoplayIndex = 0;
         }
 
         // Populate artist filter dropdown
@@ -725,19 +433,19 @@
             let mediaContent = '';
             
             if (hasYouTube) {
-                // Create YouTube iframe with autoplay parameters
-                const playerId = `youtube-player-${youtubeId}`;
+                // Create YouTube iframe
                 mediaContent = `
                     <div class="card-video">
-                        <div id="${playerId}"></div>
+                        <iframe 
+                            src="https://www.youtube.com/embed/${youtubeId}" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen
+                            loading="lazy">
+                        </iframe>
                         <div class="video-overlay">🎵 Click to play</div>
                     </div>
                 `;
-                
-                // Load YouTube player after card is added to DOM
-                setTimeout(() => {
-                    loadYouTubePlayer(playerId, youtubeId);
-                }, 100);
             } else {
                 // Create image fallback
                 mediaContent = `
@@ -759,52 +467,6 @@
             `;
             
             return card;
-        }
-
-        // Load YouTube player
-        function loadYouTubePlayer(playerId, videoId) {
-            // Check if YouTube API is available
-            if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
-                // Load YouTube IFrame API if not already loaded
-                if (!document.getElementById('youtube-api')) {
-                    const tag = document.createElement('script');
-                    tag.id = 'youtube-api';
-                    tag.src = 'https://www.youtube.com/iframe_api';
-                    const firstScriptTag = document.getElementsByTagName('script')[0];
-                    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-                }
-                
-                // Wait for API to load
-                window.onYouTubeIframeAPIReady = function() {
-                    createPlayer(playerId, videoId);
-                };
-            } else {
-                createPlayer(playerId, videoId);
-            }
-        }
-
-        // Create YouTube player instance
-        function createPlayer(playerId, videoId) {
-            const player = new YT.Player(playerId, {
-                height: '200',
-                width: '100%',
-                videoId: videoId,
-                playerVars: {
-                    'autoplay': 0, // Start with autoplay disabled
-                    'controls': 1,
-                    'rel': 0,
-                    'modestbranding': 1
-                },
-                events: {
-                    'onReady': function(event) {
-                        youtubePlayers[playerId] = event.target;
-                        console.log(`YouTube player ${playerId} ready`);
-                    },
-                    'onStateChange': function(event) {
-                        // Handle player state changes if needed
-                    }
-                }
-            });
         }
 
         // Initialize search functionality

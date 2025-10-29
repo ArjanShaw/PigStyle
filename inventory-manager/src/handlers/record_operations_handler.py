@@ -3,13 +3,15 @@ import pandas as pd
 from datetime import datetime
 import time
 import re
+import threading
+import subprocess
+from pathlib import Path
 
 class RecordOperationsHandler:
-    def __init__(self, discogs_handler=None, ebay_handler=None, gallery_json_manager=None):
+    def __init__(self, discogs_handler=None, ebay_handler=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
-        self.gallery_json_manager = gallery_json_manager
-
+    
     def add_inventory_record(self, record_data, condition, genre, search_term):
         """Add inventory record to database with both Discogs and eBay data - NO custom price calculations"""
         try:
@@ -106,9 +108,9 @@ class RecordOperationsHandler:
             if genre_id and artist:
                 self._update_file_at(record_id, artist, genre_id)
             
-            # Trigger JSON rebuild after successful addition
-            if record_id and self.gallery_json_manager:
-                self.gallery_json_manager.trigger_rebuild(async_mode=True)
+            # Trigger GitHub sync after successful addition
+            if record_id:
+                self._trigger_github_sync()
             
             # Get the generated barcode for success message
             record = st.session_state.db_manager.get_record_by_barcode(str(record_id))
@@ -189,15 +191,33 @@ class RecordOperationsHandler:
             
             success = st.session_state.db_manager.update_record(record_id, updates)
             
-            # Trigger JSON rebuild after successful update
-            if success and self.gallery_json_manager:
-                self.gallery_json_manager.trigger_rebuild(async_mode=True)
+            # Trigger GitHub sync after successful update
+            if success:
+                self._trigger_github_sync()
                 
             return success
                 
         except Exception as e:
             st.error(f"Error updating record: {str(e)}")
             return False
+
+    def _trigger_github_sync(self):
+        """Trigger GitHub sync in background"""
+        try:
+            if hasattr(st.session_state, 'github_sync_handler'):
+                success, message = st.session_state.github_sync_handler.trigger_sync()
+                if success:
+                    print("✅ GitHub sync completed successfully")
+                    if hasattr(st.session_state, 'debug_tab'):
+                        st.session_state.debug_tab.add_log("GITHUB", f"Sync successful: {message}")
+                else:
+                    print(f"❌ GitHub sync failed: {message}")
+                    if hasattr(st.session_state, 'debug_tab'):
+                        st.session_state.debug_tab.add_log("GITHUB_ERROR", f"Sync failed: {message}")
+            else:
+                print("❌ GitHub sync handler not available")
+        except Exception as e:
+            print(f"❌ GitHub sync error: {e}")
 
     def process_checkout(self, checkout_records):
         """Process checkout of selected records - not available anymore"""

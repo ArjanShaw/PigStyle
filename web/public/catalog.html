@@ -55,13 +55,31 @@
         // Load data from gallery-data.json
         async function loadGalleryData() {
             try {
+                console.log('Loading gallery data...');
                 const response = await fetch('gallery-data.json');
-                allRecords = await response.json();
+                const data = await response.json();
+                console.log('Raw data loaded:', data);
+                
+                // Handle both data structures:
+                // 1. {meta: {...}, records: [...]} - new structure
+                // 2. [...] - old structure (direct array)
+                if (data && data.records && Array.isArray(data.records)) {
+                    console.log('Using records array from meta structure');
+                    allRecords = data.records;
+                } else if (Array.isArray(data)) {
+                    console.log('Using direct array structure');
+                    allRecords = data;
+                } else {
+                    console.error('Unexpected data structure:', data);
+                    allRecords = [];
+                }
+                
+                console.log(`Loaded ${allRecords.length} records`);
                 displayRecords(allRecords);
                 populateArtistFilter();
             } catch (error) {
                 console.error('Error loading gallery data:', error);
-                document.getElementById('gallery').innerHTML = '<div>Error loading records. Please try again later.</div>';
+                document.getElementById('gallery').innerHTML = '<div class="error-message">Error loading records. Please try again later.</div>';
             }
         }
 
@@ -82,6 +100,13 @@
         function displayRecords(records) {
             const gallery = document.getElementById('gallery');
             gallery.innerHTML = ''; // Clear loading message
+
+            console.log(`Displaying ${records.length} records`);
+
+            if (records.length === 0) {
+                gallery.innerHTML = '<div class="no-records">No records found in the database.</div>';
+                return;
+            }
 
             records.forEach(record => {
                 const card = createCardElement(record, true);
@@ -116,12 +141,21 @@
         function createCardElement(record, isHighlighted) {
             const card = document.createElement('div');
             card.className = isHighlighted ? 'card highlight' : 'card not-highlight';
-            card.setAttribute('data-artist', record.artist.toLowerCase());
-            card.setAttribute('data-title', record.title.toLowerCase());
-            card.setAttribute('data-price', parseFloat(record.price.replace('$', '')));
+            
+            // Use the actual field names from your JSON structure
+            const artist = record.artist || 'Unknown Artist';
+            const title = record.title || 'Unknown Title';
+            const imageUrl = record.image_url || 'images/default-record.jpg';
+            const genre = record.genre || 'Unknown Genre';
+            const price = record.store_price ? `$${parseFloat(record.store_price).toFixed(2)}` : 'Price N/A';
+            const youtubeUrl = record.youtube_url;
+            
+            card.setAttribute('data-artist', artist.toLowerCase());
+            card.setAttribute('data-title', title.toLowerCase());
+            card.setAttribute('data-price', parseFloat(record.store_price) || 0);
             
             // Check if we have a YouTube URL
-            const youtubeId = extractYouTubeId(record.youtube_url);
+            const youtubeId = extractYouTubeId(youtubeUrl);
             const hasYouTube = youtubeId !== null;
             
             let mediaContent = '';
@@ -144,7 +178,7 @@
                 // Create image fallback
                 mediaContent = `
                     <div class="card-image">
-                        <img src="${record.image}" alt="${record.title}" onerror="this.src='images/default-record.jpg'">
+                        <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
                     </div>
                 `;
             }
@@ -152,10 +186,10 @@
             card.innerHTML = `
                 ${mediaContent}
                 <div class="card-info">
-                    <h3>${escapeHtml(record.title)}</h3>
-                    <p class="artist">${escapeHtml(record.artist)}</p>
-                    <p class="price">${record.price}</p>
-                    <p class="genre">${escapeHtml(record.genre)}</p>
+                    <h3>${escapeHtml(title)}</h3>
+                    <p class="artist">${escapeHtml(artist)}</p>
+                    <p class="price">${price}</p>
+                    <p class="genre">${escapeHtml(genre)}</p>
                     ${hasYouTube ? '<div class="youtube-badge">🎵 Video Available</div>' : ''}
                 </div>
             `;
@@ -166,7 +200,6 @@
         // Initialize search functionality
         function initializeSearch() {
             const searchBox = document.getElementById('searchBox');
-            const gallery = document.getElementById('gallery');
             
             searchBox.addEventListener('input', () => {
                 applyAllFilters();
@@ -195,6 +228,7 @@
             const cards = Array.from(gallery.querySelectorAll('.card'));
             
             let firstMatch = null;
+            let visibleCount = 0;
             
             cards.forEach(card => {
                 const artist = card.getAttribute('data-artist');
@@ -217,16 +251,24 @@
                 const shouldShow = searchMatch && artistMatch && priceMatch;
                 
                 if (shouldShow) {
+                    card.style.display = 'block';
                     card.classList.remove('not-highlight');
                     card.classList.add('highlight');
                     if (!firstMatch) {
                         firstMatch = card;
                     }
+                    visibleCount++;
                 } else {
+                    card.style.display = 'none';
                     card.classList.remove('highlight');
                     card.classList.add('not-highlight');
                 }
             });
+            
+            // Show message if no records match filters
+            if (visibleCount === 0) {
+                gallery.innerHTML = '<div class="no-records">No records match your search criteria.</div>';
+            }
             
             // Scroll to first matching card if found
             if (firstMatch) {
@@ -239,13 +281,16 @@
 
         // Helper function to escape HTML
         function escapeHtml(text) {
+            if (typeof text !== 'string') return text;
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
         // Load the gallery data when page loads
-        loadGalleryData();
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGalleryData();
+        });
     </script>
 </body>
 </html>

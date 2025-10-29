@@ -19,6 +19,7 @@ from tabs.database_switch_tab import DatabaseSwitchTab
 from tabs.expenses_tab import ExpensesTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
+from handlers.github_sync_handler import GitHubSyncHandler
 
 # --- Load environment variables ---
 try:
@@ -135,6 +136,14 @@ def main():
     if "gallery_json_manager" not in st.session_state:
         st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
         debug_tab.add_log("GALLERY", "Gallery JSON manager initialized")
+
+    # Initialize GitHub Sync Handler
+    if "github_sync_handler" not in st.session_state:
+        st.session_state.github_sync_handler = GitHubSyncHandler(
+            repo_path="/home/arjan-ubuntu/Documents/PigStyle",
+            gallery_json_manager=st.session_state.gallery_json_manager
+        )
+        debug_tab.add_log("GITHUB", "GitHub sync handler initialized")
 
     if "search_results" not in st.session_state:
         st.session_state.search_results = {}

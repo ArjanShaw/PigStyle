@@ -22,9 +22,9 @@ class InventoryTab:
         self.genre_handler = GenreHandler()
         self.youtube_handler = YouTubeHandler(debug_tab)
         
-        # Initialize handlers - pass ebay_handler and gallery_json_manager to record_ops_handler
+        # Initialize handlers - pass ebay_handler to record_ops_handler
         self.search_handler = SearchHandler(discogs_handler)
-        self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler, gallery_json_manager)
+        self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler)
         self.display_handler = DisplayHandler(self.youtube_handler)
         self.export_handler = ExportHandler(self.price_handler, self.genre_handler)
 

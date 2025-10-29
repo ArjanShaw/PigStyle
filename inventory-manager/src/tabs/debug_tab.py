@@ -57,6 +57,31 @@ class DebugTab:
                 json_path = st.session_state.gallery_json_manager.get_json_path()
                 st.write(f"**JSON Path:** `{json_path}`")
         
+        # GitHub Sync Section
+        st.subheader("🔄 GitHub Sync")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Manual GitHub Sync", use_container_width=True):
+                if hasattr(st.session_state, 'github_sync_handler'):
+                    with st.spinner("Syncing with GitHub..."):
+                        success, message = st.session_state.github_sync_handler.trigger_sync()
+                        if success:
+                            st.success(f"✅ {message}")
+                        else:
+                            st.error(f"❌ {message}")
+                else:
+                    st.error("GitHub sync handler not initialized")
+        
+        with col2:
+            if hasattr(st.session_state, 'github_sync_handler'):
+                status = st.session_state.github_sync_handler.get_sync_status()
+                st.write(f"**Repo:** `{status['repo_path']}`")
+                st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
+                st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
+                st.write(f"**Last commit:** {status['last_commit']}")
+        
         # Check if JSON file exists using the manager's path
         if st.session_state.get('gallery_json_manager'):
             json_path = Path(st.session_state.gallery_json_manager.get_json_path())

@@ -4,56 +4,46 @@ import time
 import os
 from pathlib import Path
 import pandas as pd
+import math
 
 class GalleryJSONManager:
     def __init__(self, db_manager):
         self.db_manager = db_manager
         
-        # The web server directory - this is CRITICAL
-        # This should be the directory that serves https://pigstylerecords.com/
-        # Common web server directories:
+        # The web server directory
         web_server_paths = [
-            # Common Apache/Nginx paths
             Path("/var/www/html"),
             Path("/var/www/pigstylerecords.com/public_html"),
             Path("/var/www/pigstylerecords.com/html"),
             Path("/srv/www/pigstylerecords.com/public_html"),
-            # Common user directories
             Path("/home/pigstyle/public_html"),
             Path("/home/pigstyle/www"),
             Path("/home/pigstyle/web"),
-            # Development paths
-            Path("/mount/src/pigstyle/web/public"),  # Your current path
-            Path("./web/public"),  # Relative fallback
+            Path("/mount/src/pigstyle/web/public"),
+            Path("./web/public"),
         ]
         
         # Find the correct web server directory
         self.web_base_path = None
         for path in web_server_paths:
             if path.exists():
-                # Check if catalog.html exists in this directory
                 catalog_path = path / "catalog.html"
                 if catalog_path.exists():
                     self.web_base_path = path
                     print(f"✅ Found web directory: {path}")
                     print(f"✅ Catalog.html exists at: {catalog_path}")
                     break
-                else:
-                    print(f"❌ {path} exists but no catalog.html")
         
-        # If no directory found, use a fallback and show warning
+        # If no directory found, use a fallback
         if self.web_base_path is None:
             self.web_base_path = Path("/tmp/pigstyle_web_fallback")
             self.web_base_path.mkdir(parents=True, exist_ok=True)
             print(f"⚠️  WARNING: Using fallback directory: {self.web_base_path}")
-            print("⚠️  The JSON will be created but your website won't see it!")
         
         self.json_path = self.web_base_path / "gallery-data.json"
         self.temp_path = self.web_base_path / "gallery-data.json.tmp"
         
         print(f"🎯 JSON will be saved to: {self.json_path}")
-        print(f"📁 Directory exists: {self.web_base_path.exists()}")
-        print(f"✍️  Directory is writable: {os.access(self.web_base_path, os.W_OK)}")
         
         self._rebuild_lock = threading.Lock()
         self._last_rebuild_time = 0
@@ -149,13 +139,25 @@ class GalleryJSONManager:
         return df.to_dict('records')
     
     def _build_json_structure(self, records):
+        # Clean the records data to replace NaN with null
+        cleaned_records = []
+        for record in records:
+            cleaned_record = {}
+            for key, value in record.items():
+                # Replace NaN, None, and other invalid values with null
+                if value is None or (isinstance(value, float) and math.isnan(value)):
+                    cleaned_record[key] = None
+                else:
+                    cleaned_record[key] = value
+            cleaned_records.append(cleaned_record)
+        
         return {
             "meta": {
                 "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "total_records": len(records),
+                "total_records": len(cleaned_records),
                 "format_version": "2.0"
             },
-            "records": records
+            "records": cleaned_records
         }
     
     def _write_json_file(self, json_data):

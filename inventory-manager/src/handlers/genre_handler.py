@@ -10,7 +10,7 @@ class GenreHandler:
         try:
             conn = st.session_state.db_manager._get_connection()
             genres_df = pd.read_sql(
-                "SELECT DISTINCT genre FROM records WHERE genre IS NOT NULL AND genre != '' AND status = 'inventory' ORDER BY genre",
+                "SELECT DISTINCT genre FROM records_with_genres WHERE genre IS NOT NULL AND genre != '' ORDER BY genre",
                 conn
             )
             conn.close()

@@ -72,7 +72,7 @@ class SearchHandler:
         try:
             conn = st.session_state.db_manager._get_connection()
             df = pd.read_sql(
-                'SELECT * FROM records_with_genres WHERE status = "inventory" AND (artist LIKE ? OR title LIKE ? OR barcode LIKE ?) ORDER BY artist, title',
+                'SELECT * FROM records_with_genres WHERE (artist LIKE ? OR title LIKE ? OR barcode LIKE ?) ORDER BY artist, title',
                 conn,
                 params=(f'%{search_term}%', f'%{search_term}%', f'%{search_term}%')
             )

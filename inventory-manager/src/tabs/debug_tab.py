@@ -34,12 +34,19 @@ class DebugTab:
         with col1:
             if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
                 if st.session_state.get('gallery_json_manager'):
-                    with st.spinner("Rebuilding gallery JSON..."):
-                        success = st.session_state.gallery_json_manager.trigger_rebuild(async_mode=False)
-                    if success:
-                        st.success("✅ Gallery JSON rebuilt successfully!")
-                    else:
-                        st.error("❌ Gallery JSON rebuild failed")
+                    try:
+                        with st.spinner("Rebuilding gallery JSON..."):
+                            success = st.session_state.gallery_json_manager.trigger_rebuild(async_mode=False)
+                        if success:
+                            st.success("✅ Gallery JSON rebuilt successfully!")
+                        else:
+                            st.error("❌ Gallery JSON rebuild failed")
+                    except Exception as e:
+                        st.error(f"❌ Gallery JSON rebuild error: {str(e)}")
+                        # Show full traceback in expander
+                        import traceback
+                        with st.expander("View full error details"):
+                            st.code(traceback.format_exc())
                 else:
                     st.error("Gallery JSON manager not initialized")
         

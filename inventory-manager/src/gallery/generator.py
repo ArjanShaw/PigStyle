@@ -24,18 +24,16 @@ class GalleryJSONManager:
             thread.start()
             return True
         else:
-            # Synchronous rebuild
+            # Synchronous rebuild - NO TRY/CATCH
             return self._perform_rebuild()
     
     def _rebuild_in_thread(self):
         """Wrapper to run rebuild in thread with proper error handling"""
-        try:
-            self._perform_rebuild()
-        except Exception as e:
-            print(f"Background JSON rebuild failed: {e}")
+        # NO TRY/CATCH - let the error propagate
+        self._perform_rebuild()
     
     def _perform_rebuild(self):
-        """Perform the actual JSON rebuild with locking"""
+        """Perform the actual JSON rebuild with locking - NO TRY/CATCH"""
         # Acquire lock to prevent concurrent rebuilds
         if not self._rebuild_lock.acquire(blocking=False):
             print("JSON rebuild already in progress, skipping...")
@@ -64,9 +62,6 @@ class GalleryJSONManager:
                 
             return success
             
-        except Exception as e:
-            print(f"Gallery JSON rebuild error: {e}")
-            return False
         finally:
             self._rebuild_in_progress = False
             self._rebuild_lock.release()
@@ -103,40 +98,24 @@ class GalleryJSONManager:
     
     def _write_json_file(self, json_data):
         """Write JSON data to file with atomic safety"""
-        try:
-            # Ensure web directory exists
-            self.web_base_path.mkdir(parents=True, exist_ok=True)
-            
-            # Write to temporary file first
-            with open(self.temp_path, 'w', encoding='utf-8') as f:
-                json.dump(json_data, f, indent=2, ensure_ascii=False)
-            
-            # Backup existing file if it exists
-            if self.json_path.exists():
-                if self.backup_path.exists():
-                    self.backup_path.unlink()  # Remove old backup
-                self.json_path.rename(self.backup_path)
-            
-            # Atomic rename from temp to final
-            self.temp_path.rename(self.json_path)
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error writing JSON file: {e}")
-            
-            # Restore from backup if current write failed
-            self._restore_from_backup()
-            return False
-    
-    def _restore_from_backup(self):
-        """Restore from backup if available"""
-        try:
-            if self.backup_path.exists() and not self.json_path.exists():
-                self.backup_path.rename(self.json_path)
-                print("Restored gallery JSON from backup")
-        except Exception as e:
-            print(f"Error restoring from backup: {e}")
+        # NO TRY/CATCH - let the error propagate
+        # Ensure web directory exists
+        self.web_base_path.mkdir(parents=True, exist_ok=True)
+        
+        # Write to temporary file first
+        with open(self.temp_path, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2, ensure_ascii=False)
+        
+        # Backup existing file if it exists
+        if self.json_path.exists():
+            if self.backup_path.exists():
+                self.backup_path.unlink()  # Remove old backup
+            self.json_path.rename(self.backup_path)
+        
+        # Atomic rename from temp to final
+        self.temp_path.rename(self.json_path)
+        
+        return True
     
     def get_rebuild_status(self):
         """Get current rebuild status"""

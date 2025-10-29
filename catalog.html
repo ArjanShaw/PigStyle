@@ -119,6 +119,11 @@
             opacity: 0.3;
         }
         
+        .card.playing {
+            box-shadow: 0 0 0 3px #e74c3c, 0 5px 15px rgba(0,0,0,0.2);
+            transform: translateY(-5px);
+        }
+        
         .card-video {
             position: relative;
             width: 100%;
@@ -253,6 +258,44 @@
             cursor: not-allowed;
         }
         
+        .now-playing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 15px;
+            padding: 5px 10px;
+            background-color: #e74c3c;
+            color: white;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .now-playing-indicator .pulse {
+            width: 10px;
+            height: 10px;
+            background-color: white;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+            }
+            
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+            }
+            
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+            }
+        }
+        
         /* Loading animation */
         #loading {
             display: flex;
@@ -331,6 +374,11 @@
                 margin-left: 0;
                 margin-top: 10px;
             }
+            
+            .now-playing-indicator {
+                margin-left: 0;
+                margin-top: 10px;
+            }
         }
     </style>
 </head>
@@ -351,6 +399,10 @@
             <div class="autoplay-options">
                 <button class="autoplay-btn" id="playAllBtn" disabled>Play All Videos</button>
                 <button class="autoplay-btn" id="stopAllBtn" disabled>Stop All Videos</button>
+            </div>
+            <div class="now-playing-indicator" id="nowPlayingIndicator" style="display: none;">
+                <div class="pulse"></div>
+                <span>Now Playing</span>
             </div>
         </div>
         
@@ -394,6 +446,9 @@
         let allRecords = [];
         let autoplayEnabled = false;
         let youtubePlayers = {}; // Store YouTube player instances
+        let currentlyPlayingCard = null;
+        let autoplaySequence = null;
+        let autoplayIndex = 0;
 
         // Load data from gallery-data.json
         async function loadGalleryData() {
@@ -439,46 +494,157 @@
                 stopAllBtn.disabled = !autoplayEnabled;
                 
                 if (autoplayEnabled) {
-                    // Enable autoplay for all YouTube videos
-                    enableAutoplayForAllVideos();
+                    // Start autoplay sequence
+                    startAutoplaySequence();
                 } else {
-                    // Disable autoplay for all YouTube videos
-                    disableAutoplayForAllVideos();
+                    // Stop autoplay sequence
+                    stopAutoplaySequence();
                 }
             });
             
-            playAllBtn.addEventListener('click', playAllVideos);
-            stopAllBtn.addEventListener('click', stopAllVideos);
+            playAllBtn.addEventListener('click', startAutoplaySequence);
+            stopAllBtn.addEventListener('click', stopAutoplaySequence);
         }
 
-        // Enable autoplay for all YouTube videos
-        function enableAutoplayForAllVideos() {
-            Object.values(youtubePlayers).forEach(player => {
-                if (player && typeof player.playVideo === 'function') {
-                    player.playVideo();
-                }
-            });
+        // Start autoplay sequence
+        function startAutoplaySequence() {
+            if (!autoplayEnabled) return;
+            
+            // Stop any currently playing video
+            stopCurrentlyPlaying();
+            
+            // Get all YouTube cards
+            const youtubeCards = Array.from(document.querySelectorAll('.card'))
+                .filter(card => card.querySelector('.card-video iframe') || card.querySelector('.card-video div[id^="youtube-player-"]'));
+            
+            if (youtubeCards.length === 0) {
+                alert('No YouTube videos found in the current view.');
+                return;
+            }
+            
+            // Reset index
+            autoplayIndex = 0;
+            
+            // Show now playing indicator
+            document.getElementById('nowPlayingIndicator').style.display = 'flex';
+            
+            // Start playing the first video
+            playNextInSequence(youtubeCards);
         }
 
-        // Disable autoplay for all YouTube videos
-        function disableAutoplayForAllVideos() {
-            Object.values(youtubePlayers).forEach(player => {
-                if (player && typeof player.pauseVideo === 'function') {
-                    player.pauseVideo();
-                }
-            });
-        }
-
-        // Play all videos
-        function playAllVideos() {
-            if (autoplayEnabled) {
-                enableAutoplayForAllVideos();
+        // Play next video in sequence
+        function playNextInSequence(youtubeCards) {
+            if (autoplayIndex >= youtubeCards.length || !autoplayEnabled) {
+                // End of sequence
+                stopAutoplaySequence();
+                return;
+            }
+            
+            const card = youtubeCards[autoplayIndex];
+            const playerId = getPlayerIdFromCard(card);
+            
+            if (playerId && youtubePlayers[playerId]) {
+                // Scroll card into view
+                scrollCardIntoView(card);
+                
+                // Highlight the playing card
+                setCurrentlyPlayingCard(card);
+                
+                // Play the video
+                youtubePlayers[playerId].playVideo();
+                
+                // Set up event to play next video when current ends
+                youtubePlayers[playerId].addEventListener('onStateChange', function(event) {
+                    if (event.data === YT.PlayerState.ENDED) {
+                        // Move to next video after a short delay
+                        setTimeout(() => {
+                            autoplayIndex++;
+                            playNextInSequence(youtubeCards);
+                        }, 1000);
+                    }
+                });
+            } else {
+                // If no player found, skip to next
+                autoplayIndex++;
+                playNextInSequence(youtubeCards);
             }
         }
 
-        // Stop all videos
-        function stopAllVideos() {
-            disableAutoplayForAllVideos();
+        // Get player ID from card
+        function getPlayerIdFromCard(card) {
+            const videoContainer = card.querySelector('.card-video');
+            if (!videoContainer) return null;
+            
+            // Check for iframe
+            const iframe = videoContainer.querySelector('iframe');
+            if (iframe) {
+                return iframe.id;
+            }
+            
+            // Check for YouTube player div
+            const playerDiv = videoContainer.querySelector('div[id^="youtube-player-"]');
+            if (playerDiv) {
+                return playerDiv.id;
+            }
+            
+            return null;
+        }
+
+        // Scroll card into view with smooth animation
+        function scrollCardIntoView(card) {
+            const cardRect = card.getBoundingClientRect();
+            const isInView = (
+                cardRect.top >= 0 &&
+                cardRect.left >= 0 &&
+                cardRect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                cardRect.right <= (window.innerWidth || document.documentElement.clientWidth)
+            );
+            
+            if (!isInView) {
+                card.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center',
+                    inline: 'nearest'
+                });
+            }
+        }
+
+        // Set currently playing card with visual indicator
+        function setCurrentlyPlayingCard(card) {
+            // Remove playing class from previous card
+            if (currentlyPlayingCard) {
+                currentlyPlayingCard.classList.remove('playing');
+            }
+            
+            // Add playing class to new card
+            card.classList.add('playing');
+            currentlyPlayingCard = card;
+        }
+
+        // Stop currently playing video
+        function stopCurrentlyPlaying() {
+            if (currentlyPlayingCard) {
+                currentlyPlayingCard.classList.remove('playing');
+                
+                const playerId = getPlayerIdFromCard(currentlyPlayingCard);
+                if (playerId && youtubePlayers[playerId]) {
+                    youtubePlayers[playerId].pauseVideo();
+                }
+                
+                currentlyPlayingCard = null;
+            }
+        }
+
+        // Stop autoplay sequence
+        function stopAutoplaySequence() {
+            autoplayEnabled = false;
+            document.getElementById('autoplayToggle').checked = false;
+            document.getElementById('playAllBtn').disabled = true;
+            document.getElementById('stopAllBtn').disabled = true;
+            document.getElementById('nowPlayingIndicator').style.display = 'none';
+            
+            stopCurrentlyPlaying();
+            autoplayIndex = 0;
         }
 
         // Populate artist filter dropdown
@@ -624,7 +790,7 @@
                 width: '100%',
                 videoId: videoId,
                 playerVars: {
-                    'autoplay': autoplayEnabled ? 1 : 0,
+                    'autoplay': 0, // Start with autoplay disabled
                     'controls': 1,
                     'rel': 0,
                     'modestbranding': 1

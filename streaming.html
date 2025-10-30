@@ -346,6 +346,10 @@
                     return;
                 }
                 
+                // RANDOMIZE THE VIDEO ORDER
+                shuffleArray(filteredRecords);
+                console.log('Randomized video order:', filteredRecords.map(r => r.title));
+                
                 populateGenreFilter();
                 initializePlayer();
                 
@@ -353,6 +357,15 @@
                 console.error('Error loading streaming data:', error);
                 document.getElementById('loading').innerHTML = '<div class="error-message">Error loading streaming station. Please try again later.</div>';
             }
+        }
+
+        // Fisher-Yates shuffle algorithm to randomize array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
         }
 
         // Populate genre filter dropdown
@@ -375,13 +388,16 @@
 
         // Apply genre filter
         function applyGenreFilter(genre) {
+            let filteredByYouTube = allRecords.filter(record => extractYouTubeId(record.youtube_url) !== null);
+            
             if (!genre) {
-                filteredRecords = allRecords.filter(record => extractYouTubeId(record.youtube_url) !== null);
+                filteredRecords = filteredByYouTube;
             } else {
-                filteredRecords = allRecords.filter(record => 
-                    record.genre === genre && extractYouTubeId(record.youtube_url) !== null
-                );
+                filteredRecords = filteredByYouTube.filter(record => record.genre === genre);
             }
+            
+            // RANDOMIZE THE FILTERED RESULTS
+            shuffleArray(filteredRecords);
             
             if (filteredRecords.length === 0) {
                 // If no records after filtering, show message and stop player

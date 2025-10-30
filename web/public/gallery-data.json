@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-10-30T00:22:23Z",
+    "last_updated": "2025-10-30T00:34:09Z",
     "total_records": 590,
     "format_version": "2.0"
   },
@@ -1190,7 +1190,7 @@
       "barcode": "200000608003",
       "store_price": 15.49,
       "file_at": "Rock(R)",
-      "youtube_url": null,
+      "youtube_url": "https://www.youtube.com/watch?v=rkmO-iKvyjs",
       "catalog_number": null,
       "format": "Vinyl",
       "condition": "5"
@@ -2859,7 +2859,7 @@
       "youtube_url": null,
       "catalog_number": null,
       "format": "Vinyl",
-      "condition": "5"
+      "condition": "3"
     },
     {
       "id": 206,
@@ -3486,7 +3486,7 @@
       "barcode": "200000528702",
       "store_price": 21.99,
       "file_at": "Rock(R)",
-      "youtube_url": null,
+      "youtube_url": "https://www.youtube.com/watch?v=_EBvXpjudf8",
       "catalog_number": null,
       "format": "Vinyl",
       "condition": "5"

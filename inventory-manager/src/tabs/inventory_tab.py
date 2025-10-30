@@ -57,6 +57,9 @@ class InventoryTab:
             
         # API Requests & Responses - MOVED TO SAME LEVEL
         self._render_api_logs_section()
+        
+        # Tools & Sync - NEW COLLAPSIBLE WITH GALLERY JSON TEST AND GITHUB SYNC
+        self._render_tools_sync_section()
 
     def _render_unified_operations(self):
         """Render the unified search/add/checkout operations"""
@@ -413,6 +416,81 @@ class InventoryTab:
                             if 'response' in details:
                                 st.write("**Response:**")
                                 st.json(details['response'])
+
+    def _render_tools_sync_section(self):
+        """Render tools and sync section with Gallery JSON Test and GitHub Sync"""
+        with st.expander("🛠️ Tools & Sync", expanded=False):
+            # Gallery JSON Test
+            st.subheader("🔄 Gallery JSON Test")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
+                    if st.session_state.get('gallery_json_manager'):
+                        try:
+                            with st.spinner("Rebuilding gallery JSON..."):
+                                success = st.session_state.gallery_json_manager.trigger_rebuild(async_mode=False)
+                            if success:
+                                st.success("✅ Gallery JSON rebuilt successfully!")
+                            else:
+                                st.error("❌ Gallery JSON rebuild failed")
+                        except Exception as e:
+                            st.error(f"❌ Gallery JSON rebuild error: {str(e)}")
+                            # Show full traceback in expander
+                            import traceback
+                            with st.expander("View full error details"):
+                                st.code(traceback.format_exc())
+                    else:
+                        st.error("Gallery JSON manager not initialized")
+            
+            with col2:
+                if st.session_state.get('gallery_json_manager'):
+                    status = st.session_state.gallery_json_manager.get_rebuild_status()
+                    st.write(f"**Status:** {'Rebuilding...' if status['in_progress'] else 'Ready'}")
+                    json_path = st.session_state.gallery_json_manager.get_json_path()
+                    st.write(f"**JSON Path:** `{json_path}`")
+            
+            # GitHub Sync Section
+            st.subheader("🔄 GitHub Sync")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("🔄 Manual GitHub Sync", use_container_width=True):
+                    if hasattr(st.session_state, 'github_sync_handler'):
+                        with st.spinner("Syncing with GitHub..."):
+                            success, message = st.session_state.github_sync_handler.trigger_sync()
+                            if success:
+                                st.success(f"✅ {message}")
+                            else:
+                                st.error(f"❌ {message}")
+                    else:
+                        st.error("GitHub sync handler not initialized")
+            
+            with col2:
+                if hasattr(st.session_state, 'github_sync_handler'):
+                    status = st.session_state.github_sync_handler.get_sync_status()
+                    st.write(f"**Repo:** `{status['repo_path']}`")
+                    st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
+                    st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
+                    st.write(f"**Last commit:** {status['last_commit']}")
+            
+            # Check if JSON file exists using the manager's path
+            if st.session_state.get('gallery_json_manager'):
+                import json
+                from pathlib import Path
+                json_path = st.session_state.gallery_json_manager.get_json_path()
+                if json_path and Path(json_path).exists():
+                    try:
+                        with open(json_path, 'r') as f:
+                            data = json.load(f)
+                            st.success(f"✅ JSON file exists: {data['meta']['total_records']} records")
+                            st.write(f"Last updated: {data['meta']['last_updated']}")
+                    except Exception as e:
+                        st.error(f"❌ Error reading JSON: {e}")
+                else:
+                    st.warning("⚠️ JSON file not found yet")
 
     def _extract_shipping_info(self, item):
         """Extract shipping information from eBay item data"""

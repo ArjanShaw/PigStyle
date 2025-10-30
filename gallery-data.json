@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-10-30T00:34:09Z",
+    "last_updated": "2025-10-30T00:43:02Z",
     "total_records": 590,
     "format_version": "2.0"
   },
@@ -756,10 +756,10 @@
       "barcode": "200000281122",
       "store_price": 1.99,
       "file_at": "Funk Soul(L)",
-      "youtube_url": null,
+      "youtube_url": "https://www.youtube.com/watch?v=Xy3FBYE9KDQ",
       "catalog_number": null,
       "format": "Vinyl",
-      "condition": "5"
+      "condition": "3"
     },
     {
       "id": 55,

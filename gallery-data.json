@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-10-29T23:51:33Z",
+    "last_updated": "2025-10-30T00:03:33Z",
     "total_records": 590,
     "format_version": "2.0"
   },
@@ -164,14 +164,14 @@
       "artist": "Bee Gees",
       "title": "Spirits Having Flown",
       "image_url": "https://i.discogs.com/zMswa_wcryixtIbawuSgFVuMBk4AloK9eO3Si6WS-H4/rs:fit/g:sm/q:90/h:598/w:594/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ1MTQz/NC0xMjcxMTcxNzQw/LmpwZWc.jpeg",
-      "genre": "Popular",
+      "genre": "Rock",
       "barcode": "200000975646",
       "store_price": 1.99,
-      "file_at": "Electronic(B)",
-      "youtube_url": null,
+      "file_at": "Rock(B)",
+      "youtube_url": "https://www.youtube.com/watch?v=WWBFpoErDCM",
       "catalog_number": null,
       "format": "Vinyl",
-      "condition": "5"
+      "condition": "3"
     },
     {
       "id": 13,
@@ -8095,7 +8095,7 @@
       "youtube_url": "https://www.youtube.com/watch?v=YmXqA5FHB6w",
       "catalog_number": "WHK 3510",
       "format": "Vinyl",
-      "condition": "5"
+      "condition": "2"
     },
     {
       "id": 619,

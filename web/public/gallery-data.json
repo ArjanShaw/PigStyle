@@ -1,6 +1,6 @@
 {
   "meta": {
-    "last_updated": "2025-10-30T00:03:33Z",
+    "last_updated": "2025-10-30T00:10:50Z",
     "total_records": 590,
     "format_version": "2.0"
   },
@@ -2224,20 +2224,6 @@
       "image_url": "https://i.discogs.com/Z_PMD20-x0HIGH3SjYossTYBFLwwQqTw1zD4yqSoL1s/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI4MTgx/NTItMTMwMjQyMTU2/Ny5qcGVn.jpeg",
       "genre": "Rock",
       "barcode": "200000088362",
-      "store_price": 1.99,
-      "file_at": "Rock(A)",
-      "youtube_url": null,
-      "catalog_number": null,
-      "format": "Vinyl",
-      "condition": "5"
-    },
-    {
-      "id": 160,
-      "artist": "America",
-      "title": "Holiday",
-      "image_url": "https://i.discogs.com/B8ulrWT-lgdfmnTNVryBe5jMKQ_6G7j5QPNm8P07P28/rs:fit/g:sm/q:90/h:547/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEyMDg0/NTUwLTE1Mjc5NzM3/MzUtNzI4Mi5qcGVn.jpeg",
-      "genre": "Rock",
-      "barcode": "200000052107",
       "store_price": 1.99,
       "file_at": "Rock(A)",
       "youtube_url": null,
@@ -8264,6 +8250,20 @@
       "catalog_number": "P 16785",
       "format": "Vinyl",
       "condition": "5"
+    },
+    {
+      "id": 631,
+      "artist": "America",
+      "title": "Holiday",
+      "image_url": "https://i.discogs.com/qMHr6Ul90N6jOn-JJ5dG1AwdAgjnLM6IKniIiMZgCKw/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIxOTg0/NTktMTM2NjIyNjk1/MC04MDEzLmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995784",
+      "store_price": null,
+      "file_at": "Rock(A)",
+      "youtube_url": "",
+      "catalog_number": "W 2808",
+      "format": "Vinyl",
+      "condition": "3"
     }
   ]
 }

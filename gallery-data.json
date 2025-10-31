@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-10-30T01:12:42Z",
-    "total_records": 590,
+    "last_updated": "2025-10-31T02:48:44Z",
+    "total_records": 591,
     "format_version": "2.0"
   },
   "records": [
@@ -8264,6 +8264,20 @@
       "catalog_number": "W 2808",
       "format": "Vinyl",
       "condition": "5"
+    },
+    {
+      "id": 632,
+      "artist": "The Fatal Flowers",
+      "title": "Johnny D. Is Back!",
+      "image_url": "https://i.discogs.com/caBze8tQDK3-ICol2yUJa0gVVVcXUMMt1qTc23Wf6R4/rs:fit/g:sm/q:90/h:598/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIyNTUy/ODItMTU2OTgzMDY0/MC0xMjQ4LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995785",
+      "store_price": null,
+      "file_at": "Rock(F)",
+      "youtube_url": "https://www.youtube.com/watch?v=SrPgSV_sXCg",
+      "catalog_number": "7 81872-1",
+      "format": "Vinyl",
+      "condition": "4"
     }
   ]
 }

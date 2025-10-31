@@ -54,12 +54,12 @@ class DisplayHandler:
                     ebay_low = record.get('ebay_lowest_price', '')
                     youtube_url = record.get('youtube_url', '')
                     
-                    # Format the display with requested fields
+                    # Format the display with requested fields - FIXED COLUMN NAMES
                     st.write(f"**ID:** {record_id} | **Barcode:** {barcode}")
-                    st.write(f"**Store Price:** ${store_price:.2f}" if store_price else "**Store Price:** N/A")
-                    st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at else "**eBay Sell At:** N/A")
-                    st.write(f"**Discogs Median:** ${discogs_median:.2f}" if discogs_median else "**Discogs Median:** N/A")
-                    st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low else "**eBay Low:** N/A")
+                    st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
+                    st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
+                    st.write(f"**Discogs Median:** ${discogs_median:.2f}" if discogs_median and discogs_median > 0 else "**Discogs Median:** N/A")
+                    st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
                     st.write(f"**File:** {file_at}")
                     if youtube_url:
                         st.write("🎵 YouTube video linked")
@@ -101,7 +101,7 @@ class DisplayHandler:
             st.write(f"**{artist} - {title}**")
             
             if selected_record['type'] == 'database':
-                # SHOW THE REQUESTED FIELDS prominently
+                # SHOW THE REQUESTED FIELDS prominently - FIXED COLUMN NAMES
                 record_id = record.get('id', '')
                 barcode = record.get('barcode', '')
                 file_at = record.get('file_at', '')
@@ -115,10 +115,10 @@ class DisplayHandler:
                 st.write("**Record Details:**")
                 st.write(f"**ID:** {record_id}")
                 st.write(f"**Barcode:** {barcode}")
-                st.write(f"**Store Price:** ${store_price:.2f}" if store_price else "**Store Price:** N/A")
-                st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at else "**eBay Sell At:** N/A")
-                st.write(f"**Discogs Median:** ${discogs_median:.2f}" if discogs_median else "**Discogs Median:** N/A")
-                st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low else "**eBay Low:** N/A")
+                st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
+                st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
+                st.write(f"**Discogs Median:** ${discogs_median:.2f}" if discogs_median and discogs_median > 0 else "**Discogs Median:** N/A")
+                st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
                 st.write(f"**File Location:** {file_at}")
                 if youtube_url:
                     st.write("🎵 **YouTube:** Video linked")

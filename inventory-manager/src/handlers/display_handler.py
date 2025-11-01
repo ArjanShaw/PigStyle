@@ -44,19 +44,20 @@ class DisplayHandler:
                 
                 # Type-specific fields
                 if result_type == "Edit or Delete item":
+                    store_price = record.get('store_price')
+                    ebay_sell_at = record.get('ebay_sell_at')
+                    discogs_median = record.get('discogs_median_price')
+                    ebay_low = record.get('ebay_lowest_price')
+                    
                     # SHOW THE REQUESTED FIELDS when selecting from inventory
                     record_id = record.get('id', '')
                     barcode = record.get('barcode', '')
                     file_at = record.get('file_at', '')
-                    store_price = record.get('store_price', '')
-                    ebay_sell_at = record.get('ebay_sell_at', '')
-                    discogs_median = record.get('discogs_median_price', '')
-                    ebay_low = record.get('ebay_lowest_price', '')
                     youtube_url = record.get('youtube_url', '')
                     
-                    # Format the display with requested fields - FIXED COLUMN NAMES
+                    # Format the display with requested fields
                     st.write(f"**ID:** {record_id} | **Barcode:** {barcode}")
-                    st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
+                    st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
                     st.write(f"**Discogs Median:** ${discogs_median:.2f}" if discogs_median and discogs_median > 0 else "**Discogs Median:** N/A")
                     st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
@@ -101,7 +102,7 @@ class DisplayHandler:
             st.write(f"**{artist} - {title}**")
             
             if selected_record['type'] == 'database':
-                # SHOW THE REQUESTED FIELDS prominently - FIXED COLUMN NAMES
+                # SHOW THE REQUESTED FIELDS prominently
                 record_id = record.get('id', '')
                 barcode = record.get('barcode', '')
                 file_at = record.get('file_at', '')
@@ -381,7 +382,6 @@ class DisplayHandler:
                         st.session_state.selected_record = None
                         st.rerun()
 
-    # ... rest of the methods remain unchanged ...
     def _extract_youtube_id(self, url):
         """Extract YouTube video ID from URL (fallback method)"""
         try:

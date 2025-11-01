@@ -89,11 +89,18 @@ class SearchHandler:
                     'image_url': record.get('image_url', ''),
                     'barcode': record.get('barcode', ''),
                     'file_at': record.get('file_at', ''),
-                    'price': f"${record.get('store_price', 0) or 0:.2f}",
+                    'store_price': record.get('store_price', ''),
+                    'ebay_sell_at': record.get('ebay_sell_at', ''),
+                    'discogs_median_price': record.get('discogs_median_price', ''),
+                    'ebay_lowest_price': record.get('ebay_lowest_price', ''),
                     'condition': record.get('condition', ''),
                     'genre': record.get('genre', ''),
-                    'youtube_url': record.get('youtube_url', '')  # Include YouTube URL in search results
+                    'youtube_url': record.get('youtube_url', '')
                 }
+                
+                # DEBUG: Add this line to see what's actually being pulled
+                st.write(f"DEBUG PULLED: store_price={formatted_result['store_price']}")
+                
                 formatted_results.append(formatted_result)
             
             return formatted_results

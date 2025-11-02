@@ -4,11 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <title>PigStyle Music Loveland</title>
-    <link rel="stylesheet" href="css/style.css" type="text/css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.jpg">
 
     <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            overflow: hidden; /* Prevent scrollbars */
+            height: 100vh;
+        }
+        
         /* === Banner Styles === */
         #not-in-business-banner {
             position: fixed;
@@ -18,34 +30,69 @@
             background-color: #ffcc00;
             color: #333;
             text-align: center;
-            padding: 25px 0;
-            font-size: 32px;
+            padding: 15px 0;
+            font-size: 24px;
             font-weight: bold;
             z-index: 1000;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             border-bottom: 4px solid #ff9900;
         }
         
-        #not-in-business-banner p {
-            margin: 0;
-            padding: 0;
-            font-size: 32px;
+        /* Main container */
+        .container {
+            height: 100vh;
+            background: url('images/background.png') center/cover no-repeat;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            padding: 80px 0 20px 0; /* Top padding for banner */
         }
         
-        /* Adjust content to account for larger banner */
-        .fullscreen-img-container {
-            padding-top: 80px; /* Make space for the larger fixed banner */
+        /* Content area - flexible spacing */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+            width: 100%;
+            max-height: calc(100vh - 200px); /* Ensure it fits */
+        }
+        
+        /* Individual sections */
+        .section {
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        /* Logo images - responsive sizing */
+        .logo-image {
+            max-width: 50vw;
+            max-height: 15vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        
+        .music-text {
+            max-width: 70vw;
+            max-height: 12vh;
         }
         
         /* === Box for Bulleted List === */
         .content-box {
-            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
+            background-color: rgba(0, 0, 0, 0.7);
             border-radius: 15px;
-            padding: 30px;
+            padding: 20px;
             max-width: 800px;
-            margin: 0 auto;
+            width: 90%;
+            max-height: 30vh;
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
             border: 2px solid rgba(255, 255, 255, 0.2);
+            margin: 10px 0;
+            overflow: hidden;
         }
         
         .content-box ul {
@@ -55,9 +102,9 @@
         }
         
         .content-box li {
-            margin-bottom: 20px;
-            font-size: 24px;
-            line-height: 1.4;
+            margin-bottom: 15px;
+            font-size: clamp(16px, 2.5vw, 24px); /* Responsive font size */
+            line-height: 1.3;
             color: white;
             text-align: center;
         }
@@ -73,64 +120,102 @@
             color: #ff9900;
             text-decoration: underline;
         }
+        
+        /* Store Info */
+        .store-info {
+            color: white;
+            font-size: clamp(14px, 2vw, 20px);
+            text-align: center;
+            padding: 10px;
+            width: 100%;
+            flex-shrink: 0;
+        }
+        
+        .store-info p {
+            margin: 5px 0;
+        }
+        
+        .social-icons {
+            margin-top: 8px;
+        }
+        
+        .social-icons a {
+            color: white;
+            margin: 0 10px;
+            font-size: clamp(20px, 4vw, 28px);
+        }
+        
+        /* Decorative elements */
+        .pig-head {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            height: clamp(120px, 20vh, 180px);
+            width: auto;
+            z-index: 2;
+        }
+        
+        .yellow-record {
+            position: absolute;
+            left: clamp(140px, 25vw, 200px);
+            bottom: clamp(80px, 15vh, 120px);
+            height: clamp(60px, 10vh, 80px);
+            width: auto;
+            z-index: 3;
+        }
+        
+        /* Modal Styles */
+        .modalOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #modalBox {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            overflow-y: auto;
+        }
+        
+        #modalImage {
+            max-width: 100%;
+            height: auto;
+            margin: 10px 0;
+        }
+        
+        .modalFooter {
+            margin-top: 15px;
+        }
+        
+        #closeBtn {
+            background-color: #ffcc00;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        #closeBtn:hover {
+            background-color: #ff9900;
+        }
     </style>
 
     <script>
-        // === Positioning Functions ===
-        function movePigStyleText() {
-            const img = document.getElementById("pigstyle-text");
-            img.style.top = '0';
-            img.style.left = '50%';
-            img.style.transform = 'translateX(-50%)';
-        }  
-
-        function moveRecordsText() {
-            const imgRecordText = document.getElementById("records-text");
-            const imgPigStyleText = document.getElementById("pigstyle-text");
-            // Moved closer - reduced from +20px to +10px
-            imgRecordText.style.top = imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 10 + 'px';
-            imgRecordText.style.left = '50%';
-            imgRecordText.style.transform = 'translateX(-50%)';
-        }
-
-        function movePigHead() {
-            const img = document.getElementById("pighead");
-            img.style.left = '0px';
-            img.style.top = '100%';
-            img.style.transform = 'translateY(-100%)';
-            moveyellowrecord();
-        }
-
-        function resizeImage() {
-            const img = document.getElementById("mainImage");
-            img.style.height = window.innerHeight + "px";
-            img.style.width = window.innerWidth + "px";
-        }
-
-        function moveyellowrecord() {
-            const imgRecord = document.getElementById("yellow-record");
-            const imgPigHead = document.getElementById("pighead");
-            imgRecord.style.left = (imgPigHead.offsetLeft + imgPigHead.offsetWidth) + 'px';
-            imgRecord.style.bottom = '200px';
-        }
-
-        function moveBulletedList() {
-            const imgRecordText = document.getElementById("records-text");
-            const hdrs = document.getElementById("headers");
-            hdrs.style.top = imgRecordText.offsetTop + imgRecordText.offsetHeight + 'px';
-            hdrs.style.left = '50%';
-            hdrs.style.transform = 'translateX(-50%)';
-        }
-
-        function resize() {
-            resizeImage();
-            movePigHead();
-            movePigStyleText();
-            moveRecordsText();
-            moveyellowrecord();
-            moveBulletedList();
-        }
-
         // === Popup Functionality ===
         function setupPopup() {
             const links = document.querySelectorAll('.popup-link');
@@ -164,58 +249,69 @@
         }
 
         function init() {
-            resize();
             setupPopup();
         }
 
         window.addEventListener('load', init);
-        window.addEventListener("resize", init);
         document.addEventListener('DOMContentLoaded', init);
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) resize(); });
+        
+        // Prevent any potential scroll
+        window.addEventListener('scroll', function(e) {
+            window.scrollTo(0, 0);
+        });
     </script>
 </head>
 
 <body>
     <!-- "Not in Business Yet" Banner -->
     <div id="not-in-business-banner">
-        <p>PigStyle Music is not yet open for sales. </p>
+        <p>PigStyle Music is not yet open for sales.</p>
     </div>
 
-    <div class="fullscreen-img-container">
+    <div class="container">
+        <!-- Decorative elements -->
+        <img class="pig-head" src="images/pig_head.png" alt="Pig Head">
+        <img class="yellow-record" src="images/yellow-record.png" alt="Yellow Record">
 
-        <!-- Background and Decorative Images -->
-        <img style="position: absolute;" id="mainImage" src="images/background.png" alt="logo">
-        <img style="position: absolute;" id="pighead" src="images/pig_head.png" alt="logo">
-        <img style="position: absolute;" id="pigstyle-text" src="images/pigstyle_text.png" alt="logo">
-        <img style="position: absolute;" id="records-text" style="width: 800px;" src="images/music_text.png" alt="logo">
-        <img style="position: absolute;" id="yellow-record" src="images/yellow-record.png" alt="logo">
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- PigStyle Text -->
+            <div class="section">
+                <img class="logo-image" src="images/pigstyle_text.png" alt="PigStyle">
+            </div>
 
-        <!-- Header Navigation -->
-        <div id="headers" style="font-size: 40px; color: white; position: absolute;" class="header">
-            <div class="content-box">
-                <ul>
-                    <li>
-                        Browse vinyl records, cassettes and CD's. The store is not open yet, but I am buying 
-                        records, CD's and tapes. Meet me at the store during most office hours, call or email. 
-                    </li>
-                    <li>
-                        Browse our inventory  <a href="catalog.html">here</a>
-                    </li>
-                    <li>
-                        Listen to some <a href="streaming.html">songs</a>
-                    </li>
-                </ul>
+            <!-- Music Text -->
+            <div class="section">
+                <img class="logo-image music-text" src="images/music_text.png" alt="Music Loveland">
+            </div>
+
+            <!-- Bulleted List -->
+            <div class="section">
+                <div class="content-box">
+                    <ul>
+                        <li>
+                            Browse vinyl records, cassettes and CD's. The store is not open yet, but I am buying 
+                            records, CD's and tapes. Meet me at the store during most office hours or email. 
+                        </li>
+                        <li>
+                            Browse inventory  <a href="catalog.html">here</a>
+                        </li>
+                        <li>
+                            Listen to some <a href="streaming.html">songs</a>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
 
         <!-- Store Info -->
-        <div id="storeInfo" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 24px; text-align: center;">
-            <p id="storeAddress">Address: 100 E 3rd Loveland CO</p>
-            <p id="storeHours">Hours: Mon-Sat 10am - 6pm, Sun 12pm - 6pm</p>
-            <p id="storeEmail">Email: pigstyle.loveland@gmail.com</p>
-            <div id="socialIcons" style="margin-top: 10px;">
-                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-facebook"></i></a>
-                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-instagram"></i></a>
+        <div class="store-info">
+            <p>Address: 100 E 3rd Loveland CO</p>
+            <p>Hours: Mon-Sat 10am - 6pm, Sun 12pm - 6pm</p>
+            <p>Email: pigstyle.loveland@gmail.com</p>
+            <div class="social-icons">
+                <a href="#" target="_blank"><i class="fab fa-facebook"></i></a>
+                <a href="#" target="_blank"><i class="fab fa-instagram"></i></a>
             </div>
         </div>
 
@@ -230,7 +326,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 </body>
 </html>

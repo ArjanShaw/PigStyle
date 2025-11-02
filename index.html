@@ -36,6 +36,105 @@
         .fullscreen-img-container {
             padding-top: 80px; /* Make space for the larger fixed banner */
         }
+        
+        /* === Box for Bulleted List === */
+        .content-box {
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 800px;
+            margin: 0 auto;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .content-box ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .content-box li {
+            margin-bottom: 20px;
+            font-size: 24px;
+            line-height: 1.4;
+            color: white;
+            text-align: center;
+        }
+        
+        .content-box a {
+            color: #ffcc00;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+        
+        .content-box a:hover {
+            color: #ff9900;
+            text-decoration: underline;
+        }
+        
+        /* === Background Fade Overlay === */
+        .background-fade {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4); /* Semi-transparent overlay */
+            z-index: 5;
+            pointer-events: none; /* Allows clicking through to elements underneath */
+        }
+        
+        /* === Modal Styles === */
+        .modalOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #modalBox {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        
+        #modalImage {
+            max-width: 100%;
+            height: auto;
+            margin: 15px 0;
+        }
+        
+        .modalFooter {
+            margin-top: 20px;
+        }
+        
+        #closeBtn {
+            background-color: #ffcc00;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        #closeBtn:hover {
+            background-color: #ff9900;
+        }
     </style>
 
     <script>
@@ -144,6 +243,8 @@
     </div>
 
     <div class="fullscreen-img-container">
+        <!-- Background Fade Overlay -->
+        <div class="background-fade"></div>
 
         <!-- Background and Decorative Images -->
         <img style="position: absolute;" id="mainImage" src="images/background.png" alt="logo">
@@ -152,111 +253,20 @@
         <img style="position: absolute;" id="records-text" style="width: 800px;" src="images/music_text.png" alt="logo">
         <img style="position: absolute;" id="yellow-record" src="images/yellow-record.png" alt="logo">
 
-        
-
         <!-- Header Navigation -->
         <div id="headers" style="font-size: 40px; color: white; position: absolute;" class="header">
-
-            <div>
+            <div class="content-box">
                 <ul>
                     <li>
                         Browse vinyl records, cassettes and CD's. The store is not open yet, but I am buying 
                         records, CD's and tapes. Meet me at the store during most office hours, call or email. 
                     </li>
                     <li>
-                        Browse our inventory  <a href="catalog.html">here</a>
+                        Browse music <a href="catalog.html">here</a>
                     </li>
                     <li>
                         Listen to some <a href="streaming.html">songs</a>
                     </li>
-                </ul>
-
-
-            </div>
- 
-
-            <div>
-                <ul>
-                    
-                   
-                    <!-- Existing Header Links -->
-                    <!-- <li>
-                        <a class="popup-link"
-                         data-title="Vinyl" 
-                         data-content="
-                        <h2>Buy</h2>
-                        Browse vinyl records, cassettes and CD's, from classics to metal.
-                        Perfect for collectors and casual listeners.
-                        <h2>Sell</h2>
-                        Bring in your records, tapes, CD's to sell. 
-                        "
-                        data-img="images/audio-gear.jpg"
-                        >
-                            Records, cassette tapes: Buy, Sell
-                        </a>
-                    </li>  -->
-
-                    <!-- <li>
-                        <a class="popup-link" data-title="Audio gear" data-content="
-                        <h2>Buy</h2>
-                        We carry turntables, speakers, boomboxes and other audio accessories.
-                        <h2>Sell</h2>
-                        Come in to get an offer on your gently used audio equipment." 
-                        data-img="images/audio-gear.jpg">
-                        Audio Gear: Buy and Sell
-                        </a>
-                    </li> -->
-<!-- 
-                    <li>
-                        <a class="popup-link" data-title="Art" data-content="
-                        <h2>Buy</h2>
-                        Discover unique art pieces and collectibles from local artists.
-                        <h2>Commission</h2>
-                        Artists can submit commissioned artwork for display or sale."
-                        data-img="images/art-in-record-store.png">
-                            Art: Buy, Sell
-                        </a>
-                    </li> -->
-
-                    <!-- <li>
-                        <a class="popup-link" data-content="
-                        <h2>Hang out and listen</h2>
-                        Relax in our cozy seating while enjoying music and chatting with fellow vinyl enthusiasts."
-                        data-img="images/recliner.png">
-                            Hang out and listen
-                        </a>
-                    </li> -->
-
-                    
-
-                    <!-- <li>
-                        <a class="popup-link" data-title="Upcoming Events" data-content="
-                        <h2>Events Calendar</h2>
-                        Check out our upcoming events, including live music, open mic nights, and art displays.
-                        <iframe src='https://calendar.google.com/calendar/embed?src=your_calendar_id%40group.calendar.google.com&ctz=America%2FDenver' style='border:0' width='100%' height='400' frameborder='0' scrolling='no'></iframe>"
-                        data-img="images/record-store-exterior.jpg">
-                            Events
-                        </a>
-                    </li> -->
-					 <!-- <li>
-                        
-                    </li>
-                     <li>
-                        
-                    </li> -->
-
-                    <!-- <li>
-                        <a class="popup-link" data-title="PigStyle Music" data-content="
-                        <h2>Contact</h2>
-                        Email: yourname@example.com<br>
-                        Address: 100 E 3rd, Loveland, CO
-                        <h2>Find Us Here</h2>
-                        <iframe src='https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3067.123456789012!2d-105.084321!3d40.397654!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x876c789abc12345%3A0xabcdef1234567890!2sLoveland%2C%20CO!5e0!3m2!1sen!2sus!4v1694765432109!5m2!1sen!2sus' width='100%' height='250' style='border:0;' allowfullscreen='' loading='lazy' referrerpolicy='no-referrer-when-downgrade'></iframe>"
-                        data-img="images/record-store-exterior.jpg">
-                            Contact
-                        </a>
-                    </li> -->
-                  
                 </ul>
             </div>
         </div>

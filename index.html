@@ -31,8 +31,8 @@
             background-color: #ffcc00;
             color: #333;
             text-align: center;
-            padding: 12px 0;
-            font-size: clamp(16px, 4vw, 24px);
+            padding: 8px 0;
+            font-size: clamp(14px, 3.5vw, 20px);
             font-weight: bold;
             z-index: 1000;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -47,53 +47,52 @@
             flex-direction: column;
             align-items: center;
             position: relative;
-            padding: 70px 0 10px 0; /* Reduced padding for mobile */
+            padding: 50px 0 0 0; /* Minimal top padding */
         }
         
-        /* Content area - optimized for mobile */
+        /* Content area - give more space to store info */
         .content-area {
-            flex: 1;
+            flex: 0.7; /* Take less space */
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: space-evenly; /* Better distribution */
+            justify-content: flex-start; /* Start from top */
             width: 100%;
-            padding: 10px 0;
-            max-height: calc(100vh - 120px); /* More space for store info */
+            padding: 5px 0;
         }
         
         /* Individual sections */
         .section {
             text-align: center;
             flex-shrink: 0;
-            margin: 5px 0;
+            margin: 2px 0;
         }
         
-        /* Logo images - more aggressive mobile sizing */
+        /* Logo images - much smaller on mobile */
         .logo-image {
-            max-width: 90vw;
-            max-height: 12vh;
+            max-width: 85vw;
+            max-height: 8vh;
             width: auto;
             height: auto;
             object-fit: contain;
         }
         
         .music-text {
-            max-width: 95vw;
-            max-height: 10vh;
+            max-width: 90vw;
+            max-height: 6vh;
         }
         
         /* === Box for Bulleted List === */
         .content-box {
             background-color: rgba(0, 0, 0, 0.7);
-            border-radius: 12px;
-            padding: 15px;
+            border-radius: 8px;
+            padding: 8px 12px;
             max-width: 95vw;
             width: 95%;
-            max-height: 25vh;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            margin: 5px 0;
+            max-height: 20vh;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin: 2px 0;
             overflow: hidden;
         }
         
@@ -104,9 +103,9 @@
         }
         
         .content-box li {
-            margin-bottom: 10px;
-            font-size: clamp(14px, 3.5vw, 20px);
-            line-height: 1.2;
+            margin-bottom: 6px;
+            font-size: clamp(11px, 2.8vw, 16px);
+            line-height: 1.1;
             color: white;
             text-align: center;
         }
@@ -115,95 +114,114 @@
             color: #ffcc00;
             text-decoration: none;
             font-weight: bold;
-            transition: color 0.3s;
         }
         
-        .content-box a:hover {
-            color: #ff9900;
-            text-decoration: underline;
-        }
-        
-        /* Store Info - Mobile optimized */
+        /* Store Info - Much more compact */
         .store-info {
             color: white;
-            font-size: clamp(12px, 3vw, 18px);
+            font-size: clamp(10px, 2.5vw, 14px);
             text-align: center;
-            padding: 8px 5px;
+            padding: 6px 3px;
             width: 100%;
             flex-shrink: 0;
-            background-color: rgba(0, 0, 0, 0.6); /* Better visibility */
-            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(0, 0, 0, 0.8);
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            margin-top: auto; /* Push to bottom */
         }
         
         .store-info p {
-            margin: 3px 0;
-            line-height: 1.1;
+            margin: 2px 0;
+            line-height: 1;
         }
         
         .social-icons {
-            margin-top: 5px;
+            margin-top: 3px;
         }
         
         .social-icons a {
             color: white;
-            margin: 0 8px;
-            font-size: clamp(18px, 4vw, 24px);
+            margin: 0 5px;
+            font-size: clamp(14px, 3.5vw, 20px);
         }
         
-        /* Decorative elements - smaller on mobile */
+        /* Decorative elements - much smaller */
         .pig-head {
             position: absolute;
-            left: 10px;
-            bottom: 10px;
-            height: clamp(80px, 15vh, 120px);
+            left: 5px;
+            bottom: 5px;
+            height: clamp(50px, 12vh, 80px);
             width: auto;
             z-index: 2;
         }
         
         .yellow-record {
             position: absolute;
-            left: clamp(90px, 20vw, 150px);
-            bottom: clamp(50px, 10vh, 80px);
-            height: clamp(40px, 8vh, 60px);
+            left: clamp(60px, 18vw, 100px);
+            bottom: clamp(30px, 8vh, 50px);
+            height: clamp(25px, 6vh, 40px);
             width: auto;
             z-index: 3;
         }
         
         /* Mobile-specific adjustments */
-        @media (max-height: 600px) {
+        @media (max-height: 700px) {
             .container {
-                padding: 60px 0 5px 0;
+                padding: 45px 0 0 0;
             }
             
             .content-area {
-                max-height: calc(100vh - 80px);
-                justify-content: space-around;
-            }
-            
-            .content-box {
-                max-height: 20vh;
-                padding: 10px;
-            }
-            
-            .content-box li {
-                margin-bottom: 6px;
-                font-size: clamp(12px, 3vw, 16px);
+                flex: 0.6;
             }
             
             .logo-image {
-                max-height: 10vh;
+                max-height: 6vh;
             }
             
             .music-text {
-                max-height: 8vh;
+                max-height: 5vh;
+            }
+            
+            .content-box {
+                max-height: 15vh;
+                padding: 6px 10px;
+            }
+            
+            .content-box li {
+                margin-bottom: 4px;
+                font-size: clamp(10px, 2.5vw, 14px);
             }
             
             .store-info {
-                padding: 5px;
-                font-size: clamp(10px, 2.5vw, 14px);
+                padding: 4px 2px;
+                font-size: clamp(9px, 2.2vw, 12px);
+            }
+            
+            .pig-head {
+                height: clamp(40px, 10vh, 60px);
+            }
+            
+            .yellow-record {
+                height: clamp(20px, 5vh, 30px);
+                left: clamp(50px, 15vw, 80px);
+                bottom: clamp(25px, 6vh, 35px);
             }
         }
         
+        @media (max-height: 500px) {
+            /* For very small screens, hide decorative elements */
+            .pig-head, .yellow-record {
+                display: none;
+            }
+            
+            .content-area {
+                flex: 0.5;
+            }
+            
+            .content-box {
+                max-height: 12vh;
+            }
+        }
+
         /* Modal Styles */
         .modalOverlay {
             display: none;
@@ -220,12 +238,12 @@
         
         #modalBox {
             background-color: white;
-            padding: 15px;
-            border-radius: 10px;
-            max-width: 90vw;
-            width: 90%;
+            padding: 12px;
+            border-radius: 8px;
+            max-width: 95vw;
+            width: 95%;
             max-height: 80vh;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.5);
             text-align: center;
             overflow-y: auto;
         }
@@ -233,25 +251,21 @@
         #modalImage {
             max-width: 100%;
             height: auto;
-            margin: 10px 0;
+            margin: 8px 0;
         }
         
         .modalFooter {
-            margin-top: 10px;
+            margin-top: 8px;
         }
         
         #closeBtn {
             background-color: #ffcc00;
             border: none;
-            padding: 6px 12px;
-            border-radius: 5px;
+            padding: 5px 10px;
+            border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
-            transition: background-color 0.3s;
-        }
-        
-        #closeBtn:hover {
-            background-color: #ff9900;
+            font-size: 12px;
         }
     </style>
 
@@ -295,7 +309,6 @@
         window.addEventListener('load', init);
         document.addEventListener('DOMContentLoaded', init);
         
-        // Prevent any potential scroll
         window.addEventListener('scroll', function(e) {
             window.scrollTo(0, 0);
         });

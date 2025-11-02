@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <title>PigStyle Music Loveland</title>
+    <link rel="stylesheet" href="css/style.css" type="text/css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="icon" type="image/jpeg" href="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmQn//Z">
+    <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.jpg">
 
     <style>
         /* === Banner Styles === */
@@ -34,9 +35,6 @@
         /* Adjust content to account for larger banner */
         .fullscreen-img-container {
             padding-top: 80px; /* Make space for the larger fixed banner */
-            position: relative;
-            height: 100vh;
-            overflow: hidden;
         }
         
         /* === Box for Bulleted List === */
@@ -48,8 +46,6 @@
             margin: 0 auto;
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
             border: 2px solid rgba(255, 255, 255, 0.2);
-            position: relative;
-            z-index: 10;
         }
         
         .content-box ul {
@@ -77,139 +73,13 @@
             color: #ff9900;
             text-decoration: underline;
         }
-        
-        /* === Modal Styles === */
-        .modalOverlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 2000;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        #modalBox {
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            max-width: 600px;
-            width: 90%;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
-            text-align: center;
-        }
-        
-        #modalImage {
-            max-width: 100%;
-            height: auto;
-            margin: 15px 0;
-        }
-        
-        .modalFooter {
-            margin-top: 20px;
-        }
-        
-        #closeBtn {
-            background-color: #ffcc00;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.3s;
-        }
-        
-        #closeBtn:hover {
-            background-color: #ff9900;
-        }
-        
-        /* Background image styling */
-        #mainImage {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-        }
-        
-        /* Decorative elements */
-        #pighead {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 300px;
-            z-index: 2;
-        }
-        
-        #pigstyle-text {
-            position: absolute;
-            top: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            height: 120px;
-            z-index: 2;
-        }
-        
-        #records-text {
-            position: absolute;
-            top: 250px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 600px;
-            max-width: 80%;
-            z-index: 2;
-        }
-        
-        #yellow-record {
-            position: absolute;
-            bottom: 200px;
-            left: 300px;
-            height: 150px;
-            z-index: 2;
-        }
-        
-        /* Headers positioning */
-        #headers {
-            position: absolute;
-            top: 400px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 800px;
-            z-index: 3;
-        }
-        
-        /* Store info positioning */
-        #storeInfo {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            font-size: 24px;
-            text-align: center;
-            z-index: 2;
-            width: 100%;
-        }
-        
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            overflow-x: hidden;
-        }
     </style>
 
     <script>
         // === Positioning Functions ===
         function movePigStyleText() {
             const img = document.getElementById("pigstyle-text");
-            img.style.top = '100px';
+            img.style.top = '0';
             img.style.left = '50%';
             img.style.transform = 'translateX(-50%)';
         }  
@@ -217,7 +87,7 @@
         function moveRecordsText() {
             const imgRecordText = document.getElementById("records-text");
             const imgPigStyleText = document.getElementById("pigstyle-text");
-            imgRecordText.style.top = (imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 30) + 'px';
+            imgRecordText.style.top = imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 20 + 'px';
             imgRecordText.style.left = '50%';
             imgRecordText.style.transform = 'translateX(-50%)';
         }
@@ -225,7 +95,8 @@
         function movePigHead() {
             const img = document.getElementById("pighead");
             img.style.left = '0px';
-            img.style.bottom = '0px';
+            img.style.top = '100%';
+            img.style.transform = 'translateY(-100%)';
             moveyellowrecord();
         }
 
@@ -245,7 +116,7 @@
         function moveBulletedList() {
             const imgRecordText = document.getElementById("records-text");
             const hdrs = document.getElementById("headers");
-            hdrs.style.top = (imgRecordText.offsetTop + imgRecordText.offsetHeight + 30) + 'px';
+            hdrs.style.top = imgRecordText.offsetTop + imgRecordText.offsetHeight + 'px';
             hdrs.style.left = '50%';
             hdrs.style.transform = 'translateX(-50%)';
         }
@@ -310,15 +181,16 @@
     </div>
 
     <div class="fullscreen-img-container">
+
         <!-- Background and Decorative Images -->
-        <img id="mainImage" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZGllbnQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMzMzMzMzMiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMDAwMDAiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyYWRpZW50KSIvPjwvc3ZnPg==" alt="background">
-        <img id="pighead" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjEwMCIgZmlsbD0iI2ZmY2MwMCIvPjxjaXJjbGUgY3g9IjgwIiBjeT0iODAiIHI9IjE1IiBmaWxsPSIjMDAwIi8+PGNpcmNsZSBjeD0iMTIwIiBjeT0iODAiIHI9IjE1IiBmaWxsPSIjMDAwIi8+PGVsbGlwc2UgY3g9IjEwMCIgY3k9IjEyMCIgcng9IjQwIiByeT0iMjAiIGZpbGw9IiNmZjY2MDAiLz48L3N2Zz4=" alt="pig head">
-        <img id="pigstyle-text" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2MDAgMTIwIj48dGV4dCB4PSIzMDAiIHk9IjYwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iNDgiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmIj5QaWdTdHlsZTwvdGV4dD48L3N2Zz4=" alt="PigStyle text">
-        <img id="records-text" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2MDAgODAiPjx0ZXh0IHg9IjMwMCIgeT0iNDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIzNiIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiPk11c2ljIExvdmVsYW5kPC90ZXh0Pjwvc3ZnPg==" alt="Music Loveland text">
-        <img id="yellow-record" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTAgMTUwIj48Y2lyY2xlIGN4PSI3NSIgY3k9Ijc1IiByPSI3NSIgZmlsbD0iI2ZmY2MwMCIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNzUiIHI9IjMwIiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iNzUiIGN5PSI3NSIgcj0iMTAiIGZpbGw9IiNmZmNjMDAiLz48L3N2Zz4=" alt="yellow record">
+        <img style="position: absolute;" id="mainImage" src="images/background.png" alt="logo">
+        <img style="position: absolute;" id="pighead" src="images/pig_head.png" alt="logo">
+        <img style="position: absolute;" id="pigstyle-text" src="images/pigstyle_text.png" alt="logo">
+        <img style="position: absolute;" id="records-text" style="width: 800px;" src="images/music_text.png" alt="logo">
+        <img style="position: absolute;" id="yellow-record" src="images/yellow-record.png" alt="logo">
 
         <!-- Header Navigation -->
-        <div id="headers" class="header">
+        <div id="headers" style="font-size: 40px; color: white; position: absolute;" class="header">
             <div class="content-box">
                 <ul>
                     <li>
@@ -336,7 +208,7 @@
         </div>
 
         <!-- Store Info -->
-        <div id="storeInfo">
+        <div id="storeInfo" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 24px; text-align: center;">
             <p id="storeAddress">Address: 100 E 3rd Loveland CO</p>
             <p id="storeHours">Hours: Mon-Sat 10am - 6pm, Sun 12pm - 6pm</p>
             <div id="socialIcons" style="margin-top: 10px;">

@@ -87,7 +87,8 @@
         function moveRecordsText() {
             const imgRecordText = document.getElementById("records-text");
             const imgPigStyleText = document.getElementById("pigstyle-text");
-            imgRecordText.style.top = imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 20 + 'px';
+            // Moved closer - reduced from +20px to +10px
+            imgRecordText.style.top = imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 10 + 'px';
             imgRecordText.style.left = '50%';
             imgRecordText.style.transform = 'translateX(-50%)';
         }
@@ -177,7 +178,7 @@
 <body>
     <!-- "Not in Business Yet" Banner -->
     <div id="not-in-business-banner">
-        <p>🚧 PigStyle Music is not yet open for business - Coming Soon! 🚧</p>
+        <p>PigStyle Music is not yet open for sales. </p>
     </div>
 
     <div class="fullscreen-img-container">
@@ -211,6 +212,7 @@
         <div id="storeInfo" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 24px; text-align: center;">
             <p id="storeAddress">Address: 100 E 3rd Loveland CO</p>
             <p id="storeHours">Hours: Mon-Sat 10am - 6pm, Sun 12pm - 6pm</p>
+            <p id="storeEmail">Email: pigstyle.loveland@gmail.com</p>
             <div id="socialIcons" style="margin-top: 10px;">
                 <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-facebook"></i></a>
                 <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-instagram"></i></a>

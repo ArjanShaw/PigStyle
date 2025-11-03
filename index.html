@@ -6,6 +6,48 @@
     <title>PigStyle Music Loveland - Coming Soon</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        /* Mobile-specific fixes for store info */
+        @media (max-width: 480px) {
+            .container {
+                padding-bottom: 180px; /* Extra space for store info */
+                min-height: calc(100vh - 80px); /* Account for banner */
+            }
+            
+            .store-info {
+                position: fixed;
+                bottom: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                border-radius: 0;
+                padding: 15px 10px;
+                background-color: rgba(0, 0, 0, 0.9);
+                z-index: 100;
+            }
+            
+            .content-box {
+                margin-bottom: 120px; /* Space for fixed store info */
+            }
+            
+            .record-container {
+                margin-bottom: 100px; /* Space for fixed store info */
+            }
+        }
+
+        @media (max-width: 768px) and (min-width: 481px) {
+            .container {
+                padding-bottom: 150px;
+            }
+            
+            .store-info {
+                position: relative;
+                margin-top: 20px;
+            }
+        }
+    </style>
 </head>
 
 <body>

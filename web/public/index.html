@@ -1,131 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>PigStyle Music Loveland</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.jpg">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-        
-        .fullscreen-img-container {
-            position: relative;
-            height: 100vh;
-            overflow: hidden;
-        }
-        
-        #mainImage {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .square {
-            position: absolute;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 18px;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Top vs Bottom Squares Expansion</title>
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+  position: relative;
+}
+.square {
+  position: absolute;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+}
+#containerEF {
+  position: absolute;
+  border: 2px dashed blue; /* visualize the container */
+}
+</style>
 </head>
 <body>
-    <div class="fullscreen-img-container">
-        <img id="mainImage" src="images/background.png" alt="background">
-    </div>
+<script>
+const sizes = [120,150,180,100,80,60]; 
+const labels = ['A','B','C','D','E','F'];
+const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFA726','#7E57C2'];
 
-    <script>
-        // Create 6 squares
-        function createSquares() {
-            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFA726', '#7E57C2'];
-            const sizes = [120, 150, 180, 100, 80, 60];
-            
-            for (let i = 0; i < 6; i++) {
-                const square = document.createElement('div');
-                square.className = 'square';
-                square.id = 'square' + (i + 1);
-                square.style.width = sizes[i] + 'px';
-                square.style.height = sizes[i] + 'px';
-                square.style.backgroundColor = colors[i];
-                square.textContent = (i + 1).toString();
-                document.body.appendChild(square);
-            }
-        }
+const squares = [];
+for (let i=0;i<6;i++){
+  const sq = document.createElement('div');
+  sq.className = 'square';
+  sq.id = 'square'+labels[i];
+  sq.style.width = sizes[i]+'px';
+  sq.style.height = sizes[i]+'px';
+  sq.style.backgroundColor = colors[i];
+  sq.textContent = labels[i];
+  document.body.appendChild(sq);
+  squares.push(sq);
+}
 
-        // Position squares
-        function positionSquares() {
-            const squares = [];
-            for (let i = 1; i <= 6; i++) {
-                squares.push(document.getElementById('square' + i));
-            }
-            
-            const viewportHeight = window.innerHeight;
-            const viewportWidth = window.innerWidth;
-            
-            // Scale squares 1-4 to use 90% of page height with 10% total margin
-            const totalMargin = viewportHeight * 0.1; // 10% total margin
-            const availableHeight = viewportHeight * 0.9; // 90% for squares
-            
-            // Calculate total original height of squares 1-4
-            const originalHeights = [120, 150, 180, 100];
-            const totalOriginalHeight = originalHeights.reduce((sum, height) => sum + height, 0);
-            
-            // Calculate scale factor
-            const scale = availableHeight / totalOriginalHeight;
-            
-            // Apply scale to squares 1-4
-            for (let i = 0; i < 4; i++) {
-                squares[i].style.width = (originalHeights[i] * scale) + 'px';
-                squares[i].style.height = (originalHeights[i] * scale) + 'px';
-            }
-            
-            // Position squares 1-4 with equal gaps (5 gaps total = 10% margin)
-            const numberOfGaps = 5;
-            const gapSize = totalMargin / numberOfGaps;
-            
-            let currentPosition = gapSize;
-            for (let i = 0; i < 4; i++) {
-                squares[i].style.top = currentPosition + 'px';
-                squares[i].style.left = '50%';
-                squares[i].style.transform = 'translateX(-50%)';
-                currentPosition += squares[i].offsetHeight + gapSize;
-            }
-            
-            // Position square 5 at bottom-left
-            squares[4].style.left = '20px';
-            squares[4].style.bottom = '20px';
-            squares[4].style.transform = 'none';
-            
-            // Position square 6 diagonally right above square 5
-            squares[5].style.left = (20 + squares[4].offsetWidth + 10) + 'px';
-            squares[5].style.bottom = (20 + squares[4].offsetHeight + 10) + 'px';
-            squares[5].style.transform = 'none';
-        }
+// --- Stack A-D at top ---
+let currentTop = 0;
+for (let i=0;i<4;i++){
+  squares[i].style.left = '50%';
+  squares[i].style.top = currentTop + 'px';
+  squares[i].style.transform = 'translateX(-50%)';
+  currentTop += sizes[i];
+}
 
-        // Initialize
-        function init() {
-            createSquares();
-            positionSquares();
-        }
+// --- Create container for E/F ---
+const container = document.createElement('div');
+container.id = 'containerEF';
+document.body.appendChild(container);
 
-        // Handle resize
-        window.addEventListener('resize', positionSquares);
+const e = squares[4];
+const f = squares[5];
+container.appendChild(e);
+container.appendChild(f);
 
-        // Start when page loads
-        window.addEventListener('load', init);
-    </script>
+// Initial positions relative to container
+e.style.position = 'absolute';
+f.style.position = 'absolute';
+e.style.left = '0px';
+e.style.bottom = '0px';
+f.style.left = parseFloat(e.style.width)+'px';
+f.style.bottom = parseFloat(e.style.height)+'px';
+
+// Position container at bottom-left
+const margin = 20;
+container.style.left = margin+'px';
+container.style.bottom = margin+'px';
+container.style.width = parseFloat(e.style.width)+parseFloat(f.style.width)+'px';
+container.style.height = parseFloat(e.style.height)+parseFloat(f.style.height)+'px';
+
+// --- Collision helper ---
+function collides(rect1, rect2){
+  return !(rect1.right <= rect2.left ||
+           rect1.left >= rect2.right ||
+           rect1.bottom <= rect2.top ||
+           rect1.top >= rect2.bottom);
+}
+
+// --- Phase 1: Expand A-D vertically ---
+function expandTopSquares(){
+  const vh = window.innerHeight;
+  const heights = squares.slice(0,4).map(sq => parseFloat(sq.style.height));
+  const topD = parseFloat(squares[3].style.top);
+  const bottomD = topD + parseFloat(squares[3].style.height);
+
+  if(bottomD >= vh - margin){
+    expandContainer(); // Phase 2
+    return;
+  }
+
+  // Increase A-D by 1%
+  for(let i=0;i<4;i++){
+    squares[i].style.width = (heights[i]*1.01)+'px';
+    squares[i].style.height = (heights[i]*1.01)+'px';
+  }
+
+  // Re-stack vertically
+  let currentTop = 0;
+  for(let i=0;i<4;i++){
+    squares[i].style.top = currentTop + 'px';
+    currentTop += parseFloat(squares[i].style.height);
+  }
+
+  requestAnimationFrame(expandTopSquares);
+}
+
+// --- Phase 2: Expand E/F container ---
+function expandContainer(){
+  const step = 1.01;
+  function expand(){
+    const rect = container.getBoundingClientRect();
+    const nextWidth = rect.width * step;
+    const nextHeight = rect.height * step;
+
+    const nextLeft = parseFloat(container.style.left);
+    const nextBottom = parseFloat(container.style.bottom);
+    const nextTop = window.innerHeight - nextBottom - nextHeight;
+    const nextRect = {left: nextLeft, top: nextTop, right: nextLeft+nextWidth, bottom: nextTop+nextHeight};
+
+    // Check collision with A-D
+    let collision = false;
+    for(let i=0;i<4;i++){
+      const sq = squares[i];
+      const sqRect = sq.getBoundingClientRect();
+      if(collides(nextRect, sqRect)){
+        collision = true;
+        break;
+      }
+    }
+
+    if(collision){
+      expandEFInsideContainer(); // Phase 3
+      return;
+    }
+
+    // Apply new size
+    container.style.width = nextWidth+'px';
+    container.style.height = nextHeight+'px';
+
+    // Reposition E/F inside container diagonally
+    e.style.left = '0px';
+    e.style.bottom = '0px';
+    f.style.left = nextWidth - parseFloat(f.style.width)+'px';
+    f.style.bottom = nextHeight - parseFloat(f.style.height)+'px';
+
+    requestAnimationFrame(expand);
+  }
+  expand();
+}
+
+// --- Phase 3: Scale E/F to fill container ---
+function expandEFInsideContainer(){
+  const step = 1.01;
+  function expand(){
+    const containerWidth = parseFloat(container.style.width);
+    const containerHeight = parseFloat(container.style.height);
+
+    // Proposed next size
+    const eW = parseFloat(e.style.width) * step;
+    const eH = parseFloat(e.style.height) * step;
+    const fW = parseFloat(f.style.width) * step;
+    const fH = parseFloat(f.style.height) * step;
+
+    // Check if E/F will exceed container
+    const fLeft = eW; // diagonal
+    const fBottom = eH;
+    const fRight = fLeft + fW;
+    const fTop = fBottom + fH;
+
+    if(fRight > containerWidth || fTop > containerHeight) return; // stop expansion
+
+    // Apply new sizes
+    e.style.width = eW+'px';
+    e.style.height = eH+'px';
+    f.style.width = fW+'px';
+    f.style.height = fH+'px';
+
+    // Reposition diagonally
+    e.style.left = '0px';
+    e.style.bottom = '0px';
+    f.style.left = eW+'px';
+    f.style.bottom = eH+'px';
+
+    requestAnimationFrame(expand);
+  }
+  expand();
+}
+
+// Start phase 1
+expandTopSquares();
+</script>
 </body>
 </html>

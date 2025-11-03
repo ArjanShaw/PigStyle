@@ -82,13 +82,13 @@ for (let i=0;i<6;i++){
   squares.push(sq);
 }
 
-// --- Square A: pigstyle_text.png double again ---
+// --- Square A ---
 const a = squares[0];
 a.textContent = '';
 a.style.backgroundColor = 'transparent';
 const imgA = document.createElement('img');
 imgA.src = 'images/pigstyle_text.png';
-imgA.style.width = '400%'; // doubled again
+imgA.style.width = '400%';
 imgA.style.height = '400%';
 imgA.style.objectFit = 'contain';
 imgA.style.position = 'absolute';
@@ -97,7 +97,7 @@ imgA.style.top = '50%';
 imgA.style.transform = 'translate(-50%, -50%)';
 a.appendChild(imgA);
 
-// --- Square B: music_text.png ---
+// --- Square B ---
 const b = squares[1];
 b.textContent = '';
 b.style.backgroundColor = 'transparent';
@@ -108,7 +108,7 @@ imgB.style.height = '100%';
 imgB.style.objectFit = 'contain';
 b.appendChild(imgB);
 
-// --- Square C: Bulleted list (wide, original font size) ---
+// --- Square C: bullets ---
 const c = squares[2];
 c.textContent = '';
 c.style.backgroundColor = 'transparent';
@@ -123,7 +123,7 @@ bullets.innerHTML = `
 `;
 c.appendChild(bullets);
 
-// --- Square D: contact info (transparent) ---
+// --- Square D: contact ---
 const d = squares[3];
 d.textContent = '';
 d.style.backgroundColor = 'transparent';
@@ -156,7 +156,7 @@ const f = squares[5];
 container.appendChild(e);
 container.appendChild(f);
 
-// --- Square E: pig_head.png ---
+// --- Square E ---
 e.textContent = '';
 e.style.backgroundColor = 'transparent';
 const imgE = document.createElement('img');
@@ -166,7 +166,7 @@ imgE.style.height = '100%';
 imgE.style.objectFit = 'contain';
 e.appendChild(imgE);
 
-// --- Square F: yellow-record.png ---
+// --- Square F ---
 f.textContent = '';
 f.style.backgroundColor = 'transparent';
 const imgF = document.createElement('img');
@@ -197,21 +197,28 @@ function collides(rect1, rect2){
            rect1.top >= rect2.bottom);
 }
 
-// --- Phase 1: Expand A-D vertically ---
+// --- Phase 1: Expand A-D vertically with 90% width cap ---
 function expandTopSquares(){
   const vh = window.innerHeight;
+  const vw = window.innerWidth;
+  const maxWidth = vw * 0.9;
   const heights = squares.slice(0,4).map(sq => parseFloat(sq.style.height));
   const topD = parseFloat(squares[3].style.top);
   const bottomD = topD + parseFloat(squares[3].style.height);
 
-  if(bottomD >= vh - margin){
+  if(bottomD >= vh - margin) {
     expandContainer();
     return;
   }
 
   for(let i=0;i<4;i++){
-    squares[i].style.width = (heights[i]*1.01)+'px';
-    squares[i].style.height = (heights[i]*1.01)+'px';
+    const newSize = heights[i]*1.01;
+    if(newSize > maxWidth) {
+      expandContainer();
+      return;
+    }
+    squares[i].style.width = newSize+'px';
+    squares[i].style.height = newSize+'px';
   }
 
   let currentTop = 0;
@@ -223,9 +230,12 @@ function expandTopSquares(){
   requestAnimationFrame(expandTopSquares);
 }
 
-// --- Phase 2: Expand E/F container ---
+// --- Phase 2: Expand E/F container with 90% width cap ---
 function expandContainer(){
   const step = 1.01;
+  const vw = window.innerWidth;
+  const maxWidth = vw * 0.9;
+
   function expand(){
     const rect = container.getBoundingClientRect();
     const nextWidth = rect.width * step;
@@ -234,6 +244,11 @@ function expandContainer(){
     const nextBottom = parseFloat(container.style.bottom);
     const nextTop = window.innerHeight - nextBottom - nextHeight;
     const nextRect = {left: nextLeft, top: nextTop, right: nextLeft+nextWidth, bottom: nextTop+nextHeight};
+
+    if(nextWidth > maxWidth){
+      expandEFInsideContainer();
+      return;
+    }
 
     let collision = false;
     for(let i=0;i<4;i++){
@@ -263,23 +278,21 @@ function expandContainer(){
   expand();
 }
 
-// --- Phase 3: Expand E/F inside container ---
+// --- Phase 3: Expand E/F inside container with 90% width cap ---
 function expandEFInsideContainer(){
   const step = 1.01;
+  const vw = window.innerWidth;
+  const maxWidth = vw * 0.9;
+
   function expand(){
     const containerWidth = parseFloat(container.style.width);
     const containerHeight = parseFloat(container.style.height);
-    const eW = parseFloat(e.style.width) * step;
-    const eH = parseFloat(e.style.height) * step;
-    const fW = parseFloat(f.style.width) * step;
-    const fH = parseFloat(f.style.height) * step;
+    let eW = parseFloat(e.style.width) * step;
+    let eH = parseFloat(e.style.height) * step;
+    let fW = parseFloat(f.style.width) * step;
+    let fH = parseFloat(f.style.height) * step;
 
-    const fLeft = eW;
-    const fBottom = eH;
-    const fRight = fLeft + fW;
-    const fTop = fBottom + fH;
-
-    if(fRight > containerWidth || fTop > containerHeight) return;
+    if(eW + fW > containerWidth || eW + fW > maxWidth || eH + fH > containerHeight) return;
 
     e.style.width = eW+'px';
     e.style.height = eH+'px';

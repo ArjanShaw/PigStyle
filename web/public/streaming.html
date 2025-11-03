@@ -4,15 +4,14 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.jpg">
-
-     
+    <title>Streaming Station - PigStyle Records</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        /* Base styles */
+        /* Streaming-specific styles */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
             color: white;
             height: 100vh;
             overflow: hidden;
@@ -267,8 +266,14 @@
     </style>
 </head>
 <body>
+    <!-- Background Image -->
+    <div class="background-container">
+        <img src="images/background.png" alt="Background" class="background-image">
+        <div class="background-overlay"></div>
+    </div>
+
     <header>
-        <a href='catalog.html' class='back-link'>← Back to Catalog</a>
+        <a href='index.html'><img src='images/pigstyle_text.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
         <div class="genre-selector">
             <select id="genreFilter" class="genre-select">
                 <option value="">All Genres</option>

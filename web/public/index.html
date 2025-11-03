@@ -1,340 +1,298 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Top vs Bottom Squares Expansion</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<style>
-body {
-  margin: 0;
-  padding: 0;
-  height: 100vh;
-  font-family: Arial, sans-serif;
-  position: relative;
-  background-image: url('images/background.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-.square {
-  position: absolute;
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 16px;
-  text-align: center;
-  padding: 5px;
-}
-#containerEF {
-  position: absolute;
-  border: 2px dashed transparent;
-}
-.contact {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  text-align: center;
-}
-.contact i {
-  margin-top: 5px;
-  font-size: 20px;
-  color: #3b5998;
-  cursor: pointer;
-}
-.bullets {
-  text-align: left;
-  width: 400px;
-  font-size: 32px;
-}
-.bullets a {
-  color: #FFD700;
-  text-decoration: none;
-}
-.bullets a:hover {
-  text-decoration: underline;
-}
-/* Debug overlay */
-#debugPanel {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: rgba(0,0,0,0.7);
-  color: #fff;
-  font-family: monospace;
-  font-size: 14px;
-  padding: 10px;
-  z-index: 9999;
-  max-width: 300px;
-  overflow-wrap: break-word;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>PigStyle Music Loveland</title>
+    <link rel="stylesheet" href="css/style.css" type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.jpg">
+
+    <style>
+        /* === Banner Styles === */
+        #not-in-business-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #ffcc00;
+            color: #333;
+            text-align: center;
+            padding: 25px 0;
+            font-size: 32px;
+            font-weight: bold;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border-bottom: 4px solid #ff9900;
+        }
+        
+        #not-in-business-banner p {
+            margin: 0;
+            padding: 0;
+            font-size: 32px;
+        }
+        
+        /* Adjust content to account for larger banner */
+        .fullscreen-img-container {
+            padding-top: 80px; /* Make space for the larger fixed banner */
+        }
+        
+        /* === Box for Bulleted List === */
+        .content-box {
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 800px;
+            margin: 0 auto;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .content-box ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .content-box li {
+            margin-bottom: 20px;
+            font-size: 24px;
+            line-height: 1.4;
+            color: white;
+            text-align: center;
+        }
+        
+        .content-box a {
+            color: #ffcc00;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+        
+        .content-box a:hover {
+            color: #ff9900;
+            text-decoration: underline;
+        }
+        
+        /* === Background Fade Overlay === */
+        .background-fade {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4); /* Semi-transparent overlay */
+            z-index: 5;
+            pointer-events: none; /* Allows clicking through to elements underneath */
+        }
+        
+        /* === Modal Styles === */
+        .modalOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #modalBox {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        
+        #modalImage {
+            max-width: 100%;
+            height: auto;
+            margin: 15px 0;
+        }
+        
+        .modalFooter {
+            margin-top: 20px;
+        }
+        
+        #closeBtn {
+            background-color: #ffcc00;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        #closeBtn:hover {
+            background-color: #ff9900;
+        }
+    </style>
+
+    <script>
+        // === Positioning Functions ===
+        function movePigStyleText() {
+            const img = document.getElementById("pigstyle-text");
+            img.style.top = '0';
+            img.style.left = '50%';
+            img.style.transform = 'translateX(-50%)';
+        }  
+
+        function moveRecordsText() {
+            const imgRecordText = document.getElementById("records-text");
+            const imgPigStyleText = document.getElementById("pigstyle-text");
+            imgRecordText.style.top = imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 20 + 'px';
+            imgRecordText.style.left = '50%';
+            imgRecordText.style.transform = 'translateX(-50%)';
+        }
+
+        function movePigHead() {
+            const img = document.getElementById("pighead");
+            img.style.left = '0px';
+            img.style.top = '100%';
+            img.style.transform = 'translateY(-100%)';
+            moveyellowrecord();
+        }
+
+        function resizeImage() {
+            const img = document.getElementById("mainImage");
+            img.style.height = window.innerHeight + "px";
+            img.style.width = window.innerWidth + "px";
+        }
+
+        function moveyellowrecord() {
+            const imgRecord = document.getElementById("yellow-record");
+            const imgPigHead = document.getElementById("pighead");
+            imgRecord.style.left = (imgPigHead.offsetLeft + imgPigHead.offsetWidth) + 'px';
+            imgRecord.style.bottom = '200px';
+        }
+
+        function moveBulletedList() {
+            const imgRecordText = document.getElementById("records-text");
+            const hdrs = document.getElementById("headers");
+            hdrs.style.top = imgRecordText.offsetTop + imgRecordText.offsetHeight + 'px';
+            hdrs.style.left = '50%';
+            hdrs.style.transform = 'translateX(-50%)';
+        }
+
+        function resize() {
+            resizeImage();
+            movePigHead();
+            movePigStyleText();
+            moveRecordsText();
+            moveyellowrecord();
+            moveBulletedList();
+        }
+
+        // === Popup Functionality ===
+        function setupPopup() {
+            const links = document.querySelectorAll('.popup-link');
+            const overlay = document.getElementById('vinylOverlay');
+            const modalBox = document.getElementById('modalBox');
+            const titleElem = document.getElementById('modalTitle');
+            const contentElem = document.getElementById('modalContent');
+            const imageElem = document.getElementById('modalImage');
+            const closeBtn = document.getElementById('closeBtn');
+
+            overlay.style.display = 'none';
+
+            links.forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    titleElem.textContent = this.dataset.title || '';
+                    contentElem.innerHTML = this.dataset.content || '';
+                    imageElem.src = this.dataset.img || '';
+                    overlay.style.display = 'flex';
+
+                    const { innerWidth, innerHeight } = window;
+                    const { offsetWidth, offsetHeight } = modalBox;
+                    modalBox.style.position = 'fixed';
+                    modalBox.style.left = (innerWidth - offsetWidth) / 2 + 'px';
+                    modalBox.style.top = (innerHeight - offsetHeight) / 2 + 'px';
+                });
+            });
+
+            closeBtn.addEventListener('click', () => overlay.style.display = 'none');
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
+        }
+
+        function init() {
+            resize();
+            setupPopup();
+        }
+
+        window.addEventListener('load', init);
+        window.addEventListener("resize", init);
+        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) resize(); });
+    </script>
 </head>
+
 <body>
+    <!-- "Not in Business Yet" Banner -->
+    <div id="not-in-business-banner">
+        <p>🚧 PigStyle Music is not yet open for business - Coming Soon! 🚧</p>
+    </div>
 
-<div id="debugPanel">Debug info will appear here</div>
+    <div class="fullscreen-img-container">
+        <!-- Background Fade Overlay -->
+        <div class="background-fade"></div>
 
-<script>
-const debug = document.getElementById('debugPanel');
+        <!-- Background and Decorative Images -->
+        <img style="position: absolute;" id="mainImage" src="images/background.png" alt="logo">
+        <img style="position: absolute;" id="pighead" src="images/pig_head.png" alt="logo">
+        <img style="position: absolute;" id="pigstyle-text" src="images/pigstyle_text.png" alt="logo">
+        <img style="position: absolute;" id="records-text" style="width: 800px;" src="images/music_text.png" alt="logo">
+        <img style="position: absolute;" id="yellow-record" src="images/yellow-record.png" alt="logo">
 
-const sizes = [120,150,180,100,80,60]; 
-const labels = ['A','B','C','D','E','F'];
-const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFA726','#7E57C2'];
+        <!-- Header Navigation -->
+        <div id="headers" style="font-size: 40px; color: white; position: absolute;" class="header">
+            <div class="content-box">
+                <ul>
+                    <li>
+                        Browse vinyl records, cassettes and CD's. The store is not open yet, but I am buying 
+                        records, CD's and tapes. Meet me at the store during most office hours, call or email. 
+                    </li>
+                    <li>
+                        Browse music <a href="catalog.html">here</a>
+                    </li>
+                    <li>
+                        Listen to some <a href="streaming.html">songs</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
 
-const squares = [];
-for (let i=0;i<6;i++){
-  const sq = document.createElement('div');
-  sq.className = 'square';
-  sq.id = 'square'+labels[i];
-  sq.style.width = sizes[i]+'px';
-  sq.style.height = sizes[i]+'px';
-  sq.style.backgroundColor = colors[i];
-  sq.textContent = labels[i];
-  document.body.appendChild(sq);
-  squares.push(sq);
-}
+        <!-- Store Info -->
+        <div id="storeInfo" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 24px; text-align: center;">
+            <p id="storeAddress">Address: 100 E 3rd Loveland CO</p>
+            <p id="storeHours">Hours: Mon-Sat 10am - 6pm, Sun 12pm - 6pm</p>
+            <div id="socialIcons" style="margin-top: 10px;">
+                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-facebook"></i></a>
+                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-instagram"></i></a>
+            </div>
+        </div>
 
-// --- Square A ---
-const a = squares[0];
-a.textContent = '';
-a.style.backgroundColor = 'transparent';
-const imgA = document.createElement('img');
-imgA.src = 'images/pigstyle_text.png';
-imgA.style.width = '400%';
-imgA.style.height = '400%';
-imgA.style.objectFit = 'contain';
-imgA.style.position = 'absolute';
-imgA.style.left = '50%';
-imgA.style.top = '50%';
-imgA.style.transform = 'translate(-50%, -50%)';
-a.appendChild(imgA);
+        <!-- Modal -->
+        <div class="modalOverlay" id="vinylOverlay">
+            <div id="modalBox">
+                <h1 id="modalTitle">Title</h1>
+                <img id="modalImage" src="" alt="Popup Image">
+                <p id="modalContent">Content goes here</p>
+                <div class="modalFooter">
+                    <button id="closeBtn">Close</button>
+                </div>
+            </div>
+        </div>
 
-// --- Square B ---
-const b = squares[1];
-b.textContent = '';
-b.style.backgroundColor = 'transparent';
-const imgB = document.createElement('img');
-imgB.src = 'images/music_text.png';
-imgB.style.width = '100%';
-imgB.style.height = '100%';
-imgB.style.objectFit = 'contain';
-b.appendChild(imgB);
-
-// --- Square C: bullets ---
-const c = squares[2];
-c.textContent = '';
-c.style.backgroundColor = 'transparent';
-const bullets = document.createElement('div');
-bullets.className = 'bullets';
-bullets.innerHTML = `
-  <ul>
-    <li>Buy and sell records, cassettes, and CDs</li>
-    <li><a href="catalog.html">Browse our inventory</a></li>
-    <li><a href="streaming.html">Listen to tracks online</a></li>
-  </ul>
-`;
-c.appendChild(bullets);
-
-// --- Square D: contact ---
-const d = squares[3];
-d.textContent = '';
-d.style.backgroundColor = 'transparent';
-d.style.color = 'white';
-const contactDiv = document.createElement('div');
-contactDiv.className = 'contact';
-contactDiv.innerHTML = `
-  <div>Email: pigstyle.loveland@gmail.com</div>
-  <div>Address: 100 E 3rd Street</div>
-  <i class="fab fa-facebook-square"></i>
-`;
-d.appendChild(contactDiv);
-
-// --- Stack A-D at top ---
-let currentTop = 0;
-for (let i=0;i<4;i++){
-  squares[i].style.left = '50%';
-  squares[i].style.top = currentTop + 'px';
-  squares[i].style.transform = 'translateX(-50%)';
-  currentTop += sizes[i];
-}
-
-// --- Container for E/F ---
-const container = document.createElement('div');
-container.id = 'containerEF';
-document.body.appendChild(container);
-
-const e = squares[4];
-const f = squares[5];
-container.appendChild(e);
-container.appendChild(f);
-
-// --- Square E ---
-e.textContent = '';
-e.style.backgroundColor = 'transparent';
-const imgE = document.createElement('img');
-imgE.src = 'images/pig_head.png';
-imgE.style.width = '100%';
-imgE.style.height = '100%';
-imgE.style.objectFit = 'contain';
-e.appendChild(imgE);
-
-// --- Square F ---
-f.textContent = '';
-f.style.backgroundColor = 'transparent';
-const imgF = document.createElement('img');
-imgF.src = 'images/yellow-record.png';
-imgF.style.width = '100%';
-imgF.style.height = '100%';
-imgF.style.objectFit = 'contain';
-f.appendChild(imgF);
-
-e.style.position = 'absolute';
-f.style.position = 'absolute';
-e.style.left = '0px';
-e.style.bottom = '0px';
-f.style.left = parseFloat(e.style.width)+'px';
-f.style.bottom = parseFloat(e.style.height)+'px';
-
-const margin = 20;
-container.style.left = margin+'px';
-container.style.bottom = margin+'px';
-container.style.width = parseFloat(e.style.width)+parseFloat(f.style.width)+'px';
-container.style.height = parseFloat(e.style.height)+parseFloat(f.style.height)+'px';
-
-// --- Collision helper ---
-function collides(rect1, rect2){
-  return !(rect1.right <= rect2.left ||
-           rect1.left >= rect2.right ||
-           rect1.bottom <= rect2.top ||
-           rect1.top >= rect2.bottom);
-}
-
-// --- Phase 1: Expand A-D vertically with 90% width cap and on-page debug ---
-function expandTopSquares(){
-  const vh = window.innerHeight;
-  const vw = window.innerWidth;
-  const maxWidth = vw * 0.9;
-  const heights = squares.slice(0,4).map(sq => parseFloat(sq.style.height));
-  const topD = parseFloat(squares[3].style.top);
-  const bottomD = topD + parseFloat(squares[3].style.height);
-
-  if(bottomD >= vh - margin) {
-    expandContainer();
-    return;
-  }
-
-  for(let i=0;i<4;i++){
-    const newSize = heights[i]*1.005; // slower
-    if(newSize > maxWidth) {
-      expandContainer();
-      return;
-    }
-    squares[i].style.width = newSize+'px';
-    squares[i].style.height = newSize+'px';
-  }
-
-  let currentTop = 0;
-  for(let i=0;i<4;i++){
-    squares[i].style.top = currentTop + 'px';
-    currentTop += parseFloat(squares[i].style.height);
-  }
-
-  debug.innerHTML = `Top squares widths:<br>
-  A=${squares[0].style.width}, B=${squares[1].style.width}, C=${squares[2].style.width}, D=${squares[3].style.width}<br>
-  Screen width: ${vw}px`;
-
-  requestAnimationFrame(expandTopSquares);
-}
-
-// --- Phase 2: Expand E/F container with debug ---
-function expandContainer(){
-  const step = 1.005;
-  const vw = window.innerWidth;
-  const maxWidth = vw * 0.9;
-
-  function expand(){
-    const rect = container.getBoundingClientRect();
-    const nextWidth = rect.width * step;
-    const nextHeight = rect.height * step;
-    const nextLeft = parseFloat(container.style.left);
-    const nextBottom = parseFloat(container.style.bottom);
-    const nextTop = window.innerHeight - nextBottom - nextHeight;
-    const nextRect = {left: nextLeft, top: nextTop, right: nextLeft+nextWidth, bottom: nextTop+nextHeight};
-
-    if(nextWidth > maxWidth){
-      expandEFInsideContainer();
-      return;
-    }
-
-    let collision = false;
-    for(let i=0;i<4;i++){
-      const sq = squares[i];
-      const sqRect = sq.getBoundingClientRect();
-      if(collides(nextRect, sqRect)){
-        collision = true;
-        break;
-      }
-    }
-
-    if(collision){
-      expandEFInsideContainer();
-      return;
-    }
-
-    container.style.width = nextWidth+'px';
-    container.style.height = nextHeight+'px';
-
-    e.style.left = '0px';
-    e.style.bottom = '0px';
-    f.style.left = nextWidth - parseFloat(f.style.width)+'px';
-    f.style.bottom = nextHeight - parseFloat(f.style.height)+'px';
-
-    debug.innerHTML = `Container width: ${nextWidth}px, Screen width: ${vw}px`;
-
-    requestAnimationFrame(expand);
-  }
-  expand();
-}
-
-// --- Phase 3: Expand E/F inside container with debug ---
-function expandEFInsideContainer(){
-  const step = 1.005;
-  const vw = window.innerWidth;
-  const maxWidth = vw * 0.9;
-
-  function expand(){
-    const containerWidth = parseFloat(container.style.width);
-    const containerHeight = parseFloat(container.style.height);
-    let eW = parseFloat(e.style.width) * step;
-    let eH = parseFloat(e.style.height) * step;
-    let fW = parseFloat(f.style.width) * step;
-    let fH = parseFloat(f.style.height) * step;
-
-    if(eW + fW > containerWidth || eW + fW > maxWidth || eH + fH > containerHeight) return;
-
-    e.style.width = eW+'px';
-    e.style.height = eH+'px';
-    f.style.width = fW+'px';
-    f.style.height = fH+'px';
-
-    e.style.left = '0px';
-    e.style.bottom = '0px';
-    f.style.left = eW+'px';
-    f.style.bottom = eH+'px';
-
-    debug.innerHTML = `E/F widths: E=${eW}px, F=${fW}px, Container=${containerWidth}px, Screen width=${vw}px`;
-
-    requestAnimationFrame(expand);
-  }
-  expand();
-}
-
-expandTopSquares();
-</script>
+    </div>
 </body>
 </html>

@@ -85,7 +85,7 @@
             margin: 0;
         }
         
-        /* Video player */
+        /* Video player with record image overlay */
         .video-container {
             width: 90%;
             max-width: 1000px;
@@ -101,6 +101,22 @@
             width: 100%;
             height: 100%;
             border: none;
+        }
+        
+        .record-image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        .video-playing .record-image-overlay {
+            display: none;
         }
         
         /* Navigation controls */
@@ -300,7 +316,8 @@
                 <p class="genre" id="trackGenre">Genre</p>
             </div>
             
-            <div class="video-container">
+            <div class="video-container" id="videoContainer">
+                <div class="record-image-overlay" id="recordImageOverlay"></div>
                 <div id="youtube-player"></div>
             </div>
             
@@ -457,6 +474,13 @@
             const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
             document.getElementById('trackPrice').textContent = price;
             
+            // Set record image as overlay
+            const recordImageUrl = currentRecord.image_url || 'images/default-record.jpg';
+            document.getElementById('recordImageOverlay').style.backgroundImage = `url('${recordImageUrl}')`;
+            
+            // Reset video container class
+            document.getElementById('videoContainer').classList.remove('video-playing');
+            
             // Create or update YouTube player
             if (!youtubePlayer) {
                 youtubePlayer = new YT.Player('youtube-player', {
@@ -492,6 +516,10 @@
 
         // YouTube player state change callback
         function onPlayerStateChange(event) {
+            // When video starts playing, hide the record image overlay
+            if (event.data === YT.PlayerState.PLAYING) {
+                document.getElementById('videoContainer').classList.add('video-playing');
+            }
             // When video ends, play next track
             if (event.data === YT.PlayerState.ENDED) {
                 playNextTrack();

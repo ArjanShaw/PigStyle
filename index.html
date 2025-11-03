@@ -260,14 +260,15 @@
             }
         }
         
+        /* Keep record to the right of pig head on mobile */
         @media (max-width: 480px) {
             .record-container {
-                flex-direction: column;
+                flex-direction: row; /* Changed from column to row */
             }
             
             .pig-head {
-                margin-right: 0;
-                margin-bottom: 15px;
+                margin-right: 15px; /* Keep margin on right */
+                margin-bottom: 0; /* Remove bottom margin */
             }
             
             .content-box {

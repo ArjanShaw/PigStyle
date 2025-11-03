@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Top vs Bottom Squares Expansion</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 body {
   margin: 0;
@@ -10,20 +11,55 @@ body {
   height: 100vh;
   font-family: Arial, sans-serif;
   position: relative;
+
+  /* Background image */
+  background-image: url('images/background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .square {
   position: absolute;
   border-radius: 10px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: bold;
-  font-size: 18px;
+  font-size: 16px;
+  text-align: center;
+  padding: 5px;
 }
 #containerEF {
   position: absolute;
-  border: 2px dashed blue; /* visualize the container */
+  border: 2px dashed transparent; /* Invisible but still there */
+}
+.contact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  text-align: center;
+}
+.contact i {
+  margin-top: 5px;
+  font-size: 20px;
+  color: #3b5998; /* Facebook blue */
+  cursor: pointer;
+}
+.bullets {
+  text-align: left;
+  width: 400px; /* keep double width */
+  font-size: 32px; /* original size restored */
+}
+.bullets a {
+  color: #FFD700; /* gold for links */
+  text-decoration: none;
+}
+.bullets a:hover {
+  text-decoration: underline;
 }
 </style>
 </head>
@@ -46,6 +82,61 @@ for (let i=0;i<6;i++){
   squares.push(sq);
 }
 
+// --- Square A: pigstyle_text.png double again ---
+const a = squares[0];
+a.textContent = '';
+a.style.backgroundColor = 'transparent';
+const imgA = document.createElement('img');
+imgA.src = 'images/pigstyle_text.png';
+imgA.style.width = '400%'; // doubled again
+imgA.style.height = '400%';
+imgA.style.objectFit = 'contain';
+imgA.style.position = 'absolute';
+imgA.style.left = '50%';
+imgA.style.top = '50%';
+imgA.style.transform = 'translate(-50%, -50%)';
+a.appendChild(imgA);
+
+// --- Square B: music_text.png ---
+const b = squares[1];
+b.textContent = '';
+b.style.backgroundColor = 'transparent';
+const imgB = document.createElement('img');
+imgB.src = 'images/music_text.png';
+imgB.style.width = '100%';
+imgB.style.height = '100%';
+imgB.style.objectFit = 'contain';
+b.appendChild(imgB);
+
+// --- Square C: Bulleted list (wide, original font size) ---
+const c = squares[2];
+c.textContent = '';
+c.style.backgroundColor = 'transparent';
+const bullets = document.createElement('div');
+bullets.className = 'bullets';
+bullets.innerHTML = `
+  <ul>
+    <li>Buy and sell records, cassettes, and CDs</li>
+    <li><a href="catalog.html">Browse our inventory</a></li>
+    <li><a href="streaming.html">Listen to tracks online</a></li>
+  </ul>
+`;
+c.appendChild(bullets);
+
+// --- Square D: contact info (transparent) ---
+const d = squares[3];
+d.textContent = '';
+d.style.backgroundColor = 'transparent';
+d.style.color = 'white';
+const contactDiv = document.createElement('div');
+contactDiv.className = 'contact';
+contactDiv.innerHTML = `
+  <div>Email: pigstyle.loveland@gmail.com</div>
+  <div>Address: 100 E 3rd Street</div>
+  <i class="fab fa-facebook-square"></i>
+`;
+d.appendChild(contactDiv);
+
 // --- Stack A-D at top ---
 let currentTop = 0;
 for (let i=0;i<4;i++){
@@ -55,7 +146,7 @@ for (let i=0;i<4;i++){
   currentTop += sizes[i];
 }
 
-// --- Create container for E/F ---
+// --- Container for E/F ---
 const container = document.createElement('div');
 container.id = 'containerEF';
 document.body.appendChild(container);
@@ -65,7 +156,26 @@ const f = squares[5];
 container.appendChild(e);
 container.appendChild(f);
 
-// Initial positions relative to container
+// --- Square E: pig_head.png ---
+e.textContent = '';
+e.style.backgroundColor = 'transparent';
+const imgE = document.createElement('img');
+imgE.src = 'images/pig_head.png';
+imgE.style.width = '100%';
+imgE.style.height = '100%';
+imgE.style.objectFit = 'contain';
+e.appendChild(imgE);
+
+// --- Square F: yellow-record.png ---
+f.textContent = '';
+f.style.backgroundColor = 'transparent';
+const imgF = document.createElement('img');
+imgF.src = 'images/yellow-record.png';
+imgF.style.width = '100%';
+imgF.style.height = '100%';
+imgF.style.objectFit = 'contain';
+f.appendChild(imgF);
+
 e.style.position = 'absolute';
 f.style.position = 'absolute';
 e.style.left = '0px';
@@ -73,7 +183,6 @@ e.style.bottom = '0px';
 f.style.left = parseFloat(e.style.width)+'px';
 f.style.bottom = parseFloat(e.style.height)+'px';
 
-// Position container at bottom-left
 const margin = 20;
 container.style.left = margin+'px';
 container.style.bottom = margin+'px';
@@ -96,17 +205,15 @@ function expandTopSquares(){
   const bottomD = topD + parseFloat(squares[3].style.height);
 
   if(bottomD >= vh - margin){
-    expandContainer(); // Phase 2
+    expandContainer();
     return;
   }
 
-  // Increase A-D by 1%
   for(let i=0;i<4;i++){
     squares[i].style.width = (heights[i]*1.01)+'px';
     squares[i].style.height = (heights[i]*1.01)+'px';
   }
 
-  // Re-stack vertically
   let currentTop = 0;
   for(let i=0;i<4;i++){
     squares[i].style.top = currentTop + 'px';
@@ -123,13 +230,11 @@ function expandContainer(){
     const rect = container.getBoundingClientRect();
     const nextWidth = rect.width * step;
     const nextHeight = rect.height * step;
-
     const nextLeft = parseFloat(container.style.left);
     const nextBottom = parseFloat(container.style.bottom);
     const nextTop = window.innerHeight - nextBottom - nextHeight;
     const nextRect = {left: nextLeft, top: nextTop, right: nextLeft+nextWidth, bottom: nextTop+nextHeight};
 
-    // Check collision with A-D
     let collision = false;
     for(let i=0;i<4;i++){
       const sq = squares[i];
@@ -141,15 +246,13 @@ function expandContainer(){
     }
 
     if(collision){
-      expandEFInsideContainer(); // Phase 3
+      expandEFInsideContainer();
       return;
     }
 
-    // Apply new size
     container.style.width = nextWidth+'px';
     container.style.height = nextHeight+'px';
 
-    // Reposition E/F inside container diagonally
     e.style.left = '0px';
     e.style.bottom = '0px';
     f.style.left = nextWidth - parseFloat(f.style.width)+'px';
@@ -160,34 +263,29 @@ function expandContainer(){
   expand();
 }
 
-// --- Phase 3: Scale E/F to fill container ---
+// --- Phase 3: Expand E/F inside container ---
 function expandEFInsideContainer(){
   const step = 1.01;
   function expand(){
     const containerWidth = parseFloat(container.style.width);
     const containerHeight = parseFloat(container.style.height);
-
-    // Proposed next size
     const eW = parseFloat(e.style.width) * step;
     const eH = parseFloat(e.style.height) * step;
     const fW = parseFloat(f.style.width) * step;
     const fH = parseFloat(f.style.height) * step;
 
-    // Check if E/F will exceed container
-    const fLeft = eW; // diagonal
+    const fLeft = eW;
     const fBottom = eH;
     const fRight = fLeft + fW;
     const fTop = fBottom + fH;
 
-    if(fRight > containerWidth || fTop > containerHeight) return; // stop expansion
+    if(fRight > containerWidth || fTop > containerHeight) return;
 
-    // Apply new sizes
     e.style.width = eW+'px';
     e.style.height = eH+'px';
     f.style.width = fW+'px';
     f.style.height = fH+'px';
 
-    // Reposition diagonally
     e.style.left = '0px';
     e.style.bottom = '0px';
     f.style.left = eW+'px';
@@ -198,7 +296,6 @@ function expandEFInsideContainer(){
   expand();
 }
 
-// Start phase 1
 expandTopSquares();
 </script>
 </body>

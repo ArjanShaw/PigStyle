@@ -1,53 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>PigStyle Music Loveland</title>
-    <link rel="stylesheet" href="css/style.css" type="text/css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PigStyle Music Loveland - Coming Soon</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.jpg">
-
     <style>
-        /* === Banner Styles === */
-        #not-in-business-banner {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        
+        /* Background Image */
+        .background-container {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            background-color: #ffcc00;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .background-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .background-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+        }
+        
+        /* Banner */
+        .banner {
+            background: linear-gradient(135deg, #ffcc00, #ff9900);
             color: #333;
             text-align: center;
-            padding: 25px 0;
-            font-size: 32px;
+            padding: 15px;
             font-weight: bold;
-            z-index: 1000;
+            font-size: clamp(16px, 4vw, 22px);
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            border-bottom: 4px solid #ff9900;
+            z-index: 100;
+            position: relative;
         }
         
-        #not-in-business-banner p {
-            margin: 0;
-            padding: 0;
-            font-size: 32px;
-        }
-        
-        /* Adjust content to account for larger banner */
-        .fullscreen-img-container {
-            padding-top: 80px; /* Make space for the larger fixed banner */
-        }
-        
-        /* === Box for Bulleted List === */
-        .content-box {
-            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
-            border-radius: 15px;
-            padding: 30px;
-            max-width: 800px;
+        /* Main Container */
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            max-width: 1200px;
             margin: 0 auto;
+            width: 100%;
+        }
+        
+        /* Top Section - Logo and Title */
+        .top-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            width: 100%;
+        }
+        
+        .pigstyle-logo {
+            max-width: 400px;
+            width: 80%;
+            margin-bottom: 20px;
+        }
+        
+        .music-title {
+            max-width: 300px;
+            width: 60%;
+        }
+        
+        /* Content Box */
+        .content-box {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            width: 90%;
+            max-width: 800px;
+            margin: 20px 0;
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
             border: 2px solid rgba(255, 255, 255, 0.2);
-            position: relative;
-            z-index: 10;
         }
         
         .content-box ul {
@@ -57,8 +112,8 @@
         }
         
         .content-box li {
-            margin-bottom: 20px;
-            font-size: 24px;
+            margin-bottom: 15px;
+            font-size: clamp(16px, 3vw, 20px);
             line-height: 1.4;
             color: white;
             text-align: center;
@@ -76,19 +131,71 @@
             text-decoration: underline;
         }
         
-        /* === Background Fade Overlay === */
-        .background-fade {
-            position: absolute;
-            top: 0;
-            left: 0;
+        /* Bottom Section - Record and Store Info */
+        .bottom-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.4); /* Semi-transparent overlay */
-            z-index: 5;
-            pointer-events: none; /* Allows clicking through to elements underneath */
+            margin-bottom: 20px;
         }
         
-        /* === Modal Styles === */
+        .record-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            width: 100%;
+        }
+        
+        .rotating-record {
+            max-width: 200px;
+            width: 40%;
+            animation: spin 20s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .pig-head {
+            max-width: 150px;
+            width: 30%;
+            margin-right: 20px;
+        }
+        
+        /* Store Info */
+        .store-info {
+            text-align: center;
+            font-size: clamp(14px, 2.5vw, 18px);
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+        }
+        
+        .store-info p {
+            margin: 8px 0;
+        }
+        
+        .social-icons {
+            margin-top: 15px;
+        }
+        
+        .social-icons a {
+            color: white;
+            margin: 0 15px;
+            font-size: 24px;
+            transition: color 0.3s;
+        }
+        
+        .social-icons a:hover {
+            color: #ffcc00;
+        }
+        
+        /* Modal Styles */
         .modalOverlay {
             display: none;
             position: fixed;
@@ -110,12 +217,14 @@
             width: 90%;
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
             text-align: center;
+            color: #333;
         }
         
         #modalImage {
             max-width: 100%;
             height: auto;
             margin: 15px 0;
+            border-radius: 5px;
         }
         
         .modalFooter {
@@ -135,164 +244,108 @@
         #closeBtn:hover {
             background-color: #ff9900;
         }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .pig-head {
+                max-width: 120px;
+            }
+            
+            .rotating-record {
+                max-width: 150px;
+            }
+            
+            .content-box {
+                padding: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .record-container {
+                flex-direction: column;
+            }
+            
+            .pig-head {
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+            
+            .content-box {
+                padding: 15px;
+            }
+        }
     </style>
-
-    <script>
-        // === Positioning Functions ===
-        function movePigStyleText() {
-            const img = document.getElementById("pigstyle-text");
-            img.style.top = '0';
-            img.style.left = '50%';
-            img.style.transform = 'translateX(-50%)';
-        }  
-
-        function moveRecordsText() {
-            const imgRecordText = document.getElementById("records-text");
-            const imgPigStyleText = document.getElementById("pigstyle-text");
-            imgRecordText.style.top = imgPigStyleText.offsetTop + imgPigStyleText.offsetHeight + 20 + 'px';
-            imgRecordText.style.left = '50%';
-            imgRecordText.style.transform = 'translateX(-50%)';
-        }
-
-        function movePigHead() {
-            const img = document.getElementById("pighead");
-            img.style.left = '0px';
-            img.style.top = '100%';
-            img.style.transform = 'translateY(-100%)';
-            moveyellowrecord();
-        }
-
-        function resizeImage() {
-            const img = document.getElementById("mainImage");
-            img.style.height = window.innerHeight + "px";
-            img.style.width = window.innerWidth + "px";
-        }
-
-        function moveyellowrecord() {
-            const imgRecord = document.getElementById("yellow-record");
-            const imgPigHead = document.getElementById("pighead");
-            imgRecord.style.left = (imgPigHead.offsetLeft + imgPigHead.offsetWidth) + 'px';
-            imgRecord.style.bottom = '200px';
-        }
-
-        function moveBulletedList() {
-            const imgRecordText = document.getElementById("records-text");
-            const hdrs = document.getElementById("headers");
-            hdrs.style.top = imgRecordText.offsetTop + imgRecordText.offsetHeight + 'px';
-            hdrs.style.left = '50%';
-            hdrs.style.transform = 'translateX(-50%)';
-        }
-
-        function resize() {
-            resizeImage();
-            movePigHead();
-            movePigStyleText();
-            moveRecordsText();
-            moveyellowrecord();
-            moveBulletedList();
-        }
-
-        // === Popup Functionality ===
-        function setupPopup() {
-            const links = document.querySelectorAll('.popup-link');
-            const overlay = document.getElementById('vinylOverlay');
-            const modalBox = document.getElementById('modalBox');
-            const titleElem = document.getElementById('modalTitle');
-            const contentElem = document.getElementById('modalContent');
-            const imageElem = document.getElementById('modalImage');
-            const closeBtn = document.getElementById('closeBtn');
-
-            overlay.style.display = 'none';
-
-            links.forEach(link => {
-                link.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    titleElem.textContent = this.dataset.title || '';
-                    contentElem.innerHTML = this.dataset.content || '';
-                    imageElem.src = this.dataset.img || '';
-                    overlay.style.display = 'flex';
-
-                    const { innerWidth, innerHeight } = window;
-                    const { offsetWidth, offsetHeight } = modalBox;
-                    modalBox.style.position = 'fixed';
-                    modalBox.style.left = (innerWidth - offsetWidth) / 2 + 'px';
-                    modalBox.style.top = (innerHeight - offsetHeight) / 2 + 'px';
-                });
-            });
-
-            closeBtn.addEventListener('click', () => overlay.style.display = 'none');
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.style.display = 'none'; });
-        }
-
-        function init() {
-            resize();
-            setupPopup();
-        }
-
-        window.addEventListener('load', init);
-        window.addEventListener("resize", init);
-        document.addEventListener('DOMContentLoaded', init);
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) resize(); });
-    </script>
 </head>
 
 <body>
+    <!-- Background Image -->
+    <div class="background-container">
+        <img src="images/background.png" alt="Background" class="background-image">
+        <div class="background-overlay"></div>
+    </div>
+
     <!-- "Not in Business Yet" Banner -->
-    <div id="not-in-business-banner">
+    <div class="banner">
         <p>🚧 PigStyle Music is not yet open for business - Coming Soon! 🚧</p>
     </div>
 
-    <div class="fullscreen-img-container">
-        <!-- Background Fade Overlay -->
-        <div class="background-fade"></div>
-
-        <!-- Background and Decorative Images -->
-        <img style="position: absolute;" id="mainImage" src="images/background.png" alt="logo">
-        <img style="position: absolute;" id="pighead" src="images/pig_head.png" alt="logo">
-        <img style="position: absolute;" id="pigstyle-text" src="images/pigstyle_text.png" alt="logo">
-        <img style="position: absolute;" id="records-text" style="width: 800px;" src="images/music_text.png" alt="logo">
-        <img style="position: absolute;" id="yellow-record" src="images/yellow-record.png" alt="logo">
-
-        <!-- Header Navigation -->
-        <div id="headers" style="font-size: 40px; color: white; position: absolute;" class="header">
-            <div class="content-box">
-                <ul>
-                    <li>
-                        Browse vinyl records, cassettes and CD's. The store is not open yet, but I am buying 
-                        records, CD's and tapes. Meet me at the store during most office hours, call or email. 
-                    </li>
-                    <li>
-                        Browse music <a href="catalog.html">here</a>
-                    </li>
-                    <li>
-                        Listen to some <a href="streaming.html">songs</a>
-                    </li>
-                </ul>
-            </div>
+    <!-- Main Content Container -->
+    <div class="container">
+        <!-- Top Section - Logo and Title -->
+        <div class="top-section">
+            <img src="images/pigstyle_text.png" alt="PigStyle" class="pigstyle-logo">
+            <img src="images/music_text.png" alt="Music" class="music-title">
         </div>
 
-        <!-- Store Info -->
-        <div id="storeInfo" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 24px; text-align: center;">
-            <p id="storeAddress">Address: 100 E 3rd Loveland CO</p>
-            <p id="storeHours">Hours: Mon-Sat 10am - 6pm, Sun 12pm - 6pm</p>
-            <div id="socialIcons" style="margin-top: 10px;">
-                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-facebook"></i></a>
-                <a href="#" target="_blank" style="color: white; margin: 0 15px; font-size: 36px;"><i class="fab fa-instagram"></i></a>
-            </div>
+        <!-- Content Box with Bulleted List -->
+        <div class="content-box">
+            <ul>
+                <li>
+                    Browse vinyl records, cassettes and CD's. The store is not open yet, but I am buying 
+                    records, CD's and tapes. Meet me at the store during most office hours, call or email. 
+                </li>
+                <li>
+                    Browse music <a href="catalog.html">here</a>
+                </li>
+                <li>
+                    Listen to some <a href="streaming.html">songs</a>
+                </li>
+            </ul>
         </div>
 
-        <!-- Modal -->
-        <div class="modalOverlay" id="vinylOverlay">
-            <div id="modalBox">
-                <h1 id="modalTitle">Title</h1>
-                <img id="modalImage" src="" alt="Popup Image">
-                <p id="modalContent">Content goes here</p>
-                <div class="modalFooter">
-                    <button id="closeBtn">Close</button>
+        <!-- Bottom Section - Record and Store Info -->
+        <div class="bottom-section">
+            <div class="record-container">
+                <img src="images/pig_head.png" alt="Pig Head" class="pig-head">
+                <img src="images/yellow-record.png" alt="Spinning Record" class="rotating-record">
+            </div>
+            
+            <div class="store-info">
+                <p>Address: 100 E 3rd Loveland CO</p>
+                <p>Hours: Mon-Sat 10am - 6pm, Sun 12pm - 6pm</p>
+                <div class="social-icons">
+                    <a href="#" target="_blank" aria-label="Visit our Facebook page"><i class="fab fa-facebook"></i></a>
+                    <a href="#" target="_blank" aria-label="Visit our Instagram page"><i class="fab fa-instagram"></i></a>
                 </div>
             </div>
         </div>
-
     </div>
+
+    <!-- Modal (kept for potential future use, but not used by the links anymore) -->
+    <div class="modalOverlay" id="vinylOverlay">
+        <div id="modalBox">
+            <h1 id="modalTitle">Title</h1>
+            <img id="modalImage" src="" alt="Popup Image">
+            <p id="modalContent">Content goes here</p>
+            <div class="modalFooter">
+                <button id="closeBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Popup functionality removed since links now point directly to HTML files
+        // Modal kept in case needed for other purposes
+    </script>
 </body>
 </html>

@@ -11,8 +11,6 @@ body {
   height: 100vh;
   font-family: Arial, sans-serif;
   position: relative;
-
-  /* Background image */
   background-image: url('images/background.png');
   background-size: cover;
   background-position: center;
@@ -33,7 +31,7 @@ body {
 }
 #containerEF {
   position: absolute;
-  border: 2px dashed transparent; /* Invisible but still there */
+  border: 2px dashed transparent;
 }
 .contact {
   display: flex;
@@ -46,25 +44,44 @@ body {
 .contact i {
   margin-top: 5px;
   font-size: 20px;
-  color: #3b5998; /* Facebook blue */
+  color: #3b5998;
   cursor: pointer;
 }
 .bullets {
   text-align: left;
-  width: 400px; /* keep double width */
-  font-size: 32px; /* original size restored */
+  width: 400px;
+  font-size: 32px;
 }
 .bullets a {
-  color: #FFD700; /* gold for links */
+  color: #FFD700;
   text-decoration: none;
 }
 .bullets a:hover {
   text-decoration: underline;
 }
+/* Debug overlay */
+#debugPanel {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font-family: monospace;
+  font-size: 14px;
+  padding: 10px;
+  z-index: 9999;
+  max-width: 300px;
+  overflow-wrap: break-word;
+}
 </style>
 </head>
 <body>
+
+<div id="debugPanel">Debug info will appear here</div>
+
 <script>
+const debug = document.getElementById('debugPanel');
+
 const sizes = [120,150,180,100,80,60]; 
 const labels = ['A','B','C','D','E','F'];
 const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFA726','#7E57C2'];
@@ -197,7 +214,7 @@ function collides(rect1, rect2){
            rect1.top >= rect2.bottom);
 }
 
-// --- Phase 1: Expand A-D vertically with 90% width cap ---
+// --- Phase 1: Expand A-D vertically with 90% width cap and on-page debug ---
 function expandTopSquares(){
   const vh = window.innerHeight;
   const vw = window.innerWidth;
@@ -212,7 +229,7 @@ function expandTopSquares(){
   }
 
   for(let i=0;i<4;i++){
-    const newSize = heights[i]*1.01;
+    const newSize = heights[i]*1.005; // slower
     if(newSize > maxWidth) {
       expandContainer();
       return;
@@ -227,12 +244,16 @@ function expandTopSquares(){
     currentTop += parseFloat(squares[i].style.height);
   }
 
+  debug.innerHTML = `Top squares widths:<br>
+  A=${squares[0].style.width}, B=${squares[1].style.width}, C=${squares[2].style.width}, D=${squares[3].style.width}<br>
+  Screen width: ${vw}px`;
+
   requestAnimationFrame(expandTopSquares);
 }
 
-// --- Phase 2: Expand E/F container with 90% width cap ---
+// --- Phase 2: Expand E/F container with debug ---
 function expandContainer(){
-  const step = 1.01;
+  const step = 1.005;
   const vw = window.innerWidth;
   const maxWidth = vw * 0.9;
 
@@ -273,14 +294,16 @@ function expandContainer(){
     f.style.left = nextWidth - parseFloat(f.style.width)+'px';
     f.style.bottom = nextHeight - parseFloat(f.style.height)+'px';
 
+    debug.innerHTML = `Container width: ${nextWidth}px, Screen width: ${vw}px`;
+
     requestAnimationFrame(expand);
   }
   expand();
 }
 
-// --- Phase 3: Expand E/F inside container with 90% width cap ---
+// --- Phase 3: Expand E/F inside container with debug ---
 function expandEFInsideContainer(){
-  const step = 1.01;
+  const step = 1.005;
   const vw = window.innerWidth;
   const maxWidth = vw * 0.9;
 
@@ -303,6 +326,8 @@ function expandEFInsideContainer(){
     e.style.bottom = '0px';
     f.style.left = eW+'px';
     f.style.bottom = eH+'px';
+
+    debug.innerHTML = `E/F widths: E=${eW}px, F=${fW}px, Container=${containerWidth}px, Screen width=${vw}px`;
 
     requestAnimationFrame(expand);
   }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T01:28:42Z",
-    "total_records": 595,
+    "last_updated": "2025-11-04T02:29:33Z",
+    "total_records": 596,
     "format_version": "2.0"
   },
   "records": [
@@ -8334,6 +8334,20 @@
       "catalog_number": "JE 35013",
       "format": "Vinyl",
       "condition": "5"
+    },
+    {
+      "id": 639,
+      "artist": "Heartsfield",
+      "title": "Foolish Pleasures",
+      "image_url": "https://i.discogs.com/0k1JZoAV7zWC6FA78IsEjJvwQX3tfWX53rTRPg_IWjY/rs:fit/g:sm/q:90/h:597/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4MjE4/NDQtMTM3ODYxMzky/NC00NjQzLmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995791",
+      "store_price": null,
+      "file_at": "Rock(H)",
+      "youtube_url": "https://www.youtube.com/watch?v=YQ1IswGtrrI",
+      "catalog_number": "SRM-1-1034",
+      "format": "Vinyl",
+      "condition": "3"
     }
   ]
 }

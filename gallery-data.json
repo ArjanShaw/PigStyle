@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:51:28Z",
-    "total_records": 605,
+    "last_updated": "2025-11-04T02:52:39Z",
+    "total_records": 606,
     "format_version": "2.0"
   },
   "records": [
@@ -8472,6 +8472,20 @@
       "file_at": "Classical(O)",
       "youtube_url": "https://www.youtube.com/watch?v=Ke_YuKr8kbU",
       "catalog_number": "SF-7000",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 650,
+      "artist": "Steve Winwood",
+      "title": "Arc Of A Diver",
+      "image_url": "https://i.discogs.com/Gga_riCYmj9OdNHXi8mcXmQNg09fSwKEXhzDvh9MHzE/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEyNDEy/MTYtMTY3MTA0NDUz/OS02NjI3LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995801",
+      "store_price": null,
+      "file_at": "Rock(S)",
+      "youtube_url": "https://www.youtube.com/watch?v=TN3_c21scQs",
+      "catalog_number": "ILPS 9576",
       "format": "Vinyl",
       "condition": "4"
     }

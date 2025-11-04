@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T01:25:40Z",
-    "total_records": 594,
+    "last_updated": "2025-11-04T01:28:42Z",
+    "total_records": 595,
     "format_version": "2.0"
   },
   "records": [
@@ -8318,6 +8318,20 @@
       "file_at": "Popular(J)",
       "youtube_url": "",
       "catalog_number": "CL 1344",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 638,
+      "artist": "Michael Murphey",
+      "title": "Lone Wolf",
+      "image_url": "https://i.discogs.com/_7c_Qx0DBbC3Ncem2m-elKEq31fwcY5o1nwOX2_4ung/rs:fit/g:sm/q:90/h:445/w:454/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTUzNzY4/NTUtMTM5MTg3NDQ1/MS01MTk4LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995790",
+      "store_price": null,
+      "file_at": "Rock(M)",
+      "youtube_url": "",
+      "catalog_number": "JE 35013",
       "format": "Vinyl",
       "condition": "5"
     }

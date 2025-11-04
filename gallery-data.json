@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:35:06Z",
-    "total_records": 598,
+    "last_updated": "2025-11-04T02:36:27Z",
+    "total_records": 599,
     "format_version": "2.0"
   },
   "records": [
@@ -8374,6 +8374,20 @@
       "file_at": "Electronic(G)",
       "youtube_url": "https://www.youtube.com/watch?v=nUHpPrlSMNw",
       "catalog_number": "PRO-7003",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 643,
+      "artist": "Legacy Of Sound Featuring Meja",
+      "title": "Happy",
+      "image_url": "https://i.discogs.com/wLDyf5esj8_AXtTE2h8A6srZdMNdTAjz5bttf85DvUo/rs:fit/g:sm/q:90/h:450/w:450/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM5NjQ4/NS0xMjE3MTIxOTEx/LmpwZWc.jpeg",
+      "genre": "Electronic",
+      "barcode": "200000995794",
+      "store_price": null,
+      "file_at": "Electronic(L)",
+      "youtube_url": "https://www.youtube.com/watch?v=VXl4QFshBvY",
+      "catalog_number": "07863 62522 1",
       "format": "Vinyl",
       "condition": "3"
     }

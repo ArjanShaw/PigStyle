@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-10-31T02:49:25Z",
-    "total_records": 592,
+    "last_updated": "2025-11-04T01:21:50Z",
+    "total_records": 591,
     "format_version": "2.0"
   },
   "records": [
@@ -6208,20 +6208,6 @@
       "condition": "4"
     },
     {
-      "id": 484,
-      "artist": "HTRK",
-      "title": "Rhinestones",
-      "image_url": "https://i.discogs.com/FckAOE7_EuQp-ovLXds0OtwkmcvhZvfVM68Tf4_JAuQ/rs:fit/g:sm/q:90/h:414/w:414/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIxNDUy/NDM0LTE2NDAyMTU2/NzUtNjUxMi5qcGVn.jpeg",
-      "genre": "Electronic",
-      "barcode": "200000995637",
-      "store_price": 33.99,
-      "file_at": "Electronic(H)",
-      "youtube_url": null,
-      "catalog_number": "NJB-001",
-      "format": "Vinyl",
-      "condition": "2"
-    },
-    {
       "id": 485,
       "artist": "Al Kooper",
       "title": "I Stand Alone",
@@ -8280,18 +8266,18 @@
       "condition": "4"
     },
     {
-      "id": 633,
-      "artist": "The Fatal Flowers",
-      "title": "Johnny D. Is Back!",
-      "image_url": "https://i.discogs.com/caBze8tQDK3-ICol2yUJa0gVVVcXUMMt1qTc23Wf6R4/rs:fit/g:sm/q:90/h:598/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIyNTUy/ODItMTU2OTgzMDY0/MC0xMjQ4LmpwZWc.jpeg",
-      "genre": "Rock",
+      "id": 634,
+      "artist": "Marilyn McCoo & Billy Davis, Jr.",
+      "title": "The Two Of Us",
+      "image_url": "https://i.discogs.com/aJHDF6QdnOWP4gIlxaKtqYZwXQDUHkQ4u0HKYuxzAhw/rs:fit/g:sm/q:90/h:599/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzMDIx/NjktMTM2MjgwODk2/OC0xMDEzLmpwZWc.jpeg",
+      "genre": "Jazz",
       "barcode": "200000995786",
       "store_price": null,
-      "file_at": "Rock(F)",
-      "youtube_url": "https://www.youtube.com/watch?v=SrPgSV_sXCg",
-      "catalog_number": "7 81872-1",
+      "file_at": "Jazz(M)",
+      "youtube_url": "",
+      "catalog_number": "AB-1026",
       "format": "Vinyl",
-      "condition": "4"
+      "condition": "5"
     }
   ]
 }

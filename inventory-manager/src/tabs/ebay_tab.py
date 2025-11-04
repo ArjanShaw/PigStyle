@@ -191,6 +191,8 @@ class EBayTab:
         updated_count = 0
         progress_bar = st.progress(0)
         status_text = st.empty()
+        
+        # Create containers for results display
         results_container = st.container()
         
         with results_container:
@@ -198,6 +200,8 @@ class EBayTab:
             results_placeholder = st.empty()
         
         results = []
+        matched_listings = []
+        unmatched_listings = []
         
         for i, listing in enumerate(listings_data):
             item_number = listing.get('item_number', '')
@@ -231,13 +235,36 @@ class EBayTab:
                     if success:
                         updated_count += 1
                         results.append(f"✅ Matched: {title} → {item_number}")
+                        matched_listings.append({
+                            'title': title,
+                            'item_number': item_number,
+                            'record_id': record['id'],
+                            'artist': record.get('artist', 'Unknown'),
+                            'status': 'MATCHED'
+                        })
                     else:
                         results.append(f"❌ Failed to update: {title}")
+                        unmatched_listings.append({
+                            'title': title,
+                            'item_number': item_number,
+                            'status': 'FAILED_UPDATE'
+                        })
                 else:
                     results.append(f"❌ No match found: {title}")
+                    unmatched_listings.append({
+                        'title': title,
+                        'item_number': item_number,
+                        'status': 'NO_MATCH'
+                    })
                     
             except Exception as e:
                 results.append(f"❌ Error: {title} - {str(e)}")
+                unmatched_listings.append({
+                    'title': title,
+                    'item_number': item_number,
+                    'status': 'ERROR',
+                    'error': str(e)
+                })
             
             # Update progress
             progress_bar.progress((i + 1) / len(listings_data))
@@ -253,11 +280,59 @@ class EBayTab:
         status_text.empty()
         progress_bar.empty()
         
-        # Show final summary
+        # Show final summary with ALL listings in a scrollable table
         with results_container:
             st.success(f"✅ eBay listings processing completed!")
             st.write(f"**Results:** {matched_count} matched, {updated_count} updated out of {len(listings_data)} listings")
             
+            # Create combined results table with status
+            all_results = matched_listings + unmatched_listings
+            
+            if all_results:
+                st.subheader("All Listings Results")
+                
+                # Create a DataFrame for display
+                display_data = []
+                for listing in all_results:
+                    status_icon = "✅" if listing['status'] == 'MATCHED' else "❌"
+                    status_text = {
+                        'MATCHED': 'Matched & Updated',
+                        'NO_MATCH': 'No Database Match',
+                        'FAILED_UPDATE': 'Match Found but Update Failed',
+                        'ERROR': 'Error Processing'
+                    }.get(listing['status'], listing['status'])
+                    
+                    display_data.append({
+                        'Status': f"{status_icon} {status_text}",
+                        'Title': listing['title'],
+                        'eBay Item #': listing['item_number'],
+                        'Record ID': listing.get('record_id', 'N/A'),
+                        'Artist': listing.get('artist', 'N/A')
+                    })
+                
+                df = pd.DataFrame(display_data)
+                
+                # Display in a scrollable container
+                st.dataframe(
+                    df, 
+                    use_container_width=True,
+                    height=400  # Fixed height with scrollbar
+                )
+                
+                # Export results option
+                if st.button("📊 Export Results CSV", use_container_width=True):
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"ebay_listing_matches_{timestamp}.csv"
+                    csv_data = df.to_csv(index=False)
+                    
+                    st.download_button(
+                        label="⬇️ Download Results CSV",
+                        data=csv_data,
+                        file_name=filename,
+                        mime="text/csv",
+                        key=f"download_ebay_results_{timestamp}"
+                    )
+        
         # Trigger JSON rebuild to include eBay item numbers
         if updated_count > 0 and self.gallery_json_manager:
             self.gallery_json_manager.trigger_rebuild(async_mode=True)

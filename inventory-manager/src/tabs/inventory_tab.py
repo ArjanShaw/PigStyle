@@ -291,9 +291,7 @@ class InventoryTab:
     def _render_tools_sync_section(self):
         """Render tools and sync section with Gallery JSON Test and GitHub Sync"""
         with st.expander("🛠️ Tools & Sync", expanded=False):
-            # Gallery JSON Test
-            st.subheader("🔄 Gallery JSON Test")
-            
+            # Gallery JSON Test - REMOVED HEADER, JUST BUTTONS
             col1, col2 = st.columns(2)
             
             with col1:
@@ -322,9 +320,7 @@ class InventoryTab:
                     json_path = st.session_state.gallery_json_manager.get_json_path()
                     st.write(f"**JSON Path:** `{json_path}`")
             
-            # GitHub Sync Section
-            st.subheader("🔄 GitHub Sync")
-            
+            # GitHub Sync Section - REMOVED HEADER, JUST BUTTONS
             col1, col2 = st.columns(2)
             
             with col1:

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:42:08Z",
-    "total_records": 600,
+    "last_updated": "2025-11-04T02:44:09Z",
+    "total_records": 601,
     "format_version": "2.0"
   },
   "records": [
@@ -8404,6 +8404,20 @@
       "catalog_number": "LSP-1971",
       "format": "Vinyl",
       "condition": "3"
+    },
+    {
+      "id": 645,
+      "artist": "Terry Lee",
+      "title": "Terry Lee Presents Music For Young Lovers - Vol. 3",
+      "image_url": "https://i.discogs.com/OFoy0zWwqe1uDXeBz_OruVzjzENKFVYbqWlZSG3iSok/rs:fit/g:sm/q:90/h:603/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEwNDI3/ODgxLTE1MjUxMzA1/NTQtOTM5My5qcGVn.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995796",
+      "store_price": null,
+      "file_at": "Rock(T)",
+      "youtube_url": "",
+      "catalog_number": "CS82742-36",
+      "format": "Vinyl",
+      "condition": "4"
     }
   ]
 }

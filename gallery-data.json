@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:57:04Z",
-    "total_records": 609,
+    "last_updated": "2025-11-04T02:59:26Z",
+    "total_records": 610,
     "format_version": "2.0"
   },
   "records": [
@@ -8528,6 +8528,20 @@
       "file_at": "Rock(V)",
       "youtube_url": "https://www.youtube.com/watch?v=N11I543_0n4",
       "catalog_number": "BST-8019",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 654,
+      "artist": "The Wallets",
+      "title": "Take It",
+      "image_url": "https://i.discogs.com/t1Q-_pgh0ofqiVoGEZRiDN-uuRtMktYflXUyRH2g4yU/rs:fit/g:sm/q:90/h:599/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MTg5/MTYtMTYxNzkxMjIw/Ny0zNzMxLmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995805",
+      "store_price": null,
+      "file_at": "Rock(W)",
+      "youtube_url": "https://www.youtube.com/watch?v=Uh-7BhHeA9I",
+      "catalog_number": "TTR 8685",
       "format": "Vinyl",
       "condition": "4"
     }

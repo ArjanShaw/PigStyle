@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:59:26Z",
-    "total_records": 610,
+    "last_updated": "2025-11-04T03:01:01Z",
+    "total_records": 611,
     "format_version": "2.0"
   },
   "records": [
@@ -8544,6 +8544,20 @@
       "catalog_number": "TTR 8685",
       "format": "Vinyl",
       "condition": "4"
+    },
+    {
+      "id": 655,
+      "artist": "Stan Kenton",
+      "title": "Stan Kenton's Greatest Hits",
+      "image_url": "https://i.discogs.com/WPOte1_-leQaziT_HBfDfYohvauo2Q1zHYUgf8LvXX8/rs:fit/g:sm/q:90/h:350/w:349/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTMzMzUx/MDUtMTM1MDY2ODUz/My04MzgyLmpwZWc.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995806",
+      "store_price": null,
+      "file_at": "Jazz(S)",
+      "youtube_url": "",
+      "catalog_number": "DT 2327",
+      "format": "Vinyl",
+      "condition": "5"
     }
   ]
 }

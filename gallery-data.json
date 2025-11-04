@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:36:27Z",
-    "total_records": 599,
+    "last_updated": "2025-11-04T02:42:08Z",
+    "total_records": 600,
     "format_version": "2.0"
   },
   "records": [
@@ -8388,6 +8388,20 @@
       "file_at": "Electronic(L)",
       "youtube_url": "https://www.youtube.com/watch?v=VXl4QFshBvY",
       "catalog_number": "07863 62522 1",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 644,
+      "artist": "Perry Como",
+      "title": "Saturday Night With Mr. C.",
+      "image_url": "https://i.discogs.com/TRZVFFiCmAgUhfST0CQGXMkecSmvDXKwDLT2hP40az8/rs:fit/g:sm/q:90/h:572/w:572/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIwODYw/MTItMTcyODE5MzIw/Mi00NjgzLmpwZWc.jpeg",
+      "genre": "Popular",
+      "barcode": "200000995795",
+      "store_price": null,
+      "file_at": "Popular(P)",
+      "youtube_url": "https://www.youtube.com/watch?v=qa44jPVPpG0",
+      "catalog_number": "LSP-1971",
       "format": "Vinyl",
       "condition": "3"
     }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T01:21:50Z",
-    "total_records": 591,
+    "last_updated": "2025-11-04T01:24:15Z",
+    "total_records": 592,
     "format_version": "2.0"
   },
   "records": [
@@ -8276,6 +8276,20 @@
       "file_at": "Jazz(M)",
       "youtube_url": "",
       "catalog_number": "AB-1026",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 635,
+      "artist": "Bob James, David Sanborn",
+      "title": "Double Vision",
+      "image_url": "https://i.discogs.com/UDlUBThV6K9ZQtGF38jimIpMhEGjL-fdRNFta-oobRA/rs:fit/g:sm/q:90/h:599/w:599/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI4NDE2/MzYtMTMxMjg3ODM4/MC5qcGVn.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995787",
+      "store_price": null,
+      "file_at": "Jazz(B)",
+      "youtube_url": "",
+      "catalog_number": "9 25393-1",
       "format": "Vinyl",
       "condition": "5"
     }

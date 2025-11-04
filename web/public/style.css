@@ -132,6 +132,7 @@ body {
     align-items: center;
     width: 100%;
     margin-bottom: 20px;
+    position: relative;
 }
 
 .record-container {
@@ -187,6 +188,51 @@ body {
 
 .social-icons a:hover {
     color: #ffcc00;
+}
+
+/* Large screens - position in bottom left corner */
+@media (min-width: 1024px) {
+    .record-container {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        width: auto;
+        margin: 0;
+        justify-content: flex-start;
+        z-index: 10;
+    }
+    
+    .pig-head {
+        max-width: 120px;
+        margin-right: 15px;
+    }
+    
+    .rotating-record {
+        max-width: 150px;
+    }
+    
+    /* Adjust container padding to account for fixed record */
+    .container {
+        padding-left: 200px;
+    }
+}
+
+/* Small screens - hide completely */
+@media (max-width: 768px) {
+    .record-container {
+        display: none;
+    }
+}
+
+/* Medium screens (tablets) - keep centered but smaller */
+@media (min-width: 769px) and (max-width: 1023px) {
+    .pig-head {
+        max-width: 120px;
+    }
+    
+    .rotating-record {
+        max-width: 150px;
+    }
 }
 
 /* Modal Styles */
@@ -315,12 +361,12 @@ input[type='text'] {
 /* Keep record to the right of pig head on mobile */
 @media (max-width: 480px) {
     .record-container {
-        flex-direction: row; /* Changed from column to row */
+        flex-direction: row;
     }
     
     .pig-head {
-        margin-right: 15px; /* Keep margin on right */
-        margin-bottom: 0; /* Remove bottom margin */
+        margin-right: 15px;
+        margin-bottom: 0;
     }
     
     .content-box {

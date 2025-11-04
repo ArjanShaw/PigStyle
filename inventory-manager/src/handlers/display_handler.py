@@ -26,8 +26,8 @@ class DisplayHandler:
     def _render_unified_results(self, results, result_type):
         """Render unified results component for both Discogs and Database searches"""
         for i, record in enumerate(results):
-            # Use 3 columns for both types - REMOVED the 4th column with duplicate delete button
-            col1, col2, col3 = st.columns([1, 3, 1])
+            # Use 3 columns for both types
+            col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
                 
             with col1:
                 image_url = record.get('image_url', '')
@@ -48,6 +48,7 @@ class DisplayHandler:
                     ebay_sell_at = record.get('ebay_sell_at')
                     discogs_median = record.get('discogs_median_price')
                     ebay_low = record.get('ebay_lowest_price')
+                    ebay_low_shipping = record.get('ebay_low_shipping')  # ADDED eBay low shipping
                     
                     # SHOW THE REQUESTED FIELDS when selecting from inventory
                     record_id = record.get('id', '')
@@ -55,15 +56,16 @@ class DisplayHandler:
                     file_at = record.get('file_at', '')
                     youtube_url = record.get('youtube_url', '')
                     
-                    # Format the display with requested fields
+                    # Format the display with requested fields - INCLUDING EBAY LOW SHIPPING
                     st.write(f"**ID:** {record_id} | **Barcode:** {barcode}")
                     st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
                     st.write(f"**Discogs Median:** ${discogs_median:.2f}" if discogs_median and discogs_median > 0 else "**Discogs Median:** N/A")
                     st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
+                    st.write(f"**eBay Low Shipping:** ${ebay_low_shipping:.2f}" if ebay_low_shipping and ebay_low_shipping > 0 else "**eBay Low Shipping:** N/A")  # ADDED
                     st.write(f"**File:** {file_at}")
                     if youtube_url:
-                        st.write("🎵 YouTube video linked")
+                        st.write(f"🎵 **YouTube:** {youtube_url}")
                 else:  # discogs
                     catalog = record.get('catalog_number', '')
                     st.write(f"Catalog: {catalog}")
@@ -75,9 +77,24 @@ class DisplayHandler:
                         'data': record,
                         'index': i
                     }
+                    # Auto-trigger YouTube search when record is selected
+                    if result_type == "Add item" and self.youtube_handler:
+                        artist = record.get('artist', '')
+                        title = record.get('title', '')
+                        if artist and title:
+                            search_query = f"{artist} {title}"
+                            youtube_results = self.youtube_handler.search_youtube_videos(search_query, record)
+                            st.session_state.youtube_search_results = youtube_results
                     st.rerun()
             
-            # REMOVED the duplicate delete button that was in column 4
+            with col4:
+                # DELETE BUTTON for each item in search results
+                if result_type == "Edit or Delete item":
+                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", use_container_width=True, type="secondary"):
+                        record_id = record.get('id')
+                        if self._delete_record(record_id):
+                            st.success("Record deleted successfully!")
+                            st.rerun()
             
             st.divider()
 
@@ -102,7 +119,7 @@ class DisplayHandler:
             st.write(f"**{artist} - {title}**")
             
             if selected_record['type'] == 'database':
-                # SHOW THE REQUESTED FIELDS prominently
+                # SHOW THE REQUESTED FIELDS prominently - INCLUDING EBAY LOW SHIPPING
                 record_id = record.get('id', '')
                 barcode = record.get('barcode', '')
                 file_at = record.get('file_at', '')
@@ -110,6 +127,7 @@ class DisplayHandler:
                 ebay_sell_at = record.get('ebay_sell_at', '')
                 discogs_median = record.get('discogs_median_price', '')
                 ebay_low = record.get('ebay_lowest_price', '')
+                ebay_low_shipping = record.get('ebay_low_shipping', '')  # ADDED
                 youtube_url = record.get('youtube_url', '')
                 
                 st.write("---")
@@ -120,17 +138,11 @@ class DisplayHandler:
                 st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
                 st.write(f"**Discogs Median:** ${discogs_median:.2f}" if discogs_median and discogs_median > 0 else "**Discogs Median:** N/A")
                 st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
+                st.write(f"**eBay Low Shipping:** ${ebay_low_shipping:.2f}" if ebay_low_shipping and ebay_low_shipping > 0 else "**eBay Low Shipping:** N/A")  # ADDED
                 st.write(f"**File Location:** {file_at}")
                 if youtube_url:
-                    st.write("🎵 **YouTube:** Video linked")
+                    st.write(f"🎵 **YouTube:** {youtube_url}")
                 st.write("---")
-                    
-                # SINGLE DELETE BUTTON - only one delete button now
-                if st.button("🗑️ Delete Record", type="secondary", use_container_width=True, key="delete_record_view"):
-                    if self._delete_record(record['id']):
-                        st.success("Record deleted successfully!")
-                        st.session_state.selected_record = None
-                        st.rerun()
             else:
                 catalog = record.get('catalog_number', '')
                 st.write(f"Catalog: {catalog}")
@@ -207,92 +219,7 @@ class DisplayHandler:
                 suggestion_source = self._get_suggestion_source(record_data, suggested_genre)
                 st.caption(f"Suggested: {suggested_genre} ({suggestion_source})")
         
-        # YouTube section - ADDED PASTE URL FUNCTIONALITY
-        st.subheader("🎵 YouTube Video")
-        
-        # Show current YouTube video if it exists
-        current_youtube_url = ""
-        if selected_record['type'] == 'database':
-            current_youtube_url = record_data.get('youtube_url', '')
-        
-        if current_youtube_url:
-            st.success("YouTube video linked to this record")
-            # Show embedded YouTube video
-            video_id = self.youtube_handler.extract_youtube_id(current_youtube_url) if self.youtube_handler else self._extract_youtube_id(current_youtube_url)
-            if video_id:
-                st.components.v1.iframe(
-                    f"https://www.youtube.com/embed/{video_id}",
-                    width=560,
-                    height=315
-                )
-                # Add remove button
-                if st.button("❌ Remove YouTube Link", key="remove_youtube"):
-                    if selected_record['type'] == 'database':
-                        success = st.session_state.db_manager.update_record(
-                            record_data['id'], 
-                            {'youtube_url': None}
-                        )
-                        if success:
-                            st.success("✅ YouTube link removed!")
-                            record_data['youtube_url'] = None
-                            st.rerun()
-        
-        # ADDED: YouTube URL paste functionality
-        st.write("**Paste YouTube URL:**")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            youtube_url_input = st.text_input(
-                "YouTube URL:",
-                value="",
-                placeholder="Paste YouTube URL here...",
-                key="youtube_url_input",
-                label_visibility="collapsed"
-            )
-        with col2:
-            if st.button("🔗 Paste URL", use_container_width=True, key="paste_youtube_url"):
-                if youtube_url_input:
-                    # Validate it's a YouTube URL
-                    if "youtube.com" in youtube_url_input or "youtu.be" in youtube_url_input:
-                        video_id = self.youtube_handler.extract_youtube_id(youtube_url_input) if self.youtube_handler else self._extract_youtube_id(youtube_url_input)
-                        if video_id:
-                            # Update the record with this YouTube URL
-                            if selected_record['type'] == 'database':
-                                success = st.session_state.db_manager.update_record(
-                                    record_data['id'], 
-                                    {'youtube_url': youtube_url_input}
-                                )
-                                if success:
-                                    st.success("✅ YouTube URL pasted and linked!")
-                                    record_data['youtube_url'] = youtube_url_input
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Failed to link YouTube URL")
-                            else:
-                                # For new records, store in session state to be used when adding
-                                record_data['youtube_url'] = youtube_url_input
-                                st.success("✅ YouTube URL will be linked when record is added!")
-                                st.rerun()
-                        else:
-                            st.error("❌ Invalid YouTube URL - could not extract video ID")
-                    else:
-                        st.error("❌ Please enter a valid YouTube URL")
-                else:
-                    st.warning("Please enter a YouTube URL")
-        
-        # YouTube search button
-        if st.button("🔍 Search YouTube for this record", use_container_width=True, key="search_youtube"):
-            if record_data.get('artist') and record_data.get('title'):
-                search_query = f"{record_data['artist']} {record_data['title']}"
-                if self.youtube_handler:
-                    youtube_results = self.youtube_handler.search_youtube_videos(search_query, record_data)
-                    st.session_state.youtube_search_results = youtube_results
-                    st.success(f"Found {len(youtube_results)} YouTube videos for '{search_query}'")
-                else:
-                    st.error("YouTube handler not available")
-            else:
-                st.warning("Please enter artist and title first")
-        
-        # Show YouTube search results if available
+        # Show YouTube search results if available (auto-triggered when record was selected)
         if 'youtube_search_results' in st.session_state and st.session_state.youtube_search_results:
             st.subheader("YouTube Search Results")
             st.info("Click on a video to link it to this record")
@@ -354,7 +281,13 @@ class DisplayHandler:
         # Single submit button - only enable if genre is selected
         if selected_record['type'] == 'discogs':
             if st.button("Add to Database", use_container_width=True, disabled=not genre, key="add_to_database"):
-                add_callback(condition, genre)
+                # Get the file_at value for confirmation message
+                file_at_value = self._calculate_file_at(record_data['artist'], genre)
+                success, record_id = add_callback(condition, genre)
+                if success:
+                    # Show confirmation message with artist, title, and fileat
+                    st.success(f"✅ Record added successfully!\\n**Artist:** {record_data['artist']}\\n**Title:** {record_data['title']}\\n**File Location:** {file_at_value}")
+                    st.session_state.record_added = True
         else:
             col1, col2 = st.columns(2)
             with col1:
@@ -373,14 +306,30 @@ class DisplayHandler:
                         st.rerun()
                     else:
                         st.error("❌ Failed to update record")
-            with col2:
-                # SINGLE DELETE BUTTON - only one delete button in the edit section
-                if st.button("🗑️ Delete Record", type="secondary", use_container_width=True, key="delete_record_edit"):
-                    record_id = selected_record['data']['id']
-                    if self._delete_record(record_id):
-                        st.success("Record deleted successfully!")
-                        st.session_state.selected_record = None
-                        st.rerun()
+
+    def _calculate_file_at(self, artist, genre):
+        """Calculate file_at value for an artist and genre"""
+        if not artist:
+            return "?"
+        
+        artist_clean = artist.strip().lower()
+        
+        if artist_clean.startswith('the '):
+            artist_clean = artist_clean[4:]
+        
+        if artist_clean and artist_clean[0].isdigit():
+            number_words = {
+                '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+                '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+            }
+            first_char = artist_clean[0]
+            file_at_letter = number_words.get(first_char, '?')[0].upper()
+        elif artist_clean and artist_clean[0].isalpha():
+            file_at_letter = artist_clean[0].upper()
+        else:
+            file_at_letter = "?"
+        
+        return f"{genre}({file_at_letter})"
 
     def _extract_youtube_id(self, url):
         """Extract YouTube video ID from URL (fallback method)"""

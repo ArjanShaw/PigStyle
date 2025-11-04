@@ -17,6 +17,7 @@ from tabs.statistics_tab import StatisticsTab
 from tabs.debug_tab import DebugTab
 from tabs.database_switch_tab import DatabaseSwitchTab
 from tabs.expenses_tab import ExpensesTab
+from tabs.ebay_tab import EBayTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -142,12 +143,14 @@ def main():
         statistics_tab = StatisticsTab()
         database_switch_tab = DatabaseSwitchTab()
         expenses_tab = ExpensesTab()
+        ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
         # Use the SAME debug_tab instance for rendering
 
-        # Create tabs with new order (REMOVED CHECKOUT TAB)
+        # Create tabs with new order (ADDED EBAY TAB)
         tabs = st.tabs([
             "🗃️ Database",
             "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
+            "🛒 eBay",  # NEW EBAY TAB
             "💰 Income",
             "💰 Expenses",
             "📊 Statistics",
@@ -161,15 +164,18 @@ def main():
             inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
         
         with tabs[2]:
-            inventory_tab.render_sold_tab()
+            ebay_tab.render()  # NEW EBAY TAB
         
         with tabs[3]:
+            inventory_tab.render_sold_tab()
+        
+        with tabs[4]:
             expenses_tab.render()
             
-        with tabs[4]:
+        with tabs[5]:
             statistics_tab.render()
             
-        with tabs[5]:
+        with tabs[6]:
             debug_tab.render()  # Use the SAME instance
 
     except Exception as e:

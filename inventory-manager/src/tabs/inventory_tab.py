@@ -43,9 +43,9 @@ class InventoryTab:
         with st.expander("📦 Inventory", expanded=False):
             self._render_unified_operations()
             
-        # Pricing Settings
-        with st.expander("💰 Pricing", expanded=False):
-            self._render_pricing_section()
+        # Store Pricing Settings
+        with st.expander("🏪 Store Pricing", expanded=False):
+            self._render_store_pricing_section()
             
         # Genre Management & Import/Export & Signs Printing
         with st.expander("🎵 Genre Management & Printing", expanded=False):
@@ -242,164 +242,35 @@ class InventoryTab:
             st.error(f"Error processing checkout: {e}")
             return 0
 
-    def _render_pricing_section(self):
-        """Render pricing settings and actions"""
-        st.subheader("Pricing Strategy")
+    def _render_store_pricing_section(self):
+        """Render store pricing settings and actions"""
+        st.subheader("🏪 Store Pricing Strategy")
         
-        # Detailed pricing calculation explanation
+        # Detailed store pricing calculation explanation
         st.write("""
-        **eBay Sell Price Calculation:**
-        1. Find lowest eBay listing price + shipping cost
-        2. Subtract configured shipping cost ($5.72)
-        3. Cap at Discogs median price if available
-        4. Round down to nearest .49 or .99 price point
-        5. Apply minimum price of $0.00
-        
         **Store Price Calculation:**
         1. Use Discogs median price
         2. Round down to nearest .49 or .99 price point
         3. Apply minimum store price (configurable, default $1.99)
         
-        **Note:** Adding records only imports raw pricing data from Discogs/eBay. 
-        Use the buttons below to calculate your custom prices.
+        **Note:** Adding records only imports raw pricing data from Discogs. 
+        Use the button below to calculate your custom store prices.
         """)
         
         # Test record input
         st.subheader("Test Single Record")
         col1, col2 = st.columns([1, 1])
         with col1:
-            test_record_id = st.text_input("Record ID for testing:", placeholder="Enter record ID")
+            test_record_id = st.text_input("Record ID for testing:", placeholder="Enter record ID", key="store_test_record_id")
         
-        # Pricing action buttons
-        col1, col2, col3 = st.columns(3)
+        # Store pricing action buttons
+        col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Update eBay Prices", use_container_width=True, help="Call eBay API to update pricing data for all inventory"):
-                if test_record_id and test_record_id.strip():
-                    self._update_single_ebay_prices(test_record_id.strip())
-                else:
-                    self._update_all_ebay_prices()
-        with col2:
-            if st.button("💰 Update eBay Sell At", use_container_width=True, help="Calculate eBay sell prices from existing lowest prices"):
-                if test_record_id and test_record_id.strip():
-                    self._update_single_ebay_sell_at(test_record_id.strip())
-                else:
-                    self._update_all_ebay_sell_at()
-        with col3:
             if st.button("🏪 Update Store Price", use_container_width=True, help="Calculate store price from Discogs median price using .49/.99 rounding"):
                 if test_record_id and test_record_id.strip():
                     self._calculate_single_store_price(test_record_id.strip())
                 else:
                     self._calculate_all_store_prices()
-        
-        # Show individual listings table
-        self._render_individual_listings_table()
-
-    def _render_individual_listings_table(self):
-        """Render a table with individual eBay listings showing base price and shipping costs"""
-        if 'api_details' not in st.session_state:
-            return
-            
-        # Find the most recent eBay search response
-        recent_ebay_response = None
-        recent_ebay_title = None
-        for api_title, details in st.session_state.api_details.items():
-            if "eBay Search API" in api_title and 'response' in details:
-                recent_ebay_response = details['response']
-                recent_ebay_title = api_title
-                break
-        
-        if not recent_ebay_response:
-            return
-            
-        with st.expander("📊 Individual eBay Listings", expanded=False):
-            st.subheader("Individual Listings Analysis")
-            
-            # Get shipping cost from config for CALC items
-            shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
-            try:
-                shipping_cost = float(shipping_cost)
-            except (ValueError, TypeError):
-                shipping_cost = 5.72
-            
-            # Extract item summaries from eBay response
-            item_summaries = recent_ebay_response.get('itemSummaries', [])
-            
-            # Create table data with proper numeric values for sorting
-            table_data = []
-            for item in item_summaries:
-                # Get base price
-                price_data = item.get('price', {})
-                base_price = float(price_data.get('value', 0))
-                
-                # Determine shipping type and cost
-                shipping_info = self._extract_shipping_info(item)
-                shipping_type = shipping_info['type']
-                shipping_cost_value = shipping_info['cost']
-                
-                # Calculate assumed shipping cost - only for CALC shipping, otherwise null
-                assumed_shipping_cost = None
-                if shipping_type == 'CALC':
-                    assumed_shipping_cost = shipping_cost
-                
-                # Calculate base + shipping (use actual shipping cost when available, assumed for CALC)
-                if shipping_type == 'CALC':
-                    base_and_shipping = base_price + shipping_cost
-                elif shipping_cost_value is not None:
-                    base_and_shipping = base_price + shipping_cost_value
-                else:
-                    base_and_shipping = base_price  # For FREE shipping
-                
-                # Get URL
-                item_url = item.get('itemWebUrl', '')
-                
-                # Create table row with numeric values for sorting
-                table_data.append({
-                    'Title': item.get('title', '')[:80] + '...' if len(item.get('title', '')) > 80 else item.get('title', ''),
-                    'Base Price': base_price,
-                    'Shipping Type': shipping_type,
-                    'Shipping Cost': shipping_cost_value,
-                    'Assumed Shipping Cost': assumed_shipping_cost,
-                    'Base + Shipping': base_and_shipping,
-                    'URL': item_url
-                })
-            
-            # Sort by Base + Shipping to find the cheapest total cost
-            table_data.sort(key=lambda x: x['Base + Shipping'])
-            
-            # Create and display dataframe with proper column configuration
-            if table_data:
-                df = pd.DataFrame(table_data)
-                
-                # Configure columns for proper display and sorting
-                column_config = {
-                    "Title": st.column_config.TextColumn("Title"),
-                    "Base Price": st.column_config.NumberColumn(
-                        "Base Price",
-                        format="$%.2f"
-                    ),
-                    "Shipping Type": st.column_config.TextColumn("Shipping Type"),
-                    "Shipping Cost": st.column_config.NumberColumn(
-                        "Shipping Cost",
-                        format="$%.2f"
-                    ),
-                    "Assumed Shipping Cost": st.column_config.NumberColumn(
-                        "Assumed Shipping Cost",
-                        format="$%.2f"
-                    ),
-                    "Base + Shipping": st.column_config.NumberColumn(
-                        "Base + Shipping",
-                        format="$%.2f"
-                    ),
-                    "URL": st.column_config.LinkColumn("URL")
-                }
-                
-                st.dataframe(
-                    df,
-                    use_container_width=True,
-                    height=400,
-                    hide_index=True,
-                    column_config=column_config
-                )
 
     def _render_api_logs_section(self):
         """Render API logs section at the same level as other main sections"""
@@ -492,45 +363,6 @@ class InventoryTab:
                 else:
                     st.warning("⚠️ JSON file not found yet")
 
-    def _extract_shipping_info(self, item):
-        """Extract shipping information from eBay item data"""
-        try:
-            # Check shipping options first
-            shipping_options = item.get('shippingOptions', [])
-            if shipping_options:
-                for option in shipping_options:
-                    shipping_cost_type = option.get('shippingCostType', '')
-                    if shipping_cost_type == 'CALCULATED':
-                        return {'type': 'CALC', 'cost': None}
-                    elif shipping_cost_type == 'FIXED':
-                        shipping_cost = option.get('shippingCost', {})
-                        if 'value' in shipping_cost:
-                            cost = float(shipping_cost['value'])
-                            return {'type': 'FIXED', 'cost': cost}
-            
-            # Check for calculated shipping in shippingCostSummary
-            shipping_cost_summary = item.get('shippingCostSummary', {})
-            if shipping_cost_summary:
-                shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
-                if shipping_cost_type == 'CALCULATED':
-                    return {'type': 'CALC', 'cost': None}
-                elif shipping_cost_type == 'FIXED':
-                    shipping_cost = shipping_cost_summary.get('shippingCost', {})
-                    if 'value' in shipping_cost:
-                        cost = float(shipping_cost['value'])
-                        return {'type': 'FIXED', 'cost': cost}
-            
-            # Check for fixed shipping cost
-            if 'shippingCostFixed' in item:
-                cost = float(item['shippingCostFixed'])
-                return {'type': 'FIXED', 'cost': cost}
-            
-            # If no shipping cost found, assume free shipping
-            return {'type': 'FREE', 'cost': 0}
-                
-        except Exception as e:
-            return {'type': 'FREE', 'cost': 0}
-
     def _get_database_stats_direct(self) -> dict:
         """Get database statistics directly from records table"""
         conn = st.session_state.db_manager._get_connection()
@@ -545,58 +377,6 @@ class InventoryTab:
         return {
             'records_count': int(records_count) if records_count is not None else 0
         }
-
-    def _update_all_ebay_prices(self):
-        """Update eBay prices for all inventory records"""
-        if not self.ebay_handler:
-            st.error("eBay handler not available. Check your eBay API credentials.")
-            return
-        
-        updated_count = self.export_handler.update_all_ebay_prices(self.ebay_handler)
-        
-        if updated_count > 0:
-            st.session_state.records_updated += 1
-            start_time = time.time()
-            st.rerun()
-            duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after update all eBay prices - Duration: {duration:.3f}s")
-
-    def _update_single_ebay_prices(self, record_id):
-        """Update eBay prices for a single record"""
-        if not self.ebay_handler:
-            st.error("eBay handler not available. Check your eBay API credentials.")
-            return
-        
-        updated_count = self.export_handler.update_single_ebay_prices(self.ebay_handler, record_id)
-        
-        if updated_count > 0:
-            st.session_state.records_updated += 1
-            start_time = time.time()
-            st.rerun()
-            duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after update single eBay prices - Duration: {duration:.3f}s")
-
-    def _update_all_ebay_sell_at(self):
-        """Update eBay sell prices for all inventory records using existing lowest prices"""
-        updated_count = self.export_handler.update_all_ebay_sell_at()
-        
-        if updated_count > 0:
-            st.session_state.records_updated += 1
-            start_time = time.time()
-            st.rerun()
-            duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after update all eBay sell at - Duration: {duration:.3f}s")
-
-    def _update_single_ebay_sell_at(self, record_id):
-        """Update eBay sell price for a single record using existing lowest price"""
-        updated_count = self.export_handler.update_single_ebay_sell_at(record_id)
-        
-        if updated_count > 0:
-            st.session_state.records_updated += 1
-            start_time = time.time()
-            st.rerun()
-            duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after update single eBay sell at - Duration: {duration:.3f}s")
 
     def _calculate_all_store_prices(self):
         """Calculate store prices for all inventory records using Discogs median price"""

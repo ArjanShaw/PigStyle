@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T01:24:15Z",
-    "total_records": 592,
+    "last_updated": "2025-11-04T01:24:51Z",
+    "total_records": 593,
     "format_version": "2.0"
   },
   "records": [
@@ -8290,6 +8290,20 @@
       "file_at": "Jazz(B)",
       "youtube_url": "",
       "catalog_number": "9 25393-1",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 636,
+      "artist": "Johnny Mathis",
+      "title": "You Light Up My Life",
+      "image_url": "https://i.discogs.com/FdRSYgY8WTciyPBWRISXMdLo60OPaeqkbdJSEpdoyJ0/rs:fit/g:sm/q:90/h:586/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIxMzM5/MzgtMTM0OTcxOTEx/Mi0yMjUyLmpwZWc.jpeg",
+      "genre": "Popular",
+      "barcode": "200000995788",
+      "store_price": null,
+      "file_at": "Popular(J)",
+      "youtube_url": "",
+      "catalog_number": "JC 35259",
       "format": "Vinyl",
       "condition": "5"
     }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T03:01:01Z",
-    "total_records": 611,
+    "last_updated": "2025-11-04T03:02:11Z",
+    "total_records": 612,
     "format_version": "2.0"
   },
   "records": [
@@ -8556,6 +8556,20 @@
       "file_at": "Jazz(S)",
       "youtube_url": "",
       "catalog_number": "DT 2327",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 656,
+      "artist": "David Rose And His Orchestra",
+      "title": "In A Mellow Mood",
+      "image_url": "https://i.discogs.com/21aSHYkXlhIU1eW_m5ieer8bcvWtZk9Sr2rHIyF0-mA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYwMTcw/MzEtMTc0MDIwMzA2/My01ODU5LmpwZWc.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995807",
+      "store_price": null,
+      "file_at": "Jazz(D)",
+      "youtube_url": "https://www.youtube.com/watch?v=yYKmrTBc2Nk",
+      "catalog_number": "none",
       "format": "Vinyl",
       "condition": "5"
     }

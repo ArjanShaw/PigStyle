@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:44:09Z",
-    "total_records": 601,
+    "last_updated": "2025-11-04T02:47:05Z",
+    "total_records": 602,
     "format_version": "2.0"
   },
   "records": [
@@ -8416,6 +8416,20 @@
       "file_at": "Rock(T)",
       "youtube_url": "",
       "catalog_number": "CS82742-36",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 646,
+      "artist": "Maze Featuring Frankie Beverly",
+      "title": "Live In New Orleans",
+      "image_url": "https://i.discogs.com/Hl5Oob3SJQJQVJN-87aUwcU1xmtTIaYRSIH1EvZD824/rs:fit/g:sm/q:90/h:494/w:500/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTU0ODE5/MjMtMTM5NDQ4MzM4/MC05MjUwLmpwZWc.jpeg",
+      "genre": "Funk Soul",
+      "barcode": "200000995797",
+      "store_price": null,
+      "file_at": "Funk Soul(M)",
+      "youtube_url": "https://www.youtube.com/watch?v=NNyuFxoO7Rg",
+      "catalog_number": "SKBK-12156",
       "format": "Vinyl",
       "condition": "4"
     }

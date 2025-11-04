@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:50:20Z",
-    "total_records": 604,
+    "last_updated": "2025-11-04T02:51:28Z",
+    "total_records": 605,
     "format_version": "2.0"
   },
   "records": [
@@ -8458,6 +8458,20 @@
       "file_at": "Pop(S)",
       "youtube_url": "https://www.youtube.com/watch?v=YxxkbEHqubI",
       "catalog_number": "ST 2598",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 649,
+      "artist": "101 Strings",
+      "title": "Award Winning Scores From The Silver Screen",
+      "image_url": "https://i.discogs.com/qTJ8yub-HhhV0RL4A2CfzX_NDJtmDnXHhwHRext6TGw/rs:fit/g:sm/q:90/h:480/w:485/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ1MTYy/MDYtMTM2NzA5Mzk4/MC0xNDc4LmpwZWc.jpeg",
+      "genre": "Classical",
+      "barcode": "200000995800",
+      "store_price": null,
+      "file_at": "Classical(O)",
+      "youtube_url": "https://www.youtube.com/watch?v=Ke_YuKr8kbU",
+      "catalog_number": "SF-7000",
       "format": "Vinyl",
       "condition": "4"
     }

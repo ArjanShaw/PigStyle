@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:47:59Z",
-    "total_records": 603,
+    "last_updated": "2025-11-04T02:50:20Z",
+    "total_records": 604,
     "format_version": "2.0"
   },
   "records": [
@@ -8444,6 +8444,20 @@
       "file_at": "Roots(J)",
       "youtube_url": "",
       "catalog_number": "LPM-2890",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 648,
+      "artist": "Sandler And Young",
+      "title": "Side By Side",
+      "image_url": "https://i.discogs.com/BshkD5ZJmvhqfFVkerWc9sWqSX_alK_iHVBP6siIGHA/rs:fit/g:sm/q:90/h:461/w:469/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3MjQ2/ODQtMTM0MTg1MTk1/Ni0yOTcxLmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995799",
+      "store_price": null,
+      "file_at": "Pop(S)",
+      "youtube_url": "https://www.youtube.com/watch?v=YxxkbEHqubI",
+      "catalog_number": "ST 2598",
       "format": "Vinyl",
       "condition": "4"
     }

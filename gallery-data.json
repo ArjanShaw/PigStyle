@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T03:03:21Z",
-    "total_records": 613,
+    "last_updated": "2025-11-04T03:07:40Z",
+    "total_records": 614,
     "format_version": "2.0"
   },
   "records": [
@@ -8584,6 +8584,20 @@
       "file_at": "Jazz(M)",
       "youtube_url": "https://www.youtube.com/watch?v=54gbdenVdsY",
       "catalog_number": "DLP 25157",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 658,
+      "artist": "The Tymes",
+      "title": "18 Golden Hits",
+      "image_url": "https://i.discogs.com/bcLmKzw6BzDRttwtl1RUuZppHsP-PI8ySCl2I3-U9no/rs:fit/g:sm/q:90/h:474/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYxNzkw/NDEtMTQxMzA0MDYx/Mi03NjA4LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995809",
+      "store_price": null,
+      "file_at": "Rock(T)",
+      "youtube_url": "https://www.youtube.com/watch?v=C0NmFdZcOqM",
+      "catalog_number": "P 7049",
       "format": "Vinyl",
       "condition": "5"
     }

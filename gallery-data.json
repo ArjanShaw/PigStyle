@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:55:01Z",
-    "total_records": 607,
+    "last_updated": "2025-11-04T02:56:01Z",
+    "total_records": 608,
     "format_version": "2.0"
   },
   "records": [
@@ -8500,6 +8500,20 @@
       "file_at": "Compilation(V)",
       "youtube_url": "",
       "catalog_number": "STBB 2911",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 652,
+      "artist": "The Ventures",
+      "title": "Knock Me Out!",
+      "image_url": "https://i.discogs.com/cn3fKWXr2N1cbn4YPpdTtTxSCzt6uzNjlGs5JA-U2vA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTkwMTIw/MDgtMTQ3MzM0MjEy/My01ODY2LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995803",
+      "store_price": null,
+      "file_at": "Rock(V)",
+      "youtube_url": "https://www.youtube.com/watch?v=BeBXjWUxBWk",
+      "catalog_number": "BST-8033",
       "format": "Vinyl",
       "condition": "4"
     }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T03:02:11Z",
-    "total_records": 612,
+    "last_updated": "2025-11-04T03:03:21Z",
+    "total_records": 613,
     "format_version": "2.0"
   },
   "records": [
@@ -8570,6 +8570,20 @@
       "file_at": "Jazz(D)",
       "youtube_url": "https://www.youtube.com/watch?v=yYKmrTBc2Nk",
       "catalog_number": "none",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 657,
+      "artist": "The Mills Brothers",
+      "title": "The Mills Brothers Great Hits",
+      "image_url": "https://i.discogs.com/vYkA0cV6Jio28tFITjldTWIGSEjQRASqcsZ1QF0JAuo/rs:fit/g:sm/q:90/h:565/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTcwNDU0/OTItMTQzMjQ0Mzg0/Mi0yNTY2LmpwZWc.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995808",
+      "store_price": null,
+      "file_at": "Jazz(M)",
+      "youtube_url": "https://www.youtube.com/watch?v=54gbdenVdsY",
+      "catalog_number": "DLP 25157",
       "format": "Vinyl",
       "condition": "5"
     }

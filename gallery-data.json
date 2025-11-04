@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T01:24:51Z",
-    "total_records": 593,
+    "last_updated": "2025-11-04T01:25:40Z",
+    "total_records": 594,
     "format_version": "2.0"
   },
   "records": [
@@ -8304,6 +8304,20 @@
       "file_at": "Popular(J)",
       "youtube_url": "",
       "catalog_number": "JC 35259",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 637,
+      "artist": "Johnny Mathis",
+      "title": "More Johnny's Greatest Hits",
+      "image_url": "https://i.discogs.com/d2bdaEQGmDWG4EVeseL4Bexhbp9f_fJ_mXPwq09Ax18/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTcxNTI2/Mi0xNDA0NDkzMDcy/LTEzNTguanBlZw.jpeg",
+      "genre": "Popular",
+      "barcode": "200000995789",
+      "store_price": null,
+      "file_at": "Popular(J)",
+      "youtube_url": "",
+      "catalog_number": "CL 1344",
       "format": "Vinyl",
       "condition": "5"
     }

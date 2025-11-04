@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:56:01Z",
-    "total_records": 608,
+    "last_updated": "2025-11-04T02:57:04Z",
+    "total_records": 609,
     "format_version": "2.0"
   },
   "records": [
@@ -8514,6 +8514,20 @@
       "file_at": "Rock(V)",
       "youtube_url": "https://www.youtube.com/watch?v=BeBXjWUxBWk",
       "catalog_number": "BST-8033",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 653,
+      "artist": "The Ventures",
+      "title": "Play Telstar - The Lonely Bull And Others",
+      "image_url": "https://i.discogs.com/HEdP38bOWIxghw83hsxH7Luj1w0sgQItnB9tUeu3ON4/rs:fit/g:sm/q:90/h:610/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTExOTM0/OTctMTI4MDk0NTY0/OS5qcGVn.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995804",
+      "store_price": null,
+      "file_at": "Rock(V)",
+      "youtube_url": "https://www.youtube.com/watch?v=N11I543_0n4",
+      "catalog_number": "BST-8019",
       "format": "Vinyl",
       "condition": "4"
     }

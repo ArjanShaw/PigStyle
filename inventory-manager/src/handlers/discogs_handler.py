@@ -15,6 +15,11 @@ class DiscogsHandler:
             "Authorization": f"Discogs token={self.user_token}"
         }
         self.debug_tab = debug_tab
+        
+        # Show the token in debug (first few and last few characters for security)
+        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
+        if self.debug_tab:
+            self.debug_tab.add_log("DEBUG", f"DiscogsHandler initialized with token: {token_display}")
     
     def _log_debug(self, category, message, data=None):
         """Log to debug tab if available"""
@@ -31,6 +36,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
+        # Show API key in debug (masked for security)
+        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
+        
         # Log the API call with unified format
         api_title = f"🔍 Discogs Search API: {endpoint_url}"
         start_time = time.time()
@@ -41,6 +49,11 @@ class DiscogsHandler:
                 'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
             }
         })
+        
+        # ADDED: Show debug info directly on screen
+        if self.debug_tab:
+            self.debug_tab.add_log("API_KEY_DEBUG", f"Using Discogs token: {token_display}")
+            self.debug_tab.add_log("API_REQUEST", f"Searching for: '{query}' with token: {token_display}")
         
         response = requests.get(
             endpoint_url,
@@ -76,6 +89,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
+        # Show API key in debug (masked for security)
+        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
+        
         # Log the API call with unified format
         api_title = f"💰 Discogs Pricing API: {endpoint_url}?release_id={release_id}"
         start_time = time.time()
@@ -87,6 +103,10 @@ class DiscogsHandler:
             }
         })
 
+        # ADDED: Show debug info for pricing request
+        if self.debug_tab:
+            self.debug_tab.add_log("API_KEY_DEBUG", f"Pricing request with token: {token_display}")
+        
         response = requests.get(
             endpoint_url,
             params=params,

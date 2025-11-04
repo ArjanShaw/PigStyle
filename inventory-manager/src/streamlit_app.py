@@ -20,12 +20,7 @@ from tabs.expenses_tab import ExpensesTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
-
-# --- Load environment variables ---
-try:
-    load_dotenv()
-except:
-    pass
+from handlers.api_key_handler import APIKeyHandler
 
 # --- Configuration ---
 IMAGE_FOLDER = Path("images")
@@ -35,46 +30,6 @@ PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
 
 # Database persistence file
 DB_PERSISTENCE_FILE = "current_database.txt"
-
-def get_environment_variables(debug_tab):
-    """Get environment variables from either .env file or Streamlit secrets"""
-    env_vars = {}
-    
-    required_vars = [
-        "IMAGEBB_API_KEY",
-        "DISCOGS_USER_TOKEN", 
-        "EBAY_CLIENT_ID",
-        "EBAY_CLIENT_SECRET"
-    ]
-    
-    # Only log environment variable status once per session
-    if 'env_vars_loaded' not in st.session_state:
-        st.session_state.env_vars_loaded = False
-    
-    for var in required_vars:
-        try:
-            if hasattr(st, 'secrets') and var in st.secrets:
-                env_vars[var] = st.secrets[var]
-                if not st.session_state.env_vars_loaded:
-                    debug_tab.add_log("SECRETS", f"✅ {var} loaded from secrets", {"source": "secrets"})
-            else:
-                env_value = os.getenv(var)
-                if env_value:
-                    env_vars[var] = env_value
-                    if not st.session_state.env_vars_loaded:
-                        debug_tab.add_log("ENV", f"✅ {var} loaded from environment", {"source": ".env"})
-                else:
-                    env_vars[var] = None
-                    if not st.session_state.env_vars_loaded:
-                        debug_tab.add_log("ERROR", f"❌ {var} not found in secrets or environment")
-        except Exception as e:
-            env_vars[var] = None
-            if not st.session_state.env_vars_loaded:
-                debug_tab.add_log("ERROR", f"❌ Error loading {var}: {e}")
-    
-    # Mark environment variables as loaded for this session
-    st.session_state.env_vars_loaded = True
-    return env_vars
 
 def get_persisted_database_path():
     """Get the persisted database path from file"""
@@ -119,99 +74,115 @@ def main():
     # Initialize debug tab FIRST and use the SAME instance everywhere
     debug_tab = DebugTab()
     
-    # Get environment variables
-    env_vars = get_environment_variables(debug_tab)
-
-    IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
-    DISCOGS_USER_TOKEN = env_vars["DISCOGS_USER_TOKEN"]
-    EBAY_CLIENT_ID = env_vars["EBAY_CLIENT_ID"]
-    EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
-
-    # Initialize session state defaults
-    if "db_manager" not in st.session_state:
-        st.session_state.db_manager = initialize_database_manager()
-        debug_tab.add_log("DATABASE", f"Database manager initialized with: {st.session_state.db_manager.db_path}")
-
-    # Initialize Gallery JSON Manager AFTER db_manager is set
-    if "gallery_json_manager" not in st.session_state:
-        st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
-        debug_tab.add_log("GALLERY", "Gallery JSON manager initialized")
-
-    # Initialize GitHub Sync Handler
-    if "github_sync_handler" not in st.session_state:
-        st.session_state.github_sync_handler = GitHubSyncHandler(
-            repo_path="/home/arjan-ubuntu/Documents/PigStyle",
-            gallery_json_manager=st.session_state.gallery_json_manager
-        )
-        debug_tab.add_log("GITHUB", "GitHub sync handler initialized")
-
-    if "search_results" not in st.session_state:
-        st.session_state.search_results = {}
-
-    if "current_search" not in st.session_state:
-        st.session_state.current_search = ""
-
-    if "last_added" not in st.session_state:
-        st.session_state.last_added = None
-
-    if "records_updated" not in st.session_state:
-        st.session_state.records_updated = 0
-
-    if "selected_records" not in st.session_state:
-        st.session_state.selected_records = []
-
-    # Initialize Discogs handler
-    discogs_handler = None
-    if DISCOGS_USER_TOKEN:
-        try:
-            discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN, debug_tab)
-        except Exception as e:
-            debug_tab.add_log("ERROR", f"Failed to initialize Discogs: {e}")
-            discogs_handler = None
-    
-    # Initialize eBay handler
-    ebay_handler = None
-    if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
-        try:
-            ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, debug_tab)
-        except Exception as e:
-            debug_tab.add_log("ERROR", f"Failed to initialize eBay: {e}")
-            ebay_handler = None
- 
-    # Initialize all tabs - pass the SAME debug_tab instance to all
-    inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler, st.session_state.gallery_json_manager)
-    statistics_tab = StatisticsTab()
-    database_switch_tab = DatabaseSwitchTab()
-    expenses_tab = ExpensesTab()
-    # Use the SAME debug_tab instance for rendering
-
-    # Create tabs with new order (REMOVED CHECKOUT TAB)
-    tabs = st.tabs([
-        "🗃️ Database",
-        "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
-        "💰 Income",
-        "💰 Expenses",
-        "📊 Statistics",
-        "🔧 Debug"
-    ])
-    
-    with tabs[0]:
-        database_switch_tab.render()
-    
-    with tabs[1]:
-        inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
-    
-    with tabs[2]:
-        inventory_tab.render_sold_tab()
-    
-    with tabs[3]:
-        expenses_tab.render()
+    try:
+        # Initialize API Key Handler - this will throw an error if .env file is missing or incomplete
+        api_key_handler = APIKeyHandler(debug_tab)
         
-    with tabs[4]:
-        statistics_tab.render()
+        # Get environment variables - this will validate the .env file
+        env_vars = api_key_handler.get_environment_variables()
+
+        IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
+        DISCOGS_USER_TOKEN = env_vars["DISCOGS_USER_TOKEN"]
+        EBAY_CLIENT_ID = env_vars["EBAY_CLIENT_ID"]
+        EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
+
+        # Initialize session state defaults
+        if "db_manager" not in st.session_state:
+            st.session_state.db_manager = initialize_database_manager()
+            debug_tab.add_log("DATABASE", f"Database manager initialized with: {st.session_state.db_manager.db_path}")
+
+        # Initialize Gallery JSON Manager AFTER db_manager is set
+        if "gallery_json_manager" not in st.session_state:
+            st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
+            debug_tab.add_log("GALLERY", "Gallery JSON manager initialized")
+
+        # Initialize GitHub Sync Handler
+        if "github_sync_handler" not in st.session_state:
+            st.session_state.github_sync_handler = GitHubSyncHandler(
+                repo_path="/home/arjan-ubuntu/Documents/PigStyle",
+                gallery_json_manager=st.session_state.gallery_json_manager
+            )
+            debug_tab.add_log("GITHUB", "GitHub sync handler initialized")
+
+        if "search_results" not in st.session_state:
+            st.session_state.search_results = {}
+
+        if "current_search" not in st.session_state:
+            st.session_state.current_search = ""
+
+        if "last_added" not in st.session_state:
+            st.session_state.last_added = None
+
+        if "records_updated" not in st.session_state:
+            st.session_state.records_updated = 0
+
+        if "selected_records" not in st.session_state:
+            st.session_state.selected_records = []
+
+        # Initialize Discogs handler
+        discogs_handler = None
+        if DISCOGS_USER_TOKEN:
+            try:
+                discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN, debug_tab)
+            except Exception as e:
+                debug_tab.add_log("ERROR", f"Failed to initialize Discogs: {e}")
+                discogs_handler = None
         
-    with tabs[5]:
-        debug_tab.render()  # Use the SAME instance
+        # Initialize eBay handler
+        ebay_handler = None
+        if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
+            try:
+                ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, debug_tab)
+            except Exception as e:
+                debug_tab.add_log("ERROR", f"Failed to initialize eBay: {e}")
+                ebay_handler = None
+     
+        # Initialize all tabs - pass the SAME debug_tab instance to all
+        inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler, st.session_state.gallery_json_manager)
+        statistics_tab = StatisticsTab()
+        database_switch_tab = DatabaseSwitchTab()
+        expenses_tab = ExpensesTab()
+        # Use the SAME debug_tab instance for rendering
+
+        # Create tabs with new order (REMOVED CHECKOUT TAB)
+        tabs = st.tabs([
+            "🗃️ Database",
+            "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
+            "💰 Income",
+            "💰 Expenses",
+            "📊 Statistics",
+            "🔧 Debug"
+        ])
+        
+        with tabs[0]:
+            database_switch_tab.render()
+        
+        with tabs[1]:
+            inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
+        
+        with tabs[2]:
+            inventory_tab.render_sold_tab()
+        
+        with tabs[3]:
+            expenses_tab.render()
+            
+        with tabs[4]:
+            statistics_tab.render()
+            
+        with tabs[5]:
+            debug_tab.render()  # Use the SAME instance
+
+    except Exception as e:
+        # Show error message if .env file is missing or incomplete
+        st.error(f"❌ Configuration Error: {str(e)}")
+        st.info("""
+        Please ensure you have a `.env` file in the project base directory with the following variables:
+        - IMAGEBB_API_KEY
+        - DISCOGS_USER_TOKEN  
+        - EBAY_CLIENT_ID
+        - EBAY_CLIENT_SECRET
+        """)
+        return
 
 
 if __name__ == "__main__":

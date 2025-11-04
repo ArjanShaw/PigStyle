@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T02:32:52Z",
-    "total_records": 597,
+    "last_updated": "2025-11-04T02:35:06Z",
+    "total_records": 598,
     "format_version": "2.0"
   },
   "records": [
@@ -8360,6 +8360,20 @@
       "file_at": "Pop(R)",
       "youtube_url": "",
       "catalog_number": "SRW 16243",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 642,
+      "artist": "Gidea Park",
+      "title": "Seasons Of Gold",
+      "image_url": "https://i.discogs.com/qp17wqB066WjQOKe3JrkwaETZMcwLjm2sLxjKDj42_Q/rs:fit/g:sm/q:90/h:600/w:598/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3NDEw/MjQtMTM0MjQ4NzM4/Ny00NjMwLmpwZWc.jpeg",
+      "genre": "Electronic",
+      "barcode": "200000995793",
+      "store_price": null,
+      "file_at": "Electronic(G)",
+      "youtube_url": "https://www.youtube.com/watch?v=nUHpPrlSMNw",
+      "catalog_number": "PRO-7003",
       "format": "Vinyl",
       "condition": "3"
     }

@@ -3,7 +3,7 @@
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.jpg">
+    <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
     <title>Record Gallery - PigStyle Records</title>
     <link rel="stylesheet" href="catalog.css">
 </head>
@@ -15,7 +15,7 @@
     </div>
 
     <header>
-        <a href='index.html'><img src='images/pigstyle_text.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
+        <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
     </header>
     
     <div class="header-section">
@@ -25,17 +25,15 @@
         
         <div class="filters-container">
             <div class="filter-group">
-                <label for="artistFilter">Filter by Artist:</label>
                 <select id="artistFilter" class="filter-select">
                     <option value="">All Artists</option>
                 </select>
                 
                 <div class="price-filter-group">
-                    <label for="priceFilter">Price Range:</label>
                     <div class="price-inputs">
-                        <input type="number" id="minPrice" class="price-input" placeholder="Min" min="0">
+                        <input type="number" id="minPrice" class="price-input" placeholder="Min Price" min="0">
                         <span class="price-separator">-</span>
-                        <input type="number" id="maxPrice" class="price-input" placeholder="Max" min="0">
+                        <input type="number" id="maxPrice" class="price-input" placeholder="Max Price" min="0">
                     </div>
                 </div>
             </div>

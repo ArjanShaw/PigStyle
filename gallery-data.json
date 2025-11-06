@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:58:21Z",
-    "total_records": 630,
+    "last_updated": "2025-11-06T00:59:47Z",
+    "total_records": 631,
     "format_version": "2.0"
   },
   "records": [
@@ -8822,6 +8822,20 @@
       "file_at": "Pop(F)",
       "youtube_url": "https://www.youtube.com/watch?v=Dxl2-IlZw-E",
       "catalog_number": "HS 11129",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 675,
+      "artist": "Harry Belafonte With Odetta, Miriam Makeba, The Chad Mitchell Trio And The Belafonte Folk Singers Conducted By Robert DeCormier",
+      "title": "Belafonte Returns To Carnegie Hall",
+      "image_url": "https://i.discogs.com/HMhCAQOUhAjgnwr0-h0xSpZaxwpN3StsdBDk4IHNNeU/rs:fit/g:sm/q:90/h:599/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTkwOTk4/MjktMTQ3NDc2MzAw/NC03NDc4LmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995826",
+      "store_price": null,
+      "file_at": "Pop(H)",
+      "youtube_url": "https://www.youtube.com/watch?v=QALpe96fX0Q",
+      "catalog_number": "LOC-6007",
       "format": "Vinyl",
       "condition": "3"
     }

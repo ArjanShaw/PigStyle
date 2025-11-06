@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T01:08:19Z",
-    "total_records": 637,
+    "last_updated": "2025-11-06T01:09:27Z",
+    "total_records": 638,
     "format_version": "2.0"
   },
   "records": [
@@ -8920,6 +8920,20 @@
       "file_at": "Pop(R)",
       "youtube_url": "",
       "catalog_number": "KL-1251",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 682,
+      "artist": "Neil Sedaka",
+      "title": "Sedaka's Back",
+      "image_url": "https://i.discogs.com/upBVERq-7JsnyEzuJC3gNMRPiHh9T8_4LKdn1l_AAMY/rs:fit/g:sm/q:90/h:604/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIwNTkx/NDctMTUxNjEzMjU2/Mi05NjYyLmpwZWc.jpeg",
+      "genre": "Popular",
+      "barcode": "200000995833",
+      "store_price": null,
+      "file_at": "Popular(N)",
+      "youtube_url": "",
+      "catalog_number": "MCA-463",
       "format": "Vinyl",
       "condition": "4"
     }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:45:12Z",
-    "total_records": 618,
+    "last_updated": "2025-11-06T00:46:42Z",
+    "total_records": 619,
     "format_version": "2.0"
   },
   "records": [
@@ -8656,6 +8656,20 @@
       "catalog_number": "KX-5008-S",
       "format": "Vinyl",
       "condition": "5"
+    },
+    {
+      "id": 663,
+      "artist": "Various",
+      "title": "Volunteer Jam",
+      "image_url": "https://i.discogs.com/ea34BzXq69UbRfW-9Folf-EZf3Yp8vS8ZRAeHUWUPkE/rs:fit/g:sm/q:90/h:300/w:301/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ2MDQ2/MTYtMTM2OTY5MTYx/OC0yNTM2LmpwZWc.jpeg",
+      "genre": "Compilation",
+      "barcode": "200000995814",
+      "store_price": null,
+      "file_at": "Compilation(V)",
+      "youtube_url": "",
+      "catalog_number": "CPN 0172",
+      "format": "Vinyl",
+      "condition": "3"
     }
   ]
 }

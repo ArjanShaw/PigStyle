@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T01:04:18Z",
-    "total_records": 634,
+    "last_updated": "2025-11-06T01:06:06Z",
+    "total_records": 635,
     "format_version": "2.0"
   },
   "records": [
@@ -8880,6 +8880,20 @@
       "catalog_number": "BSK 3576",
       "format": "Vinyl",
       "condition": "5"
+    },
+    {
+      "id": 679,
+      "artist": "The New Vaudeville Band",
+      "title": "Winchester Cathedral",
+      "image_url": "https://i.discogs.com/ANyqQQtw9YVApSRMcaPoJAeeq2CP7sFZfxlef4Kj6T8/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc1MzE0/OTktMTQ0MzQwNjc3/NC05NjYwLmpwZWc.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995830",
+      "store_price": null,
+      "file_at": "Jazz(N)",
+      "youtube_url": "https://www.youtube.com/watch?v=2pdRKBqrH3M",
+      "catalog_number": "MGF 27560",
+      "format": "Vinyl",
+      "condition": "4"
     }
   ]
 }

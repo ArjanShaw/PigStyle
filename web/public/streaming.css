@@ -129,6 +129,7 @@ header {
 
 .info-badges {
     display: flex;
+    align-items: center;
     gap: 8px;
 }
 
@@ -153,11 +154,12 @@ header {
     border: 1px solid #e74c3c;
 }
 
-/* Format icons */
+/* Format icons - vinyl as black circle */
 .format-icon {
     font-size: 1.2rem;
     width: 20px;
     text-align: center;
+    color: #000000;
 }
 
 /* Condition stars */
@@ -242,22 +244,20 @@ header {
     transform: scale(0.95);
 }
 
-/* Updated Vote controls */
+/* Updated Vote controls - now inline with badges */
 .vote-controls {
     display: flex;
-    justify-content: center;
-    gap: 25px;
-    margin-top: 15px;
+    gap: 8px;
 }
 
 .vote-btn {
     background: rgba(255, 255, 255, 0.1);
     border: 2px solid rgba(255, 255, 255, 0.3);
     color: white;
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    font-size: 1.5rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
@@ -304,9 +304,9 @@ header {
     background: #e74c3c;
     color: white;
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    font-size: 0.8rem;
+    width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
     font-weight: bold;
     display: flex;
     align-items: center;
@@ -403,16 +403,29 @@ header {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .header-content {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .genre-selector {
+        flex-shrink: 0;
+    }
+    
+    .genre-select {
+        min-width: 120px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+    
     .current-track h2 {
         font-size: 1.8rem;
     }
     
     .current-track .artist {
         font-size: 1.4rem;
-    }
-    
-    .current-track .price {
-        font-size: 1.3rem;
     }
     
     .price-container {
@@ -422,6 +435,8 @@ header {
     
     .info-badges {
         gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
     }
     
     .detail-item {
@@ -440,23 +455,17 @@ header {
     }
     
     .vote-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 1.3rem;
+        width: 35px;
+        height: 35px;
+        font-size: 0.9rem;
     }
     
     .vote-count-badge {
-        width: 20px;
-        height: 20px;
-        font-size: 0.7rem;
+        width: 16px;
+        height: 16px;
+        font-size: 0.6rem;
         top: -3px;
         right: -3px;
-    }
-    
-    .header-content {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
     }
     
     .price-badge {
@@ -478,5 +487,43 @@ header {
     
     .condition-star {
         font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-content {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    
+    .logo-container img {
+        height: 40px;
+    }
+    
+    .genre-select {
+        min-width: 100px;
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+    
+    .info-badges {
+        gap: 4px;
+    }
+    
+    .detail-item {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+    
+    .vote-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 0.8rem;
+    }
+    
+    .vote-count-badge {
+        width: 14px;
+        height: 14px;
+        font-size: 0.5rem;
     }
 }

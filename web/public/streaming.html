@@ -46,24 +46,23 @@
                     <div class="price-badge" id="trackPrice">$0.00</div>
                     <div class="info-badges">
                         <div class="detail-item format" id="trackFormat">
-                            <span class="format-icon" id="formatIcon">💿</span>
+                            <span class="format-icon" id="formatIcon">⚫</span>
                         </div>
                         <div class="detail-item condition" id="trackCondition">
                             <span class="condition-stars" id="conditionStars"></span>
                         </div>
+                        <!-- Moved vote controls here -->
+                        <div class="vote-controls">
+                            <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
+                                👍
+                                <span class="vote-count-badge" id="upvoteCount">0</span>
+                            </button>
+                            <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">
+                                👎
+                                <span class="vote-count-badge" id="downvoteCount">0</span>
+                            </button>
+                        </div>
                     </div>
-                </div>
-                
-                <!-- Updated Vote controls -->
-                <div class="vote-controls">
-                    <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
-                        👍
-                        <span class="vote-count-badge" id="upvoteCount">0</span>
-                    </button>
-                    <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">
-                        👎
-                        <span class="vote-count-badge" id="downvoteCount">0</span>
-                    </button>
                 </div>
             </div>
             
@@ -90,10 +89,10 @@
         let votesData = {};
         let currentTrackId = null;
 
-        // Format icons mapping
+        // Format icons mapping - updated vinyl to black circle
         const formatIcons = {
-            'vinyl': '💿',
-            'record': '💿',
+            'vinyl': '⚫',
+            'record': '⚫',
             'cassette': '📼',
             'tape': '📼',
             'cd': '📀',
@@ -291,10 +290,10 @@
             document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
             document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
             
-            // Update format with icon
+            // Update format with icon - now using black circle for vinyl
             const format = currentRecord.format || 'vinyl';
             const formatText = format.toLowerCase();
-            const formatIcon = formatIcons[formatText] || '💿';
+            const formatIcon = formatIcons[formatText] || '⚫';
             document.getElementById('formatIcon').textContent = formatIcon;
             
             // Update condition with stars

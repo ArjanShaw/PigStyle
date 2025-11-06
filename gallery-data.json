@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-04T13:40:19Z",
-    "total_records": 614,
+    "last_updated": "2025-11-06T00:31:27Z",
+    "total_records": 615,
     "format_version": "2.0"
   },
   "records": [
@@ -8598,6 +8598,20 @@
       "file_at": "Funk Soul(T)",
       "youtube_url": "https://www.youtube.com/watch?v=C0NmFdZcOqM",
       "catalog_number": "P 7049",
+      "format": "Vinyl",
+      "condition": "5"
+    },
+    {
+      "id": 659,
+      "artist": "Andy Williams",
+      "title": "Andy",
+      "image_url": "https://i.discogs.com/-501fgKDTtooOGsPSfYL3Fgs1QvgUwzI7cIWEtMbZxs/rs:fit/g:sm/q:90/h:602/w:599/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTUzNjUw/NjItMTM5MTU2OTQ4/NC01MTM2LmpwZWc.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995810",
+      "store_price": null,
+      "file_at": "Jazz(A)",
+      "youtube_url": "",
+      "catalog_number": "PC 34299",
       "format": "Vinyl",
       "condition": "5"
     }

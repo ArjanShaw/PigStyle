@@ -45,14 +45,16 @@
                     <div class="detail-item genre" id="trackGenre">Genre</div>
                 </div>
                 
-                <!-- Vote controls -->
+                <!-- Updated Vote controls -->
                 <div class="vote-controls">
-                    <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">👍</button>
-                    <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">👎</button>
-                </div>
-                <div class="vote-stats">
-                    <span class="vote-count positive" id="upvoteCount">0</span>
-                    <span class="vote-count negative" id="downvoteCount">0</span>
+                    <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
+                        👍
+                        <span class="vote-count-badge" id="upvoteCount">0</span>
+                    </button>
+                    <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">
+                        👎
+                        <span class="vote-count-badge" id="downvoteCount">0</span>
+                    </button>
                 </div>
             </div>
             
@@ -331,6 +333,8 @@
             }
             
             const trackVotes = votesData.tracks[currentTrackId];
+            
+            // Update badge counts
             document.getElementById('upvoteCount').textContent = trackVotes.upvotes;
             document.getElementById('downvoteCount').textContent = trackVotes.downvotes;
             

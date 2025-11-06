@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:55:18Z",
-    "total_records": 627,
+    "last_updated": "2025-11-06T00:56:46Z",
+    "total_records": 628,
     "format_version": "2.0"
   },
   "records": [
@@ -8780,6 +8780,20 @@
       "file_at": "Popular(W)",
       "youtube_url": "",
       "catalog_number": "ST 2335",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 672,
+      "artist": "Johnny Horton",
+      "title": "Johnny Horton's Greatest Hits",
+      "image_url": "https://i.discogs.com/WU3tFyabE6QyHW1xJl9SOrPMuuiILYM1LDEWG9eqBKs/rs:fit/g:sm/q:90/h:596/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI3NDcy/OTMtMTQ5ODMyMTc2/My0yOTM4LmpwZWc.jpeg",
+      "genre": "Roots",
+      "barcode": "200000995823",
+      "store_price": null,
+      "file_at": "Roots(J)",
+      "youtube_url": "https://www.youtube.com/watch?v=aXfuQqkwa5I",
+      "catalog_number": "CL 1596",
       "format": "Vinyl",
       "condition": "3"
     }

@@ -164,31 +164,61 @@
             }
         }
 
-        // Load votes data from local JSON file
+        // Load votes data from localStorage or create new
         async function loadVotesData() {
             try {
-                const response = await fetch('votes-data.json');
-                votesData = await response.json();
-                console.log('Loaded votes data:', votesData);
+                // First try to load from localStorage (client-side persistence)
+                const storedVotes = localStorage.getItem('pigstyle_votes_data');
+                
+                if (storedVotes) {
+                    votesData = JSON.parse(storedVotes);
+                    console.log('Loaded votes data from localStorage:', votesData);
+                } else {
+                    // If no localStorage data, try to load from JSON file (for initial setup)
+                    try {
+                        const response = await fetch('votes-data.json');
+                        votesData = await response.json();
+                        console.log('Loaded votes data from JSON file:', votesData);
+                        
+                        // Also store in localStorage for future persistence
+                        localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
+                    } catch (error) {
+                        console.log('No existing votes data found, starting fresh');
+                        votesData = {
+                            tracks: {},
+                            lastUpdated: new Date().toISOString()
+                        };
+                        // Initialize localStorage with fresh data
+                        localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
+                    }
+                }
             } catch (error) {
-                console.log('No existing votes data found, starting fresh');
+                console.error('Error loading votes data:', error);
+                // Fallback to fresh data
                 votesData = {
                     tracks: {},
                     lastUpdated: new Date().toISOString()
                 };
+                localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
             }
         }
 
-        // Save votes data to local JSON file
+        // Save votes data to localStorage
         async function saveVotesData() {
             try {
                 votesData.lastUpdated = new Date().toISOString();
-                // In a real implementation, you'd send this to a server endpoint
-                // For now, we'll just store it in memory and log it
-                console.log('Votes data to save:', votesData);
                 
-                // For client-side storage, we could use localStorage as a fallback
+                // Always save to localStorage for client-side persistence
                 localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
+                console.log('Votes data saved to localStorage:', votesData);
+                
+                // Optional: You could also send to a server here if you had a backend
+                // await fetch('/api/save-votes', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify(votesData)
+                // });
+                
             } catch (error) {
                 console.error('Error saving votes data:', error);
             }

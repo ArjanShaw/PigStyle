@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:39:12Z",
-    "total_records": 617,
+    "last_updated": "2025-11-06T00:45:12Z",
+    "total_records": 618,
     "format_version": "2.0"
   },
   "records": [
@@ -4798,14 +4798,14 @@
       "artist": "Roger Williams",
       "title": "Play Me - Love Theme From \"Lady Sings The Blues\"",
       "image_url": "https://i.discogs.com/OhC4Nq1dAqsO4XW-UxGS4ZMYLXZJPrPOxJ5V8XtZhcw/rs:fit/g:sm/q:90/h:587/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM5Njg3/NTctMTc0NDI3ODA2/Ni0yMzE5LmpwZWc.jpeg",
-      "genre": "Miscellaneous",
+      "genre": "Pop",
       "barcode": "200000995537",
       "store_price": 1.99,
-      "file_at": "Miscellaneous(R)",
+      "file_at": "Pop(R)",
       "youtube_url": null,
       "catalog_number": null,
       "format": "Vinyl",
-      "condition": "3"
+      "condition": "4"
     },
     {
       "id": 375,
@@ -5596,14 +5596,14 @@
       "artist": "Roger Williams",
       "title": "Love Theme From \"Romeo & Juliet\" And Other Great Movie Themes",
       "image_url": "https://i.discogs.com/DTaO5Lv0QtPFMjUTwtvnIOaQS65K8rXtD6kz-T8P-EU/rs:fit/g:sm/q:90/h:599/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM0ODgw/NjktMTQ4MDEyODM3/OS01MTM3LmpwZWc.jpeg",
-      "genre": "Miscellaneous",
+      "genre": "Pop",
       "barcode": "200000995593",
       "store_price": 1.99,
-      "file_at": "Miscellaneous(R)",
+      "file_at": "Pop(R)",
       "youtube_url": null,
       "catalog_number": "KS-3610",
       "format": "Vinyl",
-      "condition": "5"
+      "condition": "4"
     },
     {
       "id": 439,
@@ -8634,14 +8634,28 @@
       "artist": "Roger Williams",
       "title": "Almost Paradise",
       "image_url": "https://i.discogs.com/OSONyqrDE5LINMv8j4TnM73OysNOTrrbl1pCgycA3tI/rs:fit/g:sm/q:90/h:603/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI3OTA0/MTItMTMwMTIzMTUw/Mi5qcGVn.jpeg",
-      "genre": "Miscellaneous",
+      "genre": "Pop",
       "barcode": "200000995812",
       "store_price": null,
-      "file_at": "Miscellaneous(R)",
+      "file_at": "Pop(R)",
       "youtube_url": "https://www.youtube.com/watch?v=-znV8MZb3Hk",
       "catalog_number": "KL-1063",
       "format": "Vinyl",
       "condition": "4"
+    },
+    {
+      "id": 662,
+      "artist": "Roger Williams",
+      "title": "Tonight! Roger Williams At Town Hall",
+      "image_url": "https://i.discogs.com/PkWV0A21gXtwTR3nOp50uUK52vb2zDJNCbB1PYKlydQ/rs:fit/g:sm/q:90/h:600/w:598/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ3NDM0/ODctMTM3NDA5Mzk2/MS04NTgzLmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995813",
+      "store_price": null,
+      "file_at": "Pop(R)",
+      "youtube_url": "https://www.youtube.com/watch?v=-HJasZa-sVA",
+      "catalog_number": "KX-5008-S",
+      "format": "Vinyl",
+      "condition": "5"
     }
   ]
 }

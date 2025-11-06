@@ -1,0 +1,327 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: url('images/background.png') no-repeat center center fixed;
+    background-size: cover;
+    color: #eee;
+    text-align: center;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+/* Background Image */
+.background-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+.background-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+/* Banner */
+.banner {
+    background: linear-gradient(135deg, #ffcc00, #ff9900);
+    color: #333;
+    text-align: center;
+    padding: 15px;
+    font-weight: bold;
+    font-size: clamp(16px, 4vw, 22px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    z-index: 100;
+    position: relative;
+}
+
+/* Main Container */
+.container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Top Section - Logo and Title */
+.top-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.pigstyle-logo {
+    max-width: 400px;
+    width: 80%;
+    margin-bottom: 20px;
+}
+
+.music-title {
+    max-width: 300px;
+    width: 60%;
+}
+
+/* Content Box */
+.content-box {
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 15px;
+    padding: 25px;
+    width: 90%;
+    max-width: 800px;
+    margin: 20px 0;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.content-box ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.content-box li {
+    margin-bottom: 15px;
+    font-size: clamp(16px, 3vw, 20px);
+    line-height: 1.4;
+    color: white;
+    text-align: center;
+}
+
+.content-box a {
+    color: #ffcc00;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.3s;
+}
+
+.content-box a:hover {
+    color: #ff9900;
+    text-decoration: underline;
+}
+
+/* Bottom Section - Record and Store Info */
+.bottom-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.record-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px 0;
+    width: 100%;
+}
+
+.rotating-record {
+    max-width: 200px;
+    width: 40%;
+    animation: spin 20s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.pig-head {
+    max-width: 150px;
+    width: 30%;
+    margin-right: 20px;
+}
+
+/* Store Info */
+.store-info {
+    text-align: center;
+    font-size: clamp(14px, 2.5vw, 18px);
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 15px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 600px;
+}
+
+.store-info p {
+    margin: 8px 0;
+}
+
+.social-icons {
+    margin-top: 15px;
+}
+
+.social-icons a {
+    color: white;
+    margin: 0 15px;
+    font-size: 24px;
+    transition: color 0.3s;
+}
+
+.social-icons a:hover {
+    color: #ffcc00;
+}
+
+/* Large screens - position in bottom left corner */
+@media (min-width: 1024px) {
+    .record-container {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        width: auto;
+        margin: 0;
+        justify-content: flex-start;
+        z-index: 10;
+    }
+    
+    .pig-head {
+        max-width: 120px;
+        margin-right: 15px;
+    }
+    
+    .rotating-record {
+        max-width: 150px;
+    }
+    
+    /* Adjust container padding to account for fixed record */
+    .container {
+        padding-left: 200px;
+    }
+}
+
+/* Small screens - hide completely */
+@media (max-width: 768px) {
+    .record-container {
+        display: none;
+    }
+}
+
+/* Medium screens (tablets) - keep centered but smaller */
+@media (min-width: 769px) and (max-width: 1023px) {
+    .pig-head {
+        max-width: 120px;
+    }
+    
+    .rotating-record {
+        max-width: 150px;
+    }
+}
+
+/* Modal Styles */
+.modalOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+
+#modalBox {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    color: #333;
+}
+
+#modalImage {
+    max-width: 100%;
+    height: auto;
+    margin: 15px 0;
+    border-radius: 5px;
+}
+
+.modalFooter {
+    margin-top: 20px;
+}
+
+#closeBtn {
+    background-color: #ffcc00;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+#closeBtn:hover {
+    background-color: #ff9900;
+}
+
+/* Mobile-specific fixes for store info */
+@media (max-width: 480px) {
+    .container {
+        padding-bottom: 180px; /* Extra space for store info */
+        min-height: calc(100vh - 80px); /* Account for banner */
+    }
+    
+    .store-info {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        padding: 15px 10px;
+        background-color: rgba(0, 0, 0, 0.9);
+        z-index: 100;
+    }
+    
+    .content-box {
+        margin-bottom: 120px; /* Space for fixed store info */
+    }
+    
+    .record-container {
+        margin-bottom: 100px; /* Space for fixed store info */
+    }
+}
+
+@media (max-width: 768px) and (min-width: 481px) {
+    .container {
+        padding-bottom: 150px;
+    }
+    
+    .store-info {
+        position: relative;
+        margin-top: 20px;
+    }
+}

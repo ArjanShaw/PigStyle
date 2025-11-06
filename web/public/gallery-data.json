@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:46:42Z",
-    "total_records": 619,
+    "last_updated": "2025-11-06T00:48:10Z",
+    "total_records": 620,
     "format_version": "2.0"
   },
   "records": [
@@ -8668,6 +8668,20 @@
       "file_at": "Compilation(V)",
       "youtube_url": "",
       "catalog_number": "CPN 0172",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 664,
+      "artist": "Jody Miller",
+      "title": "Home Of The Brave",
+      "image_url": "https://i.discogs.com/wf-md-N_4NTshp5_lCBgjPQLJ5skbRHMhRBnYijQV1I/rs:fit/g:sm/q:90/h:602/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQxNzY1/NjQtMTY2NjgwNDMx/MC0yNTQyLmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995815",
+      "store_price": null,
+      "file_at": "Pop(J)",
+      "youtube_url": "https://www.youtube.com/watch?v=RXvSxIuf-_o",
+      "catalog_number": "ST 2412",
       "format": "Vinyl",
       "condition": "3"
     }

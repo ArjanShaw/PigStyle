@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:52:27Z",
-    "total_records": 624,
+    "last_updated": "2025-11-06T00:53:24Z",
+    "total_records": 625,
     "format_version": "2.0"
   },
   "records": [
@@ -8738,6 +8738,20 @@
       "file_at": "Popular(J)",
       "youtube_url": "https://www.youtube.com/watch?v=1CieoQeLqcU",
       "catalog_number": "CS 8634",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 669,
+      "artist": "Bobby Vinton",
+      "title": "More Of Bobby's Greatest Hits",
+      "image_url": "https://i.discogs.com/g6WaOFBGQ5JWN4S3Bj2fv48o8dLVL4w7nsXvQp4CfW0/rs:fit/g:sm/q:90/h:598/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI5NjM3/NDktMTQ4ODkxODQ0/MC0yODg3LmpwZWc.jpeg",
+      "genre": "Popular",
+      "barcode": "200000995820",
+      "store_price": null,
+      "file_at": "Popular(B)",
+      "youtube_url": "",
+      "catalog_number": "BN 26187",
       "format": "Vinyl",
       "condition": "3"
     }

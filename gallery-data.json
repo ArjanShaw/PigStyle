@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:33:53Z",
-    "total_records": 616,
+    "last_updated": "2025-11-06T00:39:12Z",
+    "total_records": 617,
     "format_version": "2.0"
   },
   "records": [
@@ -8626,6 +8626,20 @@
       "file_at": "Funk Soul(M)",
       "youtube_url": "https://www.youtube.com/watch?v=IW-mcwJ9D_k",
       "catalog_number": "BDS 5712",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 661,
+      "artist": "Roger Williams",
+      "title": "Almost Paradise",
+      "image_url": "https://i.discogs.com/OSONyqrDE5LINMv8j4TnM73OysNOTrrbl1pCgycA3tI/rs:fit/g:sm/q:90/h:603/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI3OTA0/MTItMTMwMTIzMTUw/Mi5qcGVn.jpeg",
+      "genre": "Miscellaneous",
+      "barcode": "200000995812",
+      "store_price": null,
+      "file_at": "Miscellaneous(R)",
+      "youtube_url": "https://www.youtube.com/watch?v=-znV8MZb3Hk",
+      "catalog_number": "KL-1063",
       "format": "Vinyl",
       "condition": "4"
     }

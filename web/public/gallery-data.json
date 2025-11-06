@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T01:00:55Z",
-    "total_records": 632,
+    "last_updated": "2025-11-06T01:02:07Z",
+    "total_records": 633,
     "format_version": "2.0"
   },
   "records": [
@@ -8850,6 +8850,20 @@
       "file_at": "Rock(J)",
       "youtube_url": "https://www.youtube.com/watch?v=SqRvJLH_-vU",
       "catalog_number": "6E-107",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 677,
+      "artist": "Tommy Edwards",
+      "title": "The Very Best Of Tommy Edwards",
+      "image_url": "https://i.discogs.com/fpl18KcS65hg2HKfaT1PNYBqC6umjqeYlpVBA6IWzTU/rs:fit/g:sm/q:90/h:594/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIyMDk1/ODgzLTE2NDQ0NTMx/ODEtNDg1OS5qcGVn.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995828",
+      "store_price": null,
+      "file_at": "Jazz(T)",
+      "youtube_url": "https://www.youtube.com/watch?v=bycxE1aYPYU",
+      "catalog_number": "SE-4141",
       "format": "Vinyl",
       "condition": "3"
     }

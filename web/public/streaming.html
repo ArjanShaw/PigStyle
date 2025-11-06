@@ -89,6 +89,11 @@
         let votesData = {};
         let currentTrackId = null;
 
+        // Weighted random selection parameters
+        const MIN_WEIGHT = 0.1;  // Even downvoted songs get some playtime
+        const MAX_WEIGHT = 3.0;  // Highly upvoted songs get more playtime
+        const BASE_WEIGHT = 1.0; // Default weight for songs with no votes
+
         // Format icons mapping - updated vinyl to black circle
         const formatIcons = {
             'vinyl': '⚫',
@@ -137,9 +142,8 @@
                     return;
                 }
                 
-                // RANDOMIZE THE VIDEO ORDER
-                shuffleArray(filteredRecords);
-                console.log('Randomized video order:', filteredRecords.map(r => r.title));
+                // Generate weighted playlist based on votes
+                generateWeightedPlaylist();
                 
                 populateGenreFilter();
                 initializePlayer();
@@ -148,6 +152,67 @@
                 console.error('Error loading streaming data:', error);
                 document.getElementById('loading').innerHTML = '<div class="error-message">Error loading streaming station. Please try again later.</div>';
             }
+        }
+
+        // Generate weighted playlist based on vote scores
+        function generateWeightedPlaylist() {
+            if (filteredRecords.length === 0) return;
+            
+            // Calculate scores and weights for all tracks
+            const tracksWithWeights = filteredRecords.map(record => {
+                const trackId = record.id.toString();
+                const votes = votesData.tracks[trackId] || { upvotes: 0, downvotes: 0 };
+                const score = votes.upvotes - votes.downvotes;
+                
+                // Calculate weight using hybrid algorithm
+                let weight;
+                if (Object.keys(votesData.tracks).length === 0) {
+                    // If no votes data yet, use base weight for all
+                    weight = BASE_WEIGHT;
+                } else {
+                    // Find min and max scores across all tracks
+                    const allScores = Object.values(votesData.tracks).map(v => v.upvotes - v.downvotes);
+                    const minScore = Math.min(...allScores);
+                    const maxScore = Math.max(...allScores);
+                    
+                    if (minScore === maxScore) {
+                        // All songs have same score, use base weight
+                        weight = BASE_WEIGHT;
+                    } else {
+                        // Normalize score to 0-1 range and map to weight range
+                        const normalizedScore = (score - minScore) / (maxScore - minScore);
+                        weight = MIN_WEIGHT + (MAX_WEIGHT - MIN_WEIGHT) * normalizedScore;
+                    }
+                }
+                
+                return {
+                    record: record,
+                    weight: weight,
+                    score: score
+                };
+            });
+            
+            console.log('Track weights:', tracksWithWeights.map(t => ({
+                title: t.record.title,
+                score: t.score,
+                weight: t.weight.toFixed(2)
+            })));
+            
+            // Create weighted playlist by duplicating tracks based on weights
+            const weightedPlaylist = [];
+            tracksWithWeights.forEach(track => {
+                // Round weight to integer for duplication count
+                const count = Math.max(1, Math.round(track.weight));
+                for (let i = 0; i < count; i++) {
+                    weightedPlaylist.push(track.record);
+                }
+            });
+            
+            // Shuffle the weighted playlist
+            shuffleArray(weightedPlaylist);
+            filteredRecords = weightedPlaylist;
+            
+            console.log(`Generated weighted playlist with ${filteredRecords.length} entries (from ${tracksWithWeights.length} unique tracks)`);
         }
 
         // Get user IP address
@@ -212,13 +277,6 @@
                 localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
                 console.log('Votes data saved to localStorage:', votesData);
                 
-                // Optional: You could also send to a server here if you had a backend
-                // await fetch('/api/save-votes', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify(votesData)
-                // });
-                
             } catch (error) {
                 console.error('Error saving votes data:', error);
             }
@@ -236,7 +294,11 @@
         // Populate genre filter dropdown
         function populateGenreFilter() {
             const genreFilter = document.getElementById('genreFilter');
-            const genres = [...new Set(filteredRecords.map(record => record.genre))].sort();
+            // Get unique genres from original records (before weighting)
+            const uniqueRecords = allRecords.filter(record => 
+                extractYouTubeId(record.youtube_url) !== null
+            );
+            const genres = [...new Set(uniqueRecords.map(record => record.genre))].sort();
             
             genres.forEach(genre => {
                 const option = document.createElement('option');
@@ -256,13 +318,15 @@
             let filteredByYouTube = allRecords.filter(record => extractYouTubeId(record.youtube_url) !== null);
             
             if (!genre) {
+                // Use all streamable records
                 filteredRecords = filteredByYouTube;
             } else {
+                // Filter by genre
                 filteredRecords = filteredByYouTube.filter(record => record.genre === genre);
             }
             
-            // RANDOMIZE THE FILTERED RESULTS
-            shuffleArray(filteredRecords);
+            // Regenerate weighted playlist for the filtered results
+            generateWeightedPlaylist();
             
             if (filteredRecords.length === 0) {
                 // If no records after filtering, show message and stop player
@@ -457,6 +521,12 @@
             // Update display and save data
             updateVoteDisplay();
             saveVotesData();
+            
+            // Regenerate weighted playlist to reflect the new vote
+            generateWeightedPlaylist();
+            
+            // Reset current track index since playlist changed
+            currentTrackIndex = 0;
         }
 
         // YouTube player ready callback

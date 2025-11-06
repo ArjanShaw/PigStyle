@@ -539,7 +539,10 @@
                         'autoplay': autoplayEnabled ? 1 : 0,
                         'controls': 1,
                         'rel': 0,
-                        'modestbranding': 1
+                        'modestbranding': 1,
+                        'cc_load_policy': 0, // Disable captions by default
+                        'iv_load_policy': 3, // Disable annotations
+                        'fs': 1 // Allow fullscreen
                     },
                     events: {
                         'onReady': onPlayerReady,
@@ -547,7 +550,10 @@
                     }
                 });
             } else {
-                youtubePlayer.loadVideoById(youtubeId);
+                youtubePlayer.loadVideoById({
+                    videoId: youtubeId,
+                    suggestedQuality: 'large'
+                });
                 if (autoplayEnabled) {
                     youtubePlayer.playVideo();
                 }
@@ -557,6 +563,8 @@
         // YouTube player ready callback
         function onPlayerReady(event) {
             console.log('YouTube player ready');
+            // Force captions to be off
+            event.target.setOption('captions', 'off');
             if (autoplayEnabled) {
                 event.target.playVideo();
             }
@@ -567,6 +575,10 @@
             // When video starts playing, hide the record image overlay
             if (event.data === YT.PlayerState.PLAYING) {
                 document.getElementById('videoContainer').classList.add('video-playing');
+                // Ensure captions are off when video starts
+                if (youtubePlayer && youtubePlayer.setOption) {
+                    youtubePlayer.setOption('captions', 'off');
+                }
             }
             // When video ends, play next track
             if (event.data === YT.PlayerState.ENDED) {

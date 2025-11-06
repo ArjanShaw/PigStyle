@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:50:25Z",
-    "total_records": 622,
+    "last_updated": "2025-11-06T00:51:27Z",
+    "total_records": 623,
     "format_version": "2.0"
   },
   "records": [
@@ -8712,6 +8712,20 @@
       "catalog_number": "OBW 6315",
       "format": "Vinyl",
       "condition": "4"
+    },
+    {
+      "id": 667,
+      "artist": "4 Pitchikers",
+      "title": "Let's Bust One!",
+      "image_url": "https://i.discogs.com/8HSgAJRiBu_X0qry0DP4ni3qS2VO9UQV5_4Z_eNXLzw/rs:fit/g:sm/q:90/h:599/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQwMzY0/MzgtMTQ4NTEzNTEw/Ny03ODI5LmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995818",
+      "store_price": null,
+      "file_at": "Pop(F)",
+      "youtube_url": "https://www.youtube.com/watch?v=zVxAj-Mis6o",
+      "catalog_number": "AL 4049",
+      "format": "Vinyl",
+      "condition": "3"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:59:47Z",
-    "total_records": 631,
+    "last_updated": "2025-11-06T01:00:55Z",
+    "total_records": 632,
     "format_version": "2.0"
   },
   "records": [
@@ -8836,6 +8836,20 @@
       "file_at": "Pop(H)",
       "youtube_url": "https://www.youtube.com/watch?v=QALpe96fX0Q",
       "catalog_number": "LOC-6007",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 676,
+      "artist": "Jackson Browne",
+      "title": "The Pretender",
+      "image_url": "https://i.discogs.com/P7Tx2ljRc6TWwlss2s6ikDyZDLEi_kBg0TnaF1iX6HY/rs:fit/g:sm/q:90/h:598/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE4NTI3/MDAtMTQ1NDA4NzU0/NC02NzM5LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995827",
+      "store_price": null,
+      "file_at": "Rock(J)",
+      "youtube_url": "https://www.youtube.com/watch?v=SqRvJLH_-vU",
+      "catalog_number": "6E-107",
       "format": "Vinyl",
       "condition": "3"
     }

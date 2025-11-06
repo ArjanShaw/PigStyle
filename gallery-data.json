@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:56:46Z",
-    "total_records": 628,
+    "last_updated": "2025-11-06T00:57:27Z",
+    "total_records": 629,
     "format_version": "2.0"
   },
   "records": [
@@ -8794,6 +8794,20 @@
       "file_at": "Roots(J)",
       "youtube_url": "https://www.youtube.com/watch?v=aXfuQqkwa5I",
       "catalog_number": "CL 1596",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 673,
+      "artist": "Burt Bacharach",
+      "title": "Make It Easy On Yourself",
+      "image_url": "https://i.discogs.com/gm77czM7V-3quhO4BP7Oovn-VWhLbUPbYOL9GyA15jg/rs:fit/g:sm/q:90/h:592/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc2NTE2/MTYtMTQ0NTk4NTg2/NC05NjI5LmpwZWc.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995824",
+      "store_price": null,
+      "file_at": "Jazz(B)",
+      "youtube_url": "https://www.youtube.com/watch?v=r8veuKmyf4w",
+      "catalog_number": "SP 4188",
       "format": "Vinyl",
       "condition": "3"
     }

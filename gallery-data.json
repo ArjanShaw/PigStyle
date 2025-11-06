@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:48:10Z",
-    "total_records": 620,
+    "last_updated": "2025-11-06T00:49:25Z",
+    "total_records": 621,
     "format_version": "2.0"
   },
   "records": [
@@ -8682,6 +8682,20 @@
       "file_at": "Pop(J)",
       "youtube_url": "https://www.youtube.com/watch?v=RXvSxIuf-_o",
       "catalog_number": "ST 2412",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 665,
+      "artist": "Vikki Carr",
+      "title": "For Once In My Life",
+      "image_url": "https://i.discogs.com/CVP48A6shYcfrNeR6sd9RwjGIsy3vh-kxfOGMgnD7sY/rs:fit/g:sm/q:90/h:600/w:582/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQwMTc1/MzgtMTQ1MDMwNjE3/Ny05MTQ2LmpwZWc.jpeg",
+      "genre": "Jazz",
+      "barcode": "200000995816",
+      "store_price": null,
+      "file_at": "Jazz(V)",
+      "youtube_url": "https://www.youtube.com/watch?v=rgtFoD9ji7E",
+      "catalog_number": "LST-7604",
       "format": "Vinyl",
       "condition": "3"
     }

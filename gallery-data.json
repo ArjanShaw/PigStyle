@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:54:26Z",
-    "total_records": 626,
+    "last_updated": "2025-11-06T00:55:18Z",
+    "total_records": 627,
     "format_version": "2.0"
   },
   "records": [
@@ -8766,6 +8766,20 @@
       "file_at": "Popular(W)",
       "youtube_url": "https://www.youtube.com/watch?v=dBLYuroa-FE",
       "catalog_number": "ST 2389",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 671,
+      "artist": "Wayne Newton",
+      "title": "Red Roses For A Blue Lady",
+      "image_url": "https://i.discogs.com/hgZGrfGE15xco19YYD-b-FiXCbukQpsPrzHV17N5fsM/rs:fit/g:sm/q:90/h:594/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEyMjg4/NDI3LTE1MzI2NDQ0/MjAtODYwMi5qcGVn.jpeg",
+      "genre": "Popular",
+      "barcode": "200000995822",
+      "store_price": null,
+      "file_at": "Popular(W)",
+      "youtube_url": "",
+      "catalog_number": "ST 2335",
       "format": "Vinyl",
       "condition": "3"
     }

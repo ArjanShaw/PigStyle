@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:57:27Z",
-    "total_records": 629,
+    "last_updated": "2025-11-06T00:58:21Z",
+    "total_records": 630,
     "format_version": "2.0"
   },
   "records": [
@@ -8808,6 +8808,20 @@
       "file_at": "Jazz(B)",
       "youtube_url": "https://www.youtube.com/watch?v=r8veuKmyf4w",
       "catalog_number": "SP 4188",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 674,
+      "artist": "Frankie Laine",
+      "title": "The Roving Gambler",
+      "image_url": "https://i.discogs.com/nCUL3WL3adYH-XU9XH6ESPwILuj87-38aWf4RzxVMJw/rs:fit/g:sm/q:90/h:604/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM4NzU2/MzQtMTY3Mjk0OTEz/MC03ODc3LmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995825",
+      "store_price": null,
+      "file_at": "Pop(F)",
+      "youtube_url": "https://www.youtube.com/watch?v=Dxl2-IlZw-E",
+      "catalog_number": "HS 11129",
       "format": "Vinyl",
       "condition": "3"
     }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T00:53:24Z",
-    "total_records": 625,
+    "last_updated": "2025-11-06T00:54:26Z",
+    "total_records": 626,
     "format_version": "2.0"
   },
   "records": [
@@ -8752,6 +8752,20 @@
       "file_at": "Popular(B)",
       "youtube_url": "",
       "catalog_number": "BN 26187",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 670,
+      "artist": "Wayne Newton",
+      "title": "Summer Wind",
+      "image_url": "https://i.discogs.com/E0H0TXchgGXnTxl-nAAoBmskvcnAKhhtT97j17Kjjfo/rs:fit/g:sm/q:90/h:601/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE5NDY4/NzQtMTMyNTcwODM2/OS5qcGVn.jpeg",
+      "genre": "Popular",
+      "barcode": "200000995821",
+      "store_price": null,
+      "file_at": "Popular(W)",
+      "youtube_url": "https://www.youtube.com/watch?v=dBLYuroa-FE",
+      "catalog_number": "ST 2389",
       "format": "Vinyl",
       "condition": "3"
     }

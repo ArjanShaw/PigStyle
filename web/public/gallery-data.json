@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T01:07:11Z",
-    "total_records": 636,
+    "last_updated": "2025-11-06T01:08:19Z",
+    "total_records": 637,
     "format_version": "2.0"
   },
   "records": [
@@ -8906,6 +8906,20 @@
       "file_at": "Pop(B)",
       "youtube_url": "",
       "catalog_number": "SPS 597",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 681,
+      "artist": "Roger Williams",
+      "title": "Songs Of The Soaring '60s Volume 1",
+      "image_url": "https://i.discogs.com/9VHPsZdAdptgA7beuT_RS2EB4izj9lwldriIG0KhXGQ/rs:fit/g:sm/q:90/h:643/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI0MzM1/NzctMTI5NTg0MzEy/MS5qcGVn.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995832",
+      "store_price": null,
+      "file_at": "Pop(R)",
+      "youtube_url": "",
+      "catalog_number": "KL-1251",
       "format": "Vinyl",
       "condition": "4"
     }

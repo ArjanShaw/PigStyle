@@ -79,10 +79,35 @@
             font-weight: bold;
         }
         
-        .current-track .genre {
-            font-size: 1.2rem;
-            color: #bdc3c7;
-            margin: 0;
+        .current-track .details {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        
+        .detail-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 1rem;
+            backdrop-filter: blur(10px);
+        }
+        
+        .detail-item.format {
+            background: rgba(52, 152, 219, 0.3);
+            border: 1px solid #3498db;
+        }
+        
+        .detail-item.condition {
+            background: rgba(231, 76, 60, 0.3);
+            border: 1px solid #e74c3c;
+        }
+        
+        .detail-item.genre {
+            background: rgba(155, 89, 182, 0.3);
+            border: 1px solid #9b59b6;
         }
         
         /* Video player with record image overlay */
@@ -259,6 +284,15 @@
                 font-size: 1.3rem;
             }
             
+            .current-track .details {
+                gap: 10px;
+            }
+            
+            .detail-item {
+                font-size: 0.9rem;
+                padding: 6px 12px;
+            }
+            
             .video-container {
                 height: 300px;
             }
@@ -313,7 +347,11 @@
                 <h2 id="trackTitle">Track Title</h2>
                 <p class="artist" id="trackArtist">Artist Name</p>
                 <div class="price-badge" id="trackPrice">$0.00</div>
-                <p class="genre" id="trackGenre">Genre</p>
+                <div class="details">
+                    <div class="detail-item format" id="trackFormat">Format</div>
+                    <div class="detail-item condition" id="trackCondition">Condition</div>
+                    <div class="detail-item genre" id="trackGenre">Genre</div>
+                </div>
             </div>
             
             <div class="video-container" id="videoContainer">
@@ -468,6 +506,16 @@
             // Update track info
             document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
             document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
+            
+            // Update format
+            const format = currentRecord.format || 'Unknown Format';
+            document.getElementById('trackFormat').textContent = format;
+            
+            // Update condition (show as X/5)
+            const condition = currentRecord.condition || '5';
+            document.getElementById('trackCondition').textContent = `${condition}/5 Condition`;
+            
+            // Update genre
             document.getElementById('trackGenre').textContent = currentRecord.genre || 'Unknown Genre';
             
             // Update price

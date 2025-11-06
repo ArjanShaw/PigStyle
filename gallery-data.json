@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T01:06:06Z",
-    "total_records": 635,
+    "last_updated": "2025-11-06T01:07:11Z",
+    "total_records": 636,
     "format_version": "2.0"
   },
   "records": [
@@ -8892,6 +8892,20 @@
       "file_at": "Jazz(N)",
       "youtube_url": "https://www.youtube.com/watch?v=2pdRKBqrH3M",
       "catalog_number": "MGF 27560",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 680,
+      "artist": "B.J. Thomas",
+      "title": "Greatest Hits Volume Two",
+      "image_url": "https://i.discogs.com/LEwe6aORPOPMWVCj7quupquiFGtCvSb7IK8EdKTmbwE/rs:fit/g:sm/q:90/h:599/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQ3NTU4/NDEtMTQwMTgxNzAw/NS0xNjIwLmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995831",
+      "store_price": null,
+      "file_at": "Pop(B)",
+      "youtube_url": "",
+      "catalog_number": "SPS 597",
       "format": "Vinyl",
       "condition": "4"
     }

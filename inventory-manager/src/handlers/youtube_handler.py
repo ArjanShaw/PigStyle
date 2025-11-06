@@ -2,19 +2,19 @@ import streamlit as st
 import requests
 import re
 import time
-import os  # ADD THIS IMPORT
+import os
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 class YouTubeHandler:
     def __init__(self, debug_tab=None, api_key=None):
         self.debug_tab = debug_tab
-        self.api_key = api_key or st.secrets.get('YOUTUBE_API_KEY') or os.getenv('YOUTUBE_API_KEY')
+        self.api_key = api_key or os.getenv('YOUTUBE_API_KEY')
         
     def search_youtube_videos(self, search_query, record_data):
         """Search YouTube for videos matching the artist and title using real API"""
         if not self.api_key:
-            st.error("YouTube API key not configured. Please set YOUTUBE_API_KEY in your environment variables or Streamlit secrets.")
+            st.error("YouTube API key not configured. Please set YOUTUBE_API_KEY in your environment variables.")
             return []
             
         try:

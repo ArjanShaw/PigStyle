@@ -15,13 +15,15 @@
     </div>
 
     <header>
-        <div class="logo-container">
-            <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
-        </div>
-        <div class="genre-selector">
-            <select id="genreFilter" class="genre-select">
-                <option value="">All Genres</option>
-            </select>
+        <div class="header-content">
+            <div class="logo-container">
+                <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
+            </div>
+            <div class="genre-selector">
+                <select id="genreFilter" class="genre-select">
+                    <option value="">All Genres</option>
+                </select>
+            </div>
         </div>
     </header>
      
@@ -40,16 +42,16 @@
             <div class="current-track">
                 <h2 id="trackTitle">Track Title</h2>
                 <p class="artist" id="trackArtist">Artist Name</p>
-                <div class="price-badge" id="trackPrice">$0.00</div>
-                <div class="details">
-                    <div class="detail-item format" id="trackFormat">
-                        <span class="format-icon" id="formatIcon">💿</span>
-                        <span id="formatText">Format</span>
+                <div class="price-container">
+                    <div class="price-badge" id="trackPrice">$0.00</div>
+                    <div class="info-badges">
+                        <div class="detail-item format" id="trackFormat">
+                            <span class="format-icon" id="formatIcon">💿</span>
+                        </div>
+                        <div class="detail-item condition" id="trackCondition">
+                            <span class="condition-stars" id="conditionStars"></span>
+                        </div>
                     </div>
-                    <div class="detail-item condition" id="trackCondition">
-                        <span class="condition-stars" id="conditionStars"></span>
-                    </div>
-                    <div class="detail-item genre" id="trackGenre">Genre</div>
                 </div>
                 
                 <!-- Updated Vote controls -->
@@ -294,14 +296,10 @@
             const formatText = format.toLowerCase();
             const formatIcon = formatIcons[formatText] || '💿';
             document.getElementById('formatIcon').textContent = formatIcon;
-            document.getElementById('formatText').textContent = format.charAt(0).toUpperCase() + format.slice(1);
             
             // Update condition with stars
             const condition = parseInt(currentRecord.condition) || 5;
             updateConditionStars(condition);
-            
-            // Update genre (no label)
-            document.getElementById('trackGenre').textContent = currentRecord.genre || 'Unknown Genre';
             
             // Update price
             const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';

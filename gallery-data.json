@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T03:35:48Z",
-    "total_records": 639,
+    "last_updated": "2025-11-18T03:40:27Z",
+    "total_records": 640,
     "format_version": "2.0"
   },
   "records": [
@@ -8950,6 +8950,20 @@
       "catalog_number": "2T-541",
       "format": "Vinyl",
       "condition": "2"
+    },
+    {
+      "id": 684,
+      "artist": "Various",
+      "title": "Fun Rock",
+      "image_url": "https://i.discogs.com/Nk2Bv6BFdcvzx88lxw9LCmyqMsdZKq0zgjFaaA4QG9M/rs:fit/g:sm/q:90/h:400/w:399/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIwMzYx/MTQtMTQ5NjAyMjY4/OC02MjE4LmpwZWc.jpeg",
+      "genre": "Compilation",
+      "barcode": "200000995835",
+      "store_price": null,
+      "file_at": "Compilation(V)",
+      "youtube_url": "",
+      "catalog_number": "P-12629",
+      "format": "Vinyl",
+      "condition": "4"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T03:40:27Z",
-    "total_records": 640,
+    "last_updated": "2025-11-18T03:55:47Z",
+    "total_records": 641,
     "format_version": "2.0"
   },
   "records": [
@@ -8962,6 +8962,20 @@
       "file_at": "Compilation(V)",
       "youtube_url": "",
       "catalog_number": "P-12629",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 685,
+      "artist": "Various",
+      "title": "24 Solid Hits",
+      "image_url": "https://i.discogs.com/JswZ87ZffTxrCA-WMadQcgRgrN1kAnBbwI9tO9FsXik/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2MDcy/MzUtMTYyMDc4NTMy/Mi0xODk2LmpwZWc.jpeg",
+      "genre": "Compilation",
+      "barcode": "200000995836",
+      "store_price": null,
+      "file_at": "Compilation(V)",
+      "youtube_url": "",
+      "catalog_number": "LP #500",
       "format": "Vinyl",
       "condition": "4"
     }

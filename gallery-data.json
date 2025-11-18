@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:13:47Z",
-    "total_records": 643,
+    "last_updated": "2025-11-18T04:15:06Z",
+    "total_records": 644,
     "format_version": "2.0"
   },
   "records": [
@@ -9006,6 +9006,20 @@
       "catalog_number": "SOO-12041",
       "format": "Vinyl",
       "condition": "2"
+    },
+    {
+      "id": 688,
+      "artist": "Various",
+      "title": "FM (The Original Movie Soundtrack)",
+      "image_url": "https://i.discogs.com/osNsnMyE4bOD8OpO7qxvOY6EWl7YJ43UdEytC19DQtQ/rs:fit/g:sm/q:90/h:489/w:500/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM2MzM1/MjAtMTUyMDMzODkx/NC05OTM0LmpwZWc.jpeg",
+      "genre": "Compilation",
+      "barcode": "200000995839",
+      "store_price": null,
+      "file_at": "Compilation(V)",
+      "youtube_url": "",
+      "catalog_number": "MCA2-12000",
+      "format": "Vinyl",
+      "condition": "3"
     }
   ]
 }

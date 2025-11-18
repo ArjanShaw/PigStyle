@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:28:04Z",
-    "total_records": 652,
+    "last_updated": "2025-11-18T04:29:24Z",
+    "total_records": 653,
     "format_version": "2.0"
   },
   "records": [
@@ -9130,6 +9130,20 @@
       "file_at": "Funk Soul(T)",
       "youtube_url": "https://www.youtube.com/watch?v=IyF_w2hnPec",
       "catalog_number": "T6-345S1",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 697,
+      "artist": "The Ink Spots",
+      "title": "The Second Album Of Hits By The Ink Spots Volume 2",
+      "image_url": "https://i.discogs.com/efzVZp3oiZGE-2JU18vRJpnOhyACKvtVXVNDk4Ckj7I/rs:fit/g:sm/q:90/h:606/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTk4NDcz/MTktMTQ4NzI5NDY1/Ni0yNDczLmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995848",
+      "store_price": null,
+      "file_at": "Pop(I)",
+      "youtube_url": "https://www.youtube.com/watch?v=B3wyE52ki60",
+      "catalog_number": "CX 105",
       "format": "Vinyl",
       "condition": "4"
     }

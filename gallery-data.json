@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T02:35:49Z",
-    "total_records": 639,
+    "last_updated": "2025-11-18T02:37:33Z",
+    "total_records": 640,
     "format_version": "2.0"
   },
   "records": [
@@ -8948,6 +8948,20 @@
       "file_at": "Pop(C)",
       "youtube_url": "",
       "catalog_number": "P2S-5246",
+      "format": "Vinyl",
+      "condition": "2"
+    },
+    {
+      "id": 684,
+      "artist": "Various",
+      "title": "Shindig",
+      "image_url": "https://i.discogs.com/iF1ninXPXQDZAk23s7Q-7NNWg3HeTX5Jzr0aNxtCWgU/rs:fit/g:sm/q:90/h:596/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTYwNjAy/OTMtMTYwNDI2NTk4/NC05ODkzLmpwZWc.jpeg",
+      "genre": "Compilation",
+      "barcode": "200000995835",
+      "store_price": null,
+      "file_at": "Compilation(V)",
+      "youtube_url": "",
+      "catalog_number": "KL-1431",
       "format": "Vinyl",
       "condition": "2"
     }

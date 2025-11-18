@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:36:10Z",
-    "total_records": 657,
+    "last_updated": "2025-11-18T04:37:24Z",
+    "total_records": 658,
     "format_version": "2.0"
   },
   "records": [
@@ -9200,6 +9200,20 @@
       "file_at": "Pop(L)",
       "youtube_url": "https://www.youtube.com/watch?v=_NpsUiKBEes",
       "catalog_number": "SR-61024",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 702,
+      "artist": "Elvis Presley",
+      "title": "Elvis' Golden Records, Volume 3",
+      "image_url": "https://i.discogs.com/fci9q-SVJKU6vbrR23G65nEbzxpCmOwB8kbp2a7qhq4/rs:fit/g:sm/q:90/h:587/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE1Njkx/NDUyLTE1OTU5OTYx/NjItNDIyMi5qcGVn.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995853",
+      "store_price": null,
+      "file_at": "Rock(E)",
+      "youtube_url": "https://www.youtube.com/watch?v=L5wJnAUQ0Qw",
+      "catalog_number": "LPM-2765",
       "format": "Vinyl",
       "condition": "3"
     }

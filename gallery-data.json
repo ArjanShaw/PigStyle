@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:12:40Z",
-    "total_records": 642,
+    "last_updated": "2025-11-18T04:13:47Z",
+    "total_records": 643,
     "format_version": "2.0"
   },
   "records": [
@@ -8992,6 +8992,20 @@
       "catalog_number": "OCLP 5003",
       "format": "Vinyl",
       "condition": "3"
+    },
+    {
+      "id": 687,
+      "artist": "Bob Seger & The Silver Bullet Band",
+      "title": "Against The Wind",
+      "image_url": "https://i.discogs.com/KbnTjbaiWNjPtzep7za0SEVk_uDufsLReTyil0D6Nxk/rs:fit/g:sm/q:90/h:608/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE1ODUy/MjItMTY3MDgwODI2/OC00Mjc3LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995838",
+      "store_price": null,
+      "file_at": "Rock(B)",
+      "youtube_url": "https://www.youtube.com/watch?v=q420sD7vfDI",
+      "catalog_number": "SOO-12041",
+      "format": "Vinyl",
+      "condition": "2"
     }
   ]
 }

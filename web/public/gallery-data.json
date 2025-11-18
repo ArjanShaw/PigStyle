@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:34:52Z",
-    "total_records": 656,
+    "last_updated": "2025-11-18T04:36:10Z",
+    "total_records": 657,
     "format_version": "2.0"
   },
   "records": [
@@ -9188,6 +9188,20 @@
       "catalog_number": "R213690",
       "format": "Vinyl",
       "condition": "4"
+    },
+    {
+      "id": 701,
+      "artist": "Lesley Gore",
+      "title": "The Golden Hits Of Lesley Gore",
+      "image_url": "https://i.discogs.com/e3qOxRnCNz7n2sA0V3xuomav6ClaNvpER153Z9PWbic/rs:fit/g:sm/q:90/h:600/w:580/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE0MTQ3/ODItMTQwOTE3NTU3/MS05Njk0LmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995852",
+      "store_price": null,
+      "file_at": "Pop(L)",
+      "youtube_url": "https://www.youtube.com/watch?v=_NpsUiKBEes",
+      "catalog_number": "SR-61024",
+      "format": "Vinyl",
+      "condition": "3"
     }
   ]
 }

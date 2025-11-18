@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:27:12Z",
-    "total_records": 651,
+    "last_updated": "2025-11-18T04:28:04Z",
+    "total_records": 652,
     "format_version": "2.0"
   },
   "records": [
@@ -9118,6 +9118,20 @@
       "catalog_number": "MCA-2163",
       "format": "Vinyl",
       "condition": "3"
+    },
+    {
+      "id": 696,
+      "artist": "Thelma Houston",
+      "title": "Any Way You Like It",
+      "image_url": "https://i.discogs.com/jzoK0tzrOjUG1vKiJU8yIq4jZIT6q51w9TEj9l3i-n8/rs:fit/g:sm/q:90/h:606/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY1OTA2/OTEtMTQyMjY2MDEx/Mi02NjM1LmpwZWc.jpeg",
+      "genre": "Funk Soul",
+      "barcode": "200000995847",
+      "store_price": null,
+      "file_at": "Funk Soul(T)",
+      "youtube_url": "https://www.youtube.com/watch?v=IyF_w2hnPec",
+      "catalog_number": "T6-345S1",
+      "format": "Vinyl",
+      "condition": "4"
     }
   ]
 }

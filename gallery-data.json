@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-06T01:12:23Z",
-    "total_records": 638,
+    "last_updated": "2025-11-18T02:35:49Z",
+    "total_records": 639,
     "format_version": "2.0"
   },
   "records": [
@@ -8816,14 +8816,14 @@
       "artist": "Frankie Laine",
       "title": "The Roving Gambler",
       "image_url": "https://i.discogs.com/nCUL3WL3adYH-XU9XH6ESPwILuj87-38aWf4RzxVMJw/rs:fit/g:sm/q:90/h:604/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM4NzU2/MzQtMTY3Mjk0OTEz/MC03ODc3LmpwZWc.jpeg",
-      "genre": "Pop",
+      "genre": "Roots",
       "barcode": "200000995825",
       "store_price": null,
-      "file_at": "Pop(F)",
+      "file_at": "Roots(F)",
       "youtube_url": "https://www.youtube.com/watch?v=Dxl2-IlZw-E",
       "catalog_number": "HS 11129",
       "format": "Vinyl",
-      "condition": "3"
+      "condition": "5"
     },
     {
       "id": 675,
@@ -8936,6 +8936,20 @@
       "catalog_number": "MCA-463",
       "format": "Vinyl",
       "condition": "4"
+    },
+    {
+      "id": 683,
+      "artist": "The Columbia Musical Treasuries Orchestra",
+      "title": "The Magic Of Christmas",
+      "image_url": "https://i.discogs.com/70xdCU9jiEFjpy4z3n4sNLjZvFdsUAsZWd0lkBjqrYY/rs:fit/g:sm/q:90/h:598/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQyMzI4/MDEtMTcyOTUyMzg2/OS0yMzA3LmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995834",
+      "store_price": null,
+      "file_at": "Pop(C)",
+      "youtube_url": "",
+      "catalog_number": "P2S-5246",
+      "format": "Vinyl",
+      "condition": "2"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:18:02Z",
-    "total_records": 646,
+    "last_updated": "2025-11-18T04:19:43Z",
+    "total_records": 647,
     "format_version": "2.0"
   },
   "records": [
@@ -9046,6 +9046,20 @@
       "file_at": "Electronic(G)",
       "youtube_url": "https://www.youtube.com/watch?v=vQn4fFd8p-8",
       "catalog_number": "M3G 4982",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 691,
+      "artist": "Bob Dylan",
+      "title": "Blonde On Blonde",
+      "image_url": "https://i.discogs.com/y7HlTTwEE7IpldUPArlbt7O_AnmgUqfe_20lnIFzvIQ/rs:fit/g:sm/q:90/h:601/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTk1NDE4/Mi0xNjM4ODA4NDA2/LTcyMTMuanBlZw.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995842",
+      "store_price": null,
+      "file_at": "Rock(B)",
+      "youtube_url": "https://www.youtube.com/watch?v=-iIS6ZZ9RVA",
+      "catalog_number": "C2S 841",
       "format": "Vinyl",
       "condition": "3"
     }

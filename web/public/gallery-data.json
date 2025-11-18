@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:31:17Z",
-    "total_records": 654,
+    "last_updated": "2025-11-18T04:32:49Z",
+    "total_records": 655,
     "format_version": "2.0"
   },
   "records": [
@@ -9158,6 +9158,20 @@
       "file_at": "Rock(V)",
       "youtube_url": "https://www.youtube.com/watch?v=XjiOtouyBOg",
       "catalog_number": "SUS-5160",
+      "format": "Vinyl",
+      "condition": "4"
+    },
+    {
+      "id": 699,
+      "artist": "Donovan",
+      "title": "Donovan's Greatest Hits",
+      "image_url": "https://i.discogs.com/KhYGo6L75jyKdRFhsnUJamidcWhmiXdDlKiLtnT3vL8/rs:fit/g:sm/q:90/h:607/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTQxNjIx/MzAtMTUxMjcyMTg4/Ny05MTA0LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995850",
+      "store_price": null,
+      "file_at": "Rock(D)",
+      "youtube_url": "https://www.youtube.com/watch?v=J8hjEYTpwE8",
+      "catalog_number": "BXN 26439",
       "format": "Vinyl",
       "condition": "4"
     }

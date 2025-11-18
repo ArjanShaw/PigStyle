@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:22:11Z",
-    "total_records": 649,
+    "last_updated": "2025-11-18T04:25:10Z",
+    "total_records": 650,
     "format_version": "2.0"
   },
   "records": [
@@ -9088,6 +9088,20 @@
       "file_at": "Roots(C)",
       "youtube_url": "https://www.youtube.com/watch?v=YhlpLS7W7fQ",
       "catalog_number": "CS 9993",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 694,
+      "artist": "Cher",
+      "title": "Cher's Golden Greats",
+      "image_url": "https://i.discogs.com/OvPOGHcAJxL6AMY3pUHl4C3FHIHrdN5hdFXdYuoeOSI/rs:fit/g:sm/q:90/h:592/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM4MzM1/MDctMTc1NjYyOTY5/Mi01MTAwLmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995845",
+      "store_price": null,
+      "file_at": "Rock(C)",
+      "youtube_url": "",
+      "catalog_number": "LP-12406",
       "format": "Vinyl",
       "condition": "3"
     }

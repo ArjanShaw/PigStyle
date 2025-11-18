@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:19:43Z",
-    "total_records": 647,
+    "last_updated": "2025-11-18T04:20:54Z",
+    "total_records": 648,
     "format_version": "2.0"
   },
   "records": [
@@ -9060,6 +9060,20 @@
       "file_at": "Rock(B)",
       "youtube_url": "https://www.youtube.com/watch?v=-iIS6ZZ9RVA",
       "catalog_number": "C2S 841",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 692,
+      "artist": "Stevie Nicks",
+      "title": "The Wild Heart",
+      "image_url": "https://i.discogs.com/gyBGOQ4a0He3ERetcB3NOyBhA8FdEc-Eb-OiKjO25rU/rs:fit/g:sm/q:90/h:599/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTMyMTY1/NDctMTcxOTA4MTA4/Ni05ODQ4LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995843",
+      "store_price": null,
+      "file_at": "Rock(S)",
+      "youtube_url": "",
+      "catalog_number": "90084-1",
       "format": "Vinyl",
       "condition": "3"
     }

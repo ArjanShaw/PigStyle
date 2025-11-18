@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:20:54Z",
-    "total_records": 648,
+    "last_updated": "2025-11-18T04:22:11Z",
+    "total_records": 649,
     "format_version": "2.0"
   },
   "records": [
@@ -9074,6 +9074,20 @@
       "file_at": "Rock(S)",
       "youtube_url": "",
       "catalog_number": "90084-1",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 693,
+      "artist": "The Chuck Wagon Gang",
+      "title": "Thank The Lord",
+      "image_url": "https://i.discogs.com/zEMSXNqSqtdbgs7uDaU7fQw91J9vbDoXvYiHzmIrGSI/rs:fit/g:sm/q:90/h:450/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc2NzIw/NTgtMTQ0NjQwNTUw/Ni00OTk4Lm1wbw.jpeg",
+      "genre": "Roots",
+      "barcode": "200000995844",
+      "store_price": null,
+      "file_at": "Roots(C)",
+      "youtube_url": "https://www.youtube.com/watch?v=YhlpLS7W7fQ",
+      "catalog_number": "CS 9993",
       "format": "Vinyl",
       "condition": "3"
     }

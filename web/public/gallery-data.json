@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:15:06Z",
-    "total_records": 644,
+    "last_updated": "2025-11-18T04:16:59Z",
+    "total_records": 645,
     "format_version": "2.0"
   },
   "records": [
@@ -9018,6 +9018,20 @@
       "file_at": "Compilation(V)",
       "youtube_url": "",
       "catalog_number": "MCA2-12000",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 689,
+      "artist": "The Byrds",
+      "title": "Fifth Dimension",
+      "image_url": "https://i.discogs.com/QHeNcceq9sWCG_yr8Swpi4YmG-s5s5k4GTOrE1t6L80/rs:fit/g:sm/q:90/h:602/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEzNTMz/NDctMTQ0NDUxODgx/Ni02MTQ4LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995840",
+      "store_price": null,
+      "file_at": "Rock(B)",
+      "youtube_url": "https://www.youtube.com/watch?v=XsGfYZ4WqO0",
+      "catalog_number": "CL 2549",
       "format": "Vinyl",
       "condition": "3"
     }

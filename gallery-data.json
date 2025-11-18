@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T04:25:10Z",
-    "total_records": 650,
+    "last_updated": "2025-11-18T04:27:12Z",
+    "total_records": 651,
     "format_version": "2.0"
   },
   "records": [
@@ -9102,6 +9102,20 @@
       "file_at": "Rock(C)",
       "youtube_url": "",
       "catalog_number": "LP-12406",
+      "format": "Vinyl",
+      "condition": "3"
+    },
+    {
+      "id": 695,
+      "artist": "Elton John",
+      "title": "Rock Of The Westies",
+      "image_url": "https://i.discogs.com/LRrlWvFt9uFTdX3zFSjsG3FnHdDUaKZJWqUc0bc0Uhc/rs:fit/g:sm/q:90/h:597/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEwMjI4/NjItMTUzNTMyMjQ1/NS0xNzE4LmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "200000995846",
+      "store_price": null,
+      "file_at": "Rock(E)",
+      "youtube_url": "https://www.youtube.com/watch?v=QWja9k6Tjag",
+      "catalog_number": "MCA-2163",
       "format": "Vinyl",
       "condition": "3"
     }

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-18T03:55:47Z",
-    "total_records": 641,
+    "last_updated": "2025-11-18T04:12:40Z",
+    "total_records": 642,
     "format_version": "2.0"
   },
   "records": [
@@ -8978,6 +8978,20 @@
       "catalog_number": "LP #500",
       "format": "Vinyl",
       "condition": "4"
+    },
+    {
+      "id": 686,
+      "artist": "Donna Summer",
+      "title": "Love To Love You Baby",
+      "image_url": "https://i.discogs.com/KN7VdTAeiY_cu5vK_gk0xtqVtZLFi3_P-F6hlJOGOU4/rs:fit/g:sm/q:90/h:603/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE2MDMw/Ny0xNTU5NTMzNzEw/LTU2MTguanBlZw.jpeg",
+      "genre": "Pop",
+      "barcode": "200000995837",
+      "store_price": null,
+      "file_at": "Pop(D)",
+      "youtube_url": "https://www.youtube.com/watch?v=MWD8raATiIY",
+      "catalog_number": "OCLP 5003",
+      "format": "Vinyl",
+      "condition": "3"
     }
   ]
 }

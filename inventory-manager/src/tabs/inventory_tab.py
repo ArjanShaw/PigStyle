@@ -11,13 +11,13 @@ from handlers.genre_handler import GenreHandler
 from handlers.youtube_handler import YouTubeHandler
 
 class InventoryTab:
-    def __init__(self, discogs_handler, ebay_handler=None, gallery_json_manager=None):
+    def __init__(self, discogs_handler, ebay_handler=None, gallery_json_manager=None, youtube_handler=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
         self.gallery_json_manager = gallery_json_manager
+        self.youtube_handler = youtube_handler
         self.price_handler = PriceHandler()
         self.genre_handler = GenreHandler()
-        self.youtube_handler = YouTubeHandler()
         
         # Initialize handlers - pass ebay_handler to record_ops_handler
         self.search_handler = SearchHandler(discogs_handler)
@@ -156,86 +156,73 @@ class InventoryTab:
 
     def _handle_add_record(self, condition, genre):
         """Handle adding an inventory record to database"""
-        try:
-            record_data = st.session_state.selected_record['data']
-            # Store the condition for next time
-            st.session_state.last_condition = condition
+        record_data = st.session_state.selected_record['data']
+        # Store the condition for next time
+        st.session_state.last_condition = condition
+        
+        success, record_id = self.record_ops_handler.add_inventory_record(
+            record_data, 
+            condition, 
+            genre, 
+            st.session_state.current_search
+        )
+        
+        if success:
+            # Clear API logs after successful addition
+            if 'api_logs' in st.session_state:
+                st.session_state.api_logs = []
+            if 'api_details' in st.session_state:
+                st.session_state.api_details = {}
             
-            success, record_id = self.record_ops_handler.add_inventory_record(
-                record_data, 
-                condition, 
-                genre, 
-                st.session_state.current_search
-            )
+            # Get the full record data using the row ID
+            import time
+            time.sleep(0.5)  # Small delay to ensure triggers complete
             
-            if success:
-                # Clear API logs after successful addition
-                if 'api_logs' in st.session_state:
-                    st.session_state.api_logs = []
-                if 'api_details' in st.session_state:
-                    st.session_state.api_details = {}
-                
-                # Get the full record data using the row ID
-                import time
-                time.sleep(0.5)  # Small delay to ensure triggers complete
-                
-                record = st.session_state.db_manager.get_record_by_id(record_id)
-                if record is not None:
-                    # Convert Series to dict to avoid truth value issues
-                    st.session_state.record_added = record.to_dict() if hasattr(record, 'to_dict') else record
-                else:
-                    # Fallback: create basic record data
-                    st.session_state.record_added = {
-                        'file_at': '',
-                    }
-                
-                st.session_state.selected_record = None
-                st.session_state.records_updated += 1
-                
-                # Log rerun timing
-                start_time = time.time()
-                st.rerun()
-                duration = time.time() - start_time
+            record = st.session_state.db_manager.get_record_by_id(record_id)
+            if record is not None:
+                # Convert Series to dict to avoid truth value issues
+                st.session_state.record_added = record.to_dict() if hasattr(record, 'to_dict') else record
             else:
-                st.error("Failed to add record to database")
-                
-        except Exception as e:
-            st.error(f"Error adding to database: {str(e)}")
+                # Fallback: create basic record data
+                st.session_state.record_added = {
+                    'file_at': '',
+                }
+            
+            st.session_state.selected_record = None
+            st.session_state.records_updated += 1
+            
+            # Log rerun timing
+            start_time = time.time()
+            st.rerun()
+            duration = time.time() - start_time
+        else:
+            st.error("Failed to add record to database")
 
     def _handle_update_record(self, condition, genre):
         """Handle updating a database record"""
-        try:
-            record_data = st.session_state.selected_record['data']
-            # Store the condition for next time
-            st.session_state.last_condition = condition
+        record_data = st.session_state.selected_record['data']
+        # Store the condition for next time
+        st.session_state.last_condition = condition
+        
+        success = self.record_ops_handler.update_database_record(record_data, condition, genre)
+        
+        if success:
+            st.success("✅ Record updated successfully!")
+            st.session_state.records_updated += 1
+            st.session_state.selected_record = None
             
-            success = self.record_ops_handler.update_database_record(record_data, condition, genre)
-            
-            if success:
-                st.success("✅ Record updated successfully!")
-                st.session_state.records_updated += 1
-                st.session_state.selected_record = None
-                
-                # Log rerun timing
-                start_time = time.time()
-                st.rerun()
-                duration = time.time() - start_time
-            else:
-                st.error("❌ Failed to update record")
-                
-        except Exception as e:
-            st.error(f"Error updating record: {str(e)}")
+            # Log rerun timing
+            start_time = time.time()
+            st.rerun()
+            duration = time.time() - start_time
+        else:
+            st.error("❌ Failed to update record")
 
     def _process_checkout(self):
         """Process checkout of selected records"""
-        try:
-            # Since we removed the status column, checkout is not functional anymore
-            st.warning("Checkout functionality is not available. The status column has been removed from the database.")
-            return 0
-                
-        except Exception as e:
-            st.error(f"Error processing checkout: {e}")
-            return 0
+        # Since we removed the status column, checkout is not functional anymore
+        st.warning("Checkout functionality is not available. The status column has been removed from the database.")
+        return 0
 
     def _render_store_pricing_section(self):
         """Render store pricing settings and actions"""
@@ -292,15 +279,12 @@ class InventoryTab:
             with col1:
                 if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
                     if st.session_state.get('gallery_json_manager'):
-                        try:
-                            with st.spinner("Rebuilding gallery JSON..."):
-                                success = st.session_state.gallery_json_manager.trigger_rebuild(async_mode=False)
-                            if success:
-                                st.success("✅ Gallery JSON rebuilt successfully!")
-                            else:
-                                st.error("❌ Gallery JSON rebuild failed")
-                        except Exception as e:
-                            st.error(f"❌ Gallery JSON rebuild error: {str(e)}")
+                        with st.spinner("Rebuilding gallery JSON..."):
+                            success = st.session_state.gallery_json_manager.trigger_rebuild(async_mode=False)
+                        if success:
+                            st.success("✅ Gallery JSON rebuilt successfully!")
+                        else:
+                            st.error("❌ Gallery JSON rebuild failed")
                     else:
                         st.error("Gallery JSON manager not initialized")
             
@@ -377,10 +361,7 @@ class InventoryTab:
         
         # Get MIN_STORE_PRICE from config, default to 1.99
         min_store_price = st.session_state.db_manager.get_config_value('MIN_STORE_PRICE', '1.99')
-        try:
-            min_store_price = float(min_store_price)
-        except (ValueError, TypeError):
-            min_store_price = 1.99
+        min_store_price = float(min_store_price)
         
         updated_count = 0
         failed_count = 0
@@ -402,30 +383,25 @@ class InventoryTab:
             
             status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
             
-            try:
-                if discogs_median_price is not None and discogs_median_price > 0:
-                    # Use the same rounding function as eBay sell prices
-                    store_price = self.export_handler._round_down_to_49_or_99(float(discogs_median_price))
-                    
-                    # Apply MIN_STORE_PRICE minimum
-                    store_price = max(store_price, min_store_price)
-                    
-                    # Update the store_price field
-                    success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
-                    if success:
-                        updated_count += 1
-                        results.append(f"✅ {artist} - {title}: ${discogs_median_price:.2f} → ${store_price:.2f}")
-                    else:
-                        failed_count += 1
-                        results.append(f"❌ {artist} - {title}: Database update failed")
+            if discogs_median_price is not None and discogs_median_price > 0:
+                # Use the same rounding function as eBay sell prices
+                store_price = self.export_handler._round_down_to_49_or_99(float(discogs_median_price))
+                
+                # Apply MIN_STORE_PRICE minimum
+                store_price = max(store_price, min_store_price)
+                
+                # Update the store_price field
+                success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
+                if success:
+                    updated_count += 1
+                    results.append(f"✅ {artist} - {title}: ${discogs_median_price:.2f} → ${store_price:.2f}")
                 else:
-                    # No Discogs price available
                     failed_count += 1
-                    results.append(f"❌ {artist} - {title}: No Discogs price available")
-                    
-            except Exception as e:
+                    results.append(f"❌ {artist} - {title}: Database update failed")
+            else:
+                # No Discogs price available
                 failed_count += 1
-                results.append(f"❌ {artist} - {title}: {str(e)}")
+                results.append(f"❌ {artist} - {title}: No Discogs price available")
             
             # Update progress
             progress_bar.progress((i + 1) / len(df))
@@ -460,36 +436,28 @@ class InventoryTab:
         
         # Get MIN_STORE_PRICE from config, default to 1.99
         min_store_price = st.session_state.db_manager.get_config_value('MIN_STORE_PRICE', '1.99')
-        try:
-            min_store_price = float(min_store_price)
-        except (ValueError, TypeError):
-            min_store_price = 1.99
+        min_store_price = float(min_store_price)
         
         record = df.iloc[0]
         artist = record.get('artist', '')
         title = record.get('title', '')
         discogs_median_price = record.get('discogs_median_price')
         
-        try:
-            if discogs_median_price is not None and discogs_median_price > 0:
-                # Use the same rounding function as eBay sell prices
-                store_price = self.export_handler._round_down_to_49_or_99(float(discogs_median_price))
-                
-                # Apply MIN_STORE_PRICE minimum
-                store_price = max(store_price, min_store_price)
-                
-                # Update the store_price field
-                success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
-                if success:
-                    st.success(f"✅ Updated store price for {artist} - {title}: ${discogs_median_price:.2f} → ${store_price:.2f}")
-                    return 1
-                else:
-                    st.error(f"❌ Database update failed for {artist} - {title}")
-                    return 0
+        if discogs_median_price is not None and discogs_median_price > 0:
+            # Use the same rounding function as eBay sell prices
+            store_price = self.export_handler._round_down_to_49_or_99(float(discogs_median_price))
+            
+            # Apply MIN_STORE_PRICE minimum
+            store_price = max(store_price, min_store_price)
+            
+            # Update the store_price field
+            success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
+            if success:
+                st.success(f"✅ Updated store price for {artist} - {title}: ${discogs_median_price:.2f} → ${store_price:.2f}")
+                return 1
             else:
-                st.error(f"❌ No Discogs price available for {artist} - {title}")
+                st.error(f"❌ Database update failed for {artist} - {title}")
                 return 0
-                
-        except Exception as e:
-            st.error(f"❌ Error updating {artist} - {title}: {str(e)}")
+        else:
+            st.error(f"❌ No Discogs price available for {artist} - {title}")
             return 0

@@ -78,7 +78,7 @@ class DisplayHandler:
                         'index': i
                     }
                     # Auto-trigger YouTube search when record is selected
-                    if result_type == "Add item" and self.youtube_handler:
+                    if result_type == "Add item" and self.youtube_handler and self.youtube_handler.is_enabled():
                         artist = record.get('artist', '')
                         title = record.get('title', '')
                         if artist and title:
@@ -220,63 +220,60 @@ class DisplayHandler:
                 st.caption(f"Suggested: {suggested_genre} ({suggestion_source})")
         
         # Show YouTube search results if available (auto-triggered when record was selected)
-        if 'youtube_search_results' in st.session_state and st.session_state.youtube_search_results:
-            st.subheader("YouTube Search Results")
-            st.info("Click on a video to link it to this record")
+        if selected_record['type'] == 'discogs' and self.youtube_handler and self.youtube_handler.is_enabled():
+            st.subheader("🎵 YouTube Integration")
             
-            for i, video in enumerate(st.session_state.youtube_search_results):
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    if video.get('thumbnail'):
-                        st.image(video['thumbnail'], width=120)
-                    
-                    # Extract video ID for embedding
-                    video_id = self.youtube_handler.extract_youtube_id(video['url']) if self.youtube_handler else self._extract_youtube_id(video['url'])
-                    
-                    # Show play button that displays the actual video
-                    if st.button(f"▶️ Play Video {i+1}", key=f"play_{i}", use_container_width=True):
-                        # Store which video to play in session state
-                        st.session_state.playing_video_index = i
+            # Show existing linked YouTube URL if any
+            current_youtube_url = record_data.get('youtube_url', '')
+            if current_youtube_url:
+                st.success(f"✅ Currently linked: {current_youtube_url}")
                 
-                with col2:
-                    st.write(f"**{video.get('title', 'No title')}**")
-                    st.write(f"Channel: {video.get('channel', 'Unknown')}")
+                # Show option to remove link
+                if st.button("❌ Remove YouTube Link", key="remove_youtube"):
+                    record_data['youtube_url'] = ''
+                    st.success("YouTube link removed!")
+                    st.rerun()
+            
+            # Show YouTube search results if available
+            if 'youtube_search_results' in st.session_state and st.session_state.youtube_search_results:
+                st.info("Click on a video to link it to this record")
+                
+                for i, video in enumerate(st.session_state.youtube_search_results):
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        if video.get('thumbnail'):
+                            st.image(video['thumbnail'], width=120)
+                        
+                        # Extract video ID for embedding
+                        video_id = self.youtube_handler.extract_youtube_id(video['url']) if self.youtube_handler else self._extract_youtube_id(video['url'])
+                        
+                        # Show play button that displays the actual video
+                        if st.button(f"▶️ Play", key=f"play_{i}", use_container_width=True):
+                            # Store which video to play in session state
+                            st.session_state.playing_video_index = i
                     
-                    # Link this video to the record
-                    if st.button("🔗 Link This Video", key=f"link_{i}", use_container_width=True):
-                        # Update the record with this YouTube URL
-                        if selected_record['type'] == 'database':
-                            # Update existing record
-                            success = st.session_state.db_manager.update_record(
-                                record_data['id'], 
-                                {'youtube_url': video['url']}
-                            )
-                            if success:
-                                st.success("✅ YouTube video linked to record!")
-                                # Update the current record data
-                                record_data['youtube_url'] = video['url']
-                                # Clear search results
-                                st.session_state.youtube_search_results = []
-                                st.rerun()
-                            else:
-                                st.error("❌ Failed to link YouTube video")
-                        else:
-                            # For new records, store in session state to be used when adding
+                    with col2:
+                        st.write(f"**{video.get('title', 'No title')}**")
+                        st.write(f"Channel: {video.get('channel', 'Unknown')}")
+                        
+                        # Link this video to the record
+                        if st.button("🔗 Link This Video", key=f"link_{i}", use_container_width=True):
+                            # Update the record with this YouTube URL
                             record_data['youtube_url'] = video['url']
                             st.success("✅ YouTube video will be linked when record is added!")
                             # Clear search results
                             st.session_state.youtube_search_results = []
                             st.rerun()
-                
-                # Show embedded video if this is the one being played
-                if st.session_state.get('playing_video_index') == i and video_id:
-                    st.components.v1.iframe(
-                        f"https://www.youtube.com/embed/{video_id}",
-                        width=400,
-                        height=225
-                    )
-                
-                st.divider()
+                    
+                    # Show embedded video if this is the one being played
+                    if st.session_state.get('playing_video_index') == i and video_id:
+                        st.components.v1.iframe(
+                            f"https://www.youtube.com/embed/{video_id}",
+                            width=400,
+                            height=225
+                        )
+                    
+                    st.divider()
         
         # Single submit button - only enable if genre is selected
         if selected_record['type'] == 'discogs':
@@ -333,35 +330,29 @@ class DisplayHandler:
 
     def _extract_youtube_id(self, url):
         """Extract YouTube video ID from URL (fallback method)"""
-        try:
-            # Handle various YouTube URL formats
-            patterns = [
-                r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)',
-                r'youtube\.com\/embed\/([^&\n?]+)',
-                r'youtube\.com\/v\/([^&\n?]+)'
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, url)
-                if match:
-                    return match.group(1)
-            return None
-        except:
-            return None
+        # Handle various YouTube URL formats
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)',
+            r'youtube\.com\/embed\/([^&\n?]+)',
+            r'youtube\.com\/v\/([^&\n?]+)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.group(1)
+        return None
 
     def _get_genre_id(self, genre_name):
         """Get genre ID for a genre name"""
         if not genre_name:
             return None
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre_name,))
-            result = cursor.fetchone()
-            conn.close()
-            return result[0] if result else None
-        except Exception as e:
-            return None
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre_name,))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else None
 
     def _get_suggested_genre(self, record_data):
         """Get suggested genre based on artist history and Discogs genre"""
@@ -403,69 +394,63 @@ class DisplayHandler:
 
     def _get_artist_most_common_genre(self, artist):
         """Get the most common genre for an artist from existing records"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql('''
-                SELECT genre, COUNT(*) as count 
-                FROM records_with_genres 
-                WHERE artist = ? AND genre IS NOT NULL AND genre != '' 
-                GROUP BY genre 
-                ORDER BY count DESC 
-                LIMIT 1
-            ''', conn, params=(artist,))
-            conn.close()
-            
-            if len(df) > 0:
-                return df.iloc[0]['genre']
-            return ""
-        except Exception as e:
-            return ""
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql('''
+            SELECT genre, COUNT(*) as count 
+            FROM records_with_genres 
+            WHERE artist = ? AND genre IS NOT NULL AND genre != '' 
+            GROUP BY genre 
+            ORDER BY count DESC 
+            LIMIT 1
+        ''', conn, params=(artist,))
+        conn.close()
+        
+        if len(df) > 0:
+            return df.iloc[0]['genre']
+        return ""
 
     def _map_discogs_genre(self, discogs_genre):
         """Map Discogs genre to existing genres in database"""
-        try:
-            # Clean the Discogs genre (remove "Folk, World, & Country" type formatting)
-            clean_genre = discogs_genre.split(',')[0].strip()
-            
-            # Check if this exact genre exists
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (clean_genre,))
-            result = cursor.fetchone()
-            if result:
-                conn.close()
-                return result[0]
-            
-            # Check for partial matches or common mappings
-            common_mappings = {
-                'Rock': ['Rock', 'Alternative Rock', 'Classic Rock'],
-                'Jazz': ['Jazz'],
-                'Hip Hop': ['Hip-Hop', 'Rap'],
-                'Electronic': ['Electronic', 'Techno', 'House'],
-                'Pop': ['Pop'],
-                'Folk': ['Folk'],
-                'Country': ['Country'],
-                'Blues': ['Blues'],
-                'Classical': ['Classical'],
-                'Reggae': ['Reggae'],
-                'Soul': ['Soul', 'Funk'],
-                'Metal': ['Metal', 'Heavy Metal']
-            }
-            
-            for main_genre, variants in common_mappings.items():
-                for variant in variants:
-                    if variant.lower() in clean_genre.lower():
-                        # Check if main genre exists
-                        cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (main_genre,))
-                        result = cursor.fetchone()
-                        if result:
-                            conn.close()
-                            return main_genre
-            
+        # Clean the Discogs genre (remove "Folk, World, & Country" type formatting)
+        clean_genre = discogs_genre.split(',')[0].strip()
+        
+        # Check if this exact genre exists
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (clean_genre,))
+        result = cursor.fetchone()
+        if result:
             conn.close()
-            return ""
-        except Exception as e:
-            return ""
+            return result[0]
+        
+        # Check for partial matches or common mappings
+        common_mappings = {
+            'Rock': ['Rock', 'Alternative Rock', 'Classic Rock'],
+            'Jazz': ['Jazz'],
+            'Hip Hop': ['Hip-Hop', 'Rap'],
+            'Electronic': ['Electronic', 'Techno', 'House'],
+            'Pop': ['Pop'],
+            'Folk': ['Folk'],
+            'Country': ['Country'],
+            'Blues': ['Blues'],
+            'Classical': ['Classical'],
+            'Reggae': ['Reggae'],
+            'Soul': ['Soul', 'Funk'],
+            'Metal': ['Metal', 'Heavy Metal']
+        }
+        
+        for main_genre, variants in common_mappings.items():
+            for variant in variants:
+                if variant.lower() in clean_genre.lower():
+                    # Check if main genre exists
+                    cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (main_genre,))
+                    result = cursor.fetchone()
+                    if result:
+                        conn.close()
+                        return main_genre
+        
+        conn.close()
+        return ""
 
     def render_checkout_section(self, checkout_records, checkout_callback):
         """Render checkout section"""
@@ -532,44 +517,33 @@ class DisplayHandler:
 
     def _delete_record(self, record_id):
         """Delete a record from the database"""
-        try:
-            success = st.session_state.db_manager.delete_record(record_id)
-            if success:
-                st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
-                return True
-            else:
-                st.error("Failed to delete record")
-                return False
-        except Exception as e:
-            st.error(f"Error deleting record: {e}")
+        success = st.session_state.db_manager.delete_record(record_id)
+        if success:
+            st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
+            return True
+        else:
+            st.error("Failed to delete record")
             return False
 
     def _get_all_genres(self):
         """Get all available genres from database"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            df = pd.read_sql('SELECT genre_name FROM genres ORDER BY genre_name', conn)
-            conn.close()
-            return df['genre_name'].tolist()
-        except Exception as e:
-            st.error(f"Error loading genres: {e}")
-            return []
+        conn = st.session_state.db_manager._get_connection()
+        df = pd.read_sql('SELECT genre_name FROM genres ORDER BY genre_name', conn)
+        conn.close()
+        return df['genre_name'].tolist()
 
     def _get_unique_genres(self):
         """Get unique genres from inventory"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            genres_df = pd.read_sql(
-                "SELECT DISTINCT genre FROM records_with_genres WHERE genre IS NOT NULL AND genre != '' ORDER BY genre",
-                conn
-            )
-            conn.close()
-            
-            if len(genres_df) > 0:
-                return genres_df['genre'].tolist()
-            else:
-                return ["ROCK", "JAZZ", "HIP-HOP", "ELECTRONIC", "POP", "METAL", "FOLK", "SOUL"]
-        except Exception as e:
+        conn = st.session_state.db_manager._get_connection()
+        genres_df = pd.read_sql(
+            "SELECT DISTINCT genre FROM records_with_genres WHERE genre IS NOT NULL AND genre != '' ORDER BY genre",
+            conn
+        )
+        conn.close()
+        
+        if len(genres_df) > 0:
+            return genres_df['genre'].tolist()
+        else:
             return ["ROCK", "JAZZ", "HIP-HOP", "ELECTRONIC", "POP", "METAL", "FOLK", "SOUL"]
 
     def _export_genre_csv(self):

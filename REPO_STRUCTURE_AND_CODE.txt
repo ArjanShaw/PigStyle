@@ -35,25 +35,21 @@ FULL REPOSITORY STRUCTURE:
     │   │   │   ├── ⭐ search_handler.py 🐍
     │   │   │   └── ⭐ youtube_handler.py 🐍
     │   │   ├── tabs/
-    │   │   │   ├── ⭐ database_switch_tab.py 🐍
     │   │   │   ├── ⭐ debug_tab.py 🐍
     │   │   │   ├── ⭐ ebay_tab.py 🐍
     │   │   │   ├── ⭐ genre_mappings_tab.py 🐍
     │   │   │   ├── ⭐ import_export_tab.py 🐍
     │   │   │   ├── ⭐ inventory_tab.py 🐍
-    │   │   │   ├── ⭐ inventory_tab_desktop.py 🐍
     │   │   │   └── ⭐ statistics_tab.py 🐍
     │   │   ├── ⭐ config.py 🐍
     │   │   ├── ⭐ database_manager.py 🐍
     │   │   ├── ⭐ desktop_app.py 🐍
-    │   │   ├── ⭐ ebay_csv_merger.py 🐍
     │   │   ├── ⭐ image_formatter.py 🐍
     │   │   ├── print_config.json
     │   │   ├── records.zip
     │   │   ├── Screenshot from 2025-10-24 21-15-56.png
     │   │   ├── ⭐ sku_generator.py 🐍
     │   │   └── ⭐ streamlit_app.py 🐍
-    │   ├── current_database.txt
     │   ├── print_config.json
     │   └── requirements.txt
     ├── payloads/
@@ -104,8 +100,8 @@ FULL REPOSITORY STRUCTURE:
     ├── Accounting.gnucash
     ├── Accounting.gnucash.LCK
     ├── app.py 🐍
+    ├── app_config.json
     ├── current_database.txt
-    ├── data_manager.py 🐍
     ├── fb background.odp
     ├── gallery-data.json
     ├── print_config.json
@@ -383,70 +379,26 @@ if __name__ == "__main__":
 
 FILE: inventory-manager/src/streamlit_app.py
 --------------------------------------------------
-# FILE: inventory-manager/src/streamlit_app.py
-import sys
+import streamlit as st
 import os
 import time
-
-# Add the correct path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'apps/inventory-manager/src'))
-
-# Now import all modules
-import streamlit as st
 from pathlib import Path
-import glob
-from dotenv import load_dotenv
 from database_manager import DatabaseManager
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
-from tabs.debug_tab import DebugTab
-from tabs.database_switch_tab import DatabaseSwitchTab
 from tabs.ebay_tab import EBayTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
 from handlers.api_key_handler import APIKeyHandler
+from config import AppConfig
 
 # --- Configuration ---
 IMAGE_FOLDER = Path("images")
 IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
-
-# Database persistence file
-DB_PERSISTENCE_FILE = "current_database.txt"
-
-def get_persisted_database_path():
-    """Get the persisted database path from file"""
-    try:
-        if os.path.exists(DB_PERSISTENCE_FILE):
-            with open(DB_PERSISTENCE_FILE, 'r') as f:
-                db_path = f.read().strip()
-                if db_path and os.path.exists(db_path):
-                    return db_path
-    except Exception as e:
-        st.error(f"Error reading persisted database path: {e}")
-    return None
-
-def persist_database_path(db_path):
-    """Persist the database path to file"""
-    try:
-        with open(DB_PERSISTENCE_FILE, 'w') as f:
-            f.write(db_path)
-        return True
-    except Exception as e:
-        st.error(f"Error persisting database path: {e}")
-        return False
-
-def initialize_database_manager():
-    """Initialize database manager with persisted path or default"""
-    persisted_path = get_persisted_database_path()
-    if persisted_path:
-        return DatabaseManager(persisted_path)
-    
-    # Default database
-    return DatabaseManager()
 
 def main():
     """Main function to run the Streamlit app"""
@@ -457,12 +409,12 @@ def main():
         layout="wide"
     )
     
-    # Initialize debug tab FIRST and use the SAME instance everywhere
-    debug_tab = DebugTab()
-    
     try:
-        # Initialize API Key Handler - this will throw an error if .env file is missing or incomplete
-        api_key_handler = APIKeyHandler(debug_tab)
+        # Initialize configuration
+        config = AppConfig()
+        
+        # Initialize API Key Handler
+        api_key_handler = APIKeyHandler()
         
         # Get environment variables - this will validate the .env file
         env_vars = api_key_handler.get_environment_variables()
@@ -474,13 +426,13 @@ def main():
 
         # Initialize session state defaults
         if "db_manager" not in st.session_state:
-            st.session_state.db_manager = initialize_database_manager()
-            debug_tab.add_log("DATABASE", f"Database manager initialized with: {st.session_state.db_manager.db_path}")
+            db_path = config.get_database_path()
+            st.session_state.db_manager = DatabaseManager(db_path)
+            st.session_state.config = config
 
         # Initialize Gallery JSON Manager AFTER db_manager is set
         if "gallery_json_manager" not in st.session_state:
             st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
-            debug_tab.add_log("GALLERY", "Gallery JSON manager initialized")
 
         # Initialize GitHub Sync Handler
         if "github_sync_handler" not in st.session_state:
@@ -488,7 +440,6 @@ def main():
                 repo_path="/home/arjan-ubuntu/Documents/PigStyle",
                 gallery_json_manager=st.session_state.gallery_json_manager
             )
-            debug_tab.add_log("GITHUB", "GitHub sync handler initialized")
 
         if "search_results" not in st.session_state:
             st.session_state.search_results = {}
@@ -509,50 +460,40 @@ def main():
         discogs_handler = None
         if DISCOGS_USER_TOKEN:
             try:
-                discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN, debug_tab)
+                discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN)
             except Exception as e:
-                debug_tab.add_log("ERROR", f"Failed to initialize Discogs: {e}")
+                st.error(f"Failed to initialize Discogs: {e}")
                 discogs_handler = None
         
         # Initialize eBay handler
         ebay_handler = None
         if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
             try:
-                ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, debug_tab)
+                ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET)
             except Exception as e:
-                debug_tab.add_log("ERROR", f"Failed to initialize eBay: {e}")
+                st.error(f"Failed to initialize eBay: {e}")
                 ebay_handler = None
      
-        # Initialize all tabs - pass the SAME debug_tab instance to all
-        inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler, st.session_state.gallery_json_manager)
+        # Initialize all tabs
+        inventory_tab = InventoryTab(discogs_handler, ebay_handler, st.session_state.gallery_json_manager)
         statistics_tab = StatisticsTab()
-        database_switch_tab = DatabaseSwitchTab()
         ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
-        # Use the SAME debug_tab instance for rendering
 
-        # Create tabs with new order (REMOVED INCOME AND EXPENSES TABS)
+        # Create tabs
         tabs = st.tabs([
-            "🗃️ Database",
-            "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
-            "🛒 eBay",
-            "📊 Statistics",
-            "🔧 Debug"
+            "📦 Inventory",
+            "🛒 eBay", 
+            "📊 Statistics"
         ])
         
         with tabs[0]:
-            database_switch_tab.render()
+            inventory_tab.render()
         
         with tabs[1]:
-            inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
-        
-        with tabs[2]:
             ebay_tab.render()
         
-        with tabs[3]:
+        with tabs[2]:
             statistics_tab.render()
-            
-        with tabs[4]:
-            debug_tab.render()  # Use the SAME instance
 
     except Exception as e:
         # Show error message if .env file is missing or incomplete
@@ -565,7 +506,6 @@ def main():
         - EBAY_CLIENT_SECRET
         """)
         return
-
 
 if __name__ == "__main__":
     main()
@@ -626,7 +566,6 @@ class SKUGenerator:
 
 FILE: inventory-manager/src/database_manager.py
 --------------------------------------------------
-# FILE: inventory-manager/src/database_manager.py
 import sqlite3
 import pandas as pd
 import os
@@ -636,8 +575,17 @@ class DatabaseManager:
     """Handles all database operations for Discogs data"""
     
     def __init__(self, db_path=None, gallery_json_manager=None):
-        self.db_path = db_path or os.getenv('DATABASE_PATH', 'discogs_data.db')
+        # Use provided path or get from config
+        if db_path is None:
+            from config import AppConfig
+            config = AppConfig()
+            db_path = config.get_database_path()
+        
+        self.db_path = db_path
         self.gallery_json_manager = gallery_json_manager
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_database()
     
     def _init_database(self):
@@ -1340,10 +1288,11 @@ import os
 import json
 from pathlib import Path
 
-class PrintConfig:
-    def __init__(self, config_file="print_config.json"):
+class AppConfig:
+    def __init__(self, config_file="app_config.json"):
         self.config_file = config_file
         self.defaults = {
+            "database_path": "data/records.db",
             "label_width_mm": 45.0,
             "label_height_mm": 16.80,
             "left_margin_mm": 6.50,
@@ -1393,38 +1342,14 @@ class PrintConfig:
     def get_all(self):
         """Get all configuration values"""
         return self.config.copy()
-
-======================================================================
-
-FILE: inventory-manager/src/ebay_csv_merger.py
---------------------------------------------------
-import pandas as pd
-
-# Load CSVs
-revise = pd.read_csv("/home/arjan-ubuntu/Downloads/eBay-edit-price-quantity-template-2025-10-16-11260725431.csv", skiprows=1)
-draft = pd.read_csv("/home/arjan-ubuntu/Downloads/merged_ebay.csv", skiprows=1)
-
-# Standardize SKU column
-revise.rename(columns={"Custom label (SKU)": "SKU"}, inplace=True)
-draft.rename(columns={"Custom label (SKU)": "SKU"}, inplace=True)
-
-# Merge draft and revise on SKU, preferring draft data
-merged = pd.merge(draft, revise[['SKU', 'Start price', 'Available quantity']], 
-                  on='SKU', how='outer', suffixes=('_draft', '_revise'))
-
-# Update Price and Quantity: prefer revise if present
-merged['Price'] = merged['Start price'].combine_first(merged['Price'])
-merged['Quantity'] = merged['Available quantity'].combine_first(merged['Quantity'])
-
-# Drop temporary columns
-merged.drop(columns=['Start price', 'Available quantity'], inplace=True)
-
-# Remove exact duplicates (keeping the first occurrence)
-merged = merged.drop_duplicates(subset=['SKU'])
-
-# Save final CSV
-merged.to_csv("merged_ebay.csv", index=False)
-
+    
+    def get_database_path(self):
+        """Get the database path from config"""
+        return self.get("database_path", "data/records.db")
+    
+    def set_database_path(self, db_path):
+        """Set the database path in config"""
+        self.update({"database_path": db_path})
 
 ======================================================================
 
@@ -1664,128 +1589,6 @@ class GalleryJSONManager:
 
 ======================================================================
 
-FILE: inventory-manager/src/tabs/database_switch_tab.py
---------------------------------------------------
-import streamlit as st
-import os
-import glob
-import tempfile
-from pathlib import Path
-
-class DatabaseSwitchTab:
-    def __init__(self):
-        pass
-    
-    def get_available_databases(self):
-        """Get all .db files in current directory and subdirectories"""
-        db_files = []
-        
-        # Check current directory and subdirectories
-        patterns = ["*.db", "*/*.db", "*/*/*.db"]
-        for pattern in patterns:
-            db_files.extend(glob.glob(pattern))
-        
-        return db_files
-    
-    def persist_database_path(self, db_path):
-        """Persist the database path to file"""
-        try:
-            with open("current_database.txt", 'w') as f:
-                f.write(db_path)
-            return True
-        except Exception as e:
-            st.error(f"Error persisting database path: {e}")
-            return False
-    
-    def render(self):
-        st.header("🗃️ Database Manager")
-        
-        # Current database info
-        if hasattr(st.session_state, 'db_manager'):
-            current_db = st.session_state.db_manager.db_path
-            st.write(f"**Current Database:** `{current_db}`")
-        
-        # Database selection
-        st.subheader("Select Existing Database")
-        available_dbs = self.get_available_databases()
-        
-        if available_dbs:
-            selected_db = st.selectbox(
-                "Available databases:",
-                available_dbs,
-                index=available_dbs.index(current_db) if current_db in available_dbs else 0
-            )
-            
-            if st.button("Switch to Selected Database", use_container_width=True):
-                try:
-                    st.session_state.db_manager = st.session_state.db_manager.__class__(selected_db)
-                    if self.persist_database_path(selected_db):
-                        st.success(f"✅ Switched to: {selected_db}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error switching database: {e}")
-        else:
-            st.info("No .db files found in current directory")
-        
-        # Create new database
-        st.subheader("Create New")
-        new_db_name = st.text_input("New database name:", value="new_inventory.db")
-        if st.button("Create Database", use_container_width=True):
-            try:
-                if not new_db_name.endswith('.db'):
-                    new_db_name += '.db'
-                
-                st.session_state.db_manager = st.session_state.db_manager.__class__(new_db_name)
-                if self.persist_database_path(new_db_name):
-                    st.success(f"✅ Created: {new_db_name}")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error creating database: {e}")
-        
-        # Database operations
-        st.subheader("📤 Upload Database")
-        uploaded_file = st.file_uploader(
-            "Upload .db file",
-            type=['db'],
-            help="Upload a SQLite database file"
-        )
-        
-        if uploaded_file is not None:
-            try:
-                # Save uploaded file
-                upload_path = uploaded_file.name
-                with open(upload_path, 'wb') as f:
-                    f.write(uploaded_file.getbuffer())
-                
-                st.session_state.db_manager = st.session_state.db_manager.__class__(upload_path)
-                if self.persist_database_path(upload_path):
-                    st.success(f"✅ Uploaded and loaded: {upload_path}")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error uploading database: {e}")
-        
-        # Download current database
-        st.subheader("📥 Download Database")
-        if st.button("Download Current Database", use_container_width=True):
-            try:
-                if os.path.exists(current_db):
-                    with open(current_db, 'rb') as f:
-                        db_data = f.read()
-                    
-                    st.download_button(
-                        label="⬇️ Download Database File",
-                        data=db_data,
-                        file_name=os.path.basename(current_db),
-                        mime="application/octet-stream",
-                        key="download_db"
-                    )
-                else:
-                    st.error("Current database file not found")
-            except Exception as e:
-                st.error(f"Error downloading database: {e}")
-
-======================================================================
-
 FILE: inventory-manager/src/tabs/ebay_tab.py
 --------------------------------------------------
 import streamlit as st
@@ -1930,8 +1733,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update all eBay prices - Duration: {duration:.3f}s")
 
     def _update_single_ebay_prices(self, record_id):
         """Update eBay prices for a single record"""
@@ -1946,8 +1747,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update single eBay prices - Duration: {duration:.3f}s")
 
     def _update_all_ebay_sell_at(self):
         """Update eBay sell prices for all inventory records using existing lowest prices"""
@@ -1958,8 +1757,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update all eBay sell at - Duration: {duration:.3f}s")
 
     def _update_single_ebay_sell_at(self, record_id):
         """Update eBay sell price for a single record using existing lowest price"""
@@ -1970,8 +1767,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update single eBay sell at - Duration: {duration:.3f}s")
 
     def _process_ebay_listings(self, listings_data):
         """Process eBay listings and match them to database records"""
@@ -3485,238 +3280,6 @@ class StatisticsTab:
 
 ======================================================================
 
-FILE: inventory-manager/src/tabs/inventory_tab_desktop.py
---------------------------------------------------
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                            QLineEdit, QPushButton, QComboBox, QTextEdit,
-                            QTableWidget, QTableWidgetItem, QHeaderView,
-                            QGroupBox, QScrollArea, QSplitter, QFrame)
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont
-import pandas as pd
-
-class InventoryTab(QWidget):
-    def __init__(self, main_window):
-        super().__init__()
-        self.main_window = main_window
-        self.discogs_handler = None
-        self.ebay_handler = None
-        self.gallery_json_manager = None
-        
-        # State variables
-        self.search_results = []
-        self.selected_record = None
-        self.current_search = ""
-        
-        self.setup_ui()
-    
-    def set_handlers(self, discogs_handler, ebay_handler, gallery_json_manager):
-        """Set external handlers"""
-        self.discogs_handler = discogs_handler
-        self.ebay_handler = ebay_handler
-        self.gallery_json_manager = gallery_json_manager
-    
-    def setup_ui(self):
-        """Setup the inventory tab UI"""
-        layout = QVBoxLayout(self)
-        
-        # Search section
-        search_group = QGroupBox("Search & Add Records")
-        search_layout = QVBoxLayout(search_group)
-        
-        # Search type
-        type_layout = QHBoxLayout()
-        type_layout.addWidget(QLabel("Action:"))
-        self.search_type_combo = QComboBox()
-        self.search_type_combo.addItems(["Add item", "Edit or Delete item"])
-        type_layout.addWidget(self.search_type_combo)
-        type_layout.addStretch()
-        search_layout.addLayout(type_layout)
-        
-        # Search input
-        search_input_layout = QHBoxLayout()
-        search_input_layout.addWidget(QLabel("Search:"))
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Enter barcode, artist, or title...")
-        self.search_input.returnPressed.connect(self.perform_search)
-        search_input_layout.addWidget(self.search_input)
-        
-        self.search_button = QPushButton("🔍 Search")
-        self.search_button.clicked.connect(self.perform_search)
-        search_input_layout.addWidget(self.search_button)
-        search_layout.addLayout(search_input_layout)
-        
-        layout.addWidget(search_group)
-        
-        # Results section
-        self.results_area = QScrollArea()
-        self.results_widget = QWidget()
-        self.results_layout = QVBoxLayout(self.results_widget)
-        self.results_area.setWidget(self.results_widget)
-        self.results_area.setWidgetResizable(True)
-        layout.addWidget(self.results_area)
-        
-        # Initially hide results
-        self.results_area.hide()
-    
-    def perform_search(self):
-        """Perform search based on current type"""
-        search_term = self.search_input.text().strip()
-        if not search_term:
-            return
-        
-        self.current_search = search_term
-        search_type = self.search_type_combo.currentText()
-        
-        # Show loading state
-        self.clear_results()
-        loading_label = QLabel("Searching...")
-        self.results_layout.addWidget(loading_label)
-        self.results_area.show()
-        
-        # Use QTimer to perform search in the next event loop iteration
-        QTimer.singleShot(100, lambda: self._execute_search(search_term, search_type))
-    
-    def _execute_search(self, search_term, search_type):
-        """Execute the search (called via QTimer)"""
-        try:
-            self.clear_results()
-            
-            if search_type == "Add item":
-                # Use Discogs search
-                if self.discogs_handler:
-                    results = self.perform_discogs_search(search_term)
-                else:
-                    self.show_error("Discogs handler not available")
-                    return
-            else:
-                # Use database search
-                results = self.perform_database_search(search_term)
-            
-            self.display_results(results, search_type)
-            
-        except Exception as e:
-            self.show_error(f"Search error: {str(e)}")
-    
-    def perform_discogs_search(self, search_term):
-        """Perform Discogs search"""
-        # This would use your existing Discogs handler logic
-        # Simplified for example
-        return []
-    
-    def perform_database_search(self, search_term):
-        """Perform database search"""
-        # This would use your existing database search logic
-        # Simplified for example
-        return []
-    
-    def display_results(self, results, search_type):
-        """Display search results"""
-        self.clear_results()
-        
-        if not results:
-            no_results_label = QLabel("No results found")
-            self.results_layout.addWidget(no_results_label)
-            return
-        
-        for i, record in enumerate(results):
-            self.add_result_item(record, i, search_type)
-        
-        self.results_area.show()
-    
-    def add_result_item(self, record, index, search_type):
-        """Add a single result item to the results layout"""
-        # Create result item widget
-        item_widget = QFrame()
-        item_widget.setFrameStyle(QFrame.Shape.Box)
-        item_layout = QHBoxLayout(item_widget)
-        
-        # Image
-        # You would add image loading here
-        
-        # Text info
-        text_layout = QVBoxLayout()
-        artist = record.get('artist', 'Unknown Artist')
-        title = record.get('title', 'Unknown Title')
-        
-        artist_label = QLabel(f"<b>{artist}</b>")
-        title_label = QLabel(title)
-        
-        text_layout.addWidget(artist_label)
-        text_layout.addWidget(title_label)
-        
-        # Add additional fields based on search type
-        if search_type == "Edit or Delete item":
-            # Add database record details
-            pass
-        
-        item_layout.addLayout(text_layout)
-        item_layout.addStretch()
-        
-        # Select button
-        select_button = QPushButton("Select")
-        select_button.clicked.connect(lambda: self.select_record(record, search_type))
-        item_layout.addWidget(select_button)
-        
-        # Delete button for database items
-        if search_type == "Edit or Delete item":
-            delete_button = QPushButton("🗑️ Delete")
-            delete_button.clicked.connect(lambda: self.delete_record(record))
-            item_layout.addWidget(delete_button)
-        
-        self.results_layout.addWidget(item_widget)
-    
-    def select_record(self, record, search_type):
-        """Handle record selection"""
-        self.selected_record = record
-        self.show_record_details(record, search_type)
-    
-    def show_record_details(self, record, search_type):
-        """Show detailed view of selected record"""
-        self.clear_results()
-        
-        details_widget = QWidget()
-        details_layout = QVBoxLayout(details_widget)
-        
-        # Back button
-        back_button = QPushButton("← Back to Results")
-        back_button.clicked.connect(self.show_results)
-        details_layout.addWidget(back_button)
-        
-        # Record details
-        # Add detailed record view here
-        
-        self.results_layout.addWidget(details_widget)
-    
-    def show_results(self):
-        """Show results again after viewing details"""
-        self.selected_record = None
-        # Re-display results
-        search_type = self.search_type_combo.currentText()
-        self.display_results(self.search_results, search_type)
-    
-    def delete_record(self, record):
-        """Delete a record"""
-        # Implement delete functionality
-        pass
-    
-    def clear_results(self):
-        """Clear the results area"""
-        while self.results_layout.count():
-            child = self.results_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-    
-    def show_error(self, message):
-        """Show error message"""
-        self.clear_results()
-        error_label = QLabel(f"Error: {message}")
-        error_label.setStyleSheet("color: red;")
-        self.results_layout.addWidget(error_label)
-        self.results_area.show()
-
-======================================================================
-
 FILE: inventory-manager/src/tabs/import_export_tab.py
 --------------------------------------------------
 import streamlit as st
@@ -4022,7 +3585,6 @@ class ImportExportTab:
 
 FILE: inventory-manager/src/tabs/inventory_tab.py
 --------------------------------------------------
-# FILE: inventory-manager/src/tabs/inventory_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -4034,18 +3596,15 @@ from handlers.export_handler import ExportHandler
 from handlers.price_handler import PriceHandler
 from handlers.genre_handler import GenreHandler
 from handlers.youtube_handler import YouTubeHandler
-from config import PrintConfig
 
 class InventoryTab:
-    def __init__(self, discogs_handler, debug_tab, ebay_handler=None, gallery_json_manager=None):
+    def __init__(self, discogs_handler, ebay_handler=None, gallery_json_manager=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
-        self.debug_tab = debug_tab
         self.gallery_json_manager = gallery_json_manager
-        self.config = PrintConfig()
         self.price_handler = PriceHandler()
         self.genre_handler = GenreHandler()
-        self.youtube_handler = YouTubeHandler(debug_tab)
+        self.youtube_handler = YouTubeHandler()
         
         # Initialize handlers - pass ebay_handler to record_ops_handler
         self.search_handler = SearchHandler(discogs_handler)
@@ -4083,7 +3642,7 @@ class InventoryTab:
         # API Requests & Responses
         self._render_api_logs_section()
         
-        # Tools & Sync - NEW COLLAPSIBLE WITH GALLERY JSON TEST AND GITHUB SYNC
+        # Tools & Sync
         self._render_tools_sync_section()
 
     def _render_unified_operations(self):
@@ -4224,7 +3783,6 @@ class InventoryTab:
                 start_time = time.time()
                 st.rerun()
                 duration = time.time() - start_time
-                self.debug_tab.add_log("RERUN", f"Rerun called after add record - Duration: {duration:.3f}s")
             else:
                 st.error("Failed to add record to database")
                 
@@ -4249,7 +3807,6 @@ class InventoryTab:
                 start_time = time.time()
                 st.rerun()
                 duration = time.time() - start_time
-                self.debug_tab.add_log("RERUN", f"Rerun called after update record - Duration: {duration:.3f}s")
             else:
                 st.error("❌ Failed to update record")
                 
@@ -4316,7 +3873,7 @@ class InventoryTab:
     def _render_tools_sync_section(self):
         """Render tools and sync section with Gallery JSON Test and GitHub Sync"""
         with st.expander("🛠️ Tools & Sync", expanded=False):
-            # Gallery JSON Test - REMOVED HEADER, JUST BUTTONS
+            # Gallery JSON Test
             col1, col2 = st.columns(2)
             
             with col1:
@@ -4331,10 +3888,6 @@ class InventoryTab:
                                 st.error("❌ Gallery JSON rebuild failed")
                         except Exception as e:
                             st.error(f"❌ Gallery JSON rebuild error: {str(e)}")
-                            # Show full traceback in expander
-                            import traceback
-                            with st.expander("View full error details"):
-                                st.code(traceback.format_exc())
                     else:
                         st.error("Gallery JSON manager not initialized")
             
@@ -4345,7 +3898,7 @@ class InventoryTab:
                     json_path = st.session_state.gallery_json_manager.get_json_path()
                     st.write(f"**JSON Path:** `{json_path}`")
             
-            # GitHub Sync Section - REMOVED HEADER, JUST BUTTONS
+            # GitHub Sync Section
             col1, col2 = st.columns(2)
             
             with col1:
@@ -4367,22 +3920,6 @@ class InventoryTab:
                     st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
                     st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
                     st.write(f"**Last commit:** {status['last_commit']}")
-            
-            # Check if JSON file exists using the manager's path
-            if st.session_state.get('gallery_json_manager'):
-                import json
-                from pathlib import Path
-                json_path = st.session_state.gallery_json_manager.get_json_path()
-                if json_path and Path(json_path).exists():
-                    try:
-                        with open(json_path, 'r') as f:
-                            data = json.load(f)
-                            st.success(f"✅ JSON file exists: {data['meta']['total_records']} records")
-                            st.write(f"Last updated: {data['meta']['last_updated']}")
-                    except Exception as e:
-                        st.error(f"❌ Error reading JSON: {e}")
-                else:
-                    st.warning("⚠️ JSON file not found yet")
 
     def _get_database_stats_direct(self) -> dict:
         """Get database statistics directly from records table"""
@@ -4408,7 +3945,6 @@ class InventoryTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after calculate all store prices - Duration: {duration:.3f}s")
 
     def _calculate_single_store_price(self, record_id):
         """Calculate store price for a single record using Discogs median price"""
@@ -4419,7 +3955,6 @@ class InventoryTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after calculate single store price - Duration: {duration:.3f}s")
 
     def _update_all_store_prices(self):
         """Update store prices for all inventory records using Discogs median price with .49/.99 rounding"""
@@ -4559,24 +4094,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 class DiscogsHandler:
-    def __init__(self, user_token: str, debug_tab=None):
+    def __init__(self, user_token: str):
         self.user_token = user_token
         self.base_url = "https://api.discogs.com"
         self.headers = {
             "User-Agent": "PigStyleInventory/1.0",
             "Authorization": f"Discogs token={self.user_token}"
         }
-        self.debug_tab = debug_tab
-        
-        # Show the token in debug (first few and last few characters for security)
-        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
-        if self.debug_tab:
-            self.debug_tab.add_log("DEBUG", f"DiscogsHandler initialized with token: {token_display}")
-    
-    def _log_debug(self, category, message, data=None):
-        """Log to debug tab if available"""
-        if self.debug_tab:
-            self.debug_tab.add_log(category, message, data)
     
     def search_multiple_results(self, query: str, filename_base: str = None):
         """Search Discogs and return multiple results for user selection"""
@@ -4587,9 +4111,6 @@ class DiscogsHandler:
             'per_page': 50,
             'currency': 'USD'
         }
-        
-        # Show API key in debug (masked for security)
-        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
         
         # Log the API call with unified format
         api_title = f"🔍 Discogs Search API: {endpoint_url}"
@@ -4602,11 +4123,6 @@ class DiscogsHandler:
             }
         })
         
-        # ADDED: Show debug info directly on screen
-        if self.debug_tab:
-            self.debug_tab.add_log("API_KEY_DEBUG", f"Using Discogs token: {token_display}")
-            self.debug_tab.add_log("API_REQUEST", f"Searching for: '{query}' with token: {token_display}")
-        
         response = requests.get(
             endpoint_url,
             params=params,
@@ -4618,7 +4134,6 @@ class DiscogsHandler:
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
-            self._log_debug("DISCOGS_ERROR", f"{endpoint_url} - {query} - {error_msg}")
             raise Exception(error_msg)
         
         data = response.json()
@@ -4641,9 +4156,6 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Show API key in debug (masked for security)
-        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
-        
         # Log the API call with unified format
         api_title = f"💰 Discogs Pricing API: {endpoint_url}?release_id={release_id}"
         start_time = time.time()
@@ -4655,10 +4167,6 @@ class DiscogsHandler:
             }
         })
 
-        # ADDED: Show debug info for pricing request
-        if self.debug_tab:
-            self.debug_tab.add_log("API_KEY_DEBUG", f"Pricing request with token: {token_display}")
-        
         response = requests.get(
             endpoint_url,
             params=params,
@@ -4669,11 +4177,8 @@ class DiscogsHandler:
         duration = round(time.time() - start_time, 2)
         
         if response.status_code != 200:
-            self._log_debug("DISCOGS_PRICING_ERROR", f"{endpoint_url} - Release {release_id} - Status {response.status_code}")
-            
             release_data = self._get_release_stats(release_id)
             if not release_data:
-                self._log_debug("DISCOGS_ERROR", f"No release data found for {release_id}")
                 return self._create_no_results_response(0, query)
             
             price = self._extract_price_from_release(release_data)
@@ -4792,7 +4297,6 @@ class DiscogsHandler:
             return data
         else:
             error_msg = f"Failed to get release {release_id}: {response.status_code}"
-            self._log_debug("DISCOGS_RELEASE_ERROR", f"{endpoint_url} - Release {release_id} - {error_msg}")
             raise Exception(error_msg)
     
     def _extract_price_from_release(self, release_data):
@@ -4934,8 +4438,7 @@ from pathlib import Path
 class APIKeyHandler:
     """Handles loading and validation of API keys from .env file only"""
     
-    def __init__(self, debug_tab=None):
-        self.debug_tab = debug_tab
+    def __init__(self):
         self.env_vars = {}
         self.env_vars_loaded = False
     
@@ -4958,7 +4461,6 @@ class APIKeyHandler:
         # Check if .env file exists
         if not os.path.exists(env_file_path):
             error_msg = f"❌ .env file not found at {env_file_path}"
-            self._log_debug("ERROR", error_msg)
             raise Exception(error_msg)
         
         # Load environment variables from .env file
@@ -4976,7 +4478,6 @@ class APIKeyHandler:
                         self.env_vars[key] = value
         except Exception as e:
             error_msg = f"❌ Error reading .env file: {str(e)}"
-            self._log_debug("ERROR", error_msg)
             raise Exception(error_msg)
         
         # Validate all required variables are present
@@ -4987,12 +4488,7 @@ class APIKeyHandler:
         
         if missing_vars:
             error_msg = f"❌ Missing required variables in .env file: {', '.join(missing_vars)}"
-            self._log_debug("ERROR", error_msg)
             raise Exception(error_msg)
-        
-        # Log successful loading
-        for var in required_vars:
-            self._log_debug("ENV", f"✅ {var} loaded from .env file", {"source": f".env file at {env_file_path}"})
         
         self.env_vars_loaded = True
         return self.env_vars
@@ -5017,16 +4513,9 @@ class APIKeyHandler:
                 missing_keys.append(key)
                 
         if missing_keys:
-            self._log_debug("ERROR", f"Missing required API keys: {', '.join(missing_keys)}")
             return False
             
-        self._log_debug("SUCCESS", "All required API keys are available")
         return True
-    
-    def _log_debug(self, category, message, data=None):
-        """Log to debug tab if available"""
-        if self.debug_tab:
-            self.debug_tab.add_log(category, message, data)
     
     def get_available_sources(self):
         """Get information about available API key sources"""
@@ -6601,12 +6090,8 @@ class RecordOperationsHandler:
                 success, message = st.session_state.github_sync_handler.trigger_sync()
                 if success:
                     print("✅ GitHub sync completed successfully")
-                    if hasattr(st.session_state, 'debug_tab'):
-                        st.session_state.debug_tab.add_log("GITHUB", f"Sync successful: {message}")
                 else:
                     print(f"❌ GitHub sync failed: {message}")
-                    if hasattr(st.session_state, 'debug_tab'):
-                        st.session_state.debug_tab.add_log("GITHUB_ERROR", f"Sync failed: {message}")
             else:
                 print("❌ GitHub sync handler not available")
         except Exception as e:
@@ -6772,8 +6257,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 class YouTubeHandler:
-    def __init__(self, debug_tab=None, api_key=None):
-        self.debug_tab = debug_tab
+    def __init__(self, api_key=None):
         self.api_key = api_key or os.getenv('YOUTUBE_API_KEY')
         
     def search_youtube_videos(self, search_query, record_data):
@@ -7109,17 +6593,11 @@ class EbayHandler:
     EBAY_SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
     EBAY_ITEM_URL = "https://api.ebay.com/buy/browse/v1/item/"
 
-    def __init__(self, client_id, client_secret, debug_tab=None):
+    def __init__(self, client_id, client_secret):
         self.client_id = client_id
         self.client_secret = client_secret
-        self.debug_tab = debug_tab
         self.token = None
         self.token_expiry = 0
-
-    def _log_debug(self, category, message, data=None):
-        """Log to debug tab if available"""
-        if self.debug_tab:
-            self.debug_tab.add_log(category, message, data)
 
     def get_access_token(self):
         if self.token and time.time() < self.token_expiry:
@@ -7155,7 +6633,6 @@ class EbayHandler:
     def get_ebay_pricing(self, artist, title, category_id="176985", exclude_foreign=True):
         """Get eBay pricing for a record"""
         if not self.get_access_token():
-            self._log_debug("EBAY_ERROR", f"{self.EBAY_SEARCH_URL} - No access token available")
             return None
 
         headers = {"Authorization": f"Bearer {self.token}"}

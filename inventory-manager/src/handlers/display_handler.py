@@ -181,6 +181,8 @@ class DisplayHandler:
                         record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
                         record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
                         record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
+                        record_data['ebay_low_total'] = ebay_pricing.get('ebay_low_total')
+                        record_data['ebay_search_url'] = ebay_pricing.get('ebay_search_url')
                 
                 record_data['pricing_fetched'] = True
         
@@ -348,6 +350,8 @@ class DisplayHandler:
         ebay_median = record_data.get('ebay_median_price')
         ebay_max = record_data.get('ebay_highest_price')
         ebay_low_shipping = record_data.get('ebay_low_shipping')
+        ebay_low_total = record_data.get('ebay_low_total')
+        ebay_search_url = record_data.get('ebay_search_url')
         
         # Calculate suggested prices using existing logic
         suggested_store_price = self._calculate_suggested_store_price(discogs_median)
@@ -365,11 +369,25 @@ class DisplayHandler:
         
         with col2:
             st.write("**eBay Pricing**")
-            st.write(f"Min: ${ebay_min:.2f}" if ebay_min is not None else "Min: N/A")
+            
+            # Show Min as base + shipping total with link
+            if ebay_min is not None and ebay_low_shipping is not None:
+                min_total = ebay_min + ebay_low_shipping
+                shipping_display = f" (shipping ${ebay_low_shipping:.2f})" if ebay_low_shipping > 0 else " (free shipping)"
+                if ebay_search_url:
+                    st.markdown(f"Min: [${min_total:.2f}{shipping_display}*]({ebay_search_url})")
+                else:
+                    st.write(f"Min: ${min_total:.2f}{shipping_display}")
+            else:
+                st.write("Min: N/A")
+            
             st.write(f"Median: ${ebay_median:.2f}" if ebay_median is not None else "Median: N/A")
             st.write(f"Max: ${ebay_max:.2f}" if ebay_max is not None else "Max: N/A")
-            st.write(f"Low Shipping: ${ebay_low_shipping:.2f}" if ebay_low_shipping is not None else "Low Shipping: N/A")
             st.write(f"**Suggested eBay Price: ${suggested_ebay_price:.2f}**")
+            
+            # Add footnote for eBay link
+            if ebay_search_url:
+                st.caption(f"*[Click to verify on eBay]({ebay_search_url})")
 
     def _calculate_suggested_store_price(self, discogs_median_price):
         """Calculate suggested store price using existing logic"""

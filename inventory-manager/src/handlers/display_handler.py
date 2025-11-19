@@ -151,11 +151,38 @@ class DisplayHandler:
             st.session_state.selected_record = None
             st.rerun()
 
-    def render_edit_section(self, selected_record, add_callback, update_callback, last_condition="5"):
+    def render_edit_section(self, selected_record, add_callback, update_callback, last_condition="5", discogs_handler=None, ebay_handler=None):
         """Render the edit properties section with YouTube URL functionality"""
         st.subheader("Edit Properties")
         
         record_data = selected_record['data']
+        
+        # For Discogs records, fetch pricing data when the record is selected
+        if selected_record['type'] == 'discogs' and not record_data.get('pricing_fetched'):
+            with st.spinner("Fetching pricing data..."):
+                # Fetch Discogs pricing
+                release_id = record_data.get('discogs_id')
+                if release_id and discogs_handler:
+                    search_term = f"{record_data.get('artist', '')} {record_data.get('title', '')}"
+                    pricing_data = discogs_handler.get_release_pricing(str(release_id), search_term, f"release_{release_id}")
+                    
+                    if pricing_data and pricing_data.get('success'):
+                        record_data['discogs_lowest_price'] = pricing_data.get('lowest_price')
+                        record_data['discogs_median_price'] = pricing_data.get('median_price')
+                        record_data['discogs_highest_price'] = pricing_data.get('highest_price')
+                
+                # Fetch eBay pricing
+                artist = record_data.get('artist', '')
+                title = record_data.get('title', '')
+                if artist and title and ebay_handler:
+                    ebay_pricing = ebay_handler.get_ebay_pricing(artist, title)
+                    if ebay_pricing:
+                        record_data['ebay_lowest_price'] = ebay_pricing.get('ebay_lowest_price')
+                        record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
+                        record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
+                        record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
+                
+                record_data['pricing_fetched'] = True
         
         # For Discogs records, show editable artist field with cleaned version
         if selected_record['type'] == 'discogs':
@@ -218,6 +245,10 @@ class DisplayHandler:
             if suggested_genre:
                 suggestion_source = self._get_suggestion_source(record_data, suggested_genre)
                 st.caption(f"Suggested: {suggested_genre} ({suggestion_source})")
+        
+        # Show pricing information for Discogs records
+        if selected_record['type'] == 'discogs':
+            self._render_pricing_information(record_data)
         
         # Show YouTube search results if available (auto-triggered when record was selected)
         if selected_record['type'] == 'discogs' and self.youtube_handler and self.youtube_handler.is_enabled():
@@ -303,6 +334,126 @@ class DisplayHandler:
                         st.rerun()
                     else:
                         st.error("❌ Failed to update record")
+
+    def _render_pricing_information(self, record_data):
+        """Render pricing information for Discogs records"""
+        st.subheader("💰 Pricing Information")
+        
+        # Get pricing data from record
+        discogs_min = record_data.get('discogs_lowest_price')
+        discogs_median = record_data.get('discogs_median_price')
+        discogs_max = record_data.get('discogs_highest_price')
+        
+        ebay_min = record_data.get('ebay_lowest_price')
+        ebay_median = record_data.get('ebay_median_price')
+        ebay_max = record_data.get('ebay_highest_price')
+        ebay_low_shipping = record_data.get('ebay_low_shipping')
+        
+        # Calculate suggested prices using existing logic
+        suggested_store_price = self._calculate_suggested_store_price(discogs_median)
+        suggested_ebay_price = self._calculate_suggested_ebay_price(ebay_min, ebay_low_shipping, discogs_median)
+        
+        # Display pricing in two columns
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Discogs Pricing**")
+            st.write(f"Min: ${discogs_min:.2f}" if discogs_min is not None else "Min: N/A")
+            st.write(f"Median: ${discogs_median:.2f}" if discogs_median is not None else "Median: N/A")
+            st.write(f"Max: ${discogs_max:.2f}" if discogs_max is not None else "Max: N/A")
+            st.write(f"**Suggested Store Price: ${suggested_store_price:.2f}**")
+        
+        with col2:
+            st.write("**eBay Pricing**")
+            st.write(f"Min: ${ebay_min:.2f}" if ebay_min is not None else "Min: N/A")
+            st.write(f"Median: ${ebay_median:.2f}" if ebay_median is not None else "Median: N/A")
+            st.write(f"Max: ${ebay_max:.2f}" if ebay_max is not None else "Max: N/A")
+            st.write(f"Low Shipping: ${ebay_low_shipping:.2f}" if ebay_low_shipping is not None else "Low Shipping: N/A")
+            st.write(f"**Suggested eBay Price: ${suggested_ebay_price:.2f}**")
+
+    def _calculate_suggested_store_price(self, discogs_median_price):
+        """Calculate suggested store price using existing logic"""
+        if not discogs_median_price or discogs_median_price <= 0:
+            return 0.0
+        
+        # Get MIN_STORE_PRICE from config
+        min_store_price = st.session_state.db_manager.get_config_value('MIN_STORE_PRICE', '1.99')
+        min_store_price = float(min_store_price)
+        
+        # Use the same rounding function as eBay sell prices
+        store_price = self._round_down_to_49_or_99(float(discogs_median_price))
+        
+        # Apply MIN_STORE_PRICE minimum
+        store_price = max(store_price, min_store_price)
+        
+        return store_price
+
+    def _calculate_suggested_ebay_price(self, ebay_lowest_price, ebay_low_shipping, discogs_median_price):
+        """Calculate suggested eBay price using existing logic"""
+        # Get SHIPPING_COST from config
+        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        shipping_cost = float(shipping_cost)
+        
+        if ebay_lowest_price is not None and ebay_low_shipping is not None:
+            # Convert to float to ensure numeric operations
+            ebay_lowest_price = float(ebay_lowest_price)
+            ebay_low_shipping = float(ebay_low_shipping)
+            
+            # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
+            ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
+            
+            # Ensure ebay_sell_at is not negative - hardcoded minimum of 0.00
+            ebay_sell_at_raw = max(ebay_sell_at_raw, 0.00)
+            
+            # Cap ebay_sell_at at discogs_median_price if available
+            if discogs_median_price is not None and discogs_median_price > 0:
+                discogs_median = float(discogs_median_price)
+                if ebay_sell_at_raw > discogs_median:
+                    # If calculated price exceeds Discogs median, use Discogs median rounded down
+                    ebay_sell_at = self._round_down_to_49_or_99(discogs_median)
+                else:
+                    # Use calculated price rounded down
+                    ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
+            else:
+                # No Discogs price, use calculated price rounded down
+                ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
+        else:
+            # No eBay data - use Discogs median price
+            if discogs_median_price is not None and discogs_median_price > 0:
+                # Round down Discogs median price for eBay
+                ebay_sell_at = self._round_down_to_49_or_99(float(discogs_median_price))
+            else:
+                # No pricing data available
+                ebay_sell_at = 0.0
+        
+        # Apply hardcoded minimum for eBay sell price
+        return max(ebay_sell_at, 0.00)
+
+    def _round_down_to_49_or_99(self, price):
+        """Round down to nearest .49 or .99 that is less than or equal to original price"""
+        import math
+        
+        if price <= 0:
+            return 0.0
+        
+        # Check if price already ends with .49 or .99
+        if abs(price % 1 - 0.49) < 0.001 or abs(price % 1 - 0.99) < 0.001:
+            return price
+        
+        base_price = math.floor(price)
+        
+        # Calculate candidate prices
+        candidate_99 = base_price + 0.99
+        candidate_49 = base_price + 0.49
+        
+        # Return the highest candidate that is <= original price
+        if candidate_99 <= price:
+            return candidate_99
+        elif candidate_49 <= price:
+            return candidate_49
+        else:
+            # If both are too high, go down one dollar and use .99
+            return (base_price - 1) + 0.99
 
     def _calculate_file_at(self, artist, genre):
         """Calculate file_at value for an artist and genre"""

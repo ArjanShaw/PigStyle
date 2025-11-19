@@ -146,7 +146,7 @@ class InventoryTab:
         # Edit properties and action button (only show when selection is made and no record was just added)
         if (st.session_state.selected_record and 
             st.session_state.record_added is None):
-            self.display_handler.render_edit_section(st.session_state.selected_record, self._handle_add_record, self._handle_update_record, st.session_state.last_condition)
+            self.display_handler.render_edit_section(st.session_state.selected_record, self._handle_add_record, self._handle_update_record, st.session_state.last_condition, self.discogs_handler, self.ebay_handler)
         
         # Checkout section for database search
         if (search_type == "Edit or Delete item" and 

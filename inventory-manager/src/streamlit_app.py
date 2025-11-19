@@ -7,6 +7,8 @@ from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.ebay_tab import EBayTab
+from tabs.store_pricing_tab import StorePricingTab
+from tabs.tools_sync_tab import ToolsSyncTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -97,22 +99,32 @@ def main():
     inventory_tab = InventoryTab(discogs_handler, ebay_handler, st.session_state.gallery_json_manager, youtube_handler)
     statistics_tab = StatisticsTab()
     ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
+    store_pricing_tab = StorePricingTab()
+    tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
 
     # Create tabs
     tabs = st.tabs([
         "📦 Inventory",
+        "🏪 Store Pricing",
         "🛒 eBay", 
-        "📊 Statistics"
+        "📊 Statistics",
+        "🛠️ Tools & Sync"
     ])
     
     with tabs[0]:
         inventory_tab.render()
     
     with tabs[1]:
-        ebay_tab.render()
+        store_pricing_tab.render()
     
     with tabs[2]:
+        ebay_tab.render()
+    
+    with tabs[3]:
         statistics_tab.render()
+    
+    with tabs[4]:
+        tools_sync_tab.render()
 
 if __name__ == "__main__":
     main()

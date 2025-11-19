@@ -85,6 +85,8 @@ class EbayHandler:
         items = data.get("itemSummaries", [])
         
         listings = []
+        cheapest_item_url = None
+        cheapest_item_id = None
         
         # Get shipping cost from config for CALC items
         shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
@@ -116,17 +118,28 @@ class EbayHandler:
                 else:
                     total_cost = base_price  # For FREE shipping
                 
+                item_url = item.get("itemWebUrl", "")
+                item_id = item.get("itemId", "")
+                
                 listings.append({
                     'base_price': base_price,
                     'shipping_type': shipping_type,
                     'shipping_cost': shipping_cost_value,
-                    'total_cost': total_cost
+                    'total_cost': total_cost,
+                    'item_url': item_url,
+                    'item_id': item_id,
+                    'item_data': item  # Store full item data for later use
                 })
 
         if listings:
             # Sort by total cost to find the cheapest listing
             listings.sort(key=lambda x: x['total_cost'])
             cheapest_listing = listings[0]
+            cheapest_item_url = cheapest_listing['item_url']
+            cheapest_item_id = cheapest_listing['item_id']
+            
+            # Get detailed item information for the cheapest listing
+            cheapest_item_details = self.get_item_details(cheapest_item_id) if cheapest_item_id else None
             
             # Calculate median base price
             base_prices = [listing['base_price'] for listing in listings]
@@ -153,7 +166,10 @@ class EbayHandler:
                 'ebay_total_items_found': len(items),  # Add total items found count
                 'ebay_low_shipping': round(cheapest_listing['shipping_cost'] or 0, 2),
                 'ebay_low_total': round(cheapest_listing['total_cost'], 2),
-                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}"
+                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}",
+                'ebay_lowest_item_url': cheapest_item_url,  # URL of the actual cheapest item
+                'ebay_lowest_item_id': cheapest_item_id,  # ID of the cheapest item
+                'ebay_lowest_item_details': cheapest_item_details  # Detailed info for cheapest item
             }
             
             return result
@@ -166,7 +182,10 @@ class EbayHandler:
                 'ebay_total_items_found': len(items),  # Add total items found count even when no valid listings
                 'ebay_low_shipping': None,
                 'ebay_low_total': None,
-                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}"
+                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}",
+                'ebay_lowest_item_url': None,
+                'ebay_lowest_item_id': None,
+                'ebay_lowest_item_details': None
             }
 
     def _extract_shipping_info(self, item):
@@ -254,10 +273,14 @@ class EbayHandler:
             st.session_state.api_details = {}
             
         st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {'request': request_data}
+        st.session_state.api_details[title] = {
+            'request': request_data,
+            'raw_request': request_data  # Store raw request data
+        }
 
     def _log_api_response(self, title, response_data, duration):
         """Log API response in unified format"""
         if 'api_details' in st.session_state and title in st.session_state.api_details:
             st.session_state.api_details[title]['response'] = response_data
             st.session_state.api_details[title]['duration'] = duration
+            st.session_state.api_details[title]['raw_response'] = response_data  # Store raw response data

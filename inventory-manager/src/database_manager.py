@@ -35,8 +35,9 @@ class DatabaseManager:
                 genre_id INTEGER,
                 file_at TEXT,
                 image_url TEXT,
-                discogs_median_price REAL,
                 discogs_lowest_price REAL,
+                discogs_estimated_price REAL,
+                discogs_median_price REAL,
                 discogs_highest_price REAL,
                 ebay_median_price REAL,
                 ebay_lowest_price REAL,
@@ -67,7 +68,9 @@ class DatabaseManager:
             ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
             ('discogs_genre', 'TEXT'),
             ('youtube_url', 'TEXT'),
-            ('ebay_sell_at', 'REAL')
+            ('ebay_sell_at', 'REAL'),
+            ('discogs_lowest_price', 'REAL'),
+            ('discogs_estimated_price', 'REAL')
         ]
         
         for column_name, column_type in columns_to_add:
@@ -140,6 +143,22 @@ class DatabaseManager:
         cursor.execute('''
             INSERT OR IGNORE INTO app_config (config_key, config_value)
             VALUES ('MIN_STORE_PRICE', '1.99')
+        ''')
+        
+        # Insert store pricing configuration
+        cursor.execute('''
+            INSERT OR IGNORE INTO app_config (config_key, config_value)
+            VALUES ('STORE_PRICE_LOWEST_MULTIPLIER', '1.1')
+        ''')
+        
+        cursor.execute('''
+            INSERT OR IGNORE INTO app_config (config_key, config_value)
+            VALUES ('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9')
+        ''')
+        
+        cursor.execute('''
+            INSERT OR IGNORE INTO app_config (config_key, config_value)
+            VALUES ('STORE_PRICE_MINIMUM', '4.99')
         ''')
         
         conn.commit()
@@ -230,18 +249,19 @@ class DatabaseManager:
         cursor.execute('''
             INSERT INTO records 
             (artist, title, barcode, genre_id, image_url,
-             discogs_median_price, discogs_lowest_price, discogs_highest_price,
+             discogs_lowest_price, discogs_estimated_price, discogs_median_price, discogs_highest_price,
              ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_low_shipping, ebay_low_url,
              catalog_number, format, condition, file_at, store_price, ebay_sell_at, discogs_genre, youtube_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
             result_data.get('barcode', ''),
             result_data.get('genre_id'),
             result_data.get('image_url', ''),
-            result_data.get('discogs_median_price'),
             result_data.get('discogs_lowest_price'),
+            result_data.get('discogs_estimated_price'),
+            result_data.get('discogs_median_price'),
             result_data.get('discogs_highest_price'),
             result_data.get('ebay_median_price'),
             result_data.get('ebay_lowest_price'),

@@ -1,3 +1,4 @@
+# FILE: inventory-manager/src/streamlit_app.py
 import sys
 import os
 import time
@@ -16,7 +17,6 @@ from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.debug_tab import DebugTab
 from tabs.database_switch_tab import DatabaseSwitchTab
-from tabs.expenses_tab import ExpensesTab
 from tabs.ebay_tab import EBayTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
@@ -142,17 +142,14 @@ def main():
         inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler, st.session_state.gallery_json_manager)
         statistics_tab = StatisticsTab()
         database_switch_tab = DatabaseSwitchTab()
-        expenses_tab = ExpensesTab()
         ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
         # Use the SAME debug_tab instance for rendering
 
-        # Create tabs with new order (ADDED EBAY TAB)
+        # Create tabs with new order (REMOVED INCOME AND EXPENSES TABS)
         tabs = st.tabs([
             "🗃️ Database",
             "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
-            "🛒 eBay",  # NEW EBAY TAB
-            "💰 Income",
-            "💰 Expenses",
+            "🛒 eBay",
             "📊 Statistics",
             "🔧 Debug"
         ])
@@ -164,18 +161,12 @@ def main():
             inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
         
         with tabs[2]:
-            ebay_tab.render()  # NEW EBAY TAB
+            ebay_tab.render()
         
         with tabs[3]:
-            inventory_tab.render_sold_tab()
-        
-        with tabs[4]:
-            expenses_tab.render()
-            
-        with tabs[5]:
             statistics_tab.render()
             
-        with tabs[6]:
+        with tabs[4]:
             debug_tab.render()  # Use the SAME instance
 
     except Exception as e:

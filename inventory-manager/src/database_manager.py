@@ -1,3 +1,4 @@
+# FILE: inventory-manager/src/database_manager.py
 import sqlite3
 import pandas as pd
 import os
@@ -94,17 +95,6 @@ class DatabaseManager:
                 genre_id INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (genre_id) REFERENCES genres (id)
-            )
-        ''')
-        
-        # Expenses table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                description TEXT NOT NULL,
-                amount REAL NOT NULL,
-                receipt_image BLOB,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
@@ -317,28 +307,6 @@ class DatabaseManager:
             self.gallery_json_manager.trigger_rebuild(async_mode=True)
             
         return success
-    
-    def save_expense(self, description, amount, receipt_image=None):
-        """Save expense to database"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO expenses (description, amount, receipt_image)
-            VALUES (?, ?, ?)
-        ''', (description, amount, receipt_image))
-        
-        conn.commit()
-        expense_id = cursor.lastrowid
-        conn.close()
-        return expense_id
-    
-    def get_all_expenses(self):
-        """Get all expenses from database"""
-        conn = self._get_connection()
-        df = pd.read_sql('SELECT * FROM expenses ORDER BY created_at DESC', conn)
-        conn.close()
-        return df
     
     def save_failed_search(self, search_term, error_details):
         """Save failed search to database"""
@@ -629,7 +597,6 @@ class DatabaseManager:
         cursor.execute('DELETE FROM failed_searches')
         cursor.execute('DELETE FROM genre_by_artist')
         cursor.execute('DELETE FROM genres')
-        cursor.execute('DELETE FROM expenses')
         conn.commit()
         conn.close()
     

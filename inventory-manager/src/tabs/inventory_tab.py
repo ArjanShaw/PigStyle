@@ -1,3 +1,4 @@
+# FILE: inventory-manager/src/tabs/inventory_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -54,8 +55,8 @@ class InventoryTab:
         # Price Tag Management
         with st.expander("🖨️ Price Tag Management", expanded=False):
             self.display_handler.render_price_tag_management()
-            
-        # API Requests & Responses - MOVED TO SAME LEVEL
+        
+        # API Requests & Responses
         self._render_api_logs_section()
         
         # Tools & Sync - NEW COLLAPSIBLE WITH GALLERY JSON TEST AND GITHUB SYNC
@@ -520,44 +521,3 @@ class InventoryTab:
         except Exception as e:
             st.error(f"❌ Error updating {artist} - {title}: {str(e)}")
             return 0
-
-    def render_sold_tab(self):
-        """Render the sold records table functionality - renamed to Income"""
-        st.info("The 'Sold Records' functionality is not available. The status column has been removed from the database.")
-        return
-
-    def _return_to_inventory(self):
-        """Return selected sold records back to inventory"""
-        st.warning("Return to inventory functionality is not available. The status column has been removed from the database.")
-        return
-
-    def _update_record_status(self, record_ids, new_status):
-        """Update status of records - not available anymore"""
-        st.warning("Record status update functionality is not available. The status column has been removed from the database.")
-        return False
-
-    def _render_records_table(self, status, search_term, filter_option):
-        """Render records with pagination"""
-        st.info(f"The '{status} records' table is not available. The status column has been removed from the database.")
-        return
-
-    def _render_records_dataframe(self, records: pd.DataFrame, status: str):
-        """Render records in an optimized dataframe with selection"""
-        st.info(f"The records table is not available. The status column has been removed from the database.")
-        return
-
-    def _format_currency(self, value):
-        """Format currency values"""
-        if not value:
-            return "$N/A"
-        return f"${float(value):.2f}"
-
-    def _get_all_records_direct(self, status: str, search_term: str = None, filter_option: str = None) -> pd.DataFrame:
-        """Get all records directly from records_with_genres view with optional filtering"""
-        # Return empty dataframe since status functionality is removed
-        return pd.DataFrame()
-
-    def _get_total_filtered_count(self, status: str, search_term: str = None, filter_option: str = None) -> int:
-        """Get total count of records after applying filters"""
-        # Return 0 since status functionality is removed
-        return 0

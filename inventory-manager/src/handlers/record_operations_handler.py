@@ -181,12 +181,8 @@ class RecordOperationsHandler:
                 success, message = st.session_state.github_sync_handler.trigger_sync()
                 if success:
                     print("✅ GitHub sync completed successfully")
-                    if hasattr(st.session_state, 'debug_tab'):
-                        st.session_state.debug_tab.add_log("GITHUB", f"Sync successful: {message}")
                 else:
                     print(f"❌ GitHub sync failed: {message}")
-                    if hasattr(st.session_state, 'debug_tab'):
-                        st.session_state.debug_tab.add_log("GITHUB_ERROR", f"Sync failed: {message}")
             else:
                 print("❌ GitHub sync handler not available")
         except Exception as e:

@@ -7,24 +7,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 class DiscogsHandler:
-    def __init__(self, user_token: str, debug_tab=None):
+    def __init__(self, user_token: str):
         self.user_token = user_token
         self.base_url = "https://api.discogs.com"
         self.headers = {
             "User-Agent": "PigStyleInventory/1.0",
             "Authorization": f"Discogs token={self.user_token}"
         }
-        self.debug_tab = debug_tab
-        
-        # Show the token in debug (first few and last few characters for security)
-        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
-        if self.debug_tab:
-            self.debug_tab.add_log("DEBUG", f"DiscogsHandler initialized with token: {token_display}")
-    
-    def _log_debug(self, category, message, data=None):
-        """Log to debug tab if available"""
-        if self.debug_tab:
-            self.debug_tab.add_log(category, message, data)
     
     def search_multiple_results(self, query: str, filename_base: str = None):
         """Search Discogs and return multiple results for user selection"""
@@ -35,9 +24,6 @@ class DiscogsHandler:
             'per_page': 50,
             'currency': 'USD'
         }
-        
-        # Show API key in debug (masked for security)
-        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
         
         # Log the API call with unified format
         api_title = f"🔍 Discogs Search API: {endpoint_url}"
@@ -50,11 +36,6 @@ class DiscogsHandler:
             }
         })
         
-        # ADDED: Show debug info directly on screen
-        if self.debug_tab:
-            self.debug_tab.add_log("API_KEY_DEBUG", f"Using Discogs token: {token_display}")
-            self.debug_tab.add_log("API_REQUEST", f"Searching for: '{query}' with token: {token_display}")
-        
         response = requests.get(
             endpoint_url,
             params=params,
@@ -66,7 +47,6 @@ class DiscogsHandler:
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
-            self._log_debug("DISCOGS_ERROR", f"{endpoint_url} - {query} - {error_msg}")
             raise Exception(error_msg)
         
         data = response.json()
@@ -89,9 +69,6 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Show API key in debug (masked for security)
-        token_display = f"{self.user_token[:8]}...{self.user_token[-4:]}" if len(self.user_token) > 12 else "***"
-        
         # Log the API call with unified format
         api_title = f"💰 Discogs Pricing API: {endpoint_url}?release_id={release_id}"
         start_time = time.time()
@@ -103,10 +80,6 @@ class DiscogsHandler:
             }
         })
 
-        # ADDED: Show debug info for pricing request
-        if self.debug_tab:
-            self.debug_tab.add_log("API_KEY_DEBUG", f"Pricing request with token: {token_display}")
-        
         response = requests.get(
             endpoint_url,
             params=params,
@@ -117,11 +90,8 @@ class DiscogsHandler:
         duration = round(time.time() - start_time, 2)
         
         if response.status_code != 200:
-            self._log_debug("DISCOGS_PRICING_ERROR", f"{endpoint_url} - Release {release_id} - Status {response.status_code}")
-            
             release_data = self._get_release_stats(release_id)
             if not release_data:
-                self._log_debug("DISCOGS_ERROR", f"No release data found for {release_id}")
                 return self._create_no_results_response(0, query)
             
             price = self._extract_price_from_release(release_data)
@@ -240,7 +210,6 @@ class DiscogsHandler:
             return data
         else:
             error_msg = f"Failed to get release {release_id}: {response.status_code}"
-            self._log_debug("DISCOGS_RELEASE_ERROR", f"{endpoint_url} - Release {release_id} - {error_msg}")
             raise Exception(error_msg)
     
     def _extract_price_from_release(self, release_data):

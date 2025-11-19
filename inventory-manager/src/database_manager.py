@@ -1,4 +1,3 @@
-# FILE: inventory-manager/src/database_manager.py
 import sqlite3
 import pandas as pd
 import os
@@ -8,8 +7,17 @@ class DatabaseManager:
     """Handles all database operations for Discogs data"""
     
     def __init__(self, db_path=None, gallery_json_manager=None):
-        self.db_path = db_path or os.getenv('DATABASE_PATH', 'discogs_data.db')
+        # Use provided path or get from config
+        if db_path is None:
+            from config import AppConfig
+            config = AppConfig()
+            db_path = config.get_database_path()
+        
+        self.db_path = db_path
         self.gallery_json_manager = gallery_json_manager
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_database()
     
     def _init_database(self):

@@ -140,8 +140,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update all eBay prices - Duration: {duration:.3f}s")
 
     def _update_single_ebay_prices(self, record_id):
         """Update eBay prices for a single record"""
@@ -156,8 +154,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update single eBay prices - Duration: {duration:.3f}s")
 
     def _update_all_ebay_sell_at(self):
         """Update eBay sell prices for all inventory records using existing lowest prices"""
@@ -168,8 +164,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update all eBay sell at - Duration: {duration:.3f}s")
 
     def _update_single_ebay_sell_at(self, record_id):
         """Update eBay sell price for a single record using existing lowest price"""
@@ -180,8 +174,6 @@ class EBayTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            if hasattr(st.session_state, 'debug_tab'):
-                st.session_state.debug_tab.add_log("RERUN", f"Rerun called after update single eBay sell at - Duration: {duration:.3f}s")
 
     def _process_ebay_listings(self, listings_data):
         """Process eBay listings and match them to database records"""

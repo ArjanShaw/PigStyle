@@ -1,67 +1,23 @@
-# FILE: inventory-manager/src/streamlit_app.py
-import sys
+import streamlit as st
 import os
 import time
-
-# Add the correct path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'apps/inventory-manager/src'))
-
-# Now import all modules
-import streamlit as st
 from pathlib import Path
-import glob
-from dotenv import load_dotenv
 from database_manager import DatabaseManager
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
-from tabs.debug_tab import DebugTab
-from tabs.database_switch_tab import DatabaseSwitchTab
 from tabs.ebay_tab import EBayTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
 from handlers.api_key_handler import APIKeyHandler
+from config import AppConfig
 
 # --- Configuration ---
 IMAGE_FOLDER = Path("images")
 IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
-
-# Database persistence file
-DB_PERSISTENCE_FILE = "current_database.txt"
-
-def get_persisted_database_path():
-    """Get the persisted database path from file"""
-    try:
-        if os.path.exists(DB_PERSISTENCE_FILE):
-            with open(DB_PERSISTENCE_FILE, 'r') as f:
-                db_path = f.read().strip()
-                if db_path and os.path.exists(db_path):
-                    return db_path
-    except Exception as e:
-        st.error(f"Error reading persisted database path: {e}")
-    return None
-
-def persist_database_path(db_path):
-    """Persist the database path to file"""
-    try:
-        with open(DB_PERSISTENCE_FILE, 'w') as f:
-            f.write(db_path)
-        return True
-    except Exception as e:
-        st.error(f"Error persisting database path: {e}")
-        return False
-
-def initialize_database_manager():
-    """Initialize database manager with persisted path or default"""
-    persisted_path = get_persisted_database_path()
-    if persisted_path:
-        return DatabaseManager(persisted_path)
-    
-    # Default database
-    return DatabaseManager()
 
 def main():
     """Main function to run the Streamlit app"""
@@ -72,12 +28,12 @@ def main():
         layout="wide"
     )
     
-    # Initialize debug tab FIRST and use the SAME instance everywhere
-    debug_tab = DebugTab()
-    
     try:
-        # Initialize API Key Handler - this will throw an error if .env file is missing or incomplete
-        api_key_handler = APIKeyHandler(debug_tab)
+        # Initialize configuration
+        config = AppConfig()
+        
+        # Initialize API Key Handler
+        api_key_handler = APIKeyHandler()
         
         # Get environment variables - this will validate the .env file
         env_vars = api_key_handler.get_environment_variables()
@@ -89,13 +45,13 @@ def main():
 
         # Initialize session state defaults
         if "db_manager" not in st.session_state:
-            st.session_state.db_manager = initialize_database_manager()
-            debug_tab.add_log("DATABASE", f"Database manager initialized with: {st.session_state.db_manager.db_path}")
+            db_path = config.get_database_path()
+            st.session_state.db_manager = DatabaseManager(db_path)
+            st.session_state.config = config
 
         # Initialize Gallery JSON Manager AFTER db_manager is set
         if "gallery_json_manager" not in st.session_state:
             st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
-            debug_tab.add_log("GALLERY", "Gallery JSON manager initialized")
 
         # Initialize GitHub Sync Handler
         if "github_sync_handler" not in st.session_state:
@@ -103,7 +59,6 @@ def main():
                 repo_path="/home/arjan-ubuntu/Documents/PigStyle",
                 gallery_json_manager=st.session_state.gallery_json_manager
             )
-            debug_tab.add_log("GITHUB", "GitHub sync handler initialized")
 
         if "search_results" not in st.session_state:
             st.session_state.search_results = {}
@@ -124,50 +79,40 @@ def main():
         discogs_handler = None
         if DISCOGS_USER_TOKEN:
             try:
-                discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN, debug_tab)
+                discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN)
             except Exception as e:
-                debug_tab.add_log("ERROR", f"Failed to initialize Discogs: {e}")
+                st.error(f"Failed to initialize Discogs: {e}")
                 discogs_handler = None
         
         # Initialize eBay handler
         ebay_handler = None
         if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
             try:
-                ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, debug_tab)
+                ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET)
             except Exception as e:
-                debug_tab.add_log("ERROR", f"Failed to initialize eBay: {e}")
+                st.error(f"Failed to initialize eBay: {e}")
                 ebay_handler = None
      
-        # Initialize all tabs - pass the SAME debug_tab instance to all
-        inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler, st.session_state.gallery_json_manager)
+        # Initialize all tabs
+        inventory_tab = InventoryTab(discogs_handler, ebay_handler, st.session_state.gallery_json_manager)
         statistics_tab = StatisticsTab()
-        database_switch_tab = DatabaseSwitchTab()
         ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
-        # Use the SAME debug_tab instance for rendering
 
-        # Create tabs with new order (REMOVED INCOME AND EXPENSES TABS)
+        # Create tabs
         tabs = st.tabs([
-            "🗃️ Database",
-            "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
-            "🛒 eBay",
-            "📊 Statistics",
-            "🔧 Debug"
+            "📦 Inventory",
+            "🛒 eBay", 
+            "📊 Statistics"
         ])
         
         with tabs[0]:
-            database_switch_tab.render()
+            inventory_tab.render()
         
         with tabs[1]:
-            inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
-        
-        with tabs[2]:
             ebay_tab.render()
         
-        with tabs[3]:
+        with tabs[2]:
             statistics_tab.render()
-            
-        with tabs[4]:
-            debug_tab.render()  # Use the SAME instance
 
     except Exception as e:
         # Show error message if .env file is missing or incomplete
@@ -180,7 +125,6 @@ def main():
         - EBAY_CLIENT_SECRET
         """)
         return
-
 
 if __name__ == "__main__":
     main()

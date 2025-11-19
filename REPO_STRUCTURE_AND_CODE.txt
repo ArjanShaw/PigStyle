@@ -38,7 +38,6 @@ FULL REPOSITORY STRUCTURE:
     │   │   │   ├── ⭐ database_switch_tab.py 🐍
     │   │   │   ├── ⭐ debug_tab.py 🐍
     │   │   │   ├── ⭐ ebay_tab.py 🐍
-    │   │   │   ├── ⭐ expenses_tab.py 🐍
     │   │   │   ├── ⭐ genre_mappings_tab.py 🐍
     │   │   │   ├── ⭐ import_export_tab.py 🐍
     │   │   │   ├── ⭐ inventory_tab.py 🐍
@@ -384,6 +383,7 @@ if __name__ == "__main__":
 
 FILE: inventory-manager/src/streamlit_app.py
 --------------------------------------------------
+# FILE: inventory-manager/src/streamlit_app.py
 import sys
 import os
 import time
@@ -402,7 +402,6 @@ from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.debug_tab import DebugTab
 from tabs.database_switch_tab import DatabaseSwitchTab
-from tabs.expenses_tab import ExpensesTab
 from tabs.ebay_tab import EBayTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
@@ -528,17 +527,14 @@ def main():
         inventory_tab = InventoryTab(discogs_handler, debug_tab, ebay_handler, st.session_state.gallery_json_manager)
         statistics_tab = StatisticsTab()
         database_switch_tab = DatabaseSwitchTab()
-        expenses_tab = ExpensesTab()
         ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
         # Use the SAME debug_tab instance for rendering
 
-        # Create tabs with new order (ADDED EBAY TAB)
+        # Create tabs with new order (REMOVED INCOME AND EXPENSES TABS)
         tabs = st.tabs([
             "🗃️ Database",
             "📦 Inventory",  # Now includes both inventory, check-in, and checkout functionality
-            "🛒 eBay",  # NEW EBAY TAB
-            "💰 Income",
-            "💰 Expenses",
+            "🛒 eBay",
             "📊 Statistics",
             "🔧 Debug"
         ])
@@ -550,18 +546,12 @@ def main():
             inventory_tab.render()  # Now includes inventory, check-in, and checkout functionality
         
         with tabs[2]:
-            ebay_tab.render()  # NEW EBAY TAB
+            ebay_tab.render()
         
         with tabs[3]:
-            inventory_tab.render_sold_tab()
-        
-        with tabs[4]:
-            expenses_tab.render()
-            
-        with tabs[5]:
             statistics_tab.render()
             
-        with tabs[6]:
+        with tabs[4]:
             debug_tab.render()  # Use the SAME instance
 
     except Exception as e:
@@ -636,6 +626,7 @@ class SKUGenerator:
 
 FILE: inventory-manager/src/database_manager.py
 --------------------------------------------------
+# FILE: inventory-manager/src/database_manager.py
 import sqlite3
 import pandas as pd
 import os
@@ -732,17 +723,6 @@ class DatabaseManager:
                 genre_id INTEGER NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (genre_id) REFERENCES genres (id)
-            )
-        ''')
-        
-        # Expenses table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                description TEXT NOT NULL,
-                amount REAL NOT NULL,
-                receipt_image BLOB,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
@@ -955,28 +935,6 @@ class DatabaseManager:
             self.gallery_json_manager.trigger_rebuild(async_mode=True)
             
         return success
-    
-    def save_expense(self, description, amount, receipt_image=None):
-        """Save expense to database"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO expenses (description, amount, receipt_image)
-            VALUES (?, ?, ?)
-        ''', (description, amount, receipt_image))
-        
-        conn.commit()
-        expense_id = cursor.lastrowid
-        conn.close()
-        return expense_id
-    
-    def get_all_expenses(self):
-        """Get all expenses from database"""
-        conn = self._get_connection()
-        df = pd.read_sql('SELECT * FROM expenses ORDER BY created_at DESC', conn)
-        conn.close()
-        return df
     
     def save_failed_search(self, search_term, error_details):
         """Save failed search to database"""
@@ -1267,7 +1225,6 @@ class DatabaseManager:
         cursor.execute('DELETE FROM failed_searches')
         cursor.execute('DELETE FROM genre_by_artist')
         cursor.execute('DELETE FROM genres')
-        cursor.execute('DELETE FROM expenses')
         conn.commit()
         conn.close()
     
@@ -3330,226 +3287,6 @@ class DebugTab:
 
 ======================================================================
 
-FILE: inventory-manager/src/tabs/expenses_tab.py
---------------------------------------------------
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-import io
-from PIL import Image
-
-class ExpensesTab:
-    def __init__(self):
-        pass
-    
-    def render(self):
-        st.header("💰 Expenses")
-        
-        tab1, tab2 = st.tabs(["➕ Add Expenses", "📋 View Expenses"])
-        
-        with tab1:
-            self._render_add_expenses()
-        
-        with tab2:
-            self._render_view_expenses()
-
-    def _render_add_expenses(self):
-        """Render the add expenses form with individual file management"""
-        st.subheader("Add New Expenses")
-        
-        # Multiple file upload
-        st.write("**Receipt Photos:**")
-        receipt_uploads = st.file_uploader(
-            "Upload receipt photos",
-            type=['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
-            accept_multiple_files=True,
-            help="Upload multiple receipt photos from your local filesystem"
-        )
-        
-        if receipt_uploads:
-            st.write(f"**Managing {len(receipt_uploads)} receipt(s):**")
-            
-            # Create a form for each uploaded file
-            expense_data = []
-            for i, uploaded_file in enumerate(receipt_uploads):
-                st.divider()
-                col1, col2 = st.columns([1, 3])
-                
-                with col1:
-                    # Display the image with much larger preview
-                    st.image(uploaded_file, width=600, caption=f"Receipt {i+1} - {uploaded_file.name}")
-                    
-                    # Add expandable full-screen view
-                    with st.expander("🔍 View Full Size"):
-                        # Display at full resolution using container width
-                        st.image(uploaded_file, use_container_width=True)
-                    
-                    if st.button("Remove", key=f"remove_{i}"):
-                        receipt_uploads.pop(i)
-                        st.rerun()
-                
-                with col2:
-                    # Individual expense details for each receipt
-                    st.write(f"**Receipt {i+1}: {uploaded_file.name}**")
-                    description = st.text_input(
-                        f"Description {i+1}",
-                        placeholder="Enter description for this receipt...",
-                        key=f"desc_{i}"
-                    )
-                    amount = st.number_input(
-                        f"Amount {i+1}",
-                        min_value=None,  # Allow negative values for returns
-                        step=0.01,
-                        format="%.2f",
-                        help="Enter amount for this receipt (negative for returns)",
-                        key=f"amount_{i}"
-                    )
-                    
-                    # Store the data for this receipt
-                    expense_data.append({
-                        'file': uploaded_file,
-                        'description': description,
-                        'amount': amount
-                    })
-            
-            st.divider()
-            
-            # Submit all button
-            if st.button("💾 Save All Expenses", use_container_width=True):
-                # Validate and save all expenses
-                saved_count = 0
-                errors = []
-                
-                for i, expense in enumerate(expense_data):
-                    if not expense['description']:
-                        errors.append(f"Receipt {i+1}: Description is required")
-                        continue
-                    
-                    if expense['amount'] is None:
-                        errors.append(f"Receipt {i+1}: Amount is required")
-                        continue
-                    
-                    try:
-                        receipt_bytes = expense['file'].getvalue()
-                        expense_id = st.session_state.db_manager.save_expense(
-                            expense['description'], 
-                            expense['amount'], 
-                            receipt_bytes
-                        )
-                        
-                        if expense_id:
-                            saved_count += 1
-                        else:
-                            errors.append(f"Receipt {i+1}: Failed to save to database")
-                            
-                    except Exception as e:
-                        errors.append(f"Receipt {i+1}: {str(e)}")
-                
-                # Show results
-                if saved_count > 0:
-                    st.success(f"✅ {saved_count} expense(s) saved successfully!")
-                
-                if errors:
-                    for error in errors:
-                        st.error(error)
-                
-                if saved_count > 0:
-                    st.rerun()
-
-    def _render_view_expenses(self):
-        """Render the expenses list"""
-        st.subheader("Expense History")
-        
-        try:
-            expenses = st.session_state.db_manager.get_all_expenses()
-            
-            if len(expenses) > 0:
-                # Calculate total (includes negative amounts for returns)
-                total_amount = expenses['amount'].sum()
-                
-                # Display summary
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Net Expenses", f"${total_amount:.2f}")
-                with col2:
-                    st.metric("Number of Expenses", len(expenses))
-                with col3:
-                    receipt_count = expenses[expenses['receipt_image'].notnull()].shape[0]
-                    st.metric("Receipts Attached", receipt_count)
-                
-                # Prepare display data with image previews
-                for _, expense in expenses.iterrows():
-                    with st.container():
-                        col1, col2, col3 = st.columns([1, 3, 1])
-                        
-                        with col1:
-                            if expense.get('receipt_image'):
-                                # Display receipt image with expandable view
-                                try:
-                                    # Convert blob back to image for display
-                                    image_data = expense['receipt_image']
-                                    if image_data:
-                                        image = Image.open(io.BytesIO(image_data))
-                                        st.image(image, width=400, caption="Receipt")
-                                        
-                                        # Full size expandable view
-                                        with st.expander("🔍 View Full Receipt"):
-                                            st.image(image, use_container_width=True)
-                                except Exception as e:
-                                    st.write("📷 (Image unavailable)")
-                            else:
-                                st.write("❌ No receipt")
-                        
-                        with col2:
-                            amount = expense.get('amount', 0)
-                            amount_color = "red" if amount < 0 else "black"
-                            st.write(f"**{expense.get('description', 'No description')}**")
-                            st.write(f"**Amount:** <span style='color:{amount_color}'>${amount:.2f}</span>", unsafe_allow_html=True)
-                            st.write(f"**Date:** {expense.get('created_at', '')[:16]}")
-                        
-                        with col3:
-                            st.write(f"**ID:** {expense.get('id', '')}")
-                        
-                        st.divider()
-                
-                # Export button
-                if st.button("📊 Export CSV", use_container_width=True):
-                    self._export_expenses(expenses)
-                
-            else:
-                st.info("No expenses recorded yet. Add your first expense above!")
-                
-        except Exception as e:
-            st.error(f"Error loading expenses: {e}")
-
-    def _export_expenses(self, expenses):
-        """Export expenses to CSV"""
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"expenses_export_{timestamp}.csv"
-            
-            # Create clean export data
-            export_data = expenses[['created_at', 'description', 'amount']].copy()
-            export_data.columns = ['Date', 'Description', 'Amount']
-            export_data['Date'] = export_data['Date'].str[:16]
-            
-            csv_data = export_data.to_csv(index=False)
-            
-            st.download_button(
-                label="⬇️ Download Expenses CSV",
-                data=csv_data,
-                file_name=filename,
-                mime="text/csv",
-                key="download_expenses"
-            )
-            
-            st.success(f"✅ Export ready! {len(expenses)} expenses.")
-            
-        except Exception as e:
-            st.error(f"Error exporting expenses: {e}")
-
-======================================================================
-
 FILE: inventory-manager/src/tabs/statistics_tab.py
 --------------------------------------------------
 import streamlit as st
@@ -4285,6 +4022,7 @@ class ImportExportTab:
 
 FILE: inventory-manager/src/tabs/inventory_tab.py
 --------------------------------------------------
+# FILE: inventory-manager/src/tabs/inventory_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -4341,8 +4079,8 @@ class InventoryTab:
         # Price Tag Management
         with st.expander("🖨️ Price Tag Management", expanded=False):
             self.display_handler.render_price_tag_management()
-            
-        # API Requests & Responses - MOVED TO SAME LEVEL
+        
+        # API Requests & Responses
         self._render_api_logs_section()
         
         # Tools & Sync - NEW COLLAPSIBLE WITH GALLERY JSON TEST AND GITHUB SYNC
@@ -4807,47 +4545,6 @@ class InventoryTab:
         except Exception as e:
             st.error(f"❌ Error updating {artist} - {title}: {str(e)}")
             return 0
-
-    def render_sold_tab(self):
-        """Render the sold records table functionality - renamed to Income"""
-        st.info("The 'Sold Records' functionality is not available. The status column has been removed from the database.")
-        return
-
-    def _return_to_inventory(self):
-        """Return selected sold records back to inventory"""
-        st.warning("Return to inventory functionality is not available. The status column has been removed from the database.")
-        return
-
-    def _update_record_status(self, record_ids, new_status):
-        """Update status of records - not available anymore"""
-        st.warning("Record status update functionality is not available. The status column has been removed from the database.")
-        return False
-
-    def _render_records_table(self, status, search_term, filter_option):
-        """Render records with pagination"""
-        st.info(f"The '{status} records' table is not available. The status column has been removed from the database.")
-        return
-
-    def _render_records_dataframe(self, records: pd.DataFrame, status: str):
-        """Render records in an optimized dataframe with selection"""
-        st.info(f"The records table is not available. The status column has been removed from the database.")
-        return
-
-    def _format_currency(self, value):
-        """Format currency values"""
-        if not value:
-            return "$N/A"
-        return f"${float(value):.2f}"
-
-    def _get_all_records_direct(self, status: str, search_term: str = None, filter_option: str = None) -> pd.DataFrame:
-        """Get all records directly from records_with_genres view with optional filtering"""
-        # Return empty dataframe since status functionality is removed
-        return pd.DataFrame()
-
-    def _get_total_filtered_count(self, status: str, search_term: str = None, filter_option: str = None) -> int:
-        """Get total count of records after applying filters"""
-        # Return 0 since status functionality is removed
-        return 0
 
 ======================================================================
 

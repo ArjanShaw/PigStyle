@@ -2,10 +2,11 @@ import os
 import json
 from pathlib import Path
 
-class PrintConfig:
-    def __init__(self, config_file="print_config.json"):
+class AppConfig:
+    def __init__(self, config_file="app_config.json"):
         self.config_file = config_file
         self.defaults = {
+            "database_path": "data/records.db",
             "label_width_mm": 45.0,
             "label_height_mm": 16.80,
             "left_margin_mm": 6.50,
@@ -55,3 +56,11 @@ class PrintConfig:
     def get_all(self):
         """Get all configuration values"""
         return self.config.copy()
+    
+    def get_database_path(self):
+        """Get the database path from config"""
+        return self.get("database_path", "data/records.db")
+    
+    def set_database_path(self, db_path):
+        """Set the database path in config"""
+        self.update({"database_path": db_path})

@@ -1,4 +1,3 @@
-# FILE: inventory-manager/src/tabs/inventory_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -10,18 +9,15 @@ from handlers.export_handler import ExportHandler
 from handlers.price_handler import PriceHandler
 from handlers.genre_handler import GenreHandler
 from handlers.youtube_handler import YouTubeHandler
-from config import PrintConfig
 
 class InventoryTab:
-    def __init__(self, discogs_handler, debug_tab, ebay_handler=None, gallery_json_manager=None):
+    def __init__(self, discogs_handler, ebay_handler=None, gallery_json_manager=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
-        self.debug_tab = debug_tab
         self.gallery_json_manager = gallery_json_manager
-        self.config = PrintConfig()
         self.price_handler = PriceHandler()
         self.genre_handler = GenreHandler()
-        self.youtube_handler = YouTubeHandler(debug_tab)
+        self.youtube_handler = YouTubeHandler()
         
         # Initialize handlers - pass ebay_handler to record_ops_handler
         self.search_handler = SearchHandler(discogs_handler)
@@ -59,7 +55,7 @@ class InventoryTab:
         # API Requests & Responses
         self._render_api_logs_section()
         
-        # Tools & Sync - NEW COLLAPSIBLE WITH GALLERY JSON TEST AND GITHUB SYNC
+        # Tools & Sync
         self._render_tools_sync_section()
 
     def _render_unified_operations(self):
@@ -200,7 +196,6 @@ class InventoryTab:
                 start_time = time.time()
                 st.rerun()
                 duration = time.time() - start_time
-                self.debug_tab.add_log("RERUN", f"Rerun called after add record - Duration: {duration:.3f}s")
             else:
                 st.error("Failed to add record to database")
                 
@@ -225,7 +220,6 @@ class InventoryTab:
                 start_time = time.time()
                 st.rerun()
                 duration = time.time() - start_time
-                self.debug_tab.add_log("RERUN", f"Rerun called after update record - Duration: {duration:.3f}s")
             else:
                 st.error("❌ Failed to update record")
                 
@@ -292,7 +286,7 @@ class InventoryTab:
     def _render_tools_sync_section(self):
         """Render tools and sync section with Gallery JSON Test and GitHub Sync"""
         with st.expander("🛠️ Tools & Sync", expanded=False):
-            # Gallery JSON Test - REMOVED HEADER, JUST BUTTONS
+            # Gallery JSON Test
             col1, col2 = st.columns(2)
             
             with col1:
@@ -307,10 +301,6 @@ class InventoryTab:
                                 st.error("❌ Gallery JSON rebuild failed")
                         except Exception as e:
                             st.error(f"❌ Gallery JSON rebuild error: {str(e)}")
-                            # Show full traceback in expander
-                            import traceback
-                            with st.expander("View full error details"):
-                                st.code(traceback.format_exc())
                     else:
                         st.error("Gallery JSON manager not initialized")
             
@@ -321,7 +311,7 @@ class InventoryTab:
                     json_path = st.session_state.gallery_json_manager.get_json_path()
                     st.write(f"**JSON Path:** `{json_path}`")
             
-            # GitHub Sync Section - REMOVED HEADER, JUST BUTTONS
+            # GitHub Sync Section
             col1, col2 = st.columns(2)
             
             with col1:
@@ -343,22 +333,6 @@ class InventoryTab:
                     st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
                     st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
                     st.write(f"**Last commit:** {status['last_commit']}")
-            
-            # Check if JSON file exists using the manager's path
-            if st.session_state.get('gallery_json_manager'):
-                import json
-                from pathlib import Path
-                json_path = st.session_state.gallery_json_manager.get_json_path()
-                if json_path and Path(json_path).exists():
-                    try:
-                        with open(json_path, 'r') as f:
-                            data = json.load(f)
-                            st.success(f"✅ JSON file exists: {data['meta']['total_records']} records")
-                            st.write(f"Last updated: {data['meta']['last_updated']}")
-                    except Exception as e:
-                        st.error(f"❌ Error reading JSON: {e}")
-                else:
-                    st.warning("⚠️ JSON file not found yet")
 
     def _get_database_stats_direct(self) -> dict:
         """Get database statistics directly from records table"""
@@ -384,7 +358,6 @@ class InventoryTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after calculate all store prices - Duration: {duration:.3f}s")
 
     def _calculate_single_store_price(self, record_id):
         """Calculate store price for a single record using Discogs median price"""
@@ -395,7 +368,6 @@ class InventoryTab:
             start_time = time.time()
             st.rerun()
             duration = time.time() - start_time
-            self.debug_tab.add_log("RERUN", f"Rerun called after calculate single store price - Duration: {duration:.3f}s")
 
     def _update_all_store_prices(self):
         """Update store prices for all inventory records using Discogs median price with .49/.99 rounding"""

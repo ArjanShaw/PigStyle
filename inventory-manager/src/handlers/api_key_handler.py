@@ -5,8 +5,7 @@ from pathlib import Path
 class APIKeyHandler:
     """Handles loading and validation of API keys from .env file only"""
     
-    def __init__(self, debug_tab=None):
-        self.debug_tab = debug_tab
+    def __init__(self):
         self.env_vars = {}
         self.env_vars_loaded = False
     
@@ -29,7 +28,6 @@ class APIKeyHandler:
         # Check if .env file exists
         if not os.path.exists(env_file_path):
             error_msg = f"❌ .env file not found at {env_file_path}"
-            self._log_debug("ERROR", error_msg)
             raise Exception(error_msg)
         
         # Load environment variables from .env file
@@ -47,7 +45,6 @@ class APIKeyHandler:
                         self.env_vars[key] = value
         except Exception as e:
             error_msg = f"❌ Error reading .env file: {str(e)}"
-            self._log_debug("ERROR", error_msg)
             raise Exception(error_msg)
         
         # Validate all required variables are present
@@ -58,12 +55,7 @@ class APIKeyHandler:
         
         if missing_vars:
             error_msg = f"❌ Missing required variables in .env file: {', '.join(missing_vars)}"
-            self._log_debug("ERROR", error_msg)
             raise Exception(error_msg)
-        
-        # Log successful loading
-        for var in required_vars:
-            self._log_debug("ENV", f"✅ {var} loaded from .env file", {"source": f".env file at {env_file_path}"})
         
         self.env_vars_loaded = True
         return self.env_vars
@@ -88,16 +80,9 @@ class APIKeyHandler:
                 missing_keys.append(key)
                 
         if missing_keys:
-            self._log_debug("ERROR", f"Missing required API keys: {', '.join(missing_keys)}")
             return False
             
-        self._log_debug("SUCCESS", "All required API keys are available")
         return True
-    
-    def _log_debug(self, category, message, data=None):
-        """Log to debug tab if available"""
-        if self.debug_tab:
-            self.debug_tab.add_log(category, message, data)
     
     def get_available_sources(self):
         """Get information about available API key sources"""

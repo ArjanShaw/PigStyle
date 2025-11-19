@@ -7,8 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 class YouTubeHandler:
-    def __init__(self, debug_tab=None, api_key=None):
-        self.debug_tab = debug_tab
+    def __init__(self, api_key=None):
         self.api_key = api_key or os.getenv('YOUTUBE_API_KEY')
         
     def search_youtube_videos(self, search_query, record_data):

@@ -10,17 +10,11 @@ class EbayHandler:
     EBAY_SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
     EBAY_ITEM_URL = "https://api.ebay.com/buy/browse/v1/item/"
 
-    def __init__(self, client_id, client_secret, debug_tab=None):
+    def __init__(self, client_id, client_secret):
         self.client_id = client_id
         self.client_secret = client_secret
-        self.debug_tab = debug_tab
         self.token = None
         self.token_expiry = 0
-
-    def _log_debug(self, category, message, data=None):
-        """Log to debug tab if available"""
-        if self.debug_tab:
-            self.debug_tab.add_log(category, message, data)
 
     def get_access_token(self):
         if self.token and time.time() < self.token_expiry:
@@ -56,7 +50,6 @@ class EbayHandler:
     def get_ebay_pricing(self, artist, title, category_id="176985", exclude_foreign=True):
         """Get eBay pricing for a record"""
         if not self.get_access_token():
-            self._log_debug("EBAY_ERROR", f"{self.EBAY_SEARCH_URL} - No access token available")
             return None
 
         headers = {"Authorization": f"Bearer {self.token}"}

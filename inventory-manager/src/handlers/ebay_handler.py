@@ -150,6 +150,7 @@ class EbayHandler:
                 'ebay_lowest_price': round(cheapest_listing['base_price'], 2),  # Base price from cheapest total listing
                 'ebay_highest_price': max(base_prices),
                 'ebay_listings_count': len(listings),
+                'ebay_total_items_found': len(items),  # Add total items found count
                 'ebay_low_shipping': round(cheapest_listing['shipping_cost'] or 0, 2),
                 'ebay_low_total': round(cheapest_listing['total_cost'], 2),
                 'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}"
@@ -157,7 +158,16 @@ class EbayHandler:
             
             return result
         else:
-            return None
+            return {
+                'ebay_median_price': None,
+                'ebay_lowest_price': None,
+                'ebay_highest_price': None,
+                'ebay_listings_count': 0,
+                'ebay_total_items_found': len(items),  # Add total items found count even when no valid listings
+                'ebay_low_shipping': None,
+                'ebay_low_total': None,
+                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}"
+            }
 
     def _extract_shipping_info(self, item):
         """Extract shipping information from eBay item data"""

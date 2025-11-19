@@ -260,6 +260,7 @@ class DiscogsHandler:
             'currency': 'USD',
             'listings_with_prices': listings_with_prices,
             'prices_found': len(prices),
+            'total_listings': total_results,  # Add total listings count
             'search_type': search_type,
             'success': True
         }
@@ -273,6 +274,7 @@ class DiscogsHandler:
             'url': self._generate_marketplace_url(query),
             'listings_with_prices': 0,
             'prices_found': 0,
+            'total_listings': total_results,  # Add total listings count
             'search_type': 'no_prices',
             'success': False,
             'error': 'No pricing data found'

@@ -77,12 +77,16 @@ class RecordOperationsHandler:
         record_data['discogs_lowest_price'] = pricing_data.get('lowest_price')
         record_data['discogs_median_price'] = pricing_data.get('median_price')
         record_data['discogs_highest_price'] = pricing_data.get('highest_price')
+        record_data['discogs_listings_count'] = pricing_data.get('listings_with_prices', 0)  # Store Discogs listings count
+        record_data['discogs_total_listings'] = pricing_data.get('total_listings', 0)  # Store Discogs total listings
         
         if ebay_pricing:
             record_data['ebay_lowest_price'] = ebay_pricing.get('ebay_lowest_price')
             record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
             record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
             record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
+            record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)  # Store eBay listings count
+            record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)  # Store eBay total items found
         
         # Save to database - include raw Discogs and eBay data only
         # NO custom price calculations (ebay_sell_at and store_price will be NULL initially)

@@ -170,6 +170,8 @@ class DisplayHandler:
                         record_data['discogs_lowest_price'] = pricing_data.get('lowest_price')
                         record_data['discogs_median_price'] = pricing_data.get('median_price')
                         record_data['discogs_highest_price'] = pricing_data.get('highest_price')
+                        record_data['discogs_listings_count'] = pricing_data.get('listings_with_prices', 0)  # Store Discogs listings count
+                        record_data['discogs_total_listings'] = pricing_data.get('total_listings', 0)  # Store Discogs total listings
                 
                 # Fetch eBay pricing
                 artist = record_data.get('artist', '')
@@ -183,6 +185,8 @@ class DisplayHandler:
                         record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
                         record_data['ebay_low_total'] = ebay_pricing.get('ebay_low_total')
                         record_data['ebay_search_url'] = ebay_pricing.get('ebay_search_url')
+                        record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)  # Store eBay listings count
+                        record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)  # Store eBay total items found
                 
                 record_data['pricing_fetched'] = True
         
@@ -345,6 +349,8 @@ class DisplayHandler:
         discogs_min = record_data.get('discogs_lowest_price')
         discogs_median = record_data.get('discogs_median_price')
         discogs_max = record_data.get('discogs_highest_price')
+        discogs_listings_count = record_data.get('discogs_listings_count', 0)  # Get Discogs listings count
+        discogs_total_listings = record_data.get('discogs_total_listings', 0)  # Get Discogs total listings
         
         ebay_min = record_data.get('ebay_lowest_price')
         ebay_median = record_data.get('ebay_median_price')
@@ -352,6 +358,8 @@ class DisplayHandler:
         ebay_low_shipping = record_data.get('ebay_low_shipping')
         ebay_low_total = record_data.get('ebay_low_total')
         ebay_search_url = record_data.get('ebay_search_url')
+        ebay_listings_count = record_data.get('ebay_listings_count', 0)  # Get eBay listings count
+        ebay_total_items_found = record_data.get('ebay_total_items_found', 0)  # Get eBay total items found
         
         # Calculate suggested prices using existing logic
         suggested_store_price = self._calculate_suggested_store_price(discogs_median)
@@ -365,6 +373,11 @@ class DisplayHandler:
             st.write(f"Min: ${discogs_min:.2f}" if discogs_min is not None else "Min: N/A")
             st.write(f"Median: ${discogs_median:.2f}" if discogs_median is not None else "Median: N/A")
             st.write(f"Max: ${discogs_max:.2f}" if discogs_max is not None else "Max: N/A")
+            # Add item count for Discogs
+            if discogs_total_listings > 0:
+                st.write(f"**Items found:** {discogs_listings_count} valid prices out of {discogs_total_listings} total listings")
+            else:
+                st.write("**Items found:** No listings")
             st.write(f"**Suggested Store Price: ${suggested_store_price:.2f}**")
         
         with col2:
@@ -383,6 +396,11 @@ class DisplayHandler:
             
             st.write(f"Median: ${ebay_median:.2f}" if ebay_median is not None else "Median: N/A")
             st.write(f"Max: ${ebay_max:.2f}" if ebay_max is not None else "Max: N/A")
+            # Add item count for eBay
+            if ebay_total_items_found > 0:
+                st.write(f"**Items found:** {ebay_listings_count} valid listings out of {ebay_total_items_found} total items")
+            else:
+                st.write("**Items found:** No items")
             st.write(f"**Suggested eBay Price: ${suggested_ebay_price:.2f}**")
             
             # Add footnote for eBay link

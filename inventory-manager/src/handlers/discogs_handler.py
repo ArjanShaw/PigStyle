@@ -17,20 +17,8 @@ class DiscogsHandler:
             "Authorization": f"Discogs token={self.user_token}"
         }
     
-    def get_release_statistics_pricing(self, release_id: str, condition_grade: int = None):
-        """Get pricing statistics for a release using marketplace price suggestions"""
-        if condition_grade is None:
-            # Default to condition 4 if not specified
-            condition_grade = 4
-        
-        print(f"🔴 DEBUG get_release_statistics_pricing: release_id={release_id}, condition_grade={condition_grade}")
-        
-        # Use marketplace price suggestions endpoint
-        return self._get_price_suggestions_pricing(release_id, condition_grade)
-    
-    def _get_price_suggestions_pricing(self, release_id: str, condition_grade: int):
-        """Get pricing from Discogs marketplace price suggestions endpoint"""
-        # FIXED: Use price_suggestions endpoint
+    def get_release_statistics_pricing(self, release_id: str):
+        """Get all price suggestions for a release using marketplace price_suggestions endpoint"""
         endpoint_url = f"{self.base_url}/marketplace/price_suggestions/{release_id}"
         
         # Log the API call
@@ -62,34 +50,20 @@ class DiscogsHandler:
             # Log RAW DISCOGS PRICE SUGGESTIONS PAYLOAD
             self._log_api_response(api_title, data, duration)
             
-            # Map condition grade to Discogs conditions
-            condition_map = {
-                5: "Mint (M)",
-                4: "Very Good Plus (VG+)", 
-                3: "Very Good (VG)",
-                2: "Good Plus (G+)",
-                1: "Good (G)"
-            }
+            print(f"🔴 DEBUG price_suggestions response: {data}")
             
-            target_condition = condition_map.get(condition_grade, "Very Good Plus (VG+)")
-            
-            # Extract pricing for the target condition
-            if target_condition in data:
-                price_data = data[target_condition]
-                price_value = self._parse_price(price_data)
-                
+            # Return all conditions and their prices
+            price_suggestions = {}
+            for condition, price_data in data.items():
+                price_value = self._parse_price_from_suggestion(price_data)
                 if price_value:
-                    return {
-                        'discogs_lowest_price': price_value,
-                        'discogs_median_price': price_value,  # Price suggestions are typically median estimates
-                        'discogs_highest_price': price_value,
-                        'discogs_listings_count': 0,  # Price suggestions don't include listing count
-                        'success': True,
-                        'condition_specific': True,
-                        'condition_matched': target_condition
-                    }
+                    price_suggestions[condition] = price_value
             
-            return None
+            return {
+                'price_suggestions': price_suggestions,
+                'success': True,
+                'total_conditions': len(price_suggestions)
+            }
             
         except Exception as e:
             duration = round(time.time() - start_time, 2)
@@ -97,9 +71,20 @@ class DiscogsHandler:
             self._log_api_response(api_title, error_data, duration)
             return None
 
-    # ... KEEP ALL THE EXISTING METHODS BELOW EXACTLY AS THEY WERE ...
-    # (search_multiple_results, get_release_data, _get_basic_release_info, 
-    # get_simple_search_results, and all the helper methods)
+    def _parse_price_from_suggestion(self, price_data):
+        """Parse price from Discogs price suggestion data"""
+        if not price_data:
+            return None
+        
+        # Price suggestions typically have a 'value' key
+        if isinstance(price_data, dict):
+            if 'value' in price_data:
+                price_float = float(price_data['value'])
+                if 0.1 <= price_float <= 10000:
+                    return round(price_float, 2)
+        
+        # Fallback to general price parsing
+        return self._parse_price(price_data)
 
     def search_multiple_results(self, query: str, filename_base: str = None):
         """Search Discogs and return multiple results for user selection"""
@@ -140,43 +125,31 @@ class DiscogsHandler:
         
         return data
 
-    def get_release_data(self, release_id: str, query: str, condition_grade: int):
+    def get_release_data(self, release_id: str, query: str):
         """Get release data including pricing information - NOW USES PRICE SUGGESTIONS"""
-        if condition_grade is None:
-            raise Exception("condition_grade parameter is required but was None")
-        
-        print(f"🔴 DEBUG get_release_data: release_id={release_id}, condition_grade={condition_grade}")
-        
         # First try to get basic release info for images
         release_info = self._get_basic_release_info(release_id)
         image_url = release_info.get('image_url', '')
         
         # Use price suggestions for pricing
-        pricing_data = self._get_price_suggestions_pricing(release_id, condition_grade)
+        pricing_data = self.get_release_statistics_pricing(release_id)
         
         if pricing_data:
             # Use price suggestions data
             return {
-                'discogs_lowest_price': pricing_data.get('discogs_lowest_price'),
-                'discogs_estimated_price': pricing_data.get('discogs_median_price'),
+                'price_suggestions': pricing_data.get('price_suggestions', {}),
                 'image_url': image_url,
                 'release_data': release_info.get('release_data', {}),
                 'success': True,
-                'condition_applied': True,
-                'condition_specific': True,
-                'discogs_listings_count': pricing_data.get('discogs_listings_count', 0)
+                'total_conditions': pricing_data.get('total_conditions', 0)
             }
         else:
             # No pricing data available
             return {
-                'discogs_lowest_price': None,
-                'discogs_estimated_price': None,
+                'price_suggestions': {},
                 'image_url': image_url,
                 'release_data': release_info.get('release_data', {}),
-                'success': False,
-                'condition_applied': True,
-                'condition_specific': False,
-                'discogs_listings_count': 0
+                'success': False
             }
 
     def _get_basic_release_info(self, release_id: str):
@@ -254,12 +227,28 @@ class DiscogsHandler:
         
         # Process results - just basic info, no pricing calls
         formatted_results = []
+        seen_masters = set()
+        
         for result in search_data.get('results', []):
+            master_id = result.get('master_id')
+            
+            # Skip if we've already seen this master release
+            if master_id and master_id in seen_masters:
+                continue
+                
+            # Add to seen masters
+            if master_id:
+                seen_masters.add(master_id)
+            
             artist = self._extract_artist_from_result(result)
             title = self._extract_title_from_result(result)
             image_url = self._extract_image_from_result(result)
             catalog_number = self._extract_catalog_number(result)
             release_id = result.get('id')
+            year = result.get('year', '')
+            format_info = self._extract_format_info(result)
+            label_info = self._extract_label_info(result)
+            country = result.get('country', '')
             
             formatted_result = {
                 'type': 'discogs',
@@ -268,13 +257,16 @@ class DiscogsHandler:
                 'image_url': image_url,
                 'catalog_number': catalog_number,
                 'discogs_id': release_id,
+                'year': year,
+                'format': format_info,
+                'label': label_info,
+                'country': country,
+                'master_id': master_id,
                 # Note: No pricing data here - that will be fetched later when user selects a record
             }
             formatted_results.append(formatted_result)
         
         return formatted_results
-
-    # ... KEEP ALL THE EXISTING HELPER METHODS EXACTLY AS THEY WERE ...
 
     def _extract_image_from_release(self, release_data):
         """Extract image URL from release data"""
@@ -309,8 +301,7 @@ class DiscogsHandler:
     def _create_no_results_response(self, query: str):
         """Create response when no pricing data is found"""
         return {
-            'discogs_lowest_price': None,
-            'discogs_estimated_price': None,
+            'price_suggestions': {},
             'success': False,
             'error': 'No pricing data found'
         }
@@ -421,6 +412,42 @@ class DiscogsHandler:
                     if isinstance(format_item, str) and any(char.isdigit() for char in format_item):
                         return format_item
             
+            return ''
+        except Exception as e:
+            return ''
+
+    def _extract_format_info(self, result):
+        """Extract format information from Discogs result"""
+        try:
+            if not isinstance(result, dict):
+                return ''
+                
+            format_list = result.get('format', [])
+            if isinstance(format_list, list):
+                return ', '.join([str(f) for f in format_list])
+            elif isinstance(format_list, str):
+                return format_list
+            return ''
+        except Exception as e:
+            return ''
+
+    def _extract_label_info(self, result):
+        """Extract label information from Discogs result"""
+        try:
+            if not isinstance(result, dict):
+                return ''
+                
+            label_list = result.get('label', [])
+            if isinstance(label_list, list):
+                labels = []
+                for label in label_list:
+                    if isinstance(label, str):
+                        labels.append(label)
+                    elif isinstance(label, dict) and label.get('name'):
+                        labels.append(label['name'])
+                return ', '.join(labels)
+            elif isinstance(label_list, str):
+                return label_list
             return ''
         except Exception as e:
             return ''

@@ -14,14 +14,12 @@ class RecordOperationsHandler:
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
     
-    def add_inventory_record(self, record_data, condition, genre, search_term):
-        """Add inventory record to database with condition-specific pricing"""
-        if condition is None:
-            raise Exception("condition parameter is required but was None")
+    def add_inventory_record(self, record_data, genre, search_term):
+        """Add inventory record to database with Discogs condition selection"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
             
-        print(f"🔴 DEBUG add_inventory_record: condition={condition}, genre={genre}")
+        print(f"🔴 DEBUG add_inventory_record: genre={genre}")
         
         release_id = record_data.get('discogs_id')
         
@@ -32,42 +30,16 @@ class RecordOperationsHandler:
         # Get format from session state or default
         format_selected = st.session_state.get('format_select', 'Vinyl')
         
-        # Get Discogs pricing information - USE MARKETPLACE SEARCH WITH CONDITION FILTERING
-        condition_grade = int(condition)
-        condition_specific_data = None
+        # Get Discogs pricing information - USE PRICE SUGGESTIONS
+        pricing_data = None
         
-        print(f"🔴 DEBUG calling get_condition_specific_pricing with condition_grade={condition_grade}")
+        print(f"🔴 DEBUG calling get_release_statistics_pricing")
         
         if self.discogs_handler:
-            # Use marketplace search with condition filtering
-            with st.spinner(f"Fetching condition-specific pricing (Grade {condition})..."):
-                condition_specific_data = self.discogs_handler.get_condition_specific_pricing(
-                    str(release_id), 
-                    condition_grade
-                )
+            with st.spinner("Fetching Discogs price suggestions..."):
+                pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
             
-            print(f"🔴 DEBUG condition_specific_data result: {condition_specific_data}")
-            
-            if condition_specific_data:
-                # Use condition-specific data from marketplace search
-                pricing_data = {
-                    'discogs_lowest_price': condition_specific_data.get('discogs_lowest_price'),
-                    'discogs_estimated_price': condition_specific_data.get('discogs_median_price'),
-                    'image_url': '',
-                    'success': True,
-                    'condition_specific': True,
-                    'discogs_listings_count': condition_specific_data.get('discogs_listings_count', 0)
-                }
-            else:
-                # Fall back to basic release data if no condition-specific data found
-                print(f"🔴 DEBUG no condition-specific data found, using basic release data")
-                pricing_data = {
-                    'discogs_lowest_price': None,
-                    'discogs_estimated_price': None,
-                    'image_url': '',
-                    'success': False,
-                    'condition_specific': False
-                }
+            print(f"🔴 DEBUG pricing_data result: {pricing_data}")
         else:
             st.error("Discogs handler not available")
             return False, None
@@ -80,20 +52,15 @@ class RecordOperationsHandler:
         discogs_genre = record_data.get('genre', '')  # Store the original Discogs genre
         youtube_url = record_data.get('youtube_url', '')  # Get YouTube URL from record data
         
-        # Get eBay pricing if handler is available - USE CONDITION-SPECIFIC
+        # Get selected condition and price from record_data
+        selected_condition = record_data.get('selected_condition')
+        selected_price = record_data.get('selected_price')
+        
+        # Get eBay pricing if handler is available
         ebay_pricing = None
         if self.ebay_handler and artist and title:
-            with st.spinner("Fetching condition-specific eBay pricing..."):
-                ebay_pricing = self.ebay_handler.get_condition_specific_ebay_pricing(
-                    artist, 
-                    title, 
-                    condition_grade
-                )
-            
-            # Fall back to general eBay pricing if condition-specific has few listings
-            if not ebay_pricing or ebay_pricing.get('ebay_listings_count', 0) < 3:
-                with st.spinner("Falling back to general eBay pricing..."):
-                    ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
+            with st.spinner("Fetching eBay pricing..."):
+                ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
         
         # Get genre_id for the genre
         genre_id = None
@@ -115,16 +82,11 @@ class RecordOperationsHandler:
         file_at_value = self._calculate_file_at(artist, genre)
         
         # Store pricing data in record_data for display
-        record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
-        record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
-        record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
-        record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
+        if pricing_data:
+            record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
         
         # CALCULATE STORE PRICE USING CONFIGURABLE PARAMETERS
-        store_price = self._calculate_store_price(
-            pricing_data.get('discogs_lowest_price'),
-            pricing_data.get('discogs_estimated_price')
-        )
+        store_price = self._calculate_store_price(selected_price)
         
         if ebay_pricing:
             record_data['ebay_lowest_price'] = ebay_pricing.get('ebay_lowest_price')
@@ -133,18 +95,15 @@ class RecordOperationsHandler:
             record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
             record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)
             record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)
-            record_data['ebay_condition_specific'] = ebay_pricing.get('condition_specific', False)
-            record_data['ebay_condition_grade'] = ebay_pricing.get('condition_grade')
         
-        # Save to database - include calculated store price
+        # Save to database - include calculated store price and Discogs condition
         result_data = {
             'artist': artist,  # Use the edited artist name
             'title': title,    # Use the edited title
             'barcode': '',  # Will be generated by trigger
             'genre_id': genre_id,
             'image_url': image_url,
-            'discogs_lowest_price': pricing_data.get('discogs_lowest_price'),
-            'discogs_estimated_price': pricing_data.get('discogs_estimated_price'),
+            'discogs_suggested_price': selected_price,
             # eBay data - use actual values if available, otherwise NULL
             'ebay_median_price': ebay_pricing.get('ebay_median_price') if ebay_pricing else None,
             'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price') if ebay_pricing else None,
@@ -154,7 +113,7 @@ class RecordOperationsHandler:
             'ebay_low_url': ebay_pricing.get('ebay_search_url') if ebay_pricing else None,
             'catalog_number': catalog_number,
             'format': format_selected,
-            'condition': condition,
+            'condition': selected_condition,  # Store the Discogs condition text
             'file_at': file_at_value,  # Use calculated file_at
             'store_price': store_price,  # CALCULATED STORE PRICE
             'discogs_genre': discogs_genre,  # Store the original Discogs genre
@@ -169,7 +128,7 @@ class RecordOperationsHandler:
         
         return True, record_id
 
-    def _calculate_store_price(self, discogs_lowest_price, discogs_estimated_price):
+    def _calculate_store_price(self, selected_price):
         """Calculate store price using configurable parameters"""
         # Get current configuration
         lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
@@ -178,11 +137,9 @@ class RecordOperationsHandler:
         
         candidates = []
         
-        if discogs_lowest_price and discogs_lowest_price > 0:
-            candidates.append(discogs_lowest_price * lowest_multiplier)
-        
-        if discogs_estimated_price and discogs_estimated_price > 0:
-            candidates.append(discogs_estimated_price * estimated_multiplier)
+        if selected_price and selected_price > 0:
+            # Use the selected price with the estimated multiplier
+            candidates.append(selected_price * estimated_multiplier)
         
         if candidates:
             raw_price = max(candidates)
@@ -234,14 +191,12 @@ class RecordOperationsHandler:
         
         return f"{genre}({file_at_letter})"
 
-    def update_database_record(self, record_data, condition, genre):
+    def update_database_record(self, record_data, genre):
         """Update database record"""
-        if condition is None:
-            raise Exception("condition parameter is required but was None")
         if genre is None:
             raise Exception("genre parameter is required but was None")
             
-        print(f"🔴 DEBUG update_database_record: condition={condition}, genre={genre}")
+        print(f"🔴 DEBUG update_database_record: genre={genre}")
         
         record_id = record_data['id']
         
@@ -257,7 +212,6 @@ class RecordOperationsHandler:
             conn.close()
         
         updates = {
-            'condition': condition,
             'genre_id': genre_id
         }
         
@@ -266,53 +220,31 @@ class RecordOperationsHandler:
         # Trigger GitHub sync after successful update
         if success:
             self._trigger_github_sync()
-            
+        
         return success
 
     def _trigger_github_sync(self):
-        """Trigger GitHub sync in background"""
-        if hasattr(st.session_state, 'github_sync_handler'):
-            success, message = st.session_state.github_sync_handler.trigger_sync()
-            if success:
-                print("✅ GitHub sync completed successfully")
-            else:
-                print(f"❌ GitHub sync failed: {message}")
-        else:
-            print("❌ GitHub sync handler not available")
-
-    def process_checkout(self, checkout_records):
-        """Process checkout of selected records - not available anymore"""
-        st.warning("Checkout functionality is not available. The status column has been removed from the database.")
-        return 0
-
-    def generate_receipt_content(self, checkout_records):
-        """Generate receipt content for checkout records"""
-        receipt_lines = []
-        receipt_lines.append("PIGSTYLE RECORDS - CHECKOUT RECEIPT")
-        receipt_lines.append("=" * 40)
-        receipt_lines.append(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        receipt_lines.append(f"Items: {len(checkout_records)}")
-        receipt_lines.append("")
+        """Trigger GitHub sync in background thread"""
+        def sync_background():
+            try:
+                # Import here to avoid circular imports
+                from handlers.github_sync_handler import GitHubSyncHandler
+                
+                # Get the gallery JSON manager from session state
+                gallery_json_manager = st.session_state.get('gallery_json_manager')
+                if gallery_json_manager:
+                    # Rebuild JSON first
+                    gallery_json_manager.trigger_rebuild(async_mode=False)
+                    
+                    # Then trigger GitHub sync
+                    github_handler = GitHubSyncHandler(
+                        repo_path="/home/arjan-ubuntu/Documents/PigStyle",
+                        gallery_json_manager=gallery_json_manager
+                    )
+                    github_handler.trigger_sync()
+            except Exception as e:
+                print(f"Background sync failed: {e}")
         
-        total = 0
-        for i, record in enumerate(checkout_records, 1):
-            artist = record.get('artist', 'Unknown Artist')
-            title = record.get('title', 'Unknown Title')
-            price = record.get('store_price', 0) or 0
-            total += price
-            
-            # Truncate long titles for receipt format
-            if len(title) > 30:
-                title = title[:27] + "..."
-            if len(artist) > 20:
-                artist = artist[:17] + "..."
-            
-            receipt_lines.append(f"{i:2d}. {artist:<20} {title:<30} ${price:>6.2f}")
-        
-        receipt_lines.append("")
-        receipt_lines.append("=" * 40)
-        receipt_lines.append(f"TOTAL: ${total:>33.2f}")
-        receipt_lines.append("")
-        receipt_lines.append("Thank you for your purchase!")
-        
-        return "\n".join(receipt_lines)
+        # Start sync in background thread
+        sync_thread = threading.Thread(target=sync_background, daemon=True)
+        sync_thread.start()

@@ -27,7 +27,7 @@ class DisplayHandler:
     def _render_unified_results(self, results, result_type):
         """Render unified results component for both Discogs and Database searches"""
         for i, record in enumerate(results):
-            # Use 3 columns for both types
+            # Use columns for layout
             col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
                 
             with col1:
@@ -66,12 +66,34 @@ class DisplayHandler:
                     st.write(f"**Discogs Estimated:** ${discogs_estimated:.2f}" if discogs_estimated and discogs_estimated > 0 else "**Discogs Estimated:** N/A")
                     st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
                     st.write(f"**eBay Low Shipping:** ${ebay_low_shipping:.2f}" if ebay_low_shipping and ebay_low_shipping > 0 else "**eBay Low Shipping:** N/A")
-                    st.write(f"**File:** {file_at}")
+                    st.write(f"**File Location:** {file_at}")
                     if youtube_url:
                         st.write(f"🎵 **YouTube:** {youtube_url}")
                 else:  # discogs
                     catalog = record.get('catalog_number', '')
-                    st.write(f"Catalog: {catalog}")
+                    year = record.get('year', '')
+                    format_info = record.get('format', '')
+                    label_info = record.get('label', '')
+                    country = record.get('country', '')
+                    
+                    # Show distinguishing information for Discogs results
+                    info_lines = []
+                    if catalog:
+                        info_lines.append(f"**Catalog:** {catalog}")
+                    if year:
+                        info_lines.append(f"**Year:** {year}")
+                    if format_info:
+                        info_lines.append(f"**Format:** {format_info}")
+                    if label_info:
+                        info_lines.append(f"**Label:** {label_info}")
+                    if country:
+                        info_lines.append(f"**Country:** {country}")
+                    
+                    if info_lines:
+                        st.write(" | ".join(info_lines))
+                    else:
+                        st.write("*No additional info*")
+                    
                     st.write("*Pricing data will be loaded when you select this record*")
                 
             with col3:
@@ -151,21 +173,35 @@ class DisplayHandler:
                 st.write("---")
             else:
                 catalog = record.get('catalog_number', '')
-                st.write(f"Catalog: {catalog}")
+                year = record.get('year', '')
+                format_info = record.get('format', '')
+                label_info = record.get('label', '')
+                country = record.get('country', '')
+                
+                # Show distinguishing information for Discogs results
+                info_lines = []
+                if catalog:
+                    info_lines.append(f"**Catalog:** {catalog}")
+                if year:
+                    info_lines.append(f"**Year:** {year}")
+                if format_info:
+                    info_lines.append(f"**Format:** {format_info}")
+                if label_info:
+                    info_lines.append(f"**Label:** {label_info}")
+                if country:
+                    info_lines.append(f"**Country:** {country}")
+                
+                if info_lines:
+                    for line in info_lines:
+                        st.write(line)
         
         if st.button("← Back to Results", key="back_to_results"):
             st.session_state.selected_record = None
             st.rerun()
 
-    def render_edit_section(self, selected_record, add_callback, update_callback, last_condition, discogs_handler=None, ebay_handler=None):
-        """Render the edit properties section with YouTube URL functionality"""
+    def render_edit_section(self, selected_record, add_callback, update_callback, discogs_handler=None, ebay_handler=None):
+        """Render the edit properties section with YouTube URL functionality - NO CONDITION DROPDOWN"""
         
-        print(f"ARJAN last_condition render_edit_section = {last_condition}")
-
-        if last_condition is None:
-            raise Exception("last_condition parameter is required but was None")
-        
-
         st.subheader("Edit Properties")
         
         record_data = selected_record['data']
@@ -175,23 +211,18 @@ class DisplayHandler:
             release_id = record_data.get('discogs_id')
             if release_id and discogs_handler:
                 with st.spinner("Fetching pricing data..."):
-                    # USE MARKETPLACE SEARCH WITH CONDITION FILTERING
-                    pricing_data = discogs_handler.get_release_statistics_pricing(str(release_id), int(last_condition))
+                    # GET ALL PRICE SUGGESTIONS
+                    pricing_data = discogs_handler.get_release_statistics_pricing(str(release_id))
                     if pricing_data:
-                        record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
-                        record_data['discogs_estimated_price'] = pricing_data.get('discogs_median_price')
-                        record_data['discogs_highest_price'] = pricing_data.get('discogs_highest_price')
-                        record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
-                        record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
+                        record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
+                        record_data['total_conditions'] = pricing_data.get('total_conditions', 0)
                     else:
                         # Fallback to get_release_data if no marketplace data found
-                        pricing_data = discogs_handler.get_release_data(str(release_id), "selected_record", int(last_condition))
+                        pricing_data = discogs_handler.get_release_data(str(release_id), "selected_record")
                         if pricing_data and pricing_data.get('success'):
-                            record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
-                            record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
+                            record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
                             record_data['image_url'] = pricing_data.get('image_url') or record_data.get('image_url', '')
-                            record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
-                            record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
+                            record_data['total_conditions'] = pricing_data.get('total_conditions', 0)
             
             # Fetch eBay pricing separately
             artist = record_data.get('artist', '')
@@ -243,15 +274,6 @@ class DisplayHandler:
         
         col1, col2 = st.columns(2)
         with col1:
-            # Use the last condition as default, or condition 5 if no last condition
-            condition_index = ["1", "2", "3", "4", "5"].index(last_condition) if last_condition in ["1", "2", "3", "4", "5"] else 4
-            condition = st.selectbox(
-                "Condition:",
-                options=["1", "2", "3", "4", "5"],
-                index=condition_index,
-                key="condition_edit"
-            )
-        with col2:
             all_genres = self._get_all_genres()
             
             # Set default index based on suggested genre
@@ -339,7 +361,7 @@ class DisplayHandler:
             if st.button("Add to Database", use_container_width=True, disabled=not genre, key="add_to_database"):
                 # Get the file_at value for confirmation message
                 file_at_value = self._calculate_file_at(record_data['artist'], genre)
-                success, record_id = add_callback(condition, genre)
+                success, record_id = add_callback(genre)
                 if success:
                     # Show confirmation message with artist, title, and fileat
                     st.success(f"✅ Record added successfully!\\n**Artist:** {record_data['artist']}\\n**Title:** {record_data['title']}\\n**File Location:** {file_at_value}")
@@ -350,7 +372,6 @@ class DisplayHandler:
                 if st.button("Update Record", use_container_width=True, disabled=not genre, key="update_record"):
                     # Include YouTube URL in updates
                     updates = {
-                        'condition': condition,
                         'genre_id': self._get_genre_id(genre),
                         'youtube_url': record_data.get('youtube_url', '')
                     }
@@ -370,25 +391,41 @@ class DisplayHandler:
         # Discogs Pricing Section
         st.write("### 📀 Discogs Pricing")
         
-        discogs_lowest = record_data.get('discogs_lowest_price')
-        discogs_estimated = record_data.get('discogs_estimated_price')
-        discogs_highest = record_data.get('discogs_highest_price')
-        discogs_condition_specific = record_data.get('discogs_condition_specific', False)
-        discogs_listings_count = record_data.get('discogs_listings_count', 0)
+        price_suggestions = record_data.get('price_suggestions', {})
+        total_conditions = record_data.get('total_conditions', 0)
         
-        if discogs_lowest is not None or discogs_estimated is not None:
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Lowest Price", f"${discogs_lowest:.2f}" if discogs_lowest else "N/A")
-            with col2:
-                st.metric("Median Price", f"${discogs_estimated:.2f}" if discogs_estimated else "N/A")
-            with col3:
-                st.metric("Highest Price", f"${discogs_highest:.2f}" if discogs_highest else "N/A")
+        if price_suggestions:
+            # Display all conditions in a table for user selection
+            st.write("**Select a condition:**")
             
-            if discogs_condition_specific:
-                st.success(f"✅ Condition-specific pricing ({discogs_listings_count} listings)")
-            else:
-                st.info(f"📊 General pricing data ({discogs_listings_count} listings)")
+            # Create a list of conditions with prices and descriptions
+            conditions_data = []
+            for condition, price in price_suggestions.items():
+                description = self._get_condition_description(condition)
+                conditions_data.append({
+                    'Condition': condition,
+                    'Description': description,
+                    'Price': f"${price:.2f}"
+                })
+            
+            # Display as a table
+            if conditions_data:
+                df = pd.DataFrame(conditions_data)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                
+                # Let user select a condition
+                condition_options = list(price_suggestions.keys())
+                selected_condition = st.selectbox(
+                    "Choose condition for this record:",
+                    options=condition_options,
+                    key="condition_select"
+                )
+                
+                # Store the selected condition and price in record_data
+                if selected_condition:
+                    record_data['selected_condition'] = selected_condition
+                    record_data['selected_price'] = price_suggestions[selected_condition]
+                    st.success(f"✅ Selected: {selected_condition} - ${price_suggestions[selected_condition]:.2f}")
         else:
             st.write("No Discogs pricing data available")
         
@@ -474,10 +511,8 @@ class DisplayHandler:
         st.write("### 🏪 Store Price Calculation")
         
         # Calculate store price using current configuration
-        store_price = self._calculate_store_price(
-            record_data.get('discogs_lowest_price'),
-            record_data.get('discogs_estimated_price')
-        )
+        selected_price = record_data.get('selected_price')
+        store_price = self._calculate_store_price(selected_price)
         
         # Get current configuration for display
         lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
@@ -487,19 +522,42 @@ class DisplayHandler:
         # Show calculation breakdown
         col1, col2 = st.columns(2)
         with col1:
-            if record_data.get('discogs_lowest_price'):
-                lowest_calc = record_data['discogs_lowest_price'] * lowest_multiplier
-                st.write(f"**Lowest × {lowest_multiplier}:** ${record_data['discogs_lowest_price']:.2f} × {lowest_multiplier} = ${lowest_calc:.2f}")
-            
-            if record_data.get('discogs_estimated_price'):
-                estimated_calc = record_data['discogs_estimated_price'] * estimated_multiplier
-                st.write(f"**Estimated × {estimated_multiplier}:** ${record_data['discogs_estimated_price']:.2f} × {estimated_multiplier} = ${estimated_calc:.2f}")
+            if selected_price:
+                suggested_calc = selected_price * estimated_multiplier
+                st.write(f"**Selected × {estimated_multiplier}:** ${selected_price:.2f} × {estimated_multiplier} = ${suggested_calc:.2f}")
             
             st.write(f"**Minimum Price:** ${minimum_price:.2f}")
         
         with col2:
             st.metric("Calculated Store Price", f"${store_price:.2f}", 
-                     help="Based on highest of: (Lowest × Multiplier), (Estimated × Multiplier), or Minimum Price")
+                     help="Based on highest of: (Selected × Multiplier) or Minimum Price")
+
+    def _get_condition_description(self, condition):
+        """Get brief description for each Discogs condition"""
+        condition_descriptions = {
+            "Mint (M)": "Still sealed, perfect condition",
+            "Near Mint (NM or M-)": "Like new, minimal signs of handling",
+            "Very Good Plus (VG+)": "Light surface marks, plays perfectly",
+            "Very Good (VG)": "Visible wear but plays well",
+            "Good Plus (G+)": "Significant wear, some surface noise",
+            "Good (G)": "Heavy wear, noticeable surface noise",
+            "Fair (F)": "Poor condition, plays with difficulty",
+            "Poor (P)": "Badly damaged, may be unplayable",
+            "Generic": "Standard used condition",
+            "Not Graded": "Condition not specified"
+        }
+        
+        # Try exact match first
+        if condition in condition_descriptions:
+            return condition_descriptions[condition]
+        
+        # Try partial matches
+        for key, description in condition_descriptions.items():
+            if condition.lower() in key.lower() or key.lower() in condition.lower():
+                return description
+        
+        # Default description
+        return "Used record condition"
 
     def _render_ebay_listing_details(self, item_details, item_url):
         """Render detailed information about the cheapest eBay listing"""
@@ -586,7 +644,7 @@ class DisplayHandler:
         else:
             st.write("No shipping information available")
 
-    def _calculate_store_price(self, discogs_lowest_price, discogs_estimated_price):
+    def _calculate_store_price(self, selected_price):
         """Calculate store price using configurable parameters"""
         # Get current configuration
         lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
@@ -595,11 +653,9 @@ class DisplayHandler:
         
         candidates = []
         
-        if discogs_lowest_price and discogs_lowest_price > 0:
-            candidates.append(discogs_lowest_price * lowest_multiplier)
-        
-        if discogs_estimated_price and discogs_estimated_price > 0:
-            candidates.append(discogs_estimated_price * estimated_multiplier)
+        if selected_price and selected_price > 0:
+            # Use the selected price with the estimated multiplier
+            candidates.append(selected_price * estimated_multiplier)
         
         if candidates:
             raw_price = max(candidates)

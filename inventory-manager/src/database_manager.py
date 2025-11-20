@@ -35,10 +35,7 @@ class DatabaseManager:
                 genre_id INTEGER,
                 file_at TEXT,
                 image_url TEXT,
-                discogs_lowest_price REAL,
-                discogs_estimated_price REAL,
-                discogs_median_price REAL,
-                discogs_highest_price REAL,
+                discogs_suggested_price REAL,
                 ebay_median_price REAL,
                 ebay_lowest_price REAL,
                 ebay_highest_price REAL,
@@ -69,8 +66,7 @@ class DatabaseManager:
             ('discogs_genre', 'TEXT'),
             ('youtube_url', 'TEXT'),
             ('ebay_sell_at', 'REAL'),
-            ('discogs_lowest_price', 'REAL'),
-            ('discogs_estimated_price', 'REAL')
+            ('discogs_suggested_price', 'REAL')
         ]
         
         for column_name, column_type in columns_to_add:
@@ -127,7 +123,7 @@ class DatabaseManager:
                 r.*,
                 g.genre_name as genre
             FROM records r
-            LEFT JOIN genres g ON r.id = g.id
+            LEFT JOIN genres g ON r.genre_id = g.id
         ''')
         
         # Create triggers
@@ -249,20 +245,17 @@ class DatabaseManager:
         cursor.execute('''
             INSERT INTO records 
             (artist, title, barcode, genre_id, image_url,
-             discogs_lowest_price, discogs_estimated_price, discogs_median_price, discogs_highest_price,
+             discogs_suggested_price,
              ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_low_shipping, ebay_low_url,
              catalog_number, format, condition, file_at, store_price, ebay_sell_at, discogs_genre, youtube_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
             result_data.get('barcode', ''),
             result_data.get('genre_id'),
             result_data.get('image_url', ''),
-            result_data.get('discogs_lowest_price'),
-            result_data.get('discogs_estimated_price'),
-            result_data.get('discogs_median_price'),
-            result_data.get('discogs_highest_price'),
+            result_data.get('discogs_suggested_price'),
             result_data.get('ebay_median_price'),
             result_data.get('ebay_lowest_price'),
             result_data.get('ebay_highest_price'),

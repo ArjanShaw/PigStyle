@@ -57,8 +57,6 @@ class InventoryTab:
             st.session_state.checkout_records = []
         if 'record_added' not in st.session_state:
             st.session_state.record_added = None
-        if 'last_condition' not in st.session_state:
-            st.session_state.last_condition = "5"  # Default to condition 5
         
         # Action type selection - renamed from Search Type
         col1, col2 = st.columns([1, 3])
@@ -68,21 +66,6 @@ class InventoryTab:
                 ["Add item", "Edit or Delete item"],
                 key="search_type_radio"
             )
-        
-        # Condition dropdown ABOVE search now that it's used in search
-        col1, col2 = st.columns(2)
-        with col1:
-            # Use the last condition as default, or condition 5 if no last condition
-            condition_index = ["1", "2", "3", "4", "5"].index(st.session_state.last_condition) if st.session_state.last_condition in ["1", "2", "3", "4", "5"] else 4
-            condition = st.selectbox(
-                "Condition:",
-                options=["1", "2", "3", "4", "5"],
-                index=condition_index,
-                key="condition_search",
-                help="Condition grade (1=Poor, 5=Mint) - used for condition-specific pricing"
-            )
-            # Store the condition for use in pricing
-            st.session_state.last_condition = condition
         
         # Search input and button
         search_input = st.text_input(
@@ -145,7 +128,7 @@ class InventoryTab:
         # Edit properties and action button (only show when selection is made and no record was just added)
         if (st.session_state.selected_record and 
             st.session_state.record_added is None):
-            self.display_handler.render_edit_section(st.session_state.selected_record, self._handle_add_record, self._handle_update_record, st.session_state.last_condition, self.discogs_handler, self.ebay_handler)
+            self.display_handler.render_edit_section(st.session_state.selected_record, self._handle_add_record, self._handle_update_record, self.discogs_handler, self.ebay_handler)
         
         # Checkout section for database search
         if (search_type == "Edit or Delete item" and 
@@ -153,15 +136,12 @@ class InventoryTab:
             st.session_state.record_added is None):
             self.display_handler.render_checkout_section(st.session_state.checkout_records, self._process_checkout)
 
-    def _handle_add_record(self, condition, genre):
+    def _handle_add_record(self, genre):
         """Handle adding an inventory record to database"""
         record_data = st.session_state.selected_record['data']
-        # Store the condition for next time
-        st.session_state.last_condition = condition
         
         success, record_id = self.record_ops_handler.add_inventory_record(
             record_data, 
-            condition, 
             genre, 
             st.session_state.current_search
         )
@@ -197,13 +177,11 @@ class InventoryTab:
         else:
             st.error("Failed to add record to database")
 
-    def _handle_update_record(self, condition, genre):
+    def _handle_update_record(self, genre):
         """Handle updating a database record"""
         record_data = st.session_state.selected_record['data']
-        # Store the condition for next time
-        st.session_state.last_condition = condition
         
-        success = self.record_ops_handler.update_database_record(record_data, condition, genre)
+        success = self.record_ops_handler.update_database_record(record_data, genre)
         
         if success:
             st.success("✅ Record updated successfully!")

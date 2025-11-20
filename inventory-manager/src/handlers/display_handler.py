@@ -93,8 +93,6 @@ class DisplayHandler:
                         st.write(" | ".join(info_lines))
                     else:
                         st.write("*No additional info*")
-                    
-                    st.write("*Pricing data will be loaded when you select this record*")
                 
             with col3:
                 if st.button("Select", key=f"select_{result_type}_{i}", use_container_width=True):
@@ -386,7 +384,6 @@ class DisplayHandler:
 
     def _render_pricing_information(self, record_data, discogs_handler=None, ebay_handler=None):
         """Render BOTH Discogs and eBay pricing information in edit section"""
-        st.subheader("💰 Pricing Information")
         
         # Discogs Pricing Section
         st.write("### 📀 Discogs Pricing")
@@ -413,11 +410,16 @@ class DisplayHandler:
                 df = pd.DataFrame(conditions_data)
                 st.dataframe(df, use_container_width=True, hide_index=True)
                 
-                # Let user select a condition
+                # Let user select a condition - default to Good Plus
                 condition_options = list(price_suggestions.keys())
+                default_condition = "Good Plus (G+)"
+                if default_condition not in condition_options and condition_options:
+                    default_condition = condition_options[0]
+                
                 selected_condition = st.selectbox(
                     "Choose condition for this record:",
                     options=condition_options,
+                    index=condition_options.index(default_condition) if default_condition in condition_options else 0,
                     key="condition_select"
                 )
                 

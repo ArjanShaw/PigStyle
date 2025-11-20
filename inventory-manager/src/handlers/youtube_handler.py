@@ -38,7 +38,9 @@ class YouTubeHandler:
             part='snippet',
             type='video',
             maxResults=10,
-            videoEmbeddable='true'  # Only get embeddable videos
+            videoEmbeddable='true',  # Only get embeddable videos
+            videoDuration='short',   # Only get videos under 6 minutes
+            order='relevance'        # Most relevant first
         )
         
         response = request.execute()

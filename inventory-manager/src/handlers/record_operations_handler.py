@@ -1,3 +1,4 @@
+# FILE: inventory-manager/src/handlers/record_operations_handler.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -14,7 +15,14 @@ class RecordOperationsHandler:
         self.ebay_handler = ebay_handler
     
     def add_inventory_record(self, record_data, condition, genre, search_term):
-        """Add inventory record to database with Discogs data - SINGLE API CALL"""
+        """Add inventory record to database with condition-specific pricing"""
+        if condition is None:
+            raise Exception("condition parameter is required but was None")
+        if genre is None:
+            raise Exception("genre parameter is required but was None")
+            
+        print(f"🔴 DEBUG add_inventory_record: condition={condition}, genre={genre}")
+        
         release_id = record_data.get('discogs_id')
         
         if not release_id:
@@ -24,21 +32,44 @@ class RecordOperationsHandler:
         # Get format from session state or default
         format_selected = st.session_state.get('format_select', 'Vinyl')
         
-        # Get Discogs pricing information - SINGLE API CALL
+        # Get Discogs pricing information - USE MARKETPLACE SEARCH WITH CONDITION FILTERING
+        condition_grade = int(condition)
+        condition_specific_data = None
+        
+        print(f"🔴 DEBUG calling get_condition_specific_pricing with condition_grade={condition_grade}")
+        
         if self.discogs_handler:
-            # Note: The actual API call logging is now handled within discogs_handler
-            pricing_data = self.discogs_handler.get_release_data(
-                str(release_id), 
-                search_term, 
-                f"release_{release_id}"
-            )
+            # Use marketplace search with condition filtering
+            with st.spinner(f"Fetching condition-specific pricing (Grade {condition})..."):
+                condition_specific_data = self.discogs_handler.get_condition_specific_pricing(
+                    str(release_id), 
+                    condition_grade
+                )
+            
+            print(f"🔴 DEBUG condition_specific_data result: {condition_specific_data}")
+            
+            if condition_specific_data:
+                # Use condition-specific data from marketplace search
+                pricing_data = {
+                    'discogs_lowest_price': condition_specific_data.get('discogs_lowest_price'),
+                    'discogs_estimated_price': condition_specific_data.get('discogs_median_price'),
+                    'image_url': '',
+                    'success': True,
+                    'condition_specific': True,
+                    'discogs_listings_count': condition_specific_data.get('discogs_listings_count', 0)
+                }
+            else:
+                # Fall back to basic release data if no condition-specific data found
+                print(f"🔴 DEBUG no condition-specific data found, using basic release data")
+                pricing_data = {
+                    'discogs_lowest_price': None,
+                    'discogs_estimated_price': None,
+                    'image_url': '',
+                    'success': False,
+                    'condition_specific': False
+                }
         else:
             st.error("Discogs handler not available")
-            return False, None
-        
-        if not pricing_data or not pricing_data.get('success'):
-            error_msg = pricing_data.get('error', 'Unable to get pricing data') if pricing_data else 'No pricing data returned'
-            st.error(f"Failed to get Discogs pricing: {error_msg}")
             return False, None
         
         # Extract result information - use the edited artist name if available
@@ -49,11 +80,20 @@ class RecordOperationsHandler:
         discogs_genre = record_data.get('genre', '')  # Store the original Discogs genre
         youtube_url = record_data.get('youtube_url', '')  # Get YouTube URL from record data
         
-        # Get eBay pricing if handler is available - use the edited artist name
+        # Get eBay pricing if handler is available - USE CONDITION-SPECIFIC
         ebay_pricing = None
         if self.ebay_handler and artist and title:
-            # Note: The actual API call logging is now handled within ebay_handler
-            ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
+            with st.spinner("Fetching condition-specific eBay pricing..."):
+                ebay_pricing = self.ebay_handler.get_condition_specific_ebay_pricing(
+                    artist, 
+                    title, 
+                    condition_grade
+                )
+            
+            # Fall back to general eBay pricing if condition-specific has few listings
+            if not ebay_pricing or ebay_pricing.get('ebay_listings_count', 0) < 3:
+                with st.spinner("Falling back to general eBay pricing..."):
+                    ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
         
         # Get genre_id for the genre
         genre_id = None
@@ -77,6 +117,8 @@ class RecordOperationsHandler:
         # Store pricing data in record_data for display
         record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
         record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
+        record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
+        record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
         
         # CALCULATE STORE PRICE USING CONFIGURABLE PARAMETERS
         store_price = self._calculate_store_price(
@@ -89,8 +131,10 @@ class RecordOperationsHandler:
             record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
             record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
             record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
-            record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)  # Store eBay listings count
-            record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)  # Store eBay total items found
+            record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)
+            record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)
+            record_data['ebay_condition_specific'] = ebay_pricing.get('condition_specific', False)
+            record_data['ebay_condition_grade'] = ebay_pricing.get('condition_grade')
         
         # Save to database - include calculated store price
         result_data = {
@@ -192,6 +236,13 @@ class RecordOperationsHandler:
 
     def update_database_record(self, record_data, condition, genre):
         """Update database record"""
+        if condition is None:
+            raise Exception("condition parameter is required but was None")
+        if genre is None:
+            raise Exception("genre parameter is required but was None")
+            
+        print(f"🔴 DEBUG update_database_record: condition={condition}, genre={genre}")
+        
         record_id = record_data['id']
         
         # Get genre_id for the genre

@@ -41,7 +41,8 @@ FULL REPOSITORY STRUCTURE:
     │   │   │   ├── ⭐ import_export_tab.py 🐍
     │   │   │   ├── ⭐ inventory_tab.py 🐍
     │   │   │   ├── ⭐ statistics_tab.py 🐍
-    │   │   │   └── ⭐ store_pricing_tab.py 🐍
+    │   │   │   ├── ⭐ store_pricing_tab.py 🐍
+    │   │   │   └── ⭐ tools_sync_tab.py 🐍
     │   │   ├── ⭐ config.py 🐍
     │   │   ├── ⭐ database_manager.py 🐍
     │   │   ├── ⭐ desktop_app.py 🐍
@@ -390,6 +391,7 @@ from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.ebay_tab import EBayTab
 from tabs.store_pricing_tab import StorePricingTab
+from tabs.tools_sync_tab import ToolsSyncTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -481,13 +483,15 @@ def main():
     statistics_tab = StatisticsTab()
     ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
     store_pricing_tab = StorePricingTab()
+    tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
 
     # Create tabs
     tabs = st.tabs([
         "📦 Inventory",
         "🏪 Store Pricing",
         "🛒 eBay", 
-        "📊 Statistics"
+        "📊 Statistics",
+        "🛠️ Tools & Sync"
     ])
     
     with tabs[0]:
@@ -501,6 +505,9 @@ def main():
     
     with tabs[3]:
         statistics_tab.render()
+    
+    with tabs[4]:
+        tools_sync_tab.render()
 
 if __name__ == "__main__":
     main()
@@ -555,7 +562,6 @@ class SKUGenerator:
             sku = f"{a_trunc}-{cat_trunc}"
 
         return sku
-
 
 ======================================================================
 
@@ -1406,7 +1412,6 @@ class ImageFormatter:
             return save_path
         else:
             return buffer
-
 
 ======================================================================
 
@@ -3569,6 +3574,100 @@ class StatisticsTab:
 
 ======================================================================
 
+FILE: inventory-manager/src/tabs/tools_sync_tab.py
+--------------------------------------------------
+import streamlit as st
+import subprocess
+import os
+from pathlib import Path
+from datetime import datetime
+
+class ToolsSyncTab:
+    def __init__(self, gallery_json_manager=None, github_sync_handler=None):
+        self.gallery_json_manager = gallery_json_manager
+        self.github_sync_handler = github_sync_handler
+    
+    def render(self):
+        st.header("🛠️ Tools & Sync")
+        
+        col1, col2 = st.columns(2)
+        
+        # Gallery JSON Management
+        with col1:
+            st.subheader("🔄 Gallery JSON")
+            if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
+                if self.gallery_json_manager:
+                    with st.spinner("Rebuilding gallery JSON..."):
+                        success = self.gallery_json_manager.trigger_rebuild(async_mode=False)
+                    if success:
+                        st.success("✅ Gallery JSON rebuilt successfully!")
+                    else:
+                        st.error("❌ Gallery JSON rebuild failed")
+                else:
+                    st.error("Gallery JSON manager not initialized")
+            
+            if self.gallery_json_manager:
+                status = self.gallery_json_manager.get_rebuild_status()
+                st.write(f"**Status:** {'Rebuilding...' if status['in_progress'] else 'Ready'}")
+                json_path = self.gallery_json_manager.get_json_path()
+                st.write(f"**JSON Path:** `{json_path}`")
+        
+        # GitHub Sync Section
+        with col2:
+            st.subheader("🔄 GitHub Sync")
+            if st.button("🔄 Manual GitHub Sync", use_container_width=True):
+                if self.github_sync_handler:
+                    with st.spinner("Syncing with GitHub..."):
+                        success, message = self.github_sync_handler.trigger_sync()
+                        if success:
+                            st.success(f"✅ {message}")
+                        else:
+                            st.error(f"❌ {message}")
+                else:
+                    st.error("GitHub sync handler not initialized")
+            
+            if self.github_sync_handler:
+                status = self.github_sync_handler.get_sync_status()
+                st.write(f"**Repo:** `{status['repo_path']}`")
+                st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
+                st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
+                st.write(f"**Last commit:** {status['last_commit']}")
+        
+        # Database Management
+        st.subheader("🗃️ Database Tools")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Update File Locations", use_container_width=True):
+                if hasattr(st.session_state, 'db_manager'):
+                    updated_count = st.session_state.db_manager.update_file_at_for_all_records()
+                    st.success(f"✅ Updated file locations for {updated_count} records!")
+                else:
+                    st.error("Database manager not available")
+        
+        with col2:
+            if st.button("🗑️ Clear All Records", use_container_width=True, type="secondary"):
+                if hasattr(st.session_state, 'db_manager'):
+                    if st.checkbox("I understand this will delete ALL records permanently"):
+                        if st.button("CONFIRM DELETE ALL", type="primary"):
+                            st.session_state.db_manager.clear_database()
+                            st.success("✅ All records deleted!")
+                            st.rerun()
+        
+        # System Information
+        st.subheader("📊 System Info")
+        if hasattr(st.session_state, 'db_manager'):
+            stats = st.session_state.db_manager.get_database_stats()
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Records", stats['records_count'])
+            with col2:
+                st.metric("Failed Searches", stats['failed_count'])
+            with col3:
+                st.metric("Database Path", stats['db_path'])
+
+======================================================================
+
 FILE: inventory-manager/src/tabs/import_export_tab.py
 --------------------------------------------------
 import streamlit as st
@@ -3912,15 +4011,11 @@ class InventoryTab:
         with col1:
             st.metric("Inventory Records", stats['records_count'])
         
-        # Inventory
-        with st.expander("📦 Inventory", expanded=False):
-            self._render_unified_operations()
+        # Inventory Controls (NO EXPANDER)
+        self._render_unified_operations()
         
-        # API Requests & Responses
+        # API Requests & Responses - Show immediately when available
         self._render_api_logs_section()
-        
-        # Tools & Sync
-        self._render_tools_sync_section()
 
     def _render_unified_operations(self):
         """Render the unified search/add/checkout operations"""
@@ -3949,7 +4044,22 @@ class InventoryTab:
                 key="search_type_radio"
             )
         
-        # Search input and button - button moved under input
+        # Condition dropdown ABOVE search now that it's used in search
+        col1, col2 = st.columns(2)
+        with col1:
+            # Use the last condition as default, or condition 5 if no last condition
+            condition_index = ["1", "2", "3", "4", "5"].index(st.session_state.last_condition) if st.session_state.last_condition in ["1", "2", "3", "4", "5"] else 4
+            condition = st.selectbox(
+                "Condition:",
+                options=["1", "2", "3", "4", "5"],
+                index=condition_index,
+                key="condition_search",
+                help="Condition grade (1=Poor, 5=Mint) - used for condition-specific pricing"
+            )
+            # Store the condition for use in pricing
+            st.session_state.last_condition = condition
+        
+        # Search input and button
         search_input = st.text_input(
             "Search:",
             placeholder="Enter barcode, artist, or title...",
@@ -4089,7 +4199,7 @@ class InventoryTab:
         return 0
 
     def _render_api_logs_section(self):
-        """Render API logs section at the same level as other main sections"""
+        """Render API logs section immediately when available"""
         if 'api_logs' in st.session_state and st.session_state.api_logs:
             with st.expander("📡 API Requests & Responses", expanded=False):
                 for api_title in st.session_state.api_logs:
@@ -4108,54 +4218,6 @@ class InventoryTab:
                             if response_data:
                                 st.write("**Response:**")
                                 st.json(response_data)
-
-    def _render_tools_sync_section(self):
-        """Render tools and sync section with Gallery JSON Test and GitHub Sync"""
-        with st.expander("🛠️ Tools & Sync", expanded=False):
-            # Gallery JSON Test
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
-                    if st.session_state.get('gallery_json_manager'):
-                        with st.spinner("Rebuilding gallery JSON..."):
-                            success = st.session_state.gallery_json_manager.trigger_rebuild(async_mode=False)
-                        if success:
-                            st.success("✅ Gallery JSON rebuilt successfully!")
-                        else:
-                            st.error("❌ Gallery JSON rebuild failed")
-                    else:
-                        st.error("Gallery JSON manager not initialized")
-            
-            with col2:
-                if st.session_state.get('gallery_json_manager'):
-                    status = st.session_state.gallery_json_manager.get_rebuild_status()
-                    st.write(f"**Status:** {'Rebuilding...' if status['in_progress'] else 'Ready'}")
-                    json_path = st.session_state.gallery_json_manager.get_json_path()
-                    st.write(f"**JSON Path:** `{json_path}`")
-            
-            # GitHub Sync Section
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("🔄 Manual GitHub Sync", use_container_width=True):
-                    if hasattr(st.session_state, 'github_sync_handler'):
-                        with st.spinner("Syncing with GitHub..."):
-                            success, message = st.session_state.github_sync_handler.trigger_sync()
-                            if success:
-                                st.success(f"✅ {message}")
-                            else:
-                                st.error(f"❌ {message}")
-                    else:
-                        st.error("GitHub sync handler not initialized")
-            
-            with col2:
-                if hasattr(st.session_state, 'github_sync_handler'):
-                    status = st.session_state.github_sync_handler.get_sync_status()
-                    st.write(f"**Repo:** `{status['repo_path']}`")
-                    st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
-                    st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
-                    st.write(f"**Last commit:** {status['last_commit']}")
 
     def _get_database_stats_direct(self) -> dict:
         """Get database statistics directly from records table"""
@@ -4176,6 +4238,7 @@ class InventoryTab:
 
 FILE: inventory-manager/src/handlers/discogs_handler.py
 --------------------------------------------------
+# FILE: inventory-manager/src/handlers/discogs_handler.py
 import requests
 import json
 import re
@@ -4233,20 +4296,128 @@ class DiscogsHandler:
         
         return data
     
-    def get_release_data(self, release_id: str, query: str, filename_base: str = None):
-        """Get release data including pricing information - SINGLE API CALL"""
+    def get_release_data(self, release_id: str, query: str, condition_grade: int):
+        """Get release data including pricing information - NOW USES MARKETPLACE WITH POST"""
+        if condition_grade is None:
+            raise Exception("condition_grade parameter is required but was None")
+        
+        print(f"🔴 DEBUG get_release_data: release_id={release_id}, condition_grade={condition_grade}")
+        
+        # First try to get basic release info for images
+        release_info = self._get_basic_release_info(release_id)
+        image_url = release_info.get('image_url', '')
+        
+        # Use marketplace search for pricing with condition filtering - NOW WITH POST
+        condition_specific_data = self.get_condition_specific_pricing(release_id, condition_grade)
+        
+        if condition_specific_data:
+            # Use condition-specific data from marketplace search
+            return {
+                'discogs_lowest_price': condition_specific_data.get('discogs_lowest_price'),
+                'discogs_estimated_price': condition_specific_data.get('discogs_median_price'),
+                'image_url': image_url,
+                'release_data': release_info.get('release_data', {}),
+                'success': True,
+                'condition_applied': True,
+                'condition_specific': True,
+                'discogs_listings_count': condition_specific_data.get('discogs_listings_count', 0)
+            }
+        else:
+            # No condition-specific pricing data available
+            return {
+                'discogs_lowest_price': None,
+                'discogs_estimated_price': None,
+                'image_url': image_url,
+                'release_data': release_info.get('release_data', {}),
+                'success': False,
+                'condition_applied': True,
+                'condition_specific': False,
+                'discogs_listings_count': 0
+            }
+
+    def _get_basic_release_info(self, release_id: str):
+        """Get basic release info for images and metadata"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
         
-        # Log the API call with unified format
-        api_title = f"💰 Discogs Release API: {endpoint_url}"
+        # Log the API call
+        api_title = f"📀 Discogs Release API: {endpoint_url}"
         start_time = time.time()
         self._log_api_call(api_title, {
             'endpoint': endpoint_url,
+            'params': {},
             'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
         })
 
         response = requests.get(
             endpoint_url,
+            headers=self.headers,
+            timeout=10
+        )
+        
+        duration = round(time.time() - start_time, 2)
+        
+        if response.status_code == 200:
+            release_data = response.json()
+            # Log the response
+            self._log_api_response(api_title, release_data, duration)
+            
+            image_url = self._extract_image_from_release(release_data)
+            return {
+                'image_url': image_url,
+                'release_data': release_data
+            }
+        else:
+            # Log error response
+            self._log_api_response(api_title, {'error': f'Status {response.status_code}', 'response_text': response.text}, duration)
+            return {'image_url': '', 'release_data': {}}
+
+    def get_condition_specific_pricing(self, release_id: str, condition_grade: int):
+        """Get condition-specific pricing from Discogs marketplace WITH POST REQUEST"""
+        if condition_grade is None:
+            raise Exception("condition_grade parameter is required but was None")
+        
+        print(f"🔴 DEBUG get_condition_specific_pricing: release_id={release_id}, condition_grade={condition_grade}")
+        
+        # Map condition grade to Discogs conditions
+        condition_map = {
+            5: ["Mint (M)", "Near Mint (NM or M-)"],
+            4: ["Very Good Plus (VG+)"],
+            3: ["Very Good (VG)"],
+            2: ["Good (G)", "Good Plus (G+)"],
+            1: ["Fair (F)", "Poor (P)"]
+        }
+        
+        target_conditions = condition_map.get(condition_grade, [])
+        print(f"🔴 DEBUG condition mapping: condition_grade={condition_grade} -> target_conditions={target_conditions}")
+        if not target_conditions:
+            return None
+            
+        # FIXED: Use POST request for marketplace search
+        endpoint_url = f"{self.base_url}/marketplace/search"
+        
+        # Prepare POST data
+        post_data = {
+            'release_id': release_id,
+            'per_page': 50,
+            'currency': 'USD',
+            'sort': 'price',
+            'sort_order': 'asc'
+        }
+        
+        # Log the API call
+        api_title = f"🎯 Discogs Marketplace API (POST): {endpoint_url}"
+        start_time = time.time()
+        self._log_api_call(api_title, {
+            'endpoint': endpoint_url,
+            'method': 'POST',
+            'data': post_data,
+            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
+        })
+
+        # FIXED: Use POST request instead of GET
+        response = requests.post(
+            endpoint_url,
+            json=post_data,  # Send as JSON in POST body
             headers=self.headers,
             timeout=15
         )
@@ -4254,32 +4425,61 @@ class DiscogsHandler:
         duration = round(time.time() - start_time, 2)
         
         if response.status_code != 200:
-            return self._create_no_results_response(query)
+            error_data = {'error': f'Status {response.status_code}', 'response_text': response.text}
+            self._log_api_response(api_title, error_data, duration)
+            return None
         
-        release_data = response.json()
+        data = response.json()
         
-        # Log RAW DISCOGS RELEASE PAYLOAD
-        self._log_api_response(api_title, release_data, duration)
+        # Log RAW DISCOGS MARKETPLACE PAYLOAD
+        self._log_api_response(api_title, data, duration)
         
-        # Extract pricing information from release data
-        lowest_price = self._parse_price(release_data.get('lowest_price'))
-        estimated_price = self._parse_price(release_data.get('estimated_price'))
-        image_url = self._extract_image_from_release(release_data)
+        # Get all listings and filter by condition client-side
+        listings = data.get('listings', [])
         
-        if lowest_price is not None or estimated_price is not None:
-            result = {
-                'discogs_lowest_price': lowest_price,
-                'discogs_estimated_price': estimated_price,
-                'image_url': image_url,
-                'release_data': release_data,
-                'success': True
-            }
-            return result
-        else:
-            result = self._create_no_results_response(query)
-            result['image_url'] = image_url
-            result['release_data'] = release_data
-            return result
+        # Filter listings to only those matching our target conditions
+        matching_listings = []
+        for listing in listings:
+            listing_condition = listing.get('condition', '')
+            if listing_condition in target_conditions:
+                matching_listings.append(listing)
+        
+        print(f"🔴 DEBUG condition filtering: {len(listings)} total listings, {len(matching_listings)} match condition {target_conditions}")
+        
+        if matching_listings:
+            prices = []
+            for listing in matching_listings:
+                price_data = listing.get('price')
+                if price_data:
+                    price = self._parse_price(price_data)
+                    if price:
+                        prices.append(price)
+            
+            if prices:
+                prices.sort()
+                n = len(prices)
+                
+                # Calculate pricing statistics
+                lowest = prices[0]
+                highest = prices[-1]
+                
+                if n % 2 == 1:
+                    median = prices[n//2]
+                else:
+                    median = (prices[n//2 - 1] + prices[n//2]) / 2
+                
+                return {
+                    'discogs_lowest_price': lowest,
+                    'discogs_median_price': median,
+                    'discogs_highest_price': highest,
+                    'discogs_listings_count': n,
+                    'condition_specific': True,
+                    'conditions_matched': target_conditions,
+                    'total_listings_found': len(listings),
+                    'matching_listings_count': len(matching_listings)
+                }
+        
+        return None
 
     def get_simple_search_results(self, query: str, filename_base: str = None):
         """Get simple search results with basic info - NO EXTRA API CALLS"""
@@ -4379,31 +4579,48 @@ class DiscogsHandler:
             'error': 'No pricing data found'
         }
     
-    def _parse_price(self, price_str):
-        """Parse price string to float"""
-        if not price_str:
+    def _parse_price(self, price_data):
+        """Parse price from Discogs listing data"""
+        if not price_data:
             return None
         
-        cleaned = re.sub(r'[^\d.,]', '', str(price_str))
-        
-        if not cleaned:
-            return None
-        
-        if ',' in cleaned and '.' in cleaned:
-            cleaned = cleaned.replace(',', '')
-        elif ',' in cleaned:
-            parts = cleaned.split(',')
-            if len(parts) == 2 and len(parts[1]) <= 2:
-                cleaned = cleaned.replace(',', '.')
-            else:
-                cleaned = cleaned.replace(',', '')
-        
-        cleaned = re.sub(r'[^\d.]', '', cleaned)
-        
-        if cleaned:
-            price_float = float(cleaned)
+        # Handle different price formats from Discogs API
+        if isinstance(price_data, (int, float)):
+            price_float = float(price_data)
             if 0.1 <= price_float <= 10000:
                 return round(price_float, 2)
+            return None
+        
+        if isinstance(price_data, dict):
+            # Try different keys that might contain the price
+            for key in ['value', 'amount', 'price']:
+                if key in price_data:
+                    return self._parse_price(price_data[key])
+            return None
+        
+        if isinstance(price_data, str):
+            # Clean string price
+            cleaned = re.sub(r'[^\d.,]', '', str(price_data))
+            
+            if not cleaned:
+                return None
+            
+            if ',' in cleaned and '.' in cleaned:
+                cleaned = cleaned.replace(',', '')
+            elif ',' in cleaned:
+                parts = cleaned.split(',')
+                if len(parts) == 2 and len(parts[1]) <= 2:
+                    cleaned = cleaned.replace(',', '.')
+                else:
+                    cleaned = cleaned.replace(',', '')
+            
+            cleaned = re.sub(r'[^\d.]', '', cleaned)
+            
+            if cleaned:
+                price_float = float(cleaned)
+                if 0.1 <= price_float <= 10000:
+                    return round(price_float, 2)
+        
         return None
     
     def _extract_artist_from_result(self, result):
@@ -4616,6 +4833,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import re
+import math
 
 class DisplayHandler:
     def __init__(self, youtube_handler=None):
@@ -4770,8 +4988,15 @@ class DisplayHandler:
             st.session_state.selected_record = None
             st.rerun()
 
-    def render_edit_section(self, selected_record, add_callback, update_callback, last_condition="5", discogs_handler=None, ebay_handler=None):
+    def render_edit_section(self, selected_record, add_callback, update_callback, last_condition, discogs_handler=None, ebay_handler=None):
         """Render the edit properties section with YouTube URL functionality"""
+        
+        print(f"ARJAN last_condition render_edit_section = {last_condition}")
+
+        if last_condition is None:
+            raise Exception("last_condition parameter is required but was None")
+        
+
         st.subheader("Edit Properties")
         
         record_data = selected_record['data']
@@ -4781,11 +5006,22 @@ class DisplayHandler:
             release_id = record_data.get('discogs_id')
             if release_id and discogs_handler:
                 with st.spinner("Fetching pricing data..."):
-                    pricing_data = discogs_handler.get_release_data(str(release_id), "selected_record", None)
-                    if pricing_data and pricing_data.get('success'):
+                    # USE RELEASE STATS INSTEAD OF MARKETPLACE
+                    pricing_data = discogs_handler.get_release_statistics_pricing(str(release_id))
+                    if pricing_data:
                         record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
-                        record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
-                        record_data['image_url'] = pricing_data.get('image_url') or record_data.get('image_url', '')
+                        record_data['discogs_estimated_price'] = pricing_data.get('discogs_median_price')
+                        record_data['discogs_condition_specific'] = False  # Stats don't support condition filtering
+                        record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
+                    else:
+                        # Fallback to get_release_data if no stats data found
+                        pricing_data = discogs_handler.get_release_data(str(release_id), "selected_record", int(last_condition))
+                        if pricing_data and pricing_data.get('success'):
+                            record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
+                            record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
+                            record_data['image_url'] = pricing_data.get('image_url') or record_data.get('image_url', '')
+                            record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
+                            record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
             
             # Fetch eBay pricing separately
             artist = record_data.get('artist', '')
@@ -4801,6 +5037,8 @@ class DisplayHandler:
                     record_data['ebay_search_url'] = ebay_pricing.get('ebay_search_url')
                     record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)
                     record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)
+                    record_data['ebay_lowest_item_details'] = ebay_pricing.get('ebay_lowest_item_details')
+                    record_data['ebay_lowest_item_url'] = ebay_pricing.get('ebay_lowest_item_url')
             
             record_data['pricing_fetched'] = True
         
@@ -4868,7 +5106,7 @@ class DisplayHandler:
         
         # Show pricing information for Discogs records - BOTH Discogs and eBay pricing
         if selected_record['type'] == 'discogs':
-            self._render_pricing_information(record_data)
+            self._render_pricing_information(record_data, discogs_handler, ebay_handler)
         
         # Show YouTube search results if available (auto-triggered when record was selected)
         if selected_record['type'] == 'discogs' and self.youtube_handler and self.youtube_handler.is_enabled():
@@ -4955,7 +5193,7 @@ class DisplayHandler:
                     else:
                         st.error("❌ Failed to update record")
 
-    def _render_pricing_information(self, record_data):
+    def _render_pricing_information(self, record_data, discogs_handler=None, ebay_handler=None):
         """Render BOTH Discogs and eBay pricing information in edit section"""
         st.subheader("💰 Pricing Information")
         
@@ -4964,6 +5202,8 @@ class DisplayHandler:
         
         discogs_lowest = record_data.get('discogs_lowest_price')
         discogs_estimated = record_data.get('discogs_estimated_price')
+        discogs_condition_specific = record_data.get('discogs_condition_specific', False)
+        discogs_listings_count = record_data.get('discogs_listings_count', 0)
         
         if discogs_lowest is not None or discogs_estimated is not None:
             col1, col2 = st.columns(2)
@@ -4971,8 +5211,33 @@ class DisplayHandler:
                 st.metric("Lowest Price", f"${discogs_lowest:.2f}" if discogs_lowest else "N/A")
             with col2:
                 st.metric("Estimated Price", f"${discogs_estimated:.2f}" if discogs_estimated else "N/A")
+            
+            if discogs_condition_specific:
+                st.success(f"✅ Condition-specific pricing ({discogs_listings_count} listings)")
+            else:
+                st.info(f"📊 General pricing data ({discogs_listings_count} listings)")
         else:
             st.write("No Discogs pricing data available")
+        
+        # DISCOGS API LOGS - RIGHT AFTER DISCOGS PRICING
+        if 'api_details' in st.session_state:
+            discogs_apis = [title for title in st.session_state.api_details.keys() if 'Discogs' in title]
+            if discogs_apis:
+                with st.expander("📡 Discogs API Requests & Responses", expanded=False):
+                    for api_title in discogs_apis:
+                        if api_title in st.session_state.api_details:
+                            details = st.session_state.api_details[api_title]
+                            duration = details.get('duration', 'N/A')
+                            display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
+                            with st.expander(display_title, expanded=False):
+                                request_data = details.get('raw_request', details.get('request', {}))
+                                st.write("**Request:**")
+                                st.json(request_data)
+                                
+                                response_data = details.get('raw_response', details.get('response', {}))
+                                if response_data:
+                                    st.write("**Response:**")
+                                    st.json(response_data)
         
         st.divider()
         
@@ -4985,9 +5250,10 @@ class DisplayHandler:
         ebay_max = record_data.get('ebay_highest_price')
         ebay_low_shipping = record_data.get('ebay_low_shipping')
         ebay_low_total = record_data.get('ebay_low_total')
-        ebay_search_url = record_data.get('ebay_search_url')
         ebay_listings_count = record_data.get('ebay_listings_count', 0)
         ebay_total_items_found = record_data.get('ebay_total_items_found', 0)
+        ebay_lowest_item_details = record_data.get('ebay_lowest_item_details')
+        ebay_lowest_item_url = record_data.get('ebay_lowest_item_url')
         
         # Show eBay pricing metrics
         if ebay_median is not None:
@@ -5001,13 +5267,192 @@ class DisplayHandler:
             
             st.write(f"**Listings with prices:** {ebay_listings_count}")
             st.write(f"**Total items found:** {ebay_total_items_found}")
+            
+            # Show eBay API requests/responses IMMEDIATELY after eBay pricing section
+            if 'api_details' in st.session_state:
+                ebay_apis = [title for title in st.session_state.api_details.keys() if 'eBay' in title or 'eBay' in title]
+                if ebay_apis:
+                    with st.expander("📡 eBay API Requests & Responses", expanded=False):
+                        for api_title in ebay_apis:
+                            if api_title in st.session_state.api_details:
+                                details = st.session_state.api_details[api_title]
+                                duration = details.get('duration', 'N/A')
+                                display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
+                                with st.expander(display_title, expanded=False):
+                                    request_data = details.get('raw_request', details.get('request', {}))
+                                    st.write("**Request:**")
+                                    st.json(request_data)
+                                    
+                                    response_data = details.get('raw_response', details.get('response', {}))
+                                    if response_data:
+                                        st.write("**Response:**")
+                                        st.json(response_data)
+            
+            # Show cheapest listing details in expandable section
+            if ebay_lowest_item_details:
+                with st.expander("📋 Cheapest eBay Listing Details", expanded=False):
+                    self._render_ebay_listing_details(ebay_lowest_item_details, ebay_lowest_item_url)
         
         else:
             st.write("No eBay pricing data available")
         
-        # Add footnote for eBay link
-        if ebay_search_url:
-            st.caption(f"*[Click to search on eBay]({ebay_search_url})")
+        # Store Price Calculation Section
+        st.divider()
+        st.write("### 🏪 Store Price Calculation")
+        
+        # Calculate store price using current configuration
+        store_price = self._calculate_store_price(
+            record_data.get('discogs_lowest_price'),
+            record_data.get('discogs_estimated_price')
+        )
+        
+        # Get current configuration for display
+        lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
+        estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
+        minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
+        
+        # Show calculation breakdown
+        col1, col2 = st.columns(2)
+        with col1:
+            if record_data.get('discogs_lowest_price'):
+                lowest_calc = record_data['discogs_lowest_price'] * lowest_multiplier
+                st.write(f"**Lowest × {lowest_multiplier}:** ${record_data['discogs_lowest_price']:.2f} × {lowest_multiplier} = ${lowest_calc:.2f}")
+            
+            if record_data.get('discogs_estimated_price'):
+                estimated_calc = record_data['discogs_estimated_price'] * estimated_multiplier
+                st.write(f"**Estimated × {estimated_multiplier}:** ${record_data['discogs_estimated_price']:.2f} × {estimated_multiplier} = ${estimated_calc:.2f}")
+            
+            st.write(f"**Minimum Price:** ${minimum_price:.2f}")
+        
+        with col2:
+            st.metric("Calculated Store Price", f"${store_price:.2f}", 
+                     help="Based on highest of: (Lowest × Multiplier), (Estimated × Multiplier), or Minimum Price")
+
+    def _render_ebay_listing_details(self, item_details, item_url):
+        """Render detailed information about the cheapest eBay listing"""
+        if not item_details:
+            st.write("No detailed listing information available")
+            return
+        
+        # Display the listing URL
+        if item_url:
+            st.write(f"**Listing URL:** [View on eBay]({item_url})")
+            st.divider()
+        
+        # Extract item specifics
+        item_specifics = item_details.get('itemSpecifics', {}).get('nameValuePairs', [])
+        
+        # Extract condition information
+        condition = item_details.get('condition', '')
+        condition_id = item_details.get('conditionId', '')
+        
+        # Extract description/short description
+        short_description = item_details.get('shortDescription', '')
+        description = item_details.get('description', '')
+        
+        # Extract shipping information
+        shipping_options = item_details.get('shippingOptions', [])
+        
+        # Display item specifics
+        st.write("**Item Specifics:**")
+        if item_specifics:
+            for specific in item_specifics:
+                name = specific.get('name', '')
+                value = specific.get('value', '')
+                if name and value:
+                    st.write(f"- **{name}:** {value}")
+        else:
+            st.write("No item specifics available")
+        
+        st.divider()
+        
+        # Display condition information
+        st.write("**Condition Information:**")
+        if condition:
+            st.write(f"- **Condition:** {condition}")
+        if condition_id:
+            st.write(f"- **Condition ID:** {condition_id}")
+        
+        # Look for grading information in item specifics or description
+        grading_found = False
+        for specific in item_specifics:
+            name = specific.get('name', '').lower()
+            value = specific.get('value', '')
+            if 'grade' in name or 'condition' in name:
+                st.write(f"- **{specific.get('name', '')}:** {value}")
+                grading_found = True
+        
+        if not grading_found:
+            st.write("No specific grading information available")
+        
+        st.divider()
+        
+        # Display description
+        st.write("**Description:**")
+        if short_description:
+            # Clean HTML tags if present
+            clean_desc = re.sub('<[^<]+?>', '', short_description)
+            st.write(clean_desc[:500] + "..." if len(clean_desc) > 500 else clean_desc)
+        elif description:
+            # Clean HTML tags if present
+            clean_desc = re.sub('<[^<]+?>', '', description)
+            st.write(clean_desc[:500] + "..." if len(clean_desc) > 500 else clean_desc)
+        else:
+            st.write("No description available")
+        
+        st.divider()
+        
+        # Display shipping information
+        st.write("**Shipping Options:**")
+        if shipping_options:
+            for option in shipping_options[:3]:  # Show first 3 options
+                cost_type = option.get('shippingCostType', '')
+                cost = option.get('shippingCost', {}).get('value', 'N/A')
+                service = option.get('shippingServiceCode', '')
+                st.write(f"- **{service}:** {cost_type} - ${cost}" if cost != 'N/A' else f"- **{service}:** {cost_type}")
+        else:
+            st.write("No shipping information available")
+
+    def _calculate_store_price(self, discogs_lowest_price, discogs_estimated_price):
+        """Calculate store price using configurable parameters"""
+        # Get current configuration
+        lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
+        estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
+        minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
+        
+        candidates = []
+        
+        if discogs_lowest_price and discogs_lowest_price > 0:
+            candidates.append(discogs_lowest_price * lowest_multiplier)
+        
+        if discogs_estimated_price and discogs_estimated_price > 0:
+            candidates.append(discogs_estimated_price * estimated_multiplier)
+        
+        if candidates:
+            raw_price = max(candidates)
+            raw_price = max(raw_price, minimum_price)
+        else:
+            raw_price = minimum_price
+        
+        # Round to nearest .49 or .99
+        store_price = self._round_to_49_or_99(raw_price)
+        
+        return store_price
+
+    def _round_to_49_or_99(self, price):
+        """Round to nearest .49 or .99"""
+        if price <= 0:
+            return 0.0
+        
+        base_price = math.floor(price)
+        decimal_part = price - base_price
+        
+        if decimal_part < 0.25:
+            return base_price + 0.49
+        elif decimal_part < 0.75:
+            return base_price + 0.49
+        else:
+            return base_price + 0.99
 
     def _calculate_file_at(self, artist, genre):
         """Calculate file_at value for an artist and genre"""
@@ -6051,6 +6496,7 @@ class PriceHandler:
 
 FILE: inventory-manager/src/handlers/record_operations_handler.py
 --------------------------------------------------
+# FILE: inventory-manager/src/handlers/record_operations_handler.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -6067,7 +6513,14 @@ class RecordOperationsHandler:
         self.ebay_handler = ebay_handler
     
     def add_inventory_record(self, record_data, condition, genre, search_term):
-        """Add inventory record to database with Discogs data - SINGLE API CALL"""
+        """Add inventory record to database with condition-specific pricing"""
+        if condition is None:
+            raise Exception("condition parameter is required but was None")
+        if genre is None:
+            raise Exception("genre parameter is required but was None")
+            
+        print(f"🔴 DEBUG add_inventory_record: condition={condition}, genre={genre}")
+        
         release_id = record_data.get('discogs_id')
         
         if not release_id:
@@ -6077,21 +6530,44 @@ class RecordOperationsHandler:
         # Get format from session state or default
         format_selected = st.session_state.get('format_select', 'Vinyl')
         
-        # Get Discogs pricing information - SINGLE API CALL
+        # Get Discogs pricing information - USE MARKETPLACE SEARCH WITH CONDITION FILTERING
+        condition_grade = int(condition)
+        condition_specific_data = None
+        
+        print(f"🔴 DEBUG calling get_condition_specific_pricing with condition_grade={condition_grade}")
+        
         if self.discogs_handler:
-            # Note: The actual API call logging is now handled within discogs_handler
-            pricing_data = self.discogs_handler.get_release_data(
-                str(release_id), 
-                search_term, 
-                f"release_{release_id}"
-            )
+            # Use marketplace search with condition filtering
+            with st.spinner(f"Fetching condition-specific pricing (Grade {condition})..."):
+                condition_specific_data = self.discogs_handler.get_condition_specific_pricing(
+                    str(release_id), 
+                    condition_grade
+                )
+            
+            print(f"🔴 DEBUG condition_specific_data result: {condition_specific_data}")
+            
+            if condition_specific_data:
+                # Use condition-specific data from marketplace search
+                pricing_data = {
+                    'discogs_lowest_price': condition_specific_data.get('discogs_lowest_price'),
+                    'discogs_estimated_price': condition_specific_data.get('discogs_median_price'),
+                    'image_url': '',
+                    'success': True,
+                    'condition_specific': True,
+                    'discogs_listings_count': condition_specific_data.get('discogs_listings_count', 0)
+                }
+            else:
+                # Fall back to basic release data if no condition-specific data found
+                print(f"🔴 DEBUG no condition-specific data found, using basic release data")
+                pricing_data = {
+                    'discogs_lowest_price': None,
+                    'discogs_estimated_price': None,
+                    'image_url': '',
+                    'success': False,
+                    'condition_specific': False
+                }
         else:
             st.error("Discogs handler not available")
-            return False, None
-        
-        if not pricing_data or not pricing_data.get('success'):
-            error_msg = pricing_data.get('error', 'Unable to get pricing data') if pricing_data else 'No pricing data returned'
-            st.error(f"Failed to get Discogs pricing: {error_msg}")
             return False, None
         
         # Extract result information - use the edited artist name if available
@@ -6102,11 +6578,20 @@ class RecordOperationsHandler:
         discogs_genre = record_data.get('genre', '')  # Store the original Discogs genre
         youtube_url = record_data.get('youtube_url', '')  # Get YouTube URL from record data
         
-        # Get eBay pricing if handler is available - use the edited artist name
+        # Get eBay pricing if handler is available - USE CONDITION-SPECIFIC
         ebay_pricing = None
         if self.ebay_handler and artist and title:
-            # Note: The actual API call logging is now handled within ebay_handler
-            ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
+            with st.spinner("Fetching condition-specific eBay pricing..."):
+                ebay_pricing = self.ebay_handler.get_condition_specific_ebay_pricing(
+                    artist, 
+                    title, 
+                    condition_grade
+                )
+            
+            # Fall back to general eBay pricing if condition-specific has few listings
+            if not ebay_pricing or ebay_pricing.get('ebay_listings_count', 0) < 3:
+                with st.spinner("Falling back to general eBay pricing..."):
+                    ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
         
         # Get genre_id for the genre
         genre_id = None
@@ -6130,6 +6615,8 @@ class RecordOperationsHandler:
         # Store pricing data in record_data for display
         record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
         record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
+        record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
+        record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
         
         # CALCULATE STORE PRICE USING CONFIGURABLE PARAMETERS
         store_price = self._calculate_store_price(
@@ -6142,8 +6629,10 @@ class RecordOperationsHandler:
             record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
             record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
             record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
-            record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)  # Store eBay listings count
-            record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)  # Store eBay total items found
+            record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)
+            record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)
+            record_data['ebay_condition_specific'] = ebay_pricing.get('condition_specific', False)
+            record_data['ebay_condition_grade'] = ebay_pricing.get('condition_grade')
         
         # Save to database - include calculated store price
         result_data = {
@@ -6245,6 +6734,13 @@ class RecordOperationsHandler:
 
     def update_database_record(self, record_data, condition, genre):
         """Update database record"""
+        if condition is None:
+            raise Exception("condition parameter is required but was None")
+        if genre is None:
+            raise Exception("genre parameter is required but was None")
+            
+        print(f"🔴 DEBUG update_database_record: condition={condition}, genre={genre}")
+        
         record_id = record_data['id']
         
         # Get genre_id for the genre
@@ -6711,7 +7207,17 @@ class EbayHandler:
         })
 
         resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
-        resp.raise_for_status()
+        
+        # Handle API errors gracefully
+        if resp.status_code != 200:
+            duration = round(time.time() - start_time, 2)
+            error_data = {
+                'error': f'Status {resp.status_code}',
+                'response_text': resp.text
+            }
+            self._log_api_response(api_title, error_data, duration)
+            return None
+            
         data = resp.json()
 
         duration = round(time.time() - start_time, 2)
@@ -6723,6 +7229,7 @@ class EbayHandler:
         
         listings = []
         cheapest_item_url = None
+        cheapest_item_id = None
         
         # Get shipping cost from config for CALC items
         shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
@@ -6755,13 +7262,16 @@ class EbayHandler:
                     total_cost = base_price  # For FREE shipping
                 
                 item_url = item.get("itemWebUrl", "")
+                item_id = item.get("itemId", "")
                 
                 listings.append({
                     'base_price': base_price,
                     'shipping_type': shipping_type,
                     'shipping_cost': shipping_cost_value,
                     'total_cost': total_cost,
-                    'item_url': item_url
+                    'item_url': item_url,
+                    'item_id': item_id,
+                    'item_data': item  # Store full item data for later use
                 })
 
         if listings:
@@ -6769,6 +7279,10 @@ class EbayHandler:
             listings.sort(key=lambda x: x['total_cost'])
             cheapest_listing = listings[0]
             cheapest_item_url = cheapest_listing['item_url']
+            cheapest_item_id = cheapest_listing['item_id']
+            
+            # Get detailed item information for the cheapest listing
+            cheapest_item_details = self.get_item_details(cheapest_item_id) if cheapest_item_id else None
             
             # Calculate median base price
             base_prices = [listing['base_price'] for listing in listings]
@@ -6796,7 +7310,9 @@ class EbayHandler:
                 'ebay_low_shipping': round(cheapest_listing['shipping_cost'] or 0, 2),
                 'ebay_low_total': round(cheapest_listing['total_cost'], 2),
                 'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}",
-                'ebay_lowest_item_url': cheapest_item_url  # URL of the actual cheapest item
+                'ebay_lowest_item_url': cheapest_item_url,  # URL of the actual cheapest item
+                'ebay_lowest_item_id': cheapest_item_id,  # ID of the cheapest item
+                'ebay_lowest_item_details': cheapest_item_details  # Detailed info for cheapest item
             }
             
             return result
@@ -6810,7 +7326,178 @@ class EbayHandler:
                 'ebay_low_shipping': None,
                 'ebay_low_total': None,
                 'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}",
-                'ebay_lowest_item_url': None
+                'ebay_lowest_item_url': None,
+                'ebay_lowest_item_id': None,
+                'ebay_lowest_item_details': None
+            }
+
+    def get_condition_specific_ebay_pricing(self, artist, title, condition_grade, category_id="176985", exclude_foreign=True):
+        """Get eBay pricing filtered by specific condition grade"""
+        if not self.get_access_token():
+            return None
+
+        headers = {"Authorization": f"Bearer {self.token}"}
+        query = f"{artist} {title}".strip()
+        
+        # Map condition grade to eBay condition IDs
+        condition_map = {
+            5: ["1000", "3000"],  # New or Used-Very Good
+            4: ["3000"],          # Used-Very Good
+            3: ["3000", "2500"],  # Used-Very Good or Used-Good
+            2: ["2500"],          # Used-Good
+            1: ["2000"]           # Used-Acceptable
+        }
+        
+        condition_ids = condition_map.get(condition_grade, ["3000"])  # Default to Used-Very Good
+        
+        params = {
+            "q": query, 
+            "limit": 50, 
+            "category_ids": category_id,
+            "filter": f"conditions:{'|'.join(condition_ids)}",  # API-LEVEL CONDITION FILTERING
+            "fieldgroups": "EXTENDED"
+        }
+
+        # Log condition-specific search API call
+        api_title = f"🎯 eBay Condition-Specific API: {self.EBAY_SEARCH_URL}?q={query}&condition={condition_grade}"
+        start_time = time.time()
+        self._log_api_call(api_title, {
+            'endpoint': self.EBAY_SEARCH_URL,
+            'request': {
+                'params': params,
+                'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
+            }
+        })
+
+        resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
+        
+        # Handle API errors gracefully
+        if resp.status_code != 200:
+            duration = round(time.time() - start_time, 2)
+            error_data = {
+                'error': f'Status {resp.status_code}',
+                'response_text': resp.text
+            }
+            self._log_api_response(api_title, error_data, duration)
+            return None
+            
+        data = resp.json()
+
+        duration = round(time.time() - start_time, 2)
+
+        # Log the ACTUAL raw response from eBay
+        self._log_api_response(api_title, data, duration)
+
+        items = data.get("itemSummaries", [])
+        
+        listings = []
+        cheapest_item_url = None
+        cheapest_item_id = None
+        
+        # Get shipping cost from config for CALC items
+        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        try:
+            shipping_cost = float(shipping_cost)
+        except (ValueError, TypeError):
+            shipping_cost = 5.72
+        
+        for item in items:
+            if exclude_foreign:
+                marketplace_id = item.get("listingMarketplaceId")
+                if marketplace_id and marketplace_id != "EBAY_US":
+                    continue
+
+            price_data = item.get("price", {})
+            if "value" in price_data:
+                base_price = float(price_data["value"])
+                
+                # Extract shipping cost from the item data
+                shipping_info = self._extract_shipping_info(item)
+                shipping_type = shipping_info['type']
+                shipping_cost_value = shipping_info['cost']
+                
+                # Calculate total cost (base + shipping)
+                if shipping_type == 'CALC':
+                    total_cost = base_price + shipping_cost
+                elif shipping_cost_value is not None:
+                    total_cost = base_price + shipping_cost_value
+                else:
+                    total_cost = base_price  # For FREE shipping
+                
+                item_url = item.get("itemWebUrl", "")
+                item_id = item.get("itemId", "")
+                
+                listings.append({
+                    'base_price': base_price,
+                    'shipping_type': shipping_type,
+                    'shipping_cost': shipping_cost_value,
+                    'total_cost': total_cost,
+                    'item_url': item_url,
+                    'item_id': item_id,
+                    'item_data': item
+                })
+
+        if listings:
+            # Sort by total cost to find the cheapest listing
+            listings.sort(key=lambda x: x['total_cost'])
+            cheapest_listing = listings[0]
+            cheapest_item_url = cheapest_listing['item_url']
+            cheapest_item_id = cheapest_listing['item_id']
+            
+            # Get detailed item information for the cheapest listing
+            cheapest_item_details = self.get_item_details(cheapest_item_id) if cheapest_item_id else None
+            
+            # Calculate median base price
+            base_prices = [listing['base_price'] for listing in listings]
+            base_prices.sort()
+            n = len(base_prices)
+            if n % 2 == 1:
+                median_base = base_prices[n//2]
+            else:
+                median_base = (base_prices[n//2 - 1] + base_prices[n//2]) / 2
+            
+            # Calculate median total cost
+            total_costs = [listing['total_cost'] for listing in listings]
+            total_costs.sort()
+            if n % 2 == 1:
+                median_total = total_costs[n//2]
+            else:
+                median_total = (total_costs[n//2 - 1] + total_costs[n//2]) / 2
+
+            result = {
+                'ebay_median_price': round(median_base, 2),
+                'ebay_lowest_price': round(cheapest_listing['base_price'], 2),
+                'ebay_highest_price': max(base_prices),
+                'ebay_listings_count': len(listings),
+                'ebay_total_items_found': len(items),
+                'ebay_low_shipping': round(cheapest_listing['shipping_cost'] or 0, 2),
+                'ebay_low_total': round(cheapest_listing['total_cost'], 2),
+                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}",
+                'ebay_lowest_item_url': cheapest_item_url,
+                'ebay_lowest_item_id': cheapest_item_id,
+                'ebay_lowest_item_details': cheapest_item_details,
+                'condition_specific': True,
+                'condition_grade': condition_grade,
+                'condition_ids': condition_ids
+            }
+            
+            return result
+        else:
+            return {
+                'ebay_median_price': None,
+                'ebay_lowest_price': None,
+                'ebay_highest_price': None,
+                'ebay_listings_count': 0,
+                'ebay_total_items_found': len(items),
+                'ebay_low_shipping': None,
+                'ebay_low_total': None,
+                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={requests.utils.quote(query)}",
+                'ebay_lowest_item_url': None,
+                'ebay_lowest_item_id': None,
+                'ebay_lowest_item_details': None,
+                'condition_specific': True,
+                'condition_grade': condition_grade,
+                'condition_ids': condition_ids
             }
 
     def _extract_shipping_info(self, item):

@@ -38,6 +38,9 @@ class InventoryTab:
         
         # Inventory Controls (NO EXPANDER)
         self._render_unified_operations()
+        
+        # API Requests & Responses - Show immediately when available
+        self._render_api_logs_section()
 
     def _render_unified_operations(self):
         """Render the unified search/add/checkout operations"""
@@ -66,7 +69,22 @@ class InventoryTab:
                 key="search_type_radio"
             )
         
-        # Search input and button - button moved under input
+        # Condition dropdown ABOVE search now that it's used in search
+        col1, col2 = st.columns(2)
+        with col1:
+            # Use the last condition as default, or condition 5 if no last condition
+            condition_index = ["1", "2", "3", "4", "5"].index(st.session_state.last_condition) if st.session_state.last_condition in ["1", "2", "3", "4", "5"] else 4
+            condition = st.selectbox(
+                "Condition:",
+                options=["1", "2", "3", "4", "5"],
+                index=condition_index,
+                key="condition_search",
+                help="Condition grade (1=Poor, 5=Mint) - used for condition-specific pricing"
+            )
+            # Store the condition for use in pricing
+            st.session_state.last_condition = condition
+        
+        # Search input and button
         search_input = st.text_input(
             "Search:",
             placeholder="Enter barcode, artist, or title...",
@@ -204,6 +222,27 @@ class InventoryTab:
         # Since we removed the status column, checkout is not functional anymore
         st.warning("Checkout functionality is not available. The status column has been removed from the database.")
         return 0
+
+    def _render_api_logs_section(self):
+        """Render API logs section immediately when available"""
+        if 'api_logs' in st.session_state and st.session_state.api_logs:
+            with st.expander("📡 API Requests & Responses", expanded=False):
+                for api_title in st.session_state.api_logs:
+                    if api_title in st.session_state.api_details:
+                        details = st.session_state.api_details[api_title]
+                        duration = details.get('duration', 'N/A')
+                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
+                        with st.expander(display_title, expanded=False):
+                            # FIX: Check if raw_request exists before accessing it
+                            request_data = details.get('raw_request', details.get('request', {}))
+                            st.write("**Request:**")
+                            st.json(request_data)
+                            
+                            # FIX: Check if raw_response exists before accessing it
+                            response_data = details.get('raw_response', details.get('response', {}))
+                            if response_data:
+                                st.write("**Response:**")
+                                st.json(response_data)
 
     def _get_database_stats_direct(self) -> dict:
         """Get database statistics directly from records table"""

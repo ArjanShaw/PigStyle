@@ -157,8 +157,15 @@ class DisplayHandler:
             st.session_state.selected_record = None
             st.rerun()
 
-    def render_edit_section(self, selected_record, add_callback, update_callback, last_condition="5", discogs_handler=None, ebay_handler=None):
+    def render_edit_section(self, selected_record, add_callback, update_callback, last_condition, discogs_handler=None, ebay_handler=None):
         """Render the edit properties section with YouTube URL functionality"""
+        
+        print(f"ARJAN last_condition render_edit_section = {last_condition}")
+
+        if last_condition is None:
+            raise Exception("last_condition parameter is required but was None")
+        
+
         st.subheader("Edit Properties")
         
         record_data = selected_record['data']
@@ -168,11 +175,23 @@ class DisplayHandler:
             release_id = record_data.get('discogs_id')
             if release_id and discogs_handler:
                 with st.spinner("Fetching pricing data..."):
-                    pricing_data = discogs_handler.get_release_data(str(release_id), "selected_record", None)
-                    if pricing_data and pricing_data.get('success'):
+                    # USE MARKETPLACE SEARCH WITH CONDITION FILTERING
+                    pricing_data = discogs_handler.get_release_statistics_pricing(str(release_id), int(last_condition))
+                    if pricing_data:
                         record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
-                        record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
-                        record_data['image_url'] = pricing_data.get('image_url') or record_data.get('image_url', '')
+                        record_data['discogs_estimated_price'] = pricing_data.get('discogs_median_price')
+                        record_data['discogs_highest_price'] = pricing_data.get('discogs_highest_price')
+                        record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
+                        record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
+                    else:
+                        # Fallback to get_release_data if no marketplace data found
+                        pricing_data = discogs_handler.get_release_data(str(release_id), "selected_record", int(last_condition))
+                        if pricing_data and pricing_data.get('success'):
+                            record_data['discogs_lowest_price'] = pricing_data.get('discogs_lowest_price')
+                            record_data['discogs_estimated_price'] = pricing_data.get('discogs_estimated_price')
+                            record_data['image_url'] = pricing_data.get('image_url') or record_data.get('image_url', '')
+                            record_data['discogs_condition_specific'] = pricing_data.get('condition_specific', False)
+                            record_data['discogs_listings_count'] = pricing_data.get('discogs_listings_count', 0)
             
             # Fetch eBay pricing separately
             artist = record_data.get('artist', '')
@@ -353,35 +372,45 @@ class DisplayHandler:
         
         discogs_lowest = record_data.get('discogs_lowest_price')
         discogs_estimated = record_data.get('discogs_estimated_price')
+        discogs_highest = record_data.get('discogs_highest_price')
+        discogs_condition_specific = record_data.get('discogs_condition_specific', False)
+        discogs_listings_count = record_data.get('discogs_listings_count', 0)
         
         if discogs_lowest is not None or discogs_estimated is not None:
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("Lowest Price", f"${discogs_lowest:.2f}" if discogs_lowest else "N/A")
             with col2:
-                st.metric("Estimated Price", f"${discogs_estimated:.2f}" if discogs_estimated else "N/A")
+                st.metric("Median Price", f"${discogs_estimated:.2f}" if discogs_estimated else "N/A")
+            with col3:
+                st.metric("Highest Price", f"${discogs_highest:.2f}" if discogs_highest else "N/A")
             
-            # Show Discogs API requests/responses
-            if 'api_details' in st.session_state:
-                discogs_apis = [title for title in st.session_state.api_details.keys() if 'Discogs' in title]
-                if discogs_apis:
-                    with st.expander("📡 Discogs API Requests & Responses", expanded=False):
-                        for api_title in discogs_apis:
-                            if api_title in st.session_state.api_details:
-                                details = st.session_state.api_details[api_title]
-                                duration = details.get('duration', 'N/A')
-                                display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
-                                with st.expander(display_title, expanded=False):
-                                    request_data = details.get('raw_request', details.get('request', {}))
-                                    st.write("**Request:**")
-                                    st.json(request_data)
-                                    
-                                    response_data = details.get('raw_response', details.get('response', {}))
-                                    if response_data:
-                                        st.write("**Response:**")
-                                        st.json(response_data)
+            if discogs_condition_specific:
+                st.success(f"✅ Condition-specific pricing ({discogs_listings_count} listings)")
+            else:
+                st.info(f"📊 General pricing data ({discogs_listings_count} listings)")
         else:
             st.write("No Discogs pricing data available")
+        
+        # DISCOGS API LOGS - RIGHT AFTER DISCOGS PRICING
+        if 'api_details' in st.session_state:
+            discogs_apis = [title for title in st.session_state.api_details.keys() if 'Discogs' in title]
+            if discogs_apis:
+                with st.expander("📡 Discogs API Requests & Responses", expanded=False):
+                    for api_title in discogs_apis:
+                        if api_title in st.session_state.api_details:
+                            details = st.session_state.api_details[api_title]
+                            duration = details.get('duration', 'N/A')
+                            display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
+                            with st.expander(display_title, expanded=False):
+                                request_data = details.get('raw_request', details.get('request', {}))
+                                st.write("**Request:**")
+                                st.json(request_data)
+                                
+                                response_data = details.get('raw_response', details.get('response', {}))
+                                if response_data:
+                                    st.write("**Response:**")
+                                    st.json(response_data)
         
         st.divider()
         
@@ -412,9 +441,9 @@ class DisplayHandler:
             st.write(f"**Listings with prices:** {ebay_listings_count}")
             st.write(f"**Total items found:** {ebay_total_items_found}")
             
-            # Show eBay API requests/responses
+            # Show eBay API requests/responses IMMEDIATELY after eBay pricing section
             if 'api_details' in st.session_state:
-                ebay_apis = [title for title in st.session_state.api_details.keys() if 'eBay' in title]
+                ebay_apis = [title for title in st.session_state.api_details.keys() if 'eBay' in title or 'eBay' in title]
                 if ebay_apis:
                     with st.expander("📡 eBay API Requests & Responses", expanded=False):
                         for api_title in ebay_apis:

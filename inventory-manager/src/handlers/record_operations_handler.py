@@ -1,4 +1,3 @@
-# FILE: inventory-manager/src/handlers/record_operations_handler.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -49,18 +48,11 @@ class RecordOperationsHandler:
         title = record_data.get('title', '')    # This will be the edited version
         image_url = record_data.get('image_url', '')
         catalog_number = record_data.get('catalog_number', '')
-        discogs_genre = record_data.get('genre', '')  # Store the original Discogs genre
         youtube_url = record_data.get('youtube_url', '')  # Get YouTube URL from record data
         
         # Get selected condition and price from record_data
         selected_condition = record_data.get('selected_condition')
         selected_price = record_data.get('selected_price')
-        
-        # Get eBay pricing if handler is available
-        ebay_pricing = None
-        if self.ebay_handler and artist and title:
-            with st.spinner("Fetching eBay pricing..."):
-                ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
         
         # Get genre_id for the genre
         genre_id = None
@@ -88,13 +80,8 @@ class RecordOperationsHandler:
         # CALCULATE STORE PRICE USING CONFIGURABLE PARAMETERS
         store_price = self._calculate_store_price(selected_price)
         
-        if ebay_pricing:
-            record_data['ebay_lowest_price'] = ebay_pricing.get('ebay_lowest_price')
-            record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
-            record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
-            record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
-            record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)
-            record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)
+        # Get eBay sell price from record_data if available
+        ebay_sell_at = record_data.get('ebay_sell_at', 0.0)
         
         # Save to database - include calculated store price and Discogs condition
         result_data = {
@@ -104,19 +91,12 @@ class RecordOperationsHandler:
             'genre_id': genre_id,
             'image_url': image_url,
             'discogs_suggested_price': selected_price,
-            # eBay data - use actual values if available, otherwise NULL
-            'ebay_median_price': ebay_pricing.get('ebay_median_price') if ebay_pricing else None,
-            'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price') if ebay_pricing else None,
-            'ebay_highest_price': ebay_pricing.get('ebay_highest_price') if ebay_pricing else None,
-            'ebay_count': ebay_pricing.get('ebay_listings_count') if ebay_pricing else None,
-            'ebay_low_shipping': ebay_pricing.get('ebay_low_shipping') if ebay_pricing else None,
-            'ebay_low_url': ebay_pricing.get('ebay_search_url') if ebay_pricing else None,
             'catalog_number': catalog_number,
             'format': format_selected,
             'condition': selected_condition,  # Store the Discogs condition text
             'file_at': file_at_value,  # Use calculated file_at
             'store_price': store_price,  # CALCULATED STORE PRICE
-            'discogs_genre': discogs_genre,  # Store the original Discogs genre
+            'ebay_sell_at': ebay_sell_at,  # CALCULATED EBAY SELL PRICE
             'youtube_url': youtube_url  # Include YouTube URL
         }
         

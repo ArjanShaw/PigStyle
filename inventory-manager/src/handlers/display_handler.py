@@ -47,10 +47,6 @@ class DisplayHandler:
                 if result_type == "Edit or Delete item":
                     store_price = record.get('store_price')
                     ebay_sell_at = record.get('ebay_sell_at')
-                    discogs_lowest = record.get('discogs_lowest_price')
-                    discogs_estimated = record.get('discogs_estimated_price')
-                    ebay_low = record.get('ebay_lowest_price')
-                    ebay_low_shipping = record.get('ebay_low_shipping')
                     
                     # SHOW THE REQUESTED FIELDS when selecting from inventory
                     record_id = record.get('id', '')
@@ -62,10 +58,6 @@ class DisplayHandler:
                     st.write(f"**ID:** {record_id} | **Barcode:** {barcode}")
                     st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
-                    st.write(f"**Discogs Lowest:** ${discogs_lowest:.2f}" if discogs_lowest and discogs_lowest > 0 else "**Discogs Lowest:** N/A")
-                    st.write(f"**Discogs Estimated:** ${discogs_estimated:.2f}" if discogs_estimated and discogs_estimated > 0 else "**Discogs Estimated:** N/A")
-                    st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
-                    st.write(f"**eBay Low Shipping:** ${ebay_low_shipping:.2f}" if ebay_low_shipping and ebay_low_shipping > 0 else "**eBay Low Shipping:** N/A")
                     st.write(f"**File Location:** {file_at}")
                     if youtube_url:
                         st.write(f"🎵 **YouTube:** {youtube_url}")
@@ -149,10 +141,6 @@ class DisplayHandler:
                 file_at = record.get('file_at', '')
                 store_price = record.get('store_price', '')
                 ebay_sell_at = record.get('ebay_sell_at', '')
-                discogs_lowest = record.get('discogs_lowest_price', '')
-                discogs_estimated = record.get('discogs_estimated_price', '')
-                ebay_low = record.get('ebay_lowest_price', '')
-                ebay_low_shipping = record.get('ebay_low_shipping', '')
                 youtube_url = record.get('youtube_url', '')
                 
                 st.write("---")
@@ -161,10 +149,6 @@ class DisplayHandler:
                 st.write(f"**Barcode:** {barcode}")
                 st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
                 st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
-                st.write(f"**Discogs Lowest:** ${discogs_lowest:.2f}" if discogs_lowest and discogs_lowest > 0 else "**Discogs Lowest:** N/A")
-                st.write(f"**Discogs Estimated:** ${discogs_estimated:.2f}" if discogs_estimated and discogs_estimated > 0 else "**Discogs Estimated:** N/A")
-                st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
-                st.write(f"**eBay Low Shipping:** ${ebay_low_shipping:.2f}" if ebay_low_shipping and ebay_low_shipping > 0 else "**eBay Low Shipping:** N/A")
                 st.write(f"**File Location:** {file_at}")
                 if youtube_url:
                     st.write(f"🎵 **YouTube:** {youtube_url}")
@@ -228,16 +212,9 @@ class DisplayHandler:
             if artist and title and ebay_handler:
                 ebay_pricing = ebay_handler.get_ebay_pricing(artist, title)
                 if ebay_pricing:
-                    record_data['ebay_lowest_price'] = ebay_pricing.get('ebay_lowest_price')
-                    record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
-                    record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
-                    record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
-                    record_data['ebay_low_total'] = ebay_pricing.get('ebay_low_total')
-                    record_data['ebay_search_url'] = ebay_pricing.get('ebay_search_url')
-                    record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)
-                    record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)
-                    record_data['ebay_lowest_item_details'] = ebay_pricing.get('ebay_lowest_item_details')
-                    record_data['ebay_lowest_item_url'] = ebay_pricing.get('ebay_lowest_item_url')
+                    record_data['ebay_condition_pricing'] = ebay_pricing.get('condition_pricing', {})
+                    record_data['ebay_total_items_found'] = ebay_pricing.get('total_items_found', 0)
+                    record_data['ebay_search_url'] = ebay_pricing.get('search_url', '')
             
             record_data['pricing_fetched'] = True
         
@@ -454,31 +431,82 @@ class DisplayHandler:
         st.divider()
         
         # eBay Pricing Section
-        st.write("### 🛒 eBay Pricing")
+        st.write("### 🛒 eBay Pricing by Discogs Condition")
         
-        # Get eBay pricing data from record
-        ebay_min = record_data.get('ebay_lowest_price')
-        ebay_median = record_data.get('ebay_median_price')
-        ebay_max = record_data.get('ebay_highest_price')
-        ebay_low_shipping = record_data.get('ebay_low_shipping')
-        ebay_low_total = record_data.get('ebay_low_total')
-        ebay_listings_count = record_data.get('ebay_listings_count', 0)
+        ebay_condition_pricing = record_data.get('ebay_condition_pricing', {})
         ebay_total_items_found = record_data.get('ebay_total_items_found', 0)
-        ebay_lowest_item_details = record_data.get('ebay_lowest_item_details')
-        ebay_lowest_item_url = record_data.get('ebay_lowest_item_url')
         
-        # Show eBay pricing metrics
-        if ebay_median is not None:
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Lowest Price", f"${ebay_min:.2f}" if ebay_min else "N/A")
-            with col2:
-                st.metric("Median Price", f"${ebay_median:.2f}")
-            with col3:
-                st.metric("Highest Price", f"${ebay_max:.2f}" if ebay_max else "N/A")
+        if ebay_condition_pricing:
+            # Create a table showing eBay pricing grouped by Discogs condition
+            ebay_data = []
+            for condition, pricing in ebay_condition_pricing.items():
+                # Calculate suggested eBay sell price
+                suggested_ebay_sell_at = self._calculate_ebay_sell_at(pricing['lowest_price'], pricing['lowest_shipping'])
+                
+                ebay_data.append({
+                    'Condition': condition,
+                    'Listings': pricing['count'],
+                    'Lowest Price': f"${pricing['lowest_price']:.2f}",
+                    'Lowest Shipping': f"${pricing['lowest_shipping']:.2f}",
+                    'Lowest Total': f"${pricing['lowest_total']:.2f}",
+                    'Suggested eBay Sell At': f"${suggested_ebay_sell_at:.2f}",
+                    'Median Price': f"${pricing['median_price']:.2f}",
+                    'Highest Price': f"${pricing['highest_price']:.2f}"
+                })
             
-            st.write(f"**Listings with prices:** {ebay_listings_count}")
-            st.write(f"**Total items found:** {ebay_total_items_found}")
+            # Sort by condition from Mint to Poor, with Generic at bottom
+            condition_order = [
+                'Mint (M)',
+                'Near Mint (NM or M-)', 
+                'Very Good Plus (VG+)',
+                'Very Good (VG)',
+                'Good Plus (G+)',
+                'Good (G)',
+                'Fair (F)',
+                'Poor (P)',
+                'Generic'
+            ]
+            
+            # Sort the data
+            sorted_ebay_data = []
+            for condition in condition_order:
+                for item in ebay_data:
+                    if item['Condition'] == condition:
+                        sorted_ebay_data.append(item)
+                        break
+            
+            if sorted_ebay_data:
+                ebay_df = pd.DataFrame(sorted_ebay_data)
+                st.dataframe(ebay_df, use_container_width=True, hide_index=True)
+                
+                # Let user select which eBay condition group to use for pricing
+                ebay_condition_options = list(ebay_condition_pricing.keys())
+                if ebay_condition_options:
+                    selected_ebay_condition = st.selectbox(
+                        "Choose eBay condition group to use for pricing:",
+                        options=ebay_condition_options,
+                        key="ebay_condition_select"
+                    )
+                    
+                    if selected_ebay_condition:
+                        selected_pricing = ebay_condition_pricing[selected_ebay_condition]
+                        # Calculate the suggested eBay sell price
+                        suggested_ebay_sell_at = self._calculate_ebay_sell_at(selected_pricing['lowest_price'], selected_pricing['lowest_shipping'])
+                        
+                        record_data['ebay_selected_condition'] = selected_ebay_condition
+                        record_data['ebay_lowest_price'] = selected_pricing['lowest_price']
+                        record_data['ebay_median_price'] = selected_pricing['median_price']
+                        record_data['ebay_highest_price'] = selected_pricing['highest_price']
+                        record_data['ebay_low_shipping'] = selected_pricing['lowest_shipping']
+                        record_data['ebay_listings_count'] = selected_pricing['count']
+                        record_data['ebay_low_url'] = selected_pricing['cheapest_item_url']
+                        record_data['ebay_sell_at'] = suggested_ebay_sell_at  # Store calculated sell price
+                        
+                        st.success(f"✅ Selected eBay {selected_ebay_condition} condition group")
+                        st.write(f"**Suggested eBay Sell At:** ${suggested_ebay_sell_at:.2f}")
+                        st.write(f"**Based on:** ${selected_pricing['lowest_price']:.2f} (lowest) + ${selected_pricing['lowest_shipping']:.2f} shipping")
+            
+            st.write(f"**Total eBay items found:** {ebay_total_items_found}")
             
             # Show eBay API requests/responses IMMEDIATELY after eBay pricing section
             if 'api_details' in st.session_state:
@@ -499,12 +527,6 @@ class DisplayHandler:
                                     if response_data:
                                         st.write("**Response:**")
                                         st.json(response_data)
-            
-            # Show cheapest listing details in expandable section
-            if ebay_lowest_item_details:
-                with st.expander("📋 Cheapest eBay Listing Details", expanded=False):
-                    self._render_ebay_listing_details(ebay_lowest_item_details, ebay_lowest_item_url)
-        
         else:
             st.write("No eBay pricing data available")
         
@@ -534,6 +556,58 @@ class DisplayHandler:
             st.metric("Calculated Store Price", f"${store_price:.2f}", 
                      help="Based on highest of: (Selected × Multiplier) or Minimum Price")
 
+    def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping):
+        """Calculate eBay sell price from lowest eBay price and shipping"""
+        # Get SHIPPING_COST from config
+        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        try:
+            shipping_cost = float(shipping_cost)
+        except (ValueError, TypeError):
+            shipping_cost = 5.72
+        
+        if ebay_lowest_price is not None and ebay_low_shipping is not None:
+            # Convert to float to ensure numeric operations
+            ebay_lowest_price = float(ebay_lowest_price)
+            ebay_low_shipping = float(ebay_low_shipping)
+            
+            # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
+            ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
+            
+            # Ensure ebay_sell_at is not negative - hardcoded minimum of 0.00
+            ebay_sell_at_raw = max(ebay_sell_at_raw, 0.00)
+            
+            # Round down to nearest .49 or .99
+            ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
+        else:
+            # No eBay data available
+            ebay_sell_at = 0.0
+        
+        return ebay_sell_at
+
+    def _round_down_to_49_or_99(self, price):
+        """Round down to nearest .49 or .99 that is less than or equal to original price"""
+        if price <= 0:
+            return 0.0
+        
+        # Check if price already ends with .49 or .99
+        if abs(price % 1 - 0.49) < 0.001 or abs(price % 1 - 0.99) < 0.001:
+            return price
+        
+        base_price = math.floor(price)
+        
+        # Calculate candidate prices
+        candidate_99 = base_price + 0.99
+        candidate_49 = base_price + 0.49
+        
+        # Return the highest candidate that is <= original price
+        if candidate_99 <= price:
+            return candidate_99
+        elif candidate_49 <= price:
+            return candidate_49
+        else:
+            # If both are too high, go down one dollar and use .99
+            return (base_price - 1) + 0.99
+
     def _get_condition_description(self, condition):
         """Get brief description for each Discogs condition"""
         condition_descriptions = {
@@ -560,91 +634,6 @@ class DisplayHandler:
         
         # Default description
         return "Used record condition"
-
-    def _render_ebay_listing_details(self, item_details, item_url):
-        """Render detailed information about the cheapest eBay listing"""
-        if not item_details:
-            st.write("No detailed listing information available")
-            return
-        
-        # Display the listing URL
-        if item_url:
-            st.write(f"**Listing URL:** [View on eBay]({item_url})")
-            st.divider()
-        
-        # Extract item specifics
-        item_specifics = item_details.get('itemSpecifics', {}).get('nameValuePairs', [])
-        
-        # Extract condition information
-        condition = item_details.get('condition', '')
-        condition_id = item_details.get('conditionId', '')
-        
-        # Extract description/short description
-        short_description = item_details.get('shortDescription', '')
-        description = item_details.get('description', '')
-        
-        # Extract shipping information
-        shipping_options = item_details.get('shippingOptions', [])
-        
-        # Display item specifics
-        st.write("**Item Specifics:**")
-        if item_specifics:
-            for specific in item_specifics:
-                name = specific.get('name', '')
-                value = specific.get('value', '')
-                if name and value:
-                    st.write(f"- **{name}:** {value}")
-        else:
-            st.write("No item specifics available")
-        
-        st.divider()
-        
-        # Display condition information
-        st.write("**Condition Information:**")
-        if condition:
-            st.write(f"- **Condition:** {condition}")
-        if condition_id:
-            st.write(f"- **Condition ID:** {condition_id}")
-        
-        # Look for grading information in item specifics or description
-        grading_found = False
-        for specific in item_specifics:
-            name = specific.get('name', '').lower()
-            value = specific.get('value', '')
-            if 'grade' in name or 'condition' in name:
-                st.write(f"- **{specific.get('name', '')}:** {value}")
-                grading_found = True
-        
-        if not grading_found:
-            st.write("No specific grading information available")
-        
-        st.divider()
-        
-        # Display description
-        st.write("**Description:**")
-        if short_description:
-            # Clean HTML tags if present
-            clean_desc = re.sub('<[^<]+?>', '', short_description)
-            st.write(clean_desc[:500] + "..." if len(clean_desc) > 500 else clean_desc)
-        elif description:
-            # Clean HTML tags if present
-            clean_desc = re.sub('<[^<]+?>', '', description)
-            st.write(clean_desc[:500] + "..." if len(clean_desc) > 500 else clean_desc)
-        else:
-            st.write("No description available")
-        
-        st.divider()
-        
-        # Display shipping information
-        st.write("**Shipping Options:**")
-        if shipping_options:
-            for option in shipping_options[:3]:  # Show first 3 options
-                cost_type = option.get('shippingCostType', '')
-                cost = option.get('shippingCost', {}).get('value', 'N/A')
-                service = option.get('shippingServiceCode', '')
-                st.write(f"- **{service}:** {cost_type} - ${cost}" if cost != 'N/A' else f"- **{service}:** {cost_type}")
-        else:
-            st.write("No shipping information available")
 
     def _calculate_store_price(self, selected_price):
         """Calculate store price using configurable parameters"""
@@ -738,7 +727,6 @@ class DisplayHandler:
     def _get_suggested_genre(self, record_data):
         """Get suggested genre based on artist history and Discogs genre"""
         artist = record_data.get('artist', '')
-        discogs_genre = record_data.get('genre', '')
         
         # Priority 1: Check if artist exists in database and get most common genre
         if artist:
@@ -746,30 +734,17 @@ class DisplayHandler:
             if artist_genre:
                 return artist_genre
         
-        # Priority 2: Check Discogs genre and map to existing genres
-        if discogs_genre:
-            mapped_genre = self._map_discogs_genre(discogs_genre)
-            if mapped_genre:
-                return mapped_genre
-        
         return ""
 
     def _get_suggestion_source(self, record_data, suggested_genre):
         """Get the source of the genre suggestion"""
         artist = record_data.get('artist', '')
-        discogs_genre = record_data.get('genre', '')
         
         # Check if it came from artist history
         if artist:
             artist_genre = self._get_artist_most_common_genre(artist)
             if artist_genre == suggested_genre:
                 return "artist history"
-        
-        # Check if it came from Discogs genre mapping
-        if discogs_genre:
-            mapped_genre = self._map_discogs_genre(discogs_genre)
-            if mapped_genre == suggested_genre:
-                return "Discogs genre mapping"
         
         return "unknown"
 
@@ -788,49 +763,6 @@ class DisplayHandler:
         
         if len(df) > 0:
             return df.iloc[0]['genre']
-        return ""
-
-    def _map_discogs_genre(self, discogs_genre):
-        """Map Discogs genre to existing genres in database"""
-        # Clean the Discogs genre (remove "Folk, World, & Country" type formatting)
-        clean_genre = discogs_genre.split(',')[0].strip()
-        
-        # Check if this exact genre exists
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (clean_genre,))
-        result = cursor.fetchone()
-        if result:
-            conn.close()
-            return result[0]
-        
-        # Check for partial matches or common mappings
-        common_mappings = {
-            'Rock': ['Rock', 'Alternative Rock', 'Classic Rock'],
-            'Jazz': ['Jazz'],
-            'Hip Hop': ['Hip-Hop', 'Rap'],
-            'Electronic': ['Electronic', 'Techno', 'House'],
-            'Pop': ['Pop'],
-            'Folk': ['Folk'],
-            'Country': ['Country'],
-            'Blues': ['Blues'],
-            'Classical': ['Classical'],
-            'Reggae': ['Reggae'],
-            'Soul': ['Soul', 'Funk'],
-            'Metal': ['Metal', 'Heavy Metal']
-        }
-        
-        for main_genre, variants in common_mappings.items():
-            for variant in variants:
-                if variant.lower() in clean_genre.lower():
-                    # Check if main genre exists
-                    cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (main_genre,))
-                    result = cursor.fetchone()
-                    if result:
-                        conn.close()
-                        return main_genre
-        
-        conn.close()
         return ""
 
     def render_checkout_section(self, checkout_records, checkout_callback):

@@ -25,7 +25,7 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        # Records table - using the actual column names from your schema
+        # Records table - simplified without removed columns
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,12 +36,6 @@ class DatabaseManager:
                 file_at TEXT,
                 image_url TEXT,
                 discogs_suggested_price REAL,
-                ebay_median_price REAL,
-                ebay_lowest_price REAL,
-                ebay_highest_price REAL,
-                ebay_count INTEGER,
-                ebay_low_shipping REAL,
-                ebay_low_url TEXT,
                 catalog_number TEXT,
                 format TEXT,
                 condition TEXT,
@@ -50,20 +44,15 @@ class DatabaseManager:
                 youtube_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                discogs_genre TEXT,
                 FOREIGN KEY (genre_id) REFERENCES genres (id)
             )
         ''')
         
-        # Add columns if they don't exist
+        # Add columns if they don't exist (only keeping essential ones)
         columns_to_add = [
-            ('ebay_count', 'INTEGER'),
-            ('ebay_low_shipping', 'REAL'),
-            ('ebay_low_url', 'TEXT'),
             ('store_price', 'REAL'),
             ('genre_id', 'INTEGER'),
             ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
-            ('discogs_genre', 'TEXT'),
             ('youtube_url', 'TEXT'),
             ('ebay_sell_at', 'REAL'),
             ('discogs_suggested_price', 'REAL')
@@ -246,9 +235,8 @@ class DatabaseManager:
             INSERT INTO records 
             (artist, title, barcode, genre_id, image_url,
              discogs_suggested_price,
-             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_low_shipping, ebay_low_url,
-             catalog_number, format, condition, file_at, store_price, ebay_sell_at, discogs_genre, youtube_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             catalog_number, format, condition, file_at, store_price, ebay_sell_at, youtube_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -256,19 +244,12 @@ class DatabaseManager:
             result_data.get('genre_id'),
             result_data.get('image_url', ''),
             result_data.get('discogs_suggested_price'),
-            result_data.get('ebay_median_price'),
-            result_data.get('ebay_lowest_price'),
-            result_data.get('ebay_highest_price'),
-            result_data.get('ebay_count'),
-            result_data.get('ebay_low_shipping'),
-            result_data.get('ebay_low_url', ''),
             result_data.get('catalog_number', ''),
             result_data.get('format', ''),
             result_data.get('condition', ''),
             result_data.get('file_at', ''),
             result_data.get('store_price'),
             result_data.get('ebay_sell_at'),
-            result_data.get('discogs_genre'),
             result_data.get('youtube_url')
         ))
         

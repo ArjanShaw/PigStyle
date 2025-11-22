@@ -87,7 +87,7 @@ class DisplayHandler:
                         st.write("*No additional info*")
                 
             with col3:
-                if st.button("Select", key=f"select_{result_type}_{i}", use_container_width=True):
+                if st.button("Select", key=f"select_{result_type}_{i}", width='stretch'):
                     st.session_state.selected_record = {
                         'type': 'discogs' if result_type == "Add item" else 'database',
                         'data': record,
@@ -106,7 +106,7 @@ class DisplayHandler:
             with col4:
                 # DELETE BUTTON for each item in search results
                 if result_type == "Edit or Delete item":
-                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", use_container_width=True, type="secondary"):
+                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", width='stretch', type="secondary"):
                         record_id = record.get('id')
                         if self._delete_record(record_id):
                             st.success("Record deleted successfully!")
@@ -285,7 +285,7 @@ class DisplayHandler:
                 st.success(f"✅ Currently linked: {current_youtube_url}")
                 
                 # Show option to remove link
-                if st.button("❌ Remove YouTube Link", key="remove_youtube"):
+                if st.button("❌ Remove YouTube Link", key="remove_youtube", width='stretch'):
                     record_data['youtube_url'] = ''
                     st.success("YouTube link removed!")
                     st.rerun()
@@ -304,7 +304,7 @@ class DisplayHandler:
                         video_id = self.youtube_handler.extract_youtube_id(video['url']) if self.youtube_handler else self._extract_youtube_id(video['url'])
                         
                         # Show play button that displays the actual video
-                        if st.button(f"▶️ Play", key=f"play_{i}", use_container_width=True):
+                        if st.button(f"▶️ Play", key=f"play_{i}", width='stretch'):
                             # Store which video to play in session state
                             st.session_state.playing_video_index = i
                     
@@ -313,7 +313,7 @@ class DisplayHandler:
                         st.write(f"Channel: {video.get('channel', 'Unknown')}")
                         
                         # Link this video to the record
-                        if st.button("🔗 Link This Video", key=f"link_{i}", use_container_width=True):
+                        if st.button("🔗 Link This Video", key=f"link_{i}", width='stretch'):
                             # Update the record with this YouTube URL
                             record_data['youtube_url'] = video['url']
                             st.success("✅ YouTube video will be linked when record is added!")
@@ -333,7 +333,7 @@ class DisplayHandler:
         
         # Single submit button - only enable if genre is selected
         if selected_record['type'] == 'discogs':
-            if st.button("Add to Database", use_container_width=True, disabled=not genre, key="add_to_database"):
+            if st.button("Add to Database", width='stretch', disabled=not genre, key="add_to_database"):
                 # Get the file_at value for confirmation message
                 file_at_value = self._calculate_file_at(record_data['artist'], genre)
                 success, record_id = add_callback(genre)
@@ -344,7 +344,7 @@ class DisplayHandler:
         else:
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Update Record", use_container_width=True, disabled=not genre, key="update_record"):
+                if st.button("Update Record", width='stretch', disabled=not genre, key="update_record"):
                     # Include YouTube URL in updates
                     updates = {
                         'genre_id': self._get_genre_id(genre),
@@ -385,7 +385,7 @@ class DisplayHandler:
             # Display as a table
             if conditions_data:
                 df = pd.DataFrame(conditions_data)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width='stretch', hide_index=True)
                 
                 # Let user select a condition - default to Good Plus
                 condition_options = list(price_suggestions.keys())
@@ -477,7 +477,7 @@ class DisplayHandler:
             
             if sorted_ebay_data:
                 ebay_df = pd.DataFrame(sorted_ebay_data)
-                st.dataframe(ebay_df, use_container_width=True, hide_index=True)
+                st.dataframe(ebay_df, width='stretch', hide_index=True)
                 
                 # Let user select which eBay condition group to use for pricing
                 ebay_condition_options = list(ebay_condition_pricing.keys())
@@ -778,7 +778,7 @@ class DisplayHandler:
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("📤 Export Genre CSV", use_container_width=True, help="Export ID, Artist, Title, and Genre for all inventory records", key="export_genre_csv"):
+            if st.button("📤 Export Genre CSV", width='stretch', help="Export ID, Artist, Title, and Genre for all inventory records", key="export_genre_csv"):
                 self._export_genre_csv()
             
         with col2:
@@ -795,7 +795,7 @@ class DisplayHandler:
                 if 'id' not in import_df.columns or 'genre' not in import_df.columns:
                     st.error("CSV must contain 'id' and 'genre' columns")
                 else:
-                    if st.button("🔄 Update Genres", use_container_width=True, key="update_genres"):
+                    if st.button("🔄 Update Genres", width='stretch', key="update_genres"):
                         updated_count = self._update_genres_from_csv(import_df)
                         if updated_count > 0:
                             st.success(f"✅ Updated genres for {updated_count} records!")
@@ -820,12 +820,12 @@ class DisplayHandler:
         
         font_size = st.slider("Font Size", min_value=24, max_value=96, value=48, key="genre_font_size")
         
-        if st.button("🖨️ Generate Genre Sign PDF", use_container_width=True, key="generate_genre_sign"):
+        if st.button("🖨️ Generate Genre Sign PDF", width='stretch', key="generate_genre_sign"):
             self._generate_genre_sign_pdf(print_option, genre_text, font_size)
 
     def render_price_tag_management(self):
         """Render price tag management section"""
-        if st.button("🖨️ Print Selected", use_container_width=True, help="Print selected records", key="print_selected"):
+        if st.button("🖨️ Print Selected", width='stretch', help="Print selected records", key="print_selected"):
             self._generate_price_tags_pdf()
 
     def _delete_record(self, record_id):
@@ -879,6 +879,7 @@ class DisplayHandler:
                 data=csv_data,
                 file_name=filename,
                 mime="text/csv",
+                width='stretch',
                 key=f"download_genre_{timestamp}"
             )
             

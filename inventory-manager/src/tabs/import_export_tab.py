@@ -51,7 +51,7 @@ class ImportExportTab:
             help="Choose which records to export"
         )
         
-        if st.button("📤 Export Custom CSV", use_container_width=True):
+        if st.button("📤 Export Custom CSV", width= 'stretch'):
             if selected_columns:
                 self._export_custom_csv(selected_columns, export_status)
             else:
@@ -78,7 +78,7 @@ class ImportExportTab:
                     st.write("Preview of uploaded data:")
                     st.dataframe(import_df.head())
                     
-                    if st.button("🔄 Process Import", use_container_width=True):
+                    if st.button("🔄 Process Import", width= 'stretch'):
                         updated_count = self._process_import_data(import_df)
                         if updated_count > 0:
                             st.success(f"✅ Successfully updated {updated_count} records!")

@@ -39,7 +39,7 @@ class StorePricingTab:
             # Store pricing action buttons
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("🏪 Update Store Price", use_container_width=True, help="Calculate store price using current configuration"):
+                if st.button("🏪 Update Store Price", width='stretch', help="Calculate store price using current configuration"):
                     if test_record_id and test_record_id.strip():
                         self._calculate_single_store_price(test_record_id.strip())
                     else:

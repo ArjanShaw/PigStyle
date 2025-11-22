@@ -70,7 +70,7 @@ class StatisticsTab:
                     height=400,
                     showlegend=False
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width= 'stretch')
             else:
                 st.info("No genre data available for chart.")
                 
@@ -169,7 +169,7 @@ class StatisticsTab:
                 fig.update_yaxes(title_text="Count", row=1, col=1)
                 fig.update_yaxes(title_text="Count", row=2, col=1)
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width= 'stretch')
                 
                 # Add some statistics
                 col1, col2, col3 = st.columns(3)

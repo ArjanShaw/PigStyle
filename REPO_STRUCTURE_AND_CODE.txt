@@ -10,7 +10,6 @@ FULL REPOSITORY STRUCTURE:
     │   ├── export_gb.py 🐍
     │   ├── records.db
     │   └── records.sqbpro
-    ├── images/
     ├── inventory-manager/
     │   ├── 🎯 src/ [TARGET]
     │   │   ├── EbayDraftFiles/
@@ -595,7 +594,7 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        # Records table - using the actual column names from your schema
+        # Records table - simplified without removed columns
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -606,12 +605,6 @@ class DatabaseManager:
                 file_at TEXT,
                 image_url TEXT,
                 discogs_suggested_price REAL,
-                ebay_median_price REAL,
-                ebay_lowest_price REAL,
-                ebay_highest_price REAL,
-                ebay_count INTEGER,
-                ebay_low_shipping REAL,
-                ebay_low_url TEXT,
                 catalog_number TEXT,
                 format TEXT,
                 condition TEXT,
@@ -620,20 +613,15 @@ class DatabaseManager:
                 youtube_url TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                discogs_genre TEXT,
                 FOREIGN KEY (genre_id) REFERENCES genres (id)
             )
         ''')
         
-        # Add columns if they don't exist
+        # Add columns if they don't exist (only keeping essential ones)
         columns_to_add = [
-            ('ebay_count', 'INTEGER'),
-            ('ebay_low_shipping', 'REAL'),
-            ('ebay_low_url', 'TEXT'),
             ('store_price', 'REAL'),
             ('genre_id', 'INTEGER'),
             ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
-            ('discogs_genre', 'TEXT'),
             ('youtube_url', 'TEXT'),
             ('ebay_sell_at', 'REAL'),
             ('discogs_suggested_price', 'REAL')
@@ -816,9 +804,8 @@ class DatabaseManager:
             INSERT INTO records 
             (artist, title, barcode, genre_id, image_url,
              discogs_suggested_price,
-             ebay_median_price, ebay_lowest_price, ebay_highest_price, ebay_count, ebay_low_shipping, ebay_low_url,
-             catalog_number, format, condition, file_at, store_price, ebay_sell_at, discogs_genre, youtube_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             catalog_number, format, condition, file_at, store_price, ebay_sell_at, youtube_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -826,19 +813,12 @@ class DatabaseManager:
             result_data.get('genre_id'),
             result_data.get('image_url', ''),
             result_data.get('discogs_suggested_price'),
-            result_data.get('ebay_median_price'),
-            result_data.get('ebay_lowest_price'),
-            result_data.get('ebay_highest_price'),
-            result_data.get('ebay_count'),
-            result_data.get('ebay_low_shipping'),
-            result_data.get('ebay_low_url', ''),
             result_data.get('catalog_number', ''),
             result_data.get('format', ''),
             result_data.get('condition', ''),
             result_data.get('file_at', ''),
             result_data.get('store_price'),
             result_data.get('ebay_sell_at'),
-            result_data.get('discogs_genre'),
             result_data.get('youtube_url')
         ))
         
@@ -1642,13 +1622,13 @@ class EBayTab:
             # eBay pricing action buttons
             col1, col2, col3 = st.columns(3)
             with col1:
-                if st.button("🔄 Update eBay Prices", use_container_width=True, help="Call eBay API to update pricing data for all inventory"):
+                if st.button("🔄 Update eBay Prices", width= 'stretch', help="Call eBay API to update pricing data for all inventory"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_prices(test_record_id.strip())
                     else:
                         self._update_all_ebay_prices()
             with col2:
-                if st.button("💰 Update eBay Sell At", use_container_width=True, help="Calculate eBay sell prices from existing lowest prices"):
+                if st.button("💰 Update eBay Sell At", width= 'stretch', help="Calculate eBay sell prices from existing lowest prices"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_sell_at(test_record_id.strip())
                     else:
@@ -1707,7 +1687,7 @@ class EBayTab:
                         st.dataframe(preview_df)
                         
                         # Process button
-                        if st.button("🔗 Match Listings to Database", use_container_width=True):
+                        if st.button("🔗 Match Listings to Database", width= 'stretch'):
                             self._process_ebay_listings(listings_data)
                             
                 except Exception as e:
@@ -1728,7 +1708,7 @@ class EBayTab:
                 )
             
             with col2:
-                if st.button("🛒 Export eBay Draft CSV", use_container_width=True):
+                if st.button("🛒 Export eBay Draft CSV", width= 'stretch'):
                     self._export_ebay_draft_csv(num_listings)
         
         # Show individual listings table if available
@@ -1914,12 +1894,12 @@ class EBayTab:
                 # Display in a scrollable container
                 st.dataframe(
                     df, 
-                    use_container_width=True,
+                    width= 'stretch',
                     height=400  # Fixed height with scrollbar
                 )
                 
                 # Export results option
-                if st.button("📊 Export Results CSV", use_container_width=True):
+                if st.button("📊 Export Results CSV", width= 'stretch'):
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"ebay_listing_matches_{timestamp}.csv"
                     csv_data = df.to_csv(index=False)
@@ -2164,7 +2144,7 @@ class EBayTab:
                 
                 st.dataframe(
                     df,
-                    use_container_width=True,
+                    width= 'stretch',
                     height=400,
                     hide_index=True,
                     column_config=column_config
@@ -2582,7 +2562,7 @@ class StorePricingTab:
             # Store pricing action buttons
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("🏪 Update Store Price", use_container_width=True, help="Calculate store price using current configuration"):
+                if st.button("🏪 Update Store Price", width= 'stretch', help="Calculate store price using current configuration"):
                     if test_record_id and test_record_id.strip():
                         self._calculate_single_store_price(test_record_id.strip())
                     else:
@@ -2942,7 +2922,7 @@ class GenreMappingsTab:
                             required=False
                         )
                     },
-                    use_container_width=True,
+                    width= 'stretch',
                     hide_index=True,
                     key="genre_mappings_editor"
                 )
@@ -2983,7 +2963,7 @@ class GenreMappingsTab:
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    if st.button("📤 Export Genre Data", use_container_width=True):
+                    if st.button("📤 Export Genre Data", width= 'stretch'):
                         # Export only artist mappings
                         export_data = self._prepare_export_data(edited_df)
                         csv_data = export_data.to_csv(index=False)
@@ -3444,7 +3424,7 @@ class StatisticsTab:
                     height=400,
                     showlegend=False
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width= 'stretch')
             else:
                 st.info("No genre data available for chart.")
                 
@@ -3543,7 +3523,7 @@ class StatisticsTab:
                 fig.update_yaxes(title_text="Count", row=1, col=1)
                 fig.update_yaxes(title_text="Count", row=2, col=1)
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width= 'stretch')
                 
                 # Add some statistics
                 col1, col2, col3 = st.columns(3)
@@ -3589,7 +3569,7 @@ class ToolsSyncTab:
         # Gallery JSON Management
         with col1:
             st.subheader("🔄 Gallery JSON")
-            if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
+            if st.button("🔄 Manual JSON Rebuild", width= 'stretch'):
                 if self.gallery_json_manager:
                     with st.spinner("Rebuilding gallery JSON..."):
                         success = self.gallery_json_manager.trigger_rebuild(async_mode=False)
@@ -3609,7 +3589,7 @@ class ToolsSyncTab:
         # GitHub Sync Section
         with col2:
             st.subheader("🔄 GitHub Sync")
-            if st.button("🔄 Manual GitHub Sync", use_container_width=True):
+            if st.button("🔄 Manual GitHub Sync", width= 'stretch'):
                 if self.github_sync_handler:
                     with st.spinner("Syncing with GitHub..."):
                         success, message = self.github_sync_handler.trigger_sync()
@@ -3632,7 +3612,7 @@ class ToolsSyncTab:
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("🔄 Update File Locations", use_container_width=True):
+            if st.button("🔄 Update File Locations", width= 'stretch'):
                 if hasattr(st.session_state, 'db_manager'):
                     updated_count = st.session_state.db_manager.update_file_at_for_all_records()
                     st.success(f"✅ Updated file locations for {updated_count} records!")
@@ -3640,7 +3620,7 @@ class ToolsSyncTab:
                     st.error("Database manager not available")
         
         with col2:
-            if st.button("🗑️ Clear All Records", use_container_width=True, type="secondary"):
+            if st.button("🗑️ Clear All Records", width= 'stretch', type="secondary"):
                 if hasattr(st.session_state, 'db_manager'):
                     if st.checkbox("I understand this will delete ALL records permanently"):
                         if st.button("CONFIRM DELETE ALL", type="primary"):
@@ -3717,7 +3697,7 @@ class ImportExportTab:
             help="Choose which records to export"
         )
         
-        if st.button("📤 Export Custom CSV", use_container_width=True):
+        if st.button("📤 Export Custom CSV", width= 'stretch'):
             if selected_columns:
                 self._export_custom_csv(selected_columns, export_status)
             else:
@@ -3744,7 +3724,7 @@ class ImportExportTab:
                     st.write("Preview of uploaded data:")
                     st.dataframe(import_df.head())
                     
-                    if st.button("🔄 Process Import", use_container_width=True):
+                    if st.button("🔄 Process Import", width= 'stretch'):
                         updated_count = self._process_import_data(import_df)
                         if updated_count > 0:
                             st.success(f"✅ Successfully updated {updated_count} records!")
@@ -4045,7 +4025,7 @@ class InventoryTab:
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            search_submitted = st.button("🔍 Search", use_container_width=True)
+            search_submitted = st.button("🔍 Search", width= 'stretch')
         
         # Handle Enter key press in search input
         if st.session_state.get('unified_search_input') and st.session_state.unified_search_input.strip():
@@ -4853,10 +4833,6 @@ class DisplayHandler:
                 if result_type == "Edit or Delete item":
                     store_price = record.get('store_price')
                     ebay_sell_at = record.get('ebay_sell_at')
-                    discogs_lowest = record.get('discogs_lowest_price')
-                    discogs_estimated = record.get('discogs_estimated_price')
-                    ebay_low = record.get('ebay_lowest_price')
-                    ebay_low_shipping = record.get('ebay_low_shipping')
                     
                     # SHOW THE REQUESTED FIELDS when selecting from inventory
                     record_id = record.get('id', '')
@@ -4868,10 +4844,6 @@ class DisplayHandler:
                     st.write(f"**ID:** {record_id} | **Barcode:** {barcode}")
                     st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
-                    st.write(f"**Discogs Lowest:** ${discogs_lowest:.2f}" if discogs_lowest and discogs_lowest > 0 else "**Discogs Lowest:** N/A")
-                    st.write(f"**Discogs Estimated:** ${discogs_estimated:.2f}" if discogs_estimated and discogs_estimated > 0 else "**Discogs Estimated:** N/A")
-                    st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
-                    st.write(f"**eBay Low Shipping:** ${ebay_low_shipping:.2f}" if ebay_low_shipping and ebay_low_shipping > 0 else "**eBay Low Shipping:** N/A")
                     st.write(f"**File Location:** {file_at}")
                     if youtube_url:
                         st.write(f"🎵 **YouTube:** {youtube_url}")
@@ -4901,7 +4873,7 @@ class DisplayHandler:
                         st.write("*No additional info*")
                 
             with col3:
-                if st.button("Select", key=f"select_{result_type}_{i}", use_container_width=True):
+                if st.button("Select", key=f"select_{result_type}_{i}", width= 'stretch'):
                     st.session_state.selected_record = {
                         'type': 'discogs' if result_type == "Add item" else 'database',
                         'data': record,
@@ -4920,7 +4892,7 @@ class DisplayHandler:
             with col4:
                 # DELETE BUTTON for each item in search results
                 if result_type == "Edit or Delete item":
-                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", use_container_width=True, type="secondary"):
+                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", width= 'stretch', type="secondary"):
                         record_id = record.get('id')
                         if self._delete_record(record_id):
                             st.success("Record deleted successfully!")
@@ -4955,10 +4927,6 @@ class DisplayHandler:
                 file_at = record.get('file_at', '')
                 store_price = record.get('store_price', '')
                 ebay_sell_at = record.get('ebay_sell_at', '')
-                discogs_lowest = record.get('discogs_lowest_price', '')
-                discogs_estimated = record.get('discogs_estimated_price', '')
-                ebay_low = record.get('ebay_lowest_price', '')
-                ebay_low_shipping = record.get('ebay_low_shipping', '')
                 youtube_url = record.get('youtube_url', '')
                 
                 st.write("---")
@@ -4967,10 +4935,6 @@ class DisplayHandler:
                 st.write(f"**Barcode:** {barcode}")
                 st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
                 st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
-                st.write(f"**Discogs Lowest:** ${discogs_lowest:.2f}" if discogs_lowest and discogs_lowest > 0 else "**Discogs Lowest:** N/A")
-                st.write(f"**Discogs Estimated:** ${discogs_estimated:.2f}" if discogs_estimated and discogs_estimated > 0 else "**Discogs Estimated:** N/A")
-                st.write(f"**eBay Low:** ${ebay_low:.2f}" if ebay_low and ebay_low > 0 else "**eBay Low:** N/A")
-                st.write(f"**eBay Low Shipping:** ${ebay_low_shipping:.2f}" if ebay_low_shipping and ebay_low_shipping > 0 else "**eBay Low Shipping:** N/A")
                 st.write(f"**File Location:** {file_at}")
                 if youtube_url:
                     st.write(f"🎵 **YouTube:** {youtube_url}")
@@ -5126,7 +5090,7 @@ class DisplayHandler:
                         video_id = self.youtube_handler.extract_youtube_id(video['url']) if self.youtube_handler else self._extract_youtube_id(video['url'])
                         
                         # Show play button that displays the actual video
-                        if st.button(f"▶️ Play", key=f"play_{i}", use_container_width=True):
+                        if st.button(f"▶️ Play", key=f"play_{i}", width= 'stretch'):
                             # Store which video to play in session state
                             st.session_state.playing_video_index = i
                     
@@ -5135,7 +5099,7 @@ class DisplayHandler:
                         st.write(f"Channel: {video.get('channel', 'Unknown')}")
                         
                         # Link this video to the record
-                        if st.button("🔗 Link This Video", key=f"link_{i}", use_container_width=True):
+                        if st.button("🔗 Link This Video", key=f"link_{i}", width= 'stretch'):
                             # Update the record with this YouTube URL
                             record_data['youtube_url'] = video['url']
                             st.success("✅ YouTube video will be linked when record is added!")
@@ -5155,7 +5119,7 @@ class DisplayHandler:
         
         # Single submit button - only enable if genre is selected
         if selected_record['type'] == 'discogs':
-            if st.button("Add to Database", use_container_width=True, disabled=not genre, key="add_to_database"):
+            if st.button("Add to Database", width= 'stretch', disabled=not genre, key="add_to_database"):
                 # Get the file_at value for confirmation message
                 file_at_value = self._calculate_file_at(record_data['artist'], genre)
                 success, record_id = add_callback(genre)
@@ -5166,7 +5130,7 @@ class DisplayHandler:
         else:
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Update Record", use_container_width=True, disabled=not genre, key="update_record"):
+                if st.button("Update Record", width= 'stretch', disabled=not genre, key="update_record"):
                     # Include YouTube URL in updates
                     updates = {
                         'genre_id': self._get_genre_id(genre),
@@ -5207,7 +5171,7 @@ class DisplayHandler:
             # Display as a table
             if conditions_data:
                 df = pd.DataFrame(conditions_data)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width= 'stretch', hide_index=True)
                 
                 # Let user select a condition - default to Good Plus
                 condition_options = list(price_suggestions.keys())
@@ -5299,9 +5263,9 @@ class DisplayHandler:
             
             if sorted_ebay_data:
                 ebay_df = pd.DataFrame(sorted_ebay_data)
-                st.dataframe(ebay_df, use_container_width=True, hide_index=True)
+                st.dataframe(ebay_df, width= 'stretch', hide_index=True)
                 
-                # Let user select which eBay condition group to use
+                # Let user select which eBay condition group to use for pricing
                 ebay_condition_options = list(ebay_condition_pricing.keys())
                 if ebay_condition_options:
                     selected_ebay_condition = st.selectbox(
@@ -5457,91 +5421,6 @@ class DisplayHandler:
         # Default description
         return "Used record condition"
 
-    def _render_ebay_listing_details(self, item_details, item_url):
-        """Render detailed information about the cheapest eBay listing"""
-        if not item_details:
-            st.write("No detailed listing information available")
-            return
-        
-        # Display the listing URL
-        if item_url:
-            st.write(f"**Listing URL:** [View on eBay]({item_url})")
-            st.divider()
-        
-        # Extract item specifics
-        item_specifics = item_details.get('itemSpecifics', {}).get('nameValuePairs', [])
-        
-        # Extract condition information
-        condition = item_details.get('condition', '')
-        condition_id = item_details.get('conditionId', '')
-        
-        # Extract description/short description
-        short_description = item_details.get('shortDescription', '')
-        description = item_details.get('description', '')
-        
-        # Extract shipping information
-        shipping_options = item_details.get('shippingOptions', [])
-        
-        # Display item specifics
-        st.write("**Item Specifics:**")
-        if item_specifics:
-            for specific in item_specifics:
-                name = specific.get('name', '')
-                value = specific.get('value', '')
-                if name and value:
-                    st.write(f"- **{name}:** {value}")
-        else:
-            st.write("No item specifics available")
-        
-        st.divider()
-        
-        # Display condition information
-        st.write("**Condition Information:**")
-        if condition:
-            st.write(f"- **Condition:** {condition}")
-        if condition_id:
-            st.write(f"- **Condition ID:** {condition_id}")
-        
-        # Look for grading information in item specifics or description
-        grading_found = False
-        for specific in item_specifics:
-            name = specific.get('name', '').lower()
-            value = specific.get('value', '')
-            if 'grade' in name or 'condition' in name:
-                st.write(f"- **{specific.get('name', '')}:** {value}")
-                grading_found = True
-        
-        if not grading_found:
-            st.write("No specific grading information available")
-        
-        st.divider()
-        
-        # Display description
-        st.write("**Description:**")
-        if short_description:
-            # Clean HTML tags if present
-            clean_desc = re.sub('<[^<]+?>', '', short_description)
-            st.write(clean_desc[:500] + "..." if len(clean_desc) > 500 else clean_desc)
-        elif description:
-            # Clean HTML tags if present
-            clean_desc = re.sub('<[^<]+?>', '', description)
-            st.write(clean_desc[:500] + "..." if len(clean_desc) > 500 else clean_desc)
-        else:
-            st.write("No description available")
-        
-        st.divider()
-        
-        # Display shipping information
-        st.write("**Shipping Options:**")
-        if shipping_options:
-            for option in shipping_options[:3]:  # Show first 3 options
-                cost_type = option.get('shippingCostType', '')
-                cost = option.get('shippingCost', {}).get('value', 'N/A')
-                service = option.get('shippingServiceCode', '')
-                st.write(f"- **{service}:** {cost_type} - ${cost}" if cost != 'N/A' else f"- **{service}:** {cost_type}")
-        else:
-            st.write("No shipping information available")
-
     def _calculate_store_price(self, selected_price):
         """Calculate store price using configurable parameters"""
         # Get current configuration
@@ -5634,7 +5513,6 @@ class DisplayHandler:
     def _get_suggested_genre(self, record_data):
         """Get suggested genre based on artist history and Discogs genre"""
         artist = record_data.get('artist', '')
-        discogs_genre = record_data.get('genre', '')
         
         # Priority 1: Check if artist exists in database and get most common genre
         if artist:
@@ -5642,30 +5520,17 @@ class DisplayHandler:
             if artist_genre:
                 return artist_genre
         
-        # Priority 2: Check Discogs genre and map to existing genres
-        if discogs_genre:
-            mapped_genre = self._map_discogs_genre(discogs_genre)
-            if mapped_genre:
-                return mapped_genre
-        
         return ""
 
     def _get_suggestion_source(self, record_data, suggested_genre):
         """Get the source of the genre suggestion"""
         artist = record_data.get('artist', '')
-        discogs_genre = record_data.get('genre', '')
         
         # Check if it came from artist history
         if artist:
             artist_genre = self._get_artist_most_common_genre(artist)
             if artist_genre == suggested_genre:
                 return "artist history"
-        
-        # Check if it came from Discogs genre mapping
-        if discogs_genre:
-            mapped_genre = self._map_discogs_genre(discogs_genre)
-            if mapped_genre == suggested_genre:
-                return "Discogs genre mapping"
         
         return "unknown"
 
@@ -5686,49 +5551,6 @@ class DisplayHandler:
             return df.iloc[0]['genre']
         return ""
 
-    def _map_discogs_genre(self, discogs_genre):
-        """Map Discogs genre to existing genres in database"""
-        # Clean the Discogs genre (remove "Folk, World, & Country" type formatting)
-        clean_genre = discogs_genre.split(',')[0].strip()
-        
-        # Check if this exact genre exists
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (clean_genre,))
-        result = cursor.fetchone()
-        if result:
-            conn.close()
-            return result[0]
-        
-        # Check for partial matches or common mappings
-        common_mappings = {
-            'Rock': ['Rock', 'Alternative Rock', 'Classic Rock'],
-            'Jazz': ['Jazz'],
-            'Hip Hop': ['Hip-Hop', 'Rap'],
-            'Electronic': ['Electronic', 'Techno', 'House'],
-            'Pop': ['Pop'],
-            'Folk': ['Folk'],
-            'Country': ['Country'],
-            'Blues': ['Blues'],
-            'Classical': ['Classical'],
-            'Reggae': ['Reggae'],
-            'Soul': ['Soul', 'Funk'],
-            'Metal': ['Metal', 'Heavy Metal']
-        }
-        
-        for main_genre, variants in common_mappings.items():
-            for variant in variants:
-                if variant.lower() in clean_genre.lower():
-                    # Check if main genre exists
-                    cursor.execute('SELECT genre_name FROM genres WHERE genre_name = ?', (main_genre,))
-                    result = cursor.fetchone()
-                    if result:
-                        conn.close()
-                        return main_genre
-        
-        conn.close()
-        return ""
-
     def render_checkout_section(self, checkout_records, checkout_callback):
         """Render checkout section"""
         if not checkout_records:
@@ -5742,7 +5564,7 @@ class DisplayHandler:
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("📤 Export Genre CSV", use_container_width=True, help="Export ID, Artist, Title, and Genre for all inventory records", key="export_genre_csv"):
+            if st.button("📤 Export Genre CSV", width= 'stretch', help="Export ID, Artist, Title, and Genre for all inventory records", key="export_genre_csv"):
                 self._export_genre_csv()
             
         with col2:
@@ -5759,7 +5581,7 @@ class DisplayHandler:
                 if 'id' not in import_df.columns or 'genre' not in import_df.columns:
                     st.error("CSV must contain 'id' and 'genre' columns")
                 else:
-                    if st.button("🔄 Update Genres", use_container_width=True, key="update_genres"):
+                    if st.button("🔄 Update Genres", width= 'stretch', key="update_genres"):
                         updated_count = self._update_genres_from_csv(import_df)
                         if updated_count > 0:
                             st.success(f"✅ Updated genres for {updated_count} records!")
@@ -5784,12 +5606,12 @@ class DisplayHandler:
         
         font_size = st.slider("Font Size", min_value=24, max_value=96, value=48, key="genre_font_size")
         
-        if st.button("🖨️ Generate Genre Sign PDF", use_container_width=True, key="generate_genre_sign"):
+        if st.button("🖨️ Generate Genre Sign PDF", width= 'stretch', key="generate_genre_sign"):
             self._generate_genre_sign_pdf(print_option, genre_text, font_size)
 
     def render_price_tag_management(self):
         """Render price tag management section"""
-        if st.button("🖨️ Print Selected", use_container_width=True, help="Print selected records", key="print_selected"):
+        if st.button("🖨️ Print Selected", width= 'stretch', help="Print selected records", key="print_selected"):
             self._generate_price_tags_pdf()
 
     def _delete_record(self, record_id):
@@ -6673,18 +6495,11 @@ class RecordOperationsHandler:
         title = record_data.get('title', '')    # This will be the edited version
         image_url = record_data.get('image_url', '')
         catalog_number = record_data.get('catalog_number', '')
-        discogs_genre = record_data.get('genre', '')  # Store the original Discogs genre
         youtube_url = record_data.get('youtube_url', '')  # Get YouTube URL from record data
         
         # Get selected condition and price from record_data
         selected_condition = record_data.get('selected_condition')
         selected_price = record_data.get('selected_price')
-        
-        # Get eBay pricing if handler is available
-        ebay_pricing = None
-        if self.ebay_handler and artist and title:
-            with st.spinner("Fetching eBay pricing..."):
-                ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
         
         # Get genre_id for the genre
         genre_id = None
@@ -6715,14 +6530,6 @@ class RecordOperationsHandler:
         # Get eBay sell price from record_data if available
         ebay_sell_at = record_data.get('ebay_sell_at', 0.0)
         
-        if ebay_pricing:
-            record_data['ebay_lowest_price'] = ebay_pricing.get('ebay_lowest_price')
-            record_data['ebay_median_price'] = ebay_pricing.get('ebay_median_price')
-            record_data['ebay_highest_price'] = ebay_pricing.get('ebay_highest_price')
-            record_data['ebay_low_shipping'] = ebay_pricing.get('ebay_low_shipping')
-            record_data['ebay_listings_count'] = ebay_pricing.get('ebay_listings_count', 0)
-            record_data['ebay_total_items_found'] = ebay_pricing.get('ebay_total_items_found', 0)
-        
         # Save to database - include calculated store price and Discogs condition
         result_data = {
             'artist': artist,  # Use the edited artist name
@@ -6731,20 +6538,12 @@ class RecordOperationsHandler:
             'genre_id': genre_id,
             'image_url': image_url,
             'discogs_suggested_price': selected_price,
-            # eBay data - use actual values if available, otherwise NULL
-            'ebay_median_price': ebay_pricing.get('ebay_median_price') if ebay_pricing else None,
-            'ebay_lowest_price': ebay_pricing.get('ebay_lowest_price') if ebay_pricing else None,
-            'ebay_highest_price': ebay_pricing.get('ebay_highest_price') if ebay_pricing else None,
-            'ebay_count': ebay_pricing.get('ebay_listings_count') if ebay_pricing else None,
-            'ebay_low_shipping': ebay_pricing.get('ebay_low_shipping') if ebay_pricing else None,
-            'ebay_low_url': ebay_pricing.get('ebay_search_url') if ebay_pricing else None,
             'catalog_number': catalog_number,
             'format': format_selected,
             'condition': selected_condition,  # Store the Discogs condition text
             'file_at': file_at_value,  # Use calculated file_at
             'store_price': store_price,  # CALCULATED STORE PRICE
             'ebay_sell_at': ebay_sell_at,  # CALCULATED EBAY SELL PRICE
-            'discogs_genre': discogs_genre,  # Store the original Discogs genre
             'youtube_url': youtube_url  # Include YouTube URL
         }
         

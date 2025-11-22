@@ -17,7 +17,7 @@ class ToolsSyncTab:
         # Gallery JSON Management
         with col1:
             st.subheader("🔄 Gallery JSON")
-            if st.button("🔄 Manual JSON Rebuild", use_container_width=True):
+            if st.button("🔄 Manual JSON Rebuild", width='stretch'):
                 if self.gallery_json_manager:
                     with st.spinner("Rebuilding gallery JSON..."):
                         success = self.gallery_json_manager.trigger_rebuild(async_mode=False)
@@ -37,7 +37,7 @@ class ToolsSyncTab:
         # GitHub Sync Section
         with col2:
             st.subheader("🔄 GitHub Sync")
-            if st.button("🔄 Manual GitHub Sync", use_container_width=True):
+            if st.button("🔄 Manual GitHub Sync", width='stretch'):
                 if self.github_sync_handler:
                     with st.spinner("Syncing with GitHub..."):
                         success, message = self.github_sync_handler.trigger_sync()
@@ -60,7 +60,7 @@ class ToolsSyncTab:
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("🔄 Update File Locations", use_container_width=True):
+            if st.button("🔄 Update File Locations", width='stretch'):
                 if hasattr(st.session_state, 'db_manager'):
                     updated_count = st.session_state.db_manager.update_file_at_for_all_records()
                     st.success(f"✅ Updated file locations for {updated_count} records!")
@@ -68,10 +68,10 @@ class ToolsSyncTab:
                     st.error("Database manager not available")
         
         with col2:
-            if st.button("🗑️ Clear All Records", use_container_width=True, type="secondary"):
+            if st.button("🗑️ Clear All Records", width='stretch', type="secondary"):
                 if hasattr(st.session_state, 'db_manager'):
                     if st.checkbox("I understand this will delete ALL records permanently"):
-                        if st.button("CONFIRM DELETE ALL", type="primary"):
+                        if st.button("CONFIRM DELETE ALL", type="primary", width='stretch'):
                             st.session_state.db_manager.clear_database()
                             st.success("✅ All records deleted!")
                             st.rerun()

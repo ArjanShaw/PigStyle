@@ -76,7 +76,7 @@ class InventoryTab:
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            search_submitted = st.button("🔍 Search", use_container_width=True)
+            search_submitted = st.button("🔍 Search", width='stretch')
         
         # Handle Enter key press in search input
         if st.session_state.get('unified_search_input') and st.session_state.unified_search_input.strip():

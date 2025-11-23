@@ -1,7 +1,7 @@
 {
   "meta": {
-    "last_updated": "2025-11-23T21:51:41Z",
-    "total_records": 18,
+    "last_updated": "2025-11-23T22:25:52Z",
+    "total_records": 26,
     "format_version": "2.0"
   },
   "records": [
@@ -256,6 +256,118 @@
       "catalog_number": "LP-12406",
       "format": "Vinyl",
       "condition": "Good (G)"
+    },
+    {
+      "id": 706,
+      "artist": "Anne Murray",
+      "title": "Country",
+      "image_url": "https://i.discogs.com/fidFFsDABv7J3SYDbdMo5DMIcmtcEcspn9xNNDLtQ9A/rs:fit/g:sm/q:90/h:592/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE3NzUy/NjItMTQ4MzQ5ODkx/OS01ODgwLmpwZWc.jpeg",
+      "genre": "Roots",
+      "barcode": "100019",
+      "store_price": 4.99,
+      "file_at": "Roots(A)",
+      "youtube_url": "https://www.youtube.com/watch?v=7b1SKcZoOsk",
+      "catalog_number": "ST-11324",
+      "format": "Vinyl",
+      "condition": "Good Plus (G+)"
+    },
+    {
+      "id": 707,
+      "artist": "Various",
+      "title": "More Hootenanny",
+      "image_url": "https://i.discogs.com/ueQjRj7BDXHMlMcAz_0qa6c2qlfC5Ir1yl7Grg_StRk/rs:fit/g:sm/q:90/h:605/w:597/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE5ODYz/NjMtMTI3OTk5MDE2/Ny5qcGVn.jpeg",
+      "genre": "Compilation",
+      "barcode": "100020",
+      "store_price": 4.99,
+      "file_at": "Compilation(V)",
+      "youtube_url": "",
+      "catalog_number": "DS 2301",
+      "format": "Vinyl",
+      "condition": "Good Plus (G+)"
+    },
+    {
+      "id": 708,
+      "artist": "Henson Cargill",
+      "title": "Skip A Rope",
+      "image_url": "https://i.discogs.com/66Xr_PTv-XNWbnydScWsgjdKwJNEGoC05oZRXizxlHw/rs:fit/g:sm/q:90/h:598/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM3ODk1/MDAtMTM2NDY5Mzc1/MC04MDMyLmpwZWc.jpeg",
+      "genre": "Roots",
+      "barcode": "100021",
+      "store_price": 4.99,
+      "file_at": "Roots(H)",
+      "youtube_url": "https://www.youtube.com/watch?v=OH-glqAqw7M",
+      "catalog_number": "SLP18094",
+      "format": "Vinyl",
+      "condition": "Good Plus (G+)"
+    },
+    {
+      "id": 709,
+      "artist": "Various",
+      "title": "10 Swinging Country Hits",
+      "image_url": "https://i.discogs.com/z8z_lG8RC-x8B3fTQaHJgBoMa_-PV3P12SEPxIEhMW4/rs:fit/g:sm/q:90/h:578/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTMwMTkw/NjQtMTQ0ODg0NDU2/Ni01OTE1LmpwZWc.jpeg",
+      "genre": "Compilation",
+      "barcode": "100022",
+      "store_price": 4.99,
+      "file_at": "Compilation(V)",
+      "youtube_url": "",
+      "catalog_number": "1P 6100",
+      "format": "Vinyl",
+      "condition": "Good (G)"
+    },
+    {
+      "id": 710,
+      "artist": "Fats Domino",
+      "title": "The Legendary Music Man, Fats Domino",
+      "image_url": "https://i.discogs.com/-AwR30NjzHgAgYR3w4yFgnv2NorBHjCO_fnkGzpVyss/rs:fit/g:sm/q:90/h:602/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIyMjY0/MTMtMTUzOTY0NTg5/Ni01ODIwLmpwZWc.jpeg",
+      "genre": "Rock",
+      "barcode": "100023",
+      "store_price": 4.99,
+      "file_at": "Rock(F)",
+      "youtube_url": "https://www.youtube.com/watch?v=1Pqs_WZdUdM",
+      "catalog_number": "P2 13197",
+      "format": "Vinyl",
+      "condition": "Very Good (VG)"
+    },
+    {
+      "id": 711,
+      "artist": "Brenda Lee",
+      "title": "10 Golden Years",
+      "image_url": "https://i.discogs.com/-QXzTBj1DL67PKW9QQ0um4RQxTWHOxj9P9syq-mJQiA/rs:fit/g:sm/q:90/h:480/w:480/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTg2Mjkw/OTMtMTQ2NTYzMjQx/MC0yOTgyLmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "100024",
+      "store_price": 4.99,
+      "file_at": "Pop(B)",
+      "youtube_url": "https://www.youtube.com/watch?v=DFtyVmuM6bQ",
+      "catalog_number": "COPS 1016",
+      "format": "Vinyl",
+      "condition": "Good (G)"
+    },
+    {
+      "id": 712,
+      "artist": "Hank Williams With His Drifting Cowboys",
+      "title": "The Great Hits Of Hank Williams",
+      "image_url": "https://i.discogs.com/O38yakVqUeaOzt2-wuiEpmcNdej4LRPc2LuQdi0n48A/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI3MTM4/NjItMTUwMjE2Nzcx/OS00NzIzLmpwZWc.jpeg",
+      "genre": "Roots",
+      "barcode": "100025",
+      "store_price": 4.99,
+      "file_at": "Roots(H)",
+      "youtube_url": "https://www.youtube.com/watch?v=Wn2e4Dhod7M",
+      "catalog_number": "SE4267-4",
+      "format": "Vinyl",
+      "condition": "Good Plus (G+)"
+    },
+    {
+      "id": 713,
+      "artist": "Bobby Vinton",
+      "title": "Take Good Care Of My Baby",
+      "image_url": "https://i.discogs.com/Gf71N3iqSWKZMaVi2ZkjmNDZCf88iDA2jg6HQ3-_YEU/rs:fit/g:sm/q:90/h:431/w:428/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI5NTMx/MTMtMTM3NzMyNDMz/NS00NDA4LmpwZWc.jpeg",
+      "genre": "Pop",
+      "barcode": "100026",
+      "store_price": 4.99,
+      "file_at": "Pop(B)",
+      "youtube_url": "https://www.youtube.com/watch?v=nkWgQgaHMgg",
+      "catalog_number": "BN 26382",
+      "format": "Vinyl",
+      "condition": "Very Good (VG)"
     }
   ]
 }

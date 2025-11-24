@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
@@ -51,7 +51,7 @@
                         <div class="detail-item condition" id="trackCondition">
                             <span class="condition-stars" id="conditionStars"></span>
                         </div>
-                        <!-- Moved vote controls here -->
+                        <!-- Vote controls -->
                         <div class="vote-controls">
                             <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
                                 👍
@@ -86,15 +86,192 @@
         let youtubePlayer = null;
         let autoplayEnabled = true;
         let userIP = null;
-        let votesData = {};
         let currentTrackId = null;
+
+        // Voting system using your PythonAnywhere API
+        class VotingSystem {
+            constructor() {
+                this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com/api';
+                this.voteCounts = {};
+                this.userIP = null;
+            }
+
+            async initialize() {
+                await this.getUserIP();
+                await this.loadAllVoteCounts();
+                this.setupVoteHandlers();
+            }
+
+            async getUserIP() {
+                try {
+                    const response = await fetch('https://api.ipify.org?format=json');
+                    const data = await response.json();
+                    this.userIP = data.ip;
+                    console.log('User IP:', this.userIP);
+                } catch (error) {
+                    console.error('Error getting IP:', error);
+                    // Fallback to random identifier
+                    this.userIP = 'unknown_' + Math.random().toString(36).substr(2, 9);
+                }
+            }
+
+            async loadAllVoteCounts() {
+                try {
+                    const response = await fetch(`${this.apiBaseUrl}/votes`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.voteCounts = data.vote_counts || {};
+                        console.log('Loaded vote counts:', this.voteCounts);
+                        this.updateAllVoteDisplays();
+                    } else {
+                        console.error('Failed to load vote counts:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error loading vote counts:', error);
+                }
+            }
+
+            async loadVoteCountsForRecord(artistTitle) {
+                try {
+                    const encodedArtistTitle = encodeURIComponent(artistTitle);
+                    const response = await fetch(`${this.apiBaseUrl}/votes/${encodedArtistTitle}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.voteCounts[artistTitle] = {
+                            upvotes: data.upvotes,
+                            downvotes: data.downvotes
+                        };
+                        this.updateVoteDisplay(artistTitle);
+                        return this.voteCounts[artistTitle];
+                    } else {
+                        console.error('Failed to load vote counts for:', artistTitle, data.error);
+                        return { upvotes: 0, downvotes: 0 };
+                    }
+                } catch (error) {
+                    console.error('Error loading vote counts for', artistTitle, error);
+                    return { upvotes: 0, downvotes: 0 };
+                }
+            }
+
+            async vote(artistTitle, voteType) {
+                try {
+                    const response = await fetch(`${this.apiBaseUrl}/vote`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            artist_title: artistTitle,
+                            voter_hash: this.userIP,
+                            vote_type: voteType
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Update local vote counts
+                        this.voteCounts = { ...this.voteCounts, ...data.vote_counts };
+                        this.updateVoteDisplay(artistTitle);
+                        this.showVoteFeedback(artistTitle, voteType, true);
+                        return true;
+                    } else {
+                        this.showVoteFeedback(artistTitle, voteType, false, data.error);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Error recording vote:', error);
+                    this.showVoteFeedback(artistTitle, voteType, false, 'Network error');
+                    return false;
+                }
+            }
+
+            updateVoteDisplay(artistTitle) {
+                const counts = this.voteCounts[artistTitle] || { upvotes: 0, downvotes: 0 };
+                
+                // Update the vote buttons in the UI
+                const upvoteBtn = document.getElementById('upvoteBtn');
+                const downvoteBtn = document.getElementById('downvoteBtn');
+                
+                if (upvoteBtn) {
+                    const upvoteCount = document.getElementById('upvoteCount');
+                    if (upvoteCount) upvoteCount.textContent = counts.upvotes;
+                }
+                
+                if (downvoteBtn) {
+                    const downvoteCount = document.getElementById('downvoteCount');
+                    if (downvoteCount) downvoteCount.textContent = counts.downvotes;
+                }
+            }
+
+            updateAllVoteDisplays() {
+                // This will update all vote displays when a new track loads
+                if (currentTrackId) {
+                    this.updateVoteDisplay(currentTrackId);
+                }
+            }
+
+            showVoteFeedback(artistTitle, voteType, success, errorMessage = '') {
+                // Create a temporary feedback message
+                const feedbackEl = document.createElement('div');
+                feedbackEl.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    color: white;
+                    font-weight: bold;
+                    z-index: 1000;
+                    transition: opacity 0.3s;
+                    background: ${success ? '#27ae60' : '#e74c3c'};
+                `;
+                
+                if (success) {
+                    feedbackEl.textContent = `✓ ${voteType === 'upvote' ? 'Liked!' : 'Disliked!'}`;
+                } else {
+                    feedbackEl.textContent = errorMessage || 'Vote failed';
+                }
+                
+                document.body.appendChild(feedbackEl);
+                
+                // Remove after 2 seconds
+                setTimeout(() => {
+                    feedbackEl.style.opacity = '0';
+                    setTimeout(() => {
+                        if (feedbackEl.parentNode) {
+                            feedbackEl.remove();
+                        }
+                    }, 300);
+                }, 2000);
+            }
+
+            setupVoteHandlers() {
+                document.getElementById('upvoteBtn').addEventListener('click', () => {
+                    if (currentTrackId) {
+                        this.vote(currentTrackId, 'upvote');
+                    }
+                });
+                
+                document.getElementById('downvoteBtn').addEventListener('click', () => {
+                    if (currentTrackId) {
+                        this.vote(currentTrackId, 'downvote');
+                    }
+                });
+            }
+        }
+
+        // Initialize voting system
+        const votingSystem = new VotingSystem();
 
         // Weighted random selection parameters
         const MIN_WEIGHT = 0.1;  // Even downvoted songs get some playtime
         const MAX_WEIGHT = 3.0;  // Highly upvoted songs get more playtime
         const BASE_WEIGHT = 1.0; // Default weight for songs with no votes
 
-        // Format icons mapping - updated vinyl to black circle
+        // Format icons mapping
         const formatIcons = {
             'vinyl': '⚫',
             'record': '⚫',
@@ -111,11 +288,8 @@
             try {
                 console.log('Loading streaming data...');
                 
-                // Get user IP first
-                await getUserIP();
-                
-                // Load votes data
-                await loadVotesData();
+                // Initialize voting system
+                await votingSystem.initialize();
                 
                 const response = await fetch('gallery-data.json');
                 const data = await response.json();
@@ -160,18 +334,18 @@
             
             // Calculate scores and weights for all tracks
             const tracksWithWeights = filteredRecords.map(record => {
-                const trackId = record.id.toString();
-                const votes = votesData.tracks[trackId] || { upvotes: 0, downvotes: 0 };
+                const trackId = `${record.artist} - ${record.title}`;
+                const votes = votingSystem.voteCounts[trackId] || { upvotes: 0, downvotes: 0 };
                 const score = votes.upvotes - votes.downvotes;
                 
                 // Calculate weight using hybrid algorithm
                 let weight;
-                if (Object.keys(votesData.tracks).length === 0) {
+                if (Object.keys(votingSystem.voteCounts).length === 0) {
                     // If no votes data yet, use base weight for all
                     weight = BASE_WEIGHT;
                 } else {
                     // Find min and max scores across all tracks
-                    const allScores = Object.values(votesData.tracks).map(v => v.upvotes - v.downvotes);
+                    const allScores = Object.values(votingSystem.voteCounts).map(v => v.upvotes - v.downvotes);
                     const minScore = Math.min(...allScores);
                     const maxScore = Math.max(...allScores);
                     
@@ -215,74 +389,7 @@
             console.log(`Generated weighted playlist with ${filteredRecords.length} entries (from ${tracksWithWeights.length} unique tracks)`);
         }
 
-        // Get user IP address
-        async function getUserIP() {
-            try {
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                userIP = data.ip;
-                console.log('User IP:', userIP);
-            } catch (error) {
-                console.error('Error getting IP:', error);
-                // Fallback to a random identifier if IP fetch fails
-                userIP = 'unknown_' + Math.random().toString(36).substr(2, 9);
-            }
-        }
-
-        // Load votes data from localStorage or create new
-        async function loadVotesData() {
-            try {
-                // First try to load from localStorage (client-side persistence)
-                const storedVotes = localStorage.getItem('pigstyle_votes_data');
-                
-                if (storedVotes) {
-                    votesData = JSON.parse(storedVotes);
-                    console.log('Loaded votes data from localStorage:', votesData);
-                } else {
-                    // If no localStorage data, try to load from JSON file (for initial setup)
-                    try {
-                        const response = await fetch('votes-data.json');
-                        votesData = await response.json();
-                        console.log('Loaded votes data from JSON file:', votesData);
-                        
-                        // Also store in localStorage for future persistence
-                        localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
-                    } catch (error) {
-                        console.log('No existing votes data found, starting fresh');
-                        votesData = {
-                            tracks: {},
-                            lastUpdated: new Date().toISOString()
-                        };
-                        // Initialize localStorage with fresh data
-                        localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading votes data:', error);
-                // Fallback to fresh data
-                votesData = {
-                    tracks: {},
-                    lastUpdated: new Date().toISOString()
-                };
-                localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
-            }
-        }
-
-        // Save votes data to localStorage
-        async function saveVotesData() {
-            try {
-                votesData.lastUpdated = new Date().toISOString();
-                
-                // Always save to localStorage for client-side persistence
-                localStorage.setItem('pigstyle_votes_data', JSON.stringify(votesData));
-                console.log('Votes data saved to localStorage:', votesData);
-                
-            } catch (error) {
-                console.error('Error saving votes data:', error);
-            }
-        }
-
-        // Fisher-Yates shuffle algorithm to randomize array
+        // Fisher-Yates shuffle algorithm
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -352,10 +459,6 @@
             // Add event listeners for navigation
             document.getElementById('prevBtn').addEventListener('click', playPreviousTrack);
             document.getElementById('nextBtn').addEventListener('click', playNextTrack);
-            
-            // Add event listeners for voting
-            document.getElementById('upvoteBtn').addEventListener('click', () => handleVote('upvote'));
-            document.getElementById('downvoteBtn').addEventListener('click', () => handleVote('downvote'));
         }
 
         // Load YouTube API
@@ -378,13 +481,13 @@
             
             const currentRecord = filteredRecords[currentTrackIndex];
             const youtubeId = extractYouTubeId(currentRecord.youtube_url);
-            currentTrackId = currentRecord.id.toString();
+            currentTrackId = `${currentRecord.artist} - ${currentRecord.title}`;
             
             // Update track info
             document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
             document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
             
-            // Update format with icon - now using black circle for vinyl
+            // Update format with icon
             const format = currentRecord.format || 'vinyl';
             const formatText = format.toLowerCase();
             const formatIcon = formatIcons[formatText] || '⚫';
@@ -398,8 +501,8 @@
             const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
             document.getElementById('trackPrice').textContent = price;
             
-            // Update vote display
-            updateVoteDisplay();
+            // Update vote display for this track
+            votingSystem.updateVoteDisplay(currentTrackId);
             
             // Set record image as overlay
             const recordImageUrl = currentRecord.image_url || 'images/default-record.jpg';
@@ -419,8 +522,8 @@
                         'controls': 1,
                         'rel': 0,
                         'modestbranding': 1,
-                        'cc_load_policy': 0, // Disable captions by default
-                        'iv_load_policy': 3  // Disable annotations
+                        'cc_load_policy': 0,
+                        'iv_load_policy': 3
                     },
                     events: {
                         'onReady': onPlayerReady,
@@ -446,87 +549,6 @@
                 star.textContent = '★';
                 starsContainer.appendChild(star);
             }
-        }
-
-        // Update vote display for current track
-        function updateVoteDisplay() {
-            if (!votesData.tracks[currentTrackId]) {
-                votesData.tracks[currentTrackId] = {
-                    upvotes: 0,
-                    downvotes: 0,
-                    voters: {}
-                };
-            }
-            
-            const trackVotes = votesData.tracks[currentTrackId];
-            
-            // Update badge counts
-            document.getElementById('upvoteCount').textContent = trackVotes.upvotes;
-            document.getElementById('downvoteCount').textContent = trackVotes.downvotes;
-            
-            // Update button states based on user's previous vote
-            const upvoteBtn = document.getElementById('upvoteBtn');
-            const downvoteBtn = document.getElementById('downvoteBtn');
-            
-            upvoteBtn.classList.remove('voted');
-            downvoteBtn.classList.remove('voted');
-            
-            if (trackVotes.voters[userIP] === 'upvote') {
-                upvoteBtn.classList.add('voted');
-            } else if (trackVotes.voters[userIP] === 'downvote') {
-                downvoteBtn.classList.add('voted');
-            }
-        }
-
-        // Handle vote action
-        function handleVote(voteType) {
-            if (!currentTrackId || !userIP) return;
-            
-            if (!votesData.tracks[currentTrackId]) {
-                votesData.tracks[currentTrackId] = {
-                    upvotes: 0,
-                    downvotes: 0,
-                    voters: {}
-                };
-            }
-            
-            const trackVotes = votesData.tracks[currentTrackId];
-            const previousVote = trackVotes.voters[userIP];
-            
-            // If user already voted this way, remove the vote
-            if (previousVote === voteType) {
-                if (voteType === 'upvote') {
-                    trackVotes.upvotes--;
-                } else {
-                    trackVotes.downvotes--;
-                }
-                delete trackVotes.voters[userIP];
-            } else {
-                // If user voted differently before, remove previous vote
-                if (previousVote === 'upvote') {
-                    trackVotes.upvotes--;
-                } else if (previousVote === 'downvote') {
-                    trackVotes.downvotes--;
-                }
-                
-                // Add new vote
-                if (voteType === 'upvote') {
-                    trackVotes.upvotes++;
-                } else {
-                    trackVotes.downvotes++;
-                }
-                trackVotes.voters[userIP] = voteType;
-            }
-            
-            // Update display and save data
-            updateVoteDisplay();
-            saveVotesData();
-            
-            // Regenerate weighted playlist to reflect the new vote
-            generateWeightedPlaylist();
-            
-            // Reset current track index since playlist changed
-            currentTrackIndex = 0;
         }
 
         // YouTube player ready callback

@@ -2,16 +2,22 @@ import os
 from pathlib import Path
 
 def create_repo_dump():
-    """Create ONE file with full repo structure and code from inventory-manager/src"""
-    target_folder = 'inventory-manager/src'  # Corrected path with dash
+    """Create ONE file with full repo structure and code from multiple folders"""
+    target_folders = [
+        'inventory-manager/src',
+        'web',
+        'voting-system'
+    ]
     
     output_file = 'REPO_STRUCTURE_AND_CODE.txt'
     
     with open(output_file, 'w', encoding='utf-8') as f:
         # Write header
-        f.write(f"COMPLETE REPOSITORY STRUCTURE + CODE FROM: {target_folder}\n")
+        f.write("COMPLETE REPOSITORY STRUCTURE + CODE FROM: inventory-manager/src, web, voting-system\n")
         f.write("=" * 70 + "\n")
-        f.write(f"Target folder for code: {target_folder}\n")
+        f.write("Target folders for code:\n")
+        for folder in target_folders:
+            f.write(f"- {folder}\n")
         f.write("=" * 70 + "\n\n")
         
         # Build and write COMPLETE directory tree
@@ -30,8 +36,8 @@ def create_repo_dump():
             current_prefix = '└── ' if is_last else '├── '
             dir_name = path_obj.name + '/'
             
-            # Highlight the target folder
-            if str(path_obj) == target_folder:
+            # Highlight the target folders
+            if str(path_obj) in target_folders:
                 dir_name = f"🎯 {dir_name} [TARGET]"
             
             lines.append(prefix + current_prefix + dir_name)
@@ -59,10 +65,11 @@ def create_repo_dump():
                         file_prefix = '└── ' if is_last_item else '├── '
                         file_display = os.path.basename(item_path)
                         
-                        # Highlight Python files in target folder
-                        if item_path.endswith('.py'):
-                            file_display += " 🐍"
-                            if target_folder in item_path:
+                        # Highlight code files
+                        if item_path.endswith(('.py', '.html', '.css', '.js', '.json')):
+                            file_icon = "🐍" if item_path.endswith('.py') else "🌐"
+                            file_display += f" {file_icon}"
+                            if any(target in item_path for target in target_folders):
                                 file_display = f"⭐ {file_display}"
                         
                         lines.append(new_prefix + file_prefix + file_display)
@@ -77,40 +84,33 @@ def create_repo_dump():
         f.write("\n".join(tree_lines))
         f.write("\n\n" + "=" * 70 + "\n\n")
         
-        # Write ONLY Python code from target folder
-        f.write(f"PYTHON CODE FROM: {target_folder}\n")
-        f.write("=" * 70 + "\n\n")
+        # Process each target folder
+        total_files_found = 0
         
-        python_files_found = 0
-        
-        # Check if target folder exists
-        if not os.path.exists(target_folder):
-            f.write(f"❌ Target folder '{target_folder}' not found!\n")
-            print(f"❌ Target folder '{target_folder}' not found!")
+        for target_folder in target_folders:
+            # Check if target folder exists
+            if not os.path.exists(target_folder):
+                f.write(f"❌ Target folder '{target_folder}' not found!\n\n")
+                print(f"❌ Target folder '{target_folder}' not found!")
+                continue
             
-            # Show what folders actually exist
-            f.write("\nAvailable folders:\n")
-            for item in os.listdir('.'):
-                if os.path.isdir(item):
-                    f.write(f"- {item}/\n")
-                    if item == 'inventory-manager':
-                        try:
-                            for sub_item in os.listdir('inventory-manager'):
-                                f.write(f"  └── {sub_item}/\n")
-                        except:
-                            pass
-        else:
-            # Walk through ONLY the target folder
+            f.write(f"CODE FROM: {target_folder}\n")
+            f.write("=" * 70 + "\n\n")
+            
+            folder_files_found = 0
+            
+            # Walk through the target folder
             for root, dirs, files in os.walk(target_folder):
                 # Skip system directories
                 dirs[:] = [d for d in dirs if d not in ['__pycache__']]
                 
                 for file in files:
-                    if file.endswith('.py'):
+                    # Include all code files: Python, HTML, CSS, JS, JSON
+                    if file.endswith(('.py', '.html', '.css', '.js', '.json')):
                         file_path = os.path.join(root, file)
                         try:
-                            with open(file_path, 'r', encoding='utf-8') as py_file:
-                                content = py_file.read()
+                            with open(file_path, 'r', encoding='utf-8') as code_file:
+                                content = code_file.read()
                             
                             relative_path = os.path.relpath(file_path, '.')
                             f.write(f"FILE: {relative_path}\n")
@@ -118,18 +118,21 @@ def create_repo_dump():
                             f.write(content)
                             f.write("\n\n" + "=" * 70 + "\n\n")
                             
-                            python_files_found += 1
+                            folder_files_found += 1
+                            total_files_found += 1
                             print(f"✅ Added: {relative_path}")
                             
                         except Exception as e:
                             f.write(f"FILE: {file_path} - ERROR: {e}\n")
                             f.write("=" * 70 + "\n\n")
             
-            if python_files_found == 0:
-                f.write(f"No Python files found in {target_folder}!\n")
+            f.write(f"📊 Files from {target_folder}: {folder_files_found}\n\n")
+            
+            if folder_files_found == 0:
+                f.write(f"No code files found in {target_folder}!\n\n")
     
     print(f"\n🎯 DONE: {output_file}")
-    print(f"📊 Python files from {target_folder}: {python_files_found}")
+    print(f"📊 Total code files: {total_files_found}")
     
     # Show file size
     size = os.path.getsize(output_file)

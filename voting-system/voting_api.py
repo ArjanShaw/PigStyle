@@ -1,14 +1,13 @@
+# /home/arjanshaw/voting_api.py
 from flask import Flask, request, jsonify
 import sqlite3
-import hashlib
-import json
-from datetime import datetime
-from functools import wraps
+import os
 
-app = Flask(__name__)
+# Use 'application' for PythonAnywhere
+application = Flask(__name__)
 
-# Database configuration
-DATABASE = 'votes.db'
+# Database configuration - absolute path
+DATABASE = '/home/arjanshaw/votes.db'
 
 def get_db_connection():
     """Get database connection"""
@@ -18,58 +17,69 @@ def get_db_connection():
 
 def init_database():
     """Initialize the database with required tables"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Create votes table - using artist_title as primary key
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS votes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            artist_title TEXT NOT NULL,
-            voter_hash TEXT NOT NULL,
-            vote_type TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(artist_title, voter_hash)
-        )
-    ''')
-    
-    # Create index for faster lookups
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_artist_title ON votes (artist_title)
-    ''')
-    
-    conn.commit()
-    conn.close()
-
-def cors_headers(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        response = f(*args, **kwargs)
-        if isinstance(response, tuple):
-            response, status = response
-        else:
-            status = 200
+    try:
+        # Ensure the database file exists and is writable
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        # Add CORS headers
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+        # Create votes table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS votes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artist_title TEXT NOT NULL,
+                voter_hash TEXT NOT NULL,
+                vote_type TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(artist_title, voter_hash)
+            )
+        ''')
+        
+        # Create index for faster lookups
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_artist_title ON votes (artist_title)
+        ''')
+        
+        conn.commit()
+        conn.close()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"❌ Database initialization error: {e}")
+        # Create an empty database file if it doesn't exist
+        try:
+            open(DATABASE, 'a').close()
+            print("✅ Created empty database file")
+        except:
+            print("❌ Could not create database file")
+
+# Initialize database when app starts
+init_database()
+
+@application.after_request
+def after_request(response):
+    """Add CORS headers to all responses - NO flask_cors needed!"""
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@application.route('/')
+def home():
+    """Root endpoint - API information"""
+    return jsonify({
+        'message': 'PigStyle Records Voting API',
+        'status': 'online',
+        'version': '1.0',
+        'endpoints': {
+            '/': 'GET - API information (this page)',
+            '/api/votes': 'GET - Get all vote counts',
+            '/api/votes/<artist_title>': 'GET - Get votes for specific record',
+            '/api/vote': 'POST - Record a vote'
         }
-        
-        if isinstance(response, dict):
-            return jsonify(response), status, headers
-        else:
-            return response, status, headers
-    return decorated_function
+    })
 
-@app.route('/api/votes', methods=['GET', 'OPTIONS'])
-@cors_headers
+@application.route('/api/votes', methods=['GET'])
 def get_all_votes():
     """Get all vote counts for all records"""
-    if request.method == 'OPTIONS':
-        return {}
-    
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -93,35 +103,41 @@ def get_all_votes():
         
         conn.close()
         
-        return {
+        return jsonify({
             'success': True,
-            'vote_counts': vote_counts
-        }
+            'vote_counts': vote_counts,
+            'total_records': len(vote_counts)
+        })
         
     except Exception as e:
-        return {
+        return jsonify({
             'success': False,
             'error': str(e)
-        }, 500
+        }), 500
 
-@app.route('/api/vote', methods=['POST', 'OPTIONS'])
-@cors_headers
+@application.route('/api/vote', methods=['POST', 'OPTIONS'])
 def record_vote():
     """Record a vote using artist_title as key"""
     if request.method == 'OPTIONS':
-        return {}
+        return jsonify({'status': 'ok'})
     
     try:
         data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided'
+            }), 400
         
         # Validate required fields
         required_fields = ['artist_title', 'voter_hash', 'vote_type']
         for field in required_fields:
             if field not in data:
-                return {
+                return jsonify({
                     'success': False,
                     'error': f'Missing required field: {field}'
-                }, 400
+                }), 400
         
         artist_title = data['artist_title']
         voter_hash = data['voter_hash']
@@ -129,10 +145,10 @@ def record_vote():
         
         # Validate vote_type
         if vote_type not in ['upvote', 'downvote']:
-            return {
+            return jsonify({
                 'success': False,
                 'error': 'Invalid vote_type. Must be "upvote" or "downvote"'
-            }, 400
+            }), 400
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -164,30 +180,22 @@ def record_vote():
         
         conn.close()
         
-        return {
+        return jsonify({
             'success': True,
             'message': f'{vote_type} recorded successfully for {artist_title}',
             'vote_counts': vote_counts
-        }
+        })
         
     except Exception as e:
-        return {
+        return jsonify({
             'success': False,
             'error': str(e)
-        }, 500
+        }), 500
 
-@app.route('/api/votes/<path:artist_title>', methods=['GET', 'OPTIONS'])
-@cors_headers
+@application.route('/api/votes/<path:artist_title>', methods=['GET'])
 def get_votes_for_artist_title(artist_title):
     """Get vote counts for a specific artist_title"""
-    if request.method == 'OPTIONS':
-        return {}
-    
     try:
-        # URL decode the artist_title
-        import urllib.parse
-        artist_title = urllib.parse.unquote(artist_title)
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -203,28 +211,27 @@ def get_votes_for_artist_title(artist_title):
         conn.close()
         
         if result:
-            return {
+            return jsonify({
                 'success': True,
                 'artist_title': artist_title,
                 'upvotes': result['upvotes'] or 0,
                 'downvotes': result['downvotes'] or 0
-            }
+            })
         else:
-            return {
+            return jsonify({
                 'success': True,
                 'artist_title': artist_title,
                 'upvotes': 0,
-                'downvotes': 0
-            }
+                'downvotes': 0,
+                'message': 'No votes found for this record'
+            })
         
     except Exception as e:
-        return {
+        return jsonify({
             'success': False,
             'error': str(e)
-        }, 500
+        }), 500
 
-# Initialize database when starting
-init_database()
-
+# For local development
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    application.run(debug=True)

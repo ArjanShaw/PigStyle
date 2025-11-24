@@ -84,6 +84,6 @@ class ToolsSyncTab:
             with col1:
                 st.metric("Total Records", stats['records_count'])
             with col2:
-                st.metric("Failed Searches", stats['failed_count'])
+                st.metric("Consignors", stats['consignors_count'])
             with col3:
                 st.metric("Database Path", stats['db_path'])

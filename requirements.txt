@@ -8,3 +8,4 @@ reportlab
 Pillow
 python-barcode
 google-api-python-client
+flask

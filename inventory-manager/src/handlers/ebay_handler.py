@@ -120,13 +120,13 @@ class EbayHandler:
                 shipping_type = shipping_info['type']
                 shipping_cost_value = shipping_info['cost']
                 
-                # Calculate total cost (base + shipping)
+                # Calculate total cost for ranking - use config shipping for CALC items
                 if shipping_type == 'CALC':
-                    total_cost = base_price + shipping_cost
+                    total_cost_for_ranking = base_price + shipping_cost
                 elif shipping_cost_value is not None:
-                    total_cost = base_price + shipping_cost_value
+                    total_cost_for_ranking = base_price + shipping_cost_value
                 else:
-                    total_cost = base_price  # For FREE shipping
+                    total_cost_for_ranking = base_price  # For FREE shipping
                 
                 item_url = item.get("itemWebUrl", "")
                 item_id = item.get("itemId", "")
@@ -138,7 +138,7 @@ class EbayHandler:
                     'base_price': base_price,
                     'shipping_type': shipping_type,
                     'shipping_cost': shipping_cost_value,
-                    'total_cost': total_cost,
+                    'total_cost_for_ranking': total_cost_for_ranking,
                     'item_url': item_url,
                     'item_id': item_id,
                     'item_data': item  # Store full item data for later use
@@ -154,11 +154,9 @@ class EbayHandler:
         for condition, listings in condition_groups.items():
             if listings:
                 base_prices = [listing['base_price'] for listing in listings]
-                total_costs = [listing['total_cost'] for listing in listings]
                 
-                # Sort for median calculation
-                base_prices.sort()
-                total_costs.sort()
+                # Sort by total cost for ranking (using config shipping for CALC items)
+                listings_sorted = sorted(listings, key=lambda x: x['total_cost_for_ranking'])
                 
                 n = len(base_prices)
                 
@@ -168,23 +166,13 @@ class EbayHandler:
                 else:
                     median_base = (base_prices[n//2 - 1] + base_prices[n//2]) / 2
                 
-                # Calculate median total cost
-                if n % 2 == 1:
-                    median_total = total_costs[n//2]
-                else:
-                    median_total = (total_costs[n//2 - 1] + total_costs[n//2]) / 2
-                
-                # Find cheapest listing in this condition group
-                cheapest_listing = min(listings, key=lambda x: x['total_cost'])
+                # Find cheapest listing in this condition group (using ranking logic)
+                cheapest_listing = listings_sorted[0]
                 
                 condition_pricing[condition] = {
                     'count': len(listings),
                     'lowest_price': round(cheapest_listing['base_price'], 2),
-                    'median_price': round(median_base, 2),
-                    'highest_price': round(max(base_prices), 2),
-                    'lowest_total': round(cheapest_listing['total_cost'], 2),
-                    'median_total': round(median_total, 2),
-                    'lowest_shipping': round(cheapest_listing['shipping_cost'] or 0, 2),
+                    'lowest_shipping': cheapest_listing['shipping_cost'],  # Keep as None for CALC
                     'cheapest_item_url': cheapest_listing['item_url'],
                     'cheapest_item_id': cheapest_listing['item_id'],
                     'listings': listings
@@ -197,7 +185,7 @@ class EbayHandler:
         
         overall_cheapest = None
         if all_listings:
-            overall_cheapest = min(all_listings, key=lambda x: x['total_cost'])
+            overall_cheapest = min(all_listings, key=lambda x: x['total_cost_for_ranking'])
             overall_cheapest_details = self.get_item_details(overall_cheapest['item_id']) if overall_cheapest['item_id'] else None
         else:
             overall_cheapest_details = None
@@ -255,6 +243,7 @@ class EbayHandler:
                 for option in shipping_options:
                     shipping_cost_type = option.get('shippingCostType', '')
                     if shipping_cost_type == 'CALCULATED':
+                        # For CALCULATED shipping, return None for cost
                         return {'type': 'CALC', 'cost': None}
                     elif shipping_cost_type == 'FIXED':
                         shipping_cost = option.get('shippingCost', {})
@@ -267,6 +256,7 @@ class EbayHandler:
             if shipping_cost_summary:
                 shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
                 if shipping_cost_type == 'CALCULATED':
+                    # For CALCULATED shipping, return None for cost
                     return {'type': 'CALC', 'cost': None}
                 elif shipping_cost_type == 'FIXED':
                     shipping_cost = shipping_cost_summary.get('shippingCost', {})

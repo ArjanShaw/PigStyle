@@ -25,7 +25,7 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        # Records table - simplified without removed columns
+        # Records table - with consignment columns
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,20 +42,60 @@ class DatabaseManager:
                 store_price REAL,
                 ebay_sell_at REAL,
                 youtube_url TEXT,
+                date_added DATE,
+                date_sold DATE,
+                date_returned DATE,
+                date_picked_up DATE,
+                date_paid DATE,
+                consignment_session_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (genre_id) REFERENCES genres (id)
+                FOREIGN KEY (genre_id) REFERENCES genres (id),
+                FOREIGN KEY (consignment_session_id) REFERENCES consignment_sessions (id)
             )
         ''')
         
-        # Add columns if they don't exist (only keeping essential ones)
+        # Consignors table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS consignors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                address TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Consignment sessions table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS consignment_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                consignor_id INTEGER NOT NULL,
+                session_date DATE DEFAULT CURRENT_DATE,
+                commission_rate REAL NOT NULL,
+                store_return_days INTEGER NOT NULL,
+                session_notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (consignor_id) REFERENCES consignors (id)
+            )
+        ''')
+        
+        # Add columns if they don't exist (without DEFAULT for date_added)
         columns_to_add = [
             ('store_price', 'REAL'),
             ('genre_id', 'INTEGER'),
             ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
             ('youtube_url', 'TEXT'),
             ('ebay_sell_at', 'REAL'),
-            ('discogs_suggested_price', 'REAL')
+            ('discogs_suggested_price', 'REAL'),
+            ('date_added', 'DATE'),
+            ('date_sold', 'DATE'),
+            ('date_returned', 'DATE'),
+            ('date_picked_up', 'DATE'),
+            ('date_paid', 'DATE'),
+            ('consignment_session_id', 'INTEGER')
         ]
         
         for column_name, column_type in columns_to_add:
@@ -64,14 +104,10 @@ class DatabaseManager:
             except sqlite3.OperationalError:
                 pass
         
-        # Failed searches table
+        # Set default date_added for existing records that don't have it
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS failed_searches (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                search_term TEXT NOT NULL,
-                error_details TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
+            UPDATE records SET date_added = date(created_at) 
+            WHERE date_added IS NULL
         ''')
         
         # Genre domain table
@@ -80,17 +116,6 @@ class DatabaseManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 genre_name TEXT UNIQUE NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Genre by artist cross-reference table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS genre_by_artist (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                artist_name TEXT UNIQUE NOT NULL,
-                genre_id INTEGER NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (genre_id) REFERENCES genres (id)
             )
         ''')
         
@@ -105,46 +130,40 @@ class DatabaseManager:
             )
         ''')
         
-        # Create view for records with genre names
+        # Voter tracking table for streaming votes
         cursor.execute('''
-            CREATE VIEW IF NOT EXISTS records_with_genres AS
-            SELECT 
-                r.*,
-                g.genre_name as genre
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
+            CREATE TABLE IF NOT EXISTS voter_tracking (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_id INTEGER NOT NULL,
+                voter_hash TEXT NOT NULL,
+                vote_type TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(record_id, voter_hash),
+                FOREIGN KEY (record_id) REFERENCES records (id)
+            )
         ''')
         
         # Create triggers
         self._create_triggers(cursor, conn)
         
-        # Insert default SHIPPING_COST configuration
-        cursor.execute('''
-            INSERT OR IGNORE INTO app_config (config_key, config_value)
-            VALUES ('SHIPPING_COST', '5.72')
-        ''')
+        # Insert default configuration
+        default_configs = [
+            ('SHIPPING_COST', '5.72'),
+            ('MIN_STORE_PRICE', '1.99'),
+            ('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'),
+            ('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'),
+            ('STORE_PRICE_MINIMUM', '4.99'),
+            ('DEFAULT_COMMISSION_RATE', '0.50'),
+            ('DEFAULT_STORE_RETURN_DAYS', '90'),
+            ('CUSTOMER_RETURN_DAYS', '30'),
+            ('CONSIGNOR_PICKUP_DAYS', '30')
+        ]
         
-        # Insert default MIN_STORE_PRICE configuration
-        cursor.execute('''
-            INSERT OR IGNORE INTO app_config (config_key, config_value)
-            VALUES ('MIN_STORE_PRICE', '1.99')
-        ''')
-        
-        # Insert store pricing configuration
-        cursor.execute('''
-            INSERT OR IGNORE INTO app_config (config_key, config_value)
-            VALUES ('STORE_PRICE_LOWEST_MULTIPLIER', '1.1')
-        ''')
-        
-        cursor.execute('''
-            INSERT OR IGNORE INTO app_config (config_key, config_value)
-            VALUES ('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9')
-        ''')
-        
-        cursor.execute('''
-            INSERT OR IGNORE INTO app_config (config_key, config_value)
-            VALUES ('STORE_PRICE_MINIMUM', '4.99')
-        ''')
+        for config_key, config_value in default_configs:
+            cursor.execute('''
+                INSERT OR IGNORE INTO app_config (config_key, config_value)
+                VALUES (?, ?)
+            ''', (config_key, config_value))
         
         conn.commit()
         conn.close()
@@ -231,12 +250,18 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
+        # Set date_added to current date if not provided
+        date_added = result_data.get('date_added')
+        if date_added is None:
+            date_added = datetime.now().date()
+        
         cursor.execute('''
             INSERT INTO records 
             (artist, title, barcode, genre_id, image_url,
              discogs_suggested_price,
-             catalog_number, format, condition, file_at, store_price, ebay_sell_at, youtube_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             catalog_number, format, condition, file_at, store_price, ebay_sell_at, youtube_url,
+             date_added, consignment_session_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -250,7 +275,9 @@ class DatabaseManager:
             result_data.get('file_at', ''),
             result_data.get('store_price'),
             result_data.get('ebay_sell_at'),
-            result_data.get('youtube_url')
+            result_data.get('youtube_url'),
+            date_added,
+            result_data.get('consignment_session_id')
         ))
         
         conn.commit()
@@ -258,14 +285,322 @@ class DatabaseManager:
         conn.close()
         return record_id
     
-    def get_record_by_id(self, record_id):
-        """Get a record by ID using the view"""
+    # Vote management methods
+    def record_vote(self, record_id, voter_hash, vote_type):
+        """Record a vote for a record"""
         conn = self._get_connection()
-        df = pd.read_sql(
-            'SELECT * FROM records_with_genres WHERE id = ?',
-            conn,
-            params=(record_id,)
-        )
+        cursor = conn.cursor()
+        
+        try:
+            # Use INSERT OR REPLACE to handle vote changes
+            cursor.execute('''
+                INSERT OR REPLACE INTO voter_tracking (record_id, voter_hash, vote_type)
+                VALUES (?, ?, ?)
+            ''', (record_id, voter_hash, vote_type))
+            
+            conn.commit()
+            success = True
+        except Exception as e:
+            print(f"Error recording vote: {e}")
+            success = False
+        finally:
+            conn.close()
+            
+        return success
+    
+    def get_vote_counts(self, record_id=None):
+        """Get vote counts for all records or a specific record"""
+        conn = self._get_connection()
+        
+        if record_id:
+            # Get votes for specific record
+            query = '''
+                SELECT 
+                    record_id,
+                    SUM(CASE WHEN vote_type = 'upvote' THEN 1 ELSE 0 END) as upvotes,
+                    SUM(CASE WHEN vote_type = 'downvote' THEN 1 ELSE 0 END) as downvotes
+                FROM voter_tracking 
+                WHERE record_id = ?
+                GROUP BY record_id
+            '''
+            df = pd.read_sql(query, conn, params=(record_id,))
+        else:
+            # Get votes for all records
+            query = '''
+                SELECT 
+                    record_id,
+                    SUM(CASE WHEN vote_type = 'upvote' THEN 1 ELSE 0 END) as upvotes,
+                    SUM(CASE WHEN vote_type = 'downvote' THEN 1 ELSE 0 END) as downvotes
+                FROM voter_tracking 
+                GROUP BY record_id
+            '''
+            df = pd.read_sql(query, conn)
+        
+        conn.close()
+        
+        # Convert to dictionary for easy access
+        vote_counts = {}
+        for _, row in df.iterrows():
+            vote_counts[row['record_id']] = {
+                'upvotes': int(row['upvotes']),
+                'downvotes': int(row['downvotes'])
+            }
+            
+        return vote_counts
+    
+    def get_user_vote(self, record_id, voter_hash):
+        """Get a user's vote for a specific record"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT vote_type FROM voter_tracking 
+            WHERE record_id = ? AND voter_hash = ?
+        ''', (record_id, voter_hash))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result[0] if result else None
+    
+    # Consignor management methods
+    def get_all_consignors(self):
+        """Get all consignors"""
+        conn = self._get_connection()
+        df = pd.read_sql('SELECT * FROM consignors ORDER BY name', conn)
+        conn.close()
+        return df
+    
+    def get_consignor_by_id(self, consignor_id):
+        """Get consignor by ID"""
+        conn = self._get_connection()
+        df = pd.read_sql('SELECT * FROM consignors WHERE id = ?', conn, params=(consignor_id,))
+        conn.close()
+        return df.iloc[0] if len(df) > 0 else None
+    
+    def add_consignor(self, name, email=None, phone=None, address=None, notes=None):
+        """Add a new consignor"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO consignors (name, email, phone, address, notes)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (name, email, phone, address, notes))
+        
+        conn.commit()
+        consignor_id = cursor.lastrowid
+        conn.close()
+        return consignor_id
+    
+    def update_consignor(self, consignor_id, updates):
+        """Update a consignor"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        set_clause = []
+        values = []
+        for field, value in updates.items():
+            set_clause.append(f"{field} = ?")
+            values.append(value)
+        
+        values.append(consignor_id)
+        query = f"UPDATE consignors SET {', '.join(set_clause)} WHERE id = ?"
+        cursor.execute(query, values)
+        
+        conn.commit()
+        conn.close()
+        return True
+    
+    # Consignment session management methods
+    def get_all_consignment_sessions(self):
+        """Get all consignment sessions with consignor info"""
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT cs.*, c.name as consignor_name
+            FROM consignment_sessions cs
+            JOIN consignors c ON cs.consignor_id = c.id
+            ORDER BY cs.session_date DESC
+        ''', conn)
+        conn.close()
+        return df
+    
+    def get_consignment_session_by_id(self, session_id):
+        """Get consignment session by ID"""
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT cs.*, c.name as consignor_name
+            FROM consignment_sessions cs
+            JOIN consignors c ON cs.consignor_id = c.id
+            WHERE cs.id = ?
+        ''', conn, params=(session_id,))
+        conn.close()
+        return df.iloc[0] if len(df) > 0 else None
+    
+    def get_sessions_by_consignor(self, consignor_id):
+        """Get all sessions for a consignor"""
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT cs.*, c.name as consignor_name
+            FROM consignment_sessions cs
+            JOIN consignors c ON cs.consignor_id = c.id
+            WHERE cs.consignor_id = ?
+            ORDER BY cs.session_date DESC
+        ''', conn, params=(consignor_id,))
+        conn.close()
+        return df
+    
+    def add_consignment_session(self, consignor_id, session_date=None, commission_rate=None, store_return_days=None, session_notes=None):
+        """Add a new consignment session"""
+        if session_date is None:
+            session_date = datetime.now().date()
+        
+        if commission_rate is None:
+            commission_rate = float(self.get_config_value('DEFAULT_COMMISSION_RATE', '0.50'))
+        
+        if store_return_days is None:
+            store_return_days = int(self.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO consignment_sessions (consignor_id, session_date, commission_rate, store_return_days, session_notes)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (consignor_id, session_date, commission_rate, store_return_days, session_notes))
+        
+        conn.commit()
+        session_id = cursor.lastrowid
+        conn.close()
+        return session_id
+    
+    # Consignment record queries
+    def get_consignment_records_ready_for_payment(self, consignor_id=None):
+        """Get consignment records ready for payment (passed customer return period)"""
+        customer_return_days = int(self.get_config_value('CUSTOMER_RETURN_DAYS', '30'))
+        
+        query = '''
+            SELECT r.*, cs.commission_rate, c.name as consignor_name
+            FROM records r
+            JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
+            JOIN consignors c ON cs.consignor_id = c.id
+            WHERE r.date_sold IS NOT NULL
+            AND r.date_paid IS NULL
+            AND r.date_sold < date('now', '-' || ? || ' days')
+        '''
+        
+        params = [customer_return_days]
+        
+        if consignor_id:
+            query += ' AND cs.consignor_id = ?'
+            params.append(consignor_id)
+        
+        query += ' ORDER BY r.date_sold'
+        
+        conn = self._get_connection()
+        df = pd.read_sql(query, conn, params=params)
+        conn.close()
+        return df
+    
+    def get_consignment_records_ready_for_pickup(self, consignor_id=None):
+        """Get consignment records ready for pickup (past store return deadline)"""
+        query = '''
+            SELECT r.*, cs.store_return_days, c.name as consignor_name
+            FROM records r
+            JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
+            JOIN consignors c ON cs.consignor_id = c.id
+            WHERE r.date_sold IS NULL
+            AND r.date_returned IS NOT NULL
+            AND r.date_picked_up IS NULL
+        '''
+        
+        params = []
+        
+        if consignor_id:
+            query += ' AND cs.consignor_id = ?'
+            params.append(consignor_id)
+        
+        query += ' ORDER BY r.date_returned'
+        
+        conn = self._get_connection()
+        df = pd.read_sql(query, conn, params=params)
+        conn.close()
+        return df
+    
+    def get_overdue_pickups(self):
+        """Get consignment records that are overdue for pickup"""
+        consignor_pickup_days = int(self.get_config_value('CONSIGNOR_PICKUP_DAYS', '30'))
+        
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT r.*, cs.store_return_days, c.name as consignor_name
+            FROM records r
+            JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
+            JOIN consignors c ON cs.consignor_id = c.id
+            WHERE r.date_sold IS NULL
+            AND r.date_returned IS NOT NULL
+            AND r.date_picked_up IS NULL
+            AND r.date_returned < date('now', '-' || ? || ' days')
+            ORDER BY r.date_returned
+        ''', conn, params=(consignor_pickup_days,))
+        conn.close()
+        return df
+    
+    def mark_records_for_return(self):
+        """Mark consignment records as ready for pickup when past store return deadline"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE records 
+            SET date_returned = CURRENT_DATE
+            WHERE consignment_session_id IS NOT NULL
+            AND date_sold IS NULL
+            AND date_returned IS NULL
+            AND date_added < (
+                SELECT date('now', '-' || cs.store_return_days || ' days')
+                FROM consignment_sessions cs
+                WHERE cs.id = records.consignment_session_id
+            )
+        ''')
+        
+        updated_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return updated_count
+    
+    def mark_abandoned_records_as_store_owned(self):
+        """Mark abandoned consignment records as store property"""
+        consignor_pickup_days = int(self.get_config_value('CONSIGNOR_PICKUP_DAYS', '30'))
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE records 
+            SET consignment_session_id = NULL,
+                date_returned = NULL,
+                date_picked_up = CURRENT_DATE
+            WHERE date_sold IS NULL
+            AND date_returned IS NOT NULL
+            AND date_picked_up IS NULL
+            AND date_returned < date('now', '-' || ? || ' days')
+        ''', (consignor_pickup_days,))
+        
+        updated_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return updated_count
+    
+    def get_record_by_id(self, record_id):
+        """Get a record by ID"""
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            WHERE r.id = ?
+        ''', conn, params=(record_id,))
         conn.close()
         return df.iloc[0] if len(df) > 0 else None
     
@@ -310,45 +645,27 @@ class DatabaseManager:
             
         return success
     
-    def save_failed_search(self, search_term, error_details):
-        """Save failed search to database"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO failed_searches (search_term, error_details)
-            VALUES (?, ?)
-        ''', (search_term, error_details))
-        
-        conn.commit()
-        conn.close()
-        return cursor.lastrowid
-    
     def get_all_records(self):
-        """Get all records from database using the view"""
+        """Get all records from database"""
         conn = self._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres ORDER BY created_at DESC', conn)
-        conn.close()
-        return df
-    
-    def get_all_failed_searches(self):
-        """Get all failed searches from database"""
-        conn = self._get_connection()
-        df = pd.read_sql('SELECT * FROM failed_searches ORDER BY created_at DESC', conn)
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            ORDER BY r.created_at DESC
+        ''', conn)
         conn.close()
         return df
     
     def get_recent_records(self, limit=100):
-        """Get recent records using the view"""
+        """Get recent records"""
         conn = self._get_connection()
-        df = pd.read_sql(f'SELECT * FROM records_with_genres ORDER BY created_at DESC LIMIT {limit}', conn)
-        conn.close()
-        return df
-    
-    def get_recent_failed_searches(self, limit=100):
-        """Get recent failed searches"""
-        conn = self._get_connection()
-        df = pd.read_sql(f'SELECT * FROM failed_searches ORDER BY created_at DESC LIMIT {limit}', conn)
+        df = pd.read_sql(f'''
+            SELECT r.*, g.genre_name as genre
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            ORDER BY r.created_at DESC LIMIT {limit}
+        ''', conn)
         conn.close()
         return df
     
@@ -358,22 +675,20 @@ class DatabaseManager:
         
         # Use COALESCE to handle NULL values and ensure we get 0 instead of None
         records_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM records', conn).iloc[0]['count']
-        failed_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM failed_searches', conn).iloc[0]['count']
+        consignors_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM consignors', conn).iloc[0]['count']
+        sessions_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM consignment_sessions', conn).iloc[0]['count']
         
         # For latest timestamps, handle case where tables are empty
         latest_record_df = pd.read_sql('SELECT MAX(created_at) as latest FROM records', conn)
         latest_record = latest_record_df.iloc[0]['latest'] if not latest_record_df.empty and latest_record_df.iloc[0]['latest'] is not None else "None"
         
-        latest_failed_df = pd.read_sql('SELECT MAX(created_at) as latest FROM failed_searches', conn)
-        latest_failed = latest_failed_df.iloc[0]['latest'] if not latest_failed_df.empty and latest_failed_df.iloc[0]['latest'] is not None else "None"
-        
         conn.close()
         
         return {
             'records_count': int(records_count),
-            'failed_count': int(failed_count),
+            'consignors_count': int(consignors_count),
+            'sessions_count': int(sessions_count),
             'latest_record': latest_record,
-            'latest_failed': latest_failed,
             'db_path': self.db_path
         }
     
@@ -382,22 +697,6 @@ class DatabaseManager:
         """Get all available genres"""
         conn = self._get_connection()
         df = pd.read_sql('SELECT * FROM genres ORDER BY genre_name', conn)
-        conn.close()
-        return df
-    
-    def get_artists_with_genres(self):
-        """Get all artists with their assigned genres"""
-        conn = self._get_connection()
-        df = pd.read_sql('''
-            SELECT 
-                gba.artist_name,
-                g.genre_name,
-                gba.genre_id,
-                gba.id as mapping_id
-            FROM genre_by_artist gba
-            JOIN genres g ON gba.genre_id = g.id
-            ORDER BY gba.artist_name
-        ''', conn)
         conn.close()
         return df
     
@@ -411,8 +710,7 @@ class DatabaseManager:
                     r.artist as artist_name,
                     g.genre_name
                 FROM records r
-                LEFT JOIN genre_by_artist gba ON r.artist = gba.artist_name
-                LEFT JOIN genres g ON gba.genre_id = g.id
+                LEFT JOIN genres g ON r.genre_id = g.id
                 WHERE r.artist LIKE ?
                 ORDER BY r.artist
             '''
@@ -423,29 +721,11 @@ class DatabaseManager:
                     r.artist as artist_name,
                     g.genre_name
                 FROM records r
-                LEFT JOIN genre_by_artist gba ON r.artist = gba.artist_name
-                LEFT JOIN genres g ON gba.genre_id = g.id
+                LEFT JOIN genres g ON r.genre_id = g.id
                 ORDER BY r.artist
             '''
             df = pd.read_sql(query, conn)
         
-        conn.close()
-        return df
-    
-    def search_artists_with_genres(self, search_term):
-        """Search artists with genres by artist name"""
-        conn = self._get_connection()
-        df = pd.read_sql('''
-            SELECT 
-                gba.artist_name,
-                g.genre_name,
-                gba.genre_id,
-                gba.id as mapping_id
-            FROM genre_by_artist gba
-            JOIN genres g ON gba.genre_id = g.id
-            WHERE gba.artist_name LIKE ?
-            ORDER BY gba.artist_name
-        ''', conn, params=(f'%{search_term}%',))
         conn.close()
         return df
     
@@ -455,7 +735,7 @@ class DatabaseManager:
         df = pd.read_sql('''
             SELECT DISTINCT artist as artist_name
             FROM records 
-            WHERE artist NOT IN (SELECT artist_name FROM genre_by_artist)
+            WHERE genre_id IS NULL
             ORDER BY artist
         ''', conn)
         conn.close()
@@ -480,70 +760,12 @@ class DatabaseManager:
         return success, genre_id
     
     def delete_genre(self, genre_id):
-        """Delete a genre and remove all artist associations"""
+        """Delete a genre"""
         conn = self._get_connection()
         cursor = conn.cursor()
         
         try:
-            cursor.execute('DELETE FROM genre_by_artist WHERE genre_id = ?', (genre_id,))
             cursor.execute('DELETE FROM genres WHERE id = ?', (genre_id,))
-            conn.commit()
-            success = True
-        except Exception as e:
-            success = False
-        finally:
-            conn.close()
-            
-        return success
-    
-    def assign_genre_to_artist(self, artist_name, genre_id):
-        """Assign a genre to an artist"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('''
-                INSERT OR REPLACE INTO genre_by_artist (artist_name, genre_id)
-                VALUES (?, ?)
-            ''', (artist_name, genre_id))
-            conn.commit()
-            success = True
-        except Exception as e:
-            success = False
-        finally:
-            conn.close()
-            
-        return success
-    
-    def remove_genre_from_artist(self, artist_name, genre_id):
-        """Remove a genre assignment from an artist"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('''
-                DELETE FROM genre_by_artist 
-                WHERE artist_name = ? AND genre_id = ?
-            ''', (artist_name, genre_id))
-            conn.commit()
-            success = True
-        except Exception as e:
-            success = False
-        finally:
-            conn.close()
-            
-        return success
-    
-    def remove_genre_from_artist_by_name(self, artist_name):
-        """Remove all genre assignments from an artist by name"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('''
-                DELETE FROM genre_by_artist 
-                WHERE artist_name = ?
-            ''', (artist_name,))
             conn.commit()
             success = True
         except Exception as e:
@@ -557,10 +779,13 @@ class DatabaseManager:
         """Get the genre assigned to an artist"""
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT g.genre_name, g.id as genre_id
-            FROM genre_by_artist gba
-            JOIN genres g ON gba.genre_id = g.id
-            WHERE gba.artist_name = ?
+            SELECT g.genre_name, r.genre_id
+            FROM records r
+            JOIN genres g ON r.genre_id = g.id
+            WHERE r.artist = ?
+            GROUP BY r.genre_id
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
         ''', conn, params=(artist_name,))
         conn.close()
         return df.iloc[0] if len(df) > 0 else None
@@ -569,24 +794,15 @@ class DatabaseManager:
         """Get statistics about genres and records"""
         conn = self._get_connection()
         
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='genre_by_artist'")
-        genre_table_exists = cursor.fetchone() is not None
-        
-        if not genre_table_exists:
-            df = pd.DataFrame(columns=['genre_name', 'record_count', 'artist_count'])
-        else:
-            df = pd.read_sql('''
-                SELECT 
-                    g.genre_name,
-                    COUNT(r.id) as record_count,
-                    COUNT(DISTINCT gba.artist_name) as artist_count
-                FROM genres g
-                LEFT JOIN genre_by_artist gba ON g.id = gba.genre_id
-                LEFT JOIN records r ON gba.artist_name = r.artist
-                GROUP BY g.id, g.genre_name
-                ORDER BY record_count DESC
-            ''', conn)
+        df = pd.read_sql('''
+            SELECT 
+                g.genre_name,
+                COUNT(r.id) as record_count
+            FROM genres g
+            LEFT JOIN records r ON g.id = r.genre_id
+            GROUP BY g.id, g.genre_name
+            ORDER BY record_count DESC
+        ''', conn)
         
         conn.close()
         return df
@@ -596,17 +812,17 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute('DELETE FROM records')
-        cursor.execute('DELETE FROM failed_searches')
-        cursor.execute('DELETE FROM genre_by_artist')
         cursor.execute('DELETE FROM genres')
+        cursor.execute('DELETE FROM consignment_sessions')
+        cursor.execute('DELETE FROM consignors')
         conn.commit()
         conn.close()
     
     def search_records(self, search_term):
-        """Search for records by search term using the view"""
+        """Search for records by search term"""
         conn = self._get_connection()
         df = pd.read_sql(
-            'SELECT * FROM records_with_genres WHERE artist LIKE ? OR title LIKE ? ORDER BY created_at DESC',
+            'SELECT r.*, g.genre_name as genre FROM records r LEFT JOIN genres g ON r.genre_id = g.id WHERE r.artist LIKE ? OR r.title LIKE ? ORDER BY r.created_at DESC',
             conn,
             params=(f'%{search_term}%', f'%{search_term}%')
         )
@@ -614,10 +830,10 @@ class DatabaseManager:
         return df
     
     def get_record_by_barcode(self, barcode):
-        """Get a record by barcode using the view"""
+        """Get a record by barcode"""
         conn = self._get_connection()
         df = pd.read_sql(
-            'SELECT * FROM records_with_genres WHERE barcode = ?',
+            'SELECT r.*, g.genre_name as genre FROM records r LEFT JOIN genres g ON r.genre_id = g.id WHERE r.barcode = ?',
             conn,
             params=(barcode,)
         )

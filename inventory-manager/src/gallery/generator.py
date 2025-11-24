@@ -126,11 +126,12 @@ class GalleryJSONManager:
         
         query = """
         SELECT 
-            id, artist, title, image_url, genre, barcode,
-            store_price, file_at, youtube_url, catalog_number,
-            format, condition
-        FROM records_with_genres 
-        ORDER BY id
+            r.id, r.artist, r.title, r.image_url, g.genre_name as genre, r.barcode,
+            r.store_price, r.file_at, r.youtube_url, r.catalog_number,
+            r.format, r.condition
+        FROM records r
+        LEFT JOIN genres g ON r.genre_id = g.id
+        ORDER BY r.id
         """
         
         df = pd.read_sql(query, conn)
@@ -149,6 +150,10 @@ class GalleryJSONManager:
                     cleaned_record[key] = None
                 else:
                     cleaned_record[key] = value
+            
+            # VOTE ID REMOVED - No longer needed for client-side voting
+            # The streaming system uses the record ID directly
+            
             cleaned_records.append(cleaned_record)
         
         return {

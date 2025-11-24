@@ -125,7 +125,7 @@ class GenreMappingsTab:
                             required=False
                         )
                     },
-                    use_container_width=True,
+                    width= 'stretch',
                     hide_index=True,
                     key="genre_mappings_editor"
                 )
@@ -166,7 +166,7 @@ class GenreMappingsTab:
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    if st.button("📤 Export Genre Data", use_container_width=True):
+                    if st.button("📤 Export Genre Data", width= 'stretch'):
                         # Export only artist mappings
                         export_data = self._prepare_export_data(edited_df)
                         csv_data = export_data.to_csv(index=False)

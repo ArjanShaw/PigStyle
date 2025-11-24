@@ -188,6 +188,55 @@ class DiscogsHandler:
             self._log_api_response(api_title, {'error': f'Status {response.status_code}', 'response_text': response.text}, duration)
             return {'image_url': '', 'release_data': {}}
 
+    def get_release_tracklist(self, release_id: str):
+        """Get tracklist from Discogs release data"""
+        endpoint_url = f"{self.base_url}/releases/{release_id}"
+        
+        # Log the API call
+        api_title = f"🎵 Discogs Tracklist API: {endpoint_url}"
+        start_time = time.time()
+        self._log_api_call(api_title, {
+            'endpoint': endpoint_url,
+            'params': {},
+            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
+        })
+
+        try:
+            response = requests.get(
+                endpoint_url,
+                headers=self.headers,
+                timeout=10
+            )
+            
+            duration = round(time.time() - start_time, 2)
+            
+            if response.status_code == 200:
+                release_data = response.json()
+                # Log the response
+                self._log_api_response(api_title, release_data, duration)
+                
+                # Extract tracklist
+                tracklist = release_data.get('tracklist', [])
+                track_titles = []
+                
+                for track in tracklist:
+                    if track.get('type') == 'track':  # Only include actual tracks, not headings
+                        title = track.get('title', '').strip()
+                        if title and title not in track_titles:
+                            track_titles.append(title)
+                
+                return track_titles
+            else:
+                # Log error response
+                self._log_api_response(api_title, {'error': f'Status {response.status_code}', 'response_text': response.text}, duration)
+                return []
+                
+        except Exception as e:
+            duration = round(time.time() - start_time, 2)
+            error_data = {'error': str(e)}
+            self._log_api_response(api_title, error_data, duration)
+            return []
+
     def get_simple_search_results(self, query: str, filename_base: str = None):
         """Get simple search results with basic info - NO EXTRA API CALLS"""
         endpoint_url = f"{self.base_url}/database/search"
@@ -249,6 +298,7 @@ class DiscogsHandler:
             format_info = self._extract_format_info(result)
             label_info = self._extract_label_info(result)
             country = result.get('country', '')
+            genre = self._extract_genre_from_result(result)
             
             formatted_result = {
                 'type': 'discogs',
@@ -262,11 +312,33 @@ class DiscogsHandler:
                 'label': label_info,
                 'country': country,
                 'master_id': master_id,
+                'genre': genre,
                 # Note: No pricing data here - that will be fetched later when user selects a record
             }
             formatted_results.append(formatted_result)
         
         return formatted_results
+
+    def _extract_genre_from_result(self, result):
+        """Extract genre from Discogs search result"""
+        try:
+            if not isinstance(result, dict):
+                return ""
+            
+            # Check for genres in the result
+            genres = result.get('genre', [])
+            if genres and isinstance(genres, list) and len(genres) > 0:
+                return genres[0]
+            
+            # Check for styles as fallback
+            styles = result.get('style', [])
+            if styles and isinstance(styles, list) and len(styles) > 0:
+                return styles[0]
+                
+        except Exception as e:
+            print(f"Error extracting genre from Discogs result: {e}")
+        
+        return ""
 
     def _extract_image_from_release(self, release_data):
         """Extract image URL from release data"""

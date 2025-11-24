@@ -36,19 +36,20 @@ class StatisticsTab:
             st.error(f"Error loading statistics: {e}")
 
     def _render_genre_chart(self):
-        """Render only the top 10 genre bar graph using records_with_genres view"""
+        """Render only the top 10 genre bar graph"""
         try:
-            # Get genre statistics from records_with_genres view
+            # Get genre statistics from records
             conn = st.session_state.db_manager._get_connection()
             
-            # Count records by genre using the view
+            # Count records by genre
             df = pd.read_sql('''
                 SELECT 
-                    genre,
+                    g.genre_name as genre,
                     COUNT(*) as record_count
-                FROM records_with_genres 
-                WHERE genre IS NOT NULL AND genre != ''
-                GROUP BY genre
+                FROM records r
+                LEFT JOIN genres g ON r.genre_id = g.id
+                WHERE g.genre_name IS NOT NULL AND g.genre_name != ''
+                GROUP BY g.genre_name
                 ORDER BY record_count DESC
                 LIMIT 10
             ''', conn)
@@ -91,7 +92,7 @@ class StatisticsTab:
                     ebay_highest_price,
                     store_price,
                     discogs_median_price
-                FROM records_with_genres 
+                FROM records 
                 WHERE (ebay_median_price IS NOT NULL AND ebay_median_price > 0)
                    OR (store_price IS NOT NULL AND store_price > 0)
                    OR (discogs_median_price IS NOT NULL AND discogs_median_price > 0)

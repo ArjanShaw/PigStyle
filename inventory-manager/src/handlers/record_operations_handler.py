@@ -97,7 +97,8 @@ class RecordOperationsHandler:
             'file_at': file_at_value,  # Use calculated file_at
             'store_price': store_price,  # CALCULATED STORE PRICE
             'ebay_sell_at': ebay_sell_at,  # CALCULATED EBAY SELL PRICE
-            'youtube_url': youtube_url  # Include YouTube URL
+            'youtube_url': youtube_url,  # Include YouTube URL
+            'consignment_session_id': record_data.get('consignment_session_id')  # Include consignment session
         }
         
         record_id = st.session_state.db_manager.save_record(result_data)

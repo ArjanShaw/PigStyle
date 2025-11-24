@@ -46,13 +46,19 @@ class SearchHandler:
                 return []
 
     def perform_database_search(self, search_term):
-        """Perform database search"""
+        """Perform database search - NOW INCLUDES CATALOG NUMBER SEARCH"""
         try:
             conn = st.session_state.db_manager._get_connection()
+            
+            # Updated query to include catalog_number search
             df = pd.read_sql(
-                'SELECT * FROM records_with_genres WHERE (artist LIKE ? OR title LIKE ? OR barcode LIKE ?) ORDER BY artist, title',
+                '''SELECT r.*, g.genre_name as genre 
+                   FROM records r 
+                   LEFT JOIN genres g ON r.genre_id = g.id 
+                   WHERE (r.artist LIKE ? OR r.title LIKE ? OR r.barcode LIKE ? OR r.catalog_number LIKE ?) 
+                   ORDER BY r.artist, r.title''',
                 conn,
-                params=(f'%{search_term}%', f'%{search_term}%', f'%{search_term}%')
+                params=(f'%{search_term}%', f'%{search_term}%', f'%{search_term}%', f'%{search_term}%')
             )
             conn.close()
             
@@ -66,6 +72,7 @@ class SearchHandler:
                     'title': record.get('title', ''),
                     'image_url': record.get('image_url', ''),
                     'barcode': record.get('barcode', ''),
+                    'catalog_number': record.get('catalog_number', ''),  # Include catalog number
                     'file_at': record.get('file_at', ''),
                     'store_price': record.get('store_price', ''),
                     'ebay_sell_at': record.get('ebay_sell_at', ''),

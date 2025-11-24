@@ -7,21 +7,6 @@
     <link rel="stylesheet" href="streaming.css">
     <style>
         /* Voting styles */
-        .record {
-            border: 1px solid #ddd;
-            padding: 20px;
-            margin: 10px 0;
-            border-radius: 8px;
-            background: white;
-        }
-
-        .voting-section {
-            margin-top: 15px;
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 5px;
-        }
-
         .vote-buttons {
             display: flex;
             gap: 10px;
@@ -74,216 +59,36 @@
             font-size: 0.9em;
             color: #666;
         }
-
-        /* Main streaming styles */
-        body {
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-        }
-
-        .header h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-
-        .header p {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-
-        .records-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
-        }
-
-        .record-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .record-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        }
-
-        .record-image {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-
-        .record-info h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-            font-size: 1.3em;
-        }
-
-        .record-info p {
-            margin: 5px 0;
-            color: #666;
-            font-size: 0.9em;
-        }
-
-        .record-meta {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-            font-size: 0.8em;
-            color: #888;
-        }
-
-        .now-playing {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0,0,0,0.9);
-            color: white;
-            padding: 15px;
-            display: none;
-        }
-
-        .now-playing.active {
-            display: block;
-        }
-
-        .player-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .play-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .search-section {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .search-box {
-            display: flex;
-            gap: 10px;
-        }
-
-        .search-box input {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-
-        .search-box button {
-            padding: 12px 24px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .search-box button:hover {
-            background: #764ba2;
-        }
-
-        .genre-filters {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-
-        .genre-btn {
-            padding: 8px 16px;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .genre-btn.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: white;
-            font-size: 1.2em;
-        }
-
-        .no-results {
-            text-align: center;
-            padding: 40px;
-            color: white;
-            font-size: 1.2em;
-            grid-column: 1 / -1;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🎵 PigStyle Records</h1>
-            <p>Stream and rate our vinyl collection</p>
-        </div>
+        <header>
+            <h1>PigStyle Records Streaming</h1>
+            <p>Listen and vote on our collection</p>
+        </header>
 
-        <div class="search-section">
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Search artists, titles, or genres...">
-                <button onclick="searchRecords()">🔍 Search</button>
-            </div>
-            <div class="genre-filters" id="genreFilters">
-                <!-- Genre filters will be populated by JavaScript -->
-            </div>
-        </div>
+        <main>
+            <section class="player-section">
+                <div class="now-playing">
+                    <h3>Now Playing</h3>
+                    <div id="currentTrack">No track selected</div>
+                    <audio id="audioPlayer" controls></audio>
+                </div>
+            </section>
 
-        <div class="records-grid" id="recordsGrid">
-            <div class="loading">Loading records...</div>
-        </div>
-    </div>
-
-    <div class="now-playing" id="nowPlaying">
-        <div class="player-controls">
-            <span id="currentTrack">Select a track to play</span>
-            <button class="play-btn" onclick="stopPlayback()">⏹️ Stop</button>
-        </div>
+            <section class="catalog-section">
+                <h2>Record Catalog</h2>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search records...">
+                    <button onclick="searchRecords()">Search</button>
+                </div>
+                
+                <div class="records-grid" id="recordsGrid">
+                    <!-- Records will be populated by JavaScript -->
+                </div>
+            </section>
+        </main>
     </div>
 
     <!-- Include the voting JavaScript -->
@@ -292,7 +97,6 @@
     <script>
         let allRecords = [];
         let currentAudio = null;
-        let currentRecord = null;
 
         // Load records from gallery-data.json
         async function loadRecords() {
@@ -301,21 +105,15 @@
                 const data = await response.json();
                 allRecords = data.records || [];
                 displayRecords(allRecords);
-                populateGenreFilters(allRecords);
                 
                 // Initialize voting system after records are loaded
                 if (window.pigstyleVoting) {
                     window.pigstyleVoting.init();
-                    // Load vote counts for all displayed records
-                    allRecords.forEach(record => {
-                        const artistTitle = `${record.artist} - ${record.title}`;
-                        window.pigstyleVoting.loadVoteCountsForRecord(artistTitle);
-                    });
                 }
             } catch (error) {
                 console.error('Error loading records:', error);
                 document.getElementById('recordsGrid').innerHTML = 
-                    '<div class="no-results">Error loading records. Please try again later.</div>';
+                    '<div class="error">Error loading records. Please try again later.</div>';
             }
         }
 
@@ -324,79 +122,46 @@
             const grid = document.getElementById('recordsGrid');
             
             if (records.length === 0) {
-                grid.innerHTML = '<div class="no-results">No records found matching your search.</div>';
+                grid.innerHTML = '<div class="no-results">No records found.</div>';
                 return;
             }
 
-            grid.innerHTML = records.map(record => `
-                <div class="record-card" data-artist-title="${record.artist} - ${record.title}">
-                    ${record.image_url ? `<img src="${record.image_url}" alt="${record.title}" class="record-image" onerror="this.style.display='none'">` : ''}
-                    
-                    <div class="record-info">
-                        <h3>${record.artist} - ${record.title}</h3>
-                        ${record.genre ? `<p><strong>Genre:</strong> ${record.genre}</p>` : ''}
-                        ${record.format ? `<p><strong>Format:</strong> ${record.format}</p>` : ''}
-                        ${record.catalog_number ? `<p><strong>Catalog:</strong> ${record.catalog_number}</p>` : ''}
-                        
-                        ${record.youtube_url ? `
-                            <div style="margin: 15px 0;">
-                                <button class="play-btn" onclick="playRecord('${record.youtube_url}', '${record.artist}', '${record.title}')">
-                                    ▶️ Play Album
+            grid.innerHTML = records.map(record => {
+                const artistTitle = `${record.artist} - ${record.title}`;
+                return `
+                    <div class="record-card" data-artist-title="${artistTitle}">
+                        <div class="record-image">
+                            ${record.image_url ? `<img src="${record.image_url}" alt="${record.title}" onerror="this.style.display='none'">` : ''}
+                        </div>
+                        <div class="record-info">
+                            <h3>${record.artist}</h3>
+                            <h4>${record.title}</h4>
+                            ${record.genre ? `<p class="genre">${record.genre}</p>` : ''}
+                            ${record.format ? `<p class="format">${record.format}</p>` : ''}
+                            
+                            ${record.youtube_url ? `
+                                <button class="play-btn" onclick="playTrack('${record.youtube_url}', '${record.artist}', '${record.title}')">
+                                    Play
                                 </button>
+                            ` : ''}
+                            
+                            <div class="voting-section">
+                                <div class="vote-buttons">
+                                    <button class="upvote-btn" data-artist-title="${artistTitle}">
+                                        👍 <span class="upvote-count">0</span>
+                                    </button>
+                                    <button class="downvote-btn" data-artist-title="${artistTitle}">
+                                        👎 <span class="downvote-count">0</span>
+                                    </button>
+                                </div>
+                                <div class="vote-display">
+                                    Votes: <span class="upvote-count">0</span> 👍 | <span class="downvote-count">0</span> 👎
+                                </div>
                             </div>
-                        ` : ''}
-                    </div>
-
-                    <div class="voting-section">
-                        <h4>Rate This Record</h4>
-                        <div class="vote-buttons">
-                            <button class="upvote-btn" data-artist-title="${record.artist} - ${record.title}">
-                                👍 <span class="upvote-count">0</span>
-                            </button>
-                            <button class="downvote-btn" data-artist-title="${record.artist} - ${record.title}">
-                                👎 <span class="downvote-count">0</span>
-                            </button>
-                        </div>
-                        <div class="vote-display">
-                            Current: <span class="upvote-count">0</span> 👍 | <span class="downvote-count">0</span> 👎
                         </div>
                     </div>
-
-                    <div class="record-meta">
-                        ${record.barcode ? `<span>Barcode: ${record.barcode}</span>` : ''}
-                        ${record.file_at ? `<span>Location: ${record.file_at}</span>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Populate genre filters
-        function populateGenreFilters(records) {
-            const genres = [...new Set(records.map(record => record.genre).filter(Boolean))].sort();
-            const filtersContainer = document.getElementById('genreFilters');
-            
-            filtersContainer.innerHTML = `
-                <button class="genre-btn active" onclick="filterByGenre('all')">All Genres</button>
-                ${genres.map(genre => `
-                    <button class="genre-btn" onclick="filterByGenre('${genre}')">${genre}</button>
-                `).join('')}
-            `;
-        }
-
-        // Filter records by genre
-        function filterByGenre(genre) {
-            // Update active button
-            document.querySelectorAll('.genre-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            if (genre === 'all') {
-                displayRecords(allRecords);
-            } else {
-                const filteredRecords = allRecords.filter(record => record.genre === genre);
-                displayRecords(filteredRecords);
-            }
+                `;
+            }).join('');
         }
 
         // Search records
@@ -411,11 +176,29 @@
             const filteredRecords = allRecords.filter(record => 
                 record.artist.toLowerCase().includes(searchTerm) ||
                 record.title.toLowerCase().includes(searchTerm) ||
-                (record.genre && record.genre.toLowerCase().includes(searchTerm)) ||
-                (record.catalog_number && record.catalog_number.toLowerCase().includes(searchTerm))
+                (record.genre && record.genre.toLowerCase().includes(searchTerm))
             );
 
             displayRecords(filteredRecords);
+        }
+
+        // Play track
+        function playTrack(youtubeUrl, artist, title) {
+            // Stop any currently playing audio
+            if (currentAudio) {
+                currentAudio.pause();
+            }
+            
+            // For YouTube integration, you would use the YouTube IFrame API
+            // This is a basic implementation that just shows the track info
+            document.getElementById('currentTrack').textContent = `${artist} - ${title}`;
+            
+            // In a real implementation, you would:
+            // 1. Extract YouTube video ID from the URL
+            // 2. Load the YouTube IFrame Player
+            // 3. Play the video/audio
+            
+            console.log('Would play:', youtubeUrl);
         }
 
         // Handle Enter key in search
@@ -424,58 +207,6 @@
                 searchRecords();
             }
         });
-
-        // Play record audio
-        function playRecord(youtubeUrl, artist, title) {
-            stopPlayback(); // Stop any currently playing audio
-            
-            // Extract YouTube video ID
-            const videoId = extractYouTubeId(youtubeUrl);
-            if (!videoId) {
-                alert('Invalid YouTube URL');
-                return;
-            }
-
-            // For now, we'll just show the track info
-            // In a real implementation, you'd embed the YouTube player or use audio API
-            const nowPlaying = document.getElementById('nowPlaying');
-            const currentTrack = document.getElementById('currentTrack');
-            
-            currentTrack.textContent = `Now Playing: ${artist} - ${title}`;
-            nowPlaying.classList.add('active');
-            
-            currentRecord = { artist, title, youtubeUrl };
-            
-            // You would integrate with YouTube IFrame API here
-            console.log('Would play:', youtubeUrl);
-        }
-
-        // Stop playback
-        function stopPlayback() {
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-            
-            const nowPlaying = document.getElementById('nowPlaying');
-            nowPlaying.classList.remove('active');
-            currentRecord = null;
-        }
-
-        // Extract YouTube ID from URL
-        function extractYouTubeId(url) {
-            const patterns = [
-                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)/,
-                /youtube\.com\/embed\/([^&\n?]+)/,
-                /youtube\.com\/v\/([^&\n?]+)/
-            ];
-            
-            for (const pattern of patterns) {
-                const match = url.match(pattern);
-                if (match) return match[1];
-            }
-            return null;
-        }
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {

@@ -20,14 +20,15 @@ class StorePricingTab:
             **Store Price Calculation:**
             ```
             Store Price = MAX(
-                Discogs lowest_price × Lowest Multiplier,
-                Discogs estimated_price × Estimated Multiplier,  
+                Selected Discogs Condition Price × Estimated Multiplier,
                 Minimum Price
             )
             ```
             Then rounded to nearest .49 or .99 price point.
             
-            **Note:** Use the buttons below to calculate store prices using the current configuration.
+            **Note:** Discogs provides suggested prices for each condition grade.
+            The selected condition price is multiplied by the estimated multiplier
+            to determine the store price.
             """)
             
             # Test record input
@@ -47,31 +48,20 @@ class StorePricingTab:
 
     def _render_pricing_configuration(self):
         """Render store pricing configuration settings"""
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         
         with col1:
-            lowest_multiplier = st.number_input(
-                "Lowest Price Multiplier",
-                min_value=1.0,
-                max_value=2.0,
-                value=float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1')),
-                step=0.05,
-                help="Multiply Discogs lowest price by this factor"
-            )
-            st.session_state.db_manager.set_config_value('STORE_PRICE_LOWEST_MULTIPLIER', str(lowest_multiplier))
-        
-        with col2:
             estimated_multiplier = st.number_input(
                 "Estimated Price Multiplier", 
                 min_value=0.5,
                 max_value=1.5,
                 value=float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9')),
                 step=0.05,
-                help="Multiply Discogs estimated price by this factor"
+                help="Multiply selected Discogs condition price by this factor"
             )
             st.session_state.db_manager.set_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', str(estimated_multiplier))
         
-        with col3:
+        with col2:
             minimum_price = st.number_input(
                 "Minimum Store Price",
                 min_value=0.0,
@@ -85,8 +75,7 @@ class StorePricingTab:
         # Show current configuration
         st.info(f"""
         **Current Configuration:**
-        - Lowest Price × {lowest_multiplier}
-        - Estimated Price × {estimated_multiplier}  
+        - Selected Condition Price × {estimated_multiplier}
         - Minimum Price: ${minimum_price:.2f}
         """)
 
@@ -117,7 +106,6 @@ class StorePricingTab:
         conn.close()
         
         # Get current configuration
-        lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
         estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
         minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
         
@@ -137,16 +125,13 @@ class StorePricingTab:
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
-            discogs_lowest_price = record.get('discogs_lowest_price')
-            discogs_estimated_price = record.get('discogs_estimated_price')
+            discogs_suggested_price = record.get('discogs_suggested_price')
             
             status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
             
             # Calculate store price using current configuration
             store_price = self._calculate_store_price(
-                discogs_lowest_price, 
-                discogs_estimated_price, 
-                lowest_multiplier, 
+                discogs_suggested_price, 
                 estimated_multiplier, 
                 minimum_price
             )
@@ -155,13 +140,11 @@ class StorePricingTab:
             success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
             if success:
                 updated_count += 1
-                price_info = []
-                if discogs_lowest_price:
-                    price_info.append(f"lowest: ${discogs_lowest_price:.2f}×{lowest_multiplier}=${discogs_lowest_price * lowest_multiplier:.2f}")
-                if discogs_estimated_price:
-                    price_info.append(f"est: ${discogs_estimated_price:.2f}×{estimated_multiplier}=${discogs_estimated_price * estimated_multiplier:.2f}")
-                price_str = " + ".join(price_info) if price_info else "no Discogs data"
-                results.append(f"✅ {artist} - {title}: {price_str} → ${store_price:.2f}")
+                if discogs_suggested_price:
+                    price_info = f"Discogs: ${discogs_suggested_price:.2f}×{estimated_multiplier}=${discogs_suggested_price * estimated_multiplier:.2f}"
+                else:
+                    price_info = "no Discogs data"
+                results.append(f"✅ {artist} - {title}: {price_info} → ${store_price:.2f}")
             else:
                 failed_count += 1
                 results.append(f"❌ {artist} - {title}: Database update failed")
@@ -198,21 +181,17 @@ class StorePricingTab:
             return 0
         
         # Get current configuration
-        lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
         estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
         minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
         
         record = df.iloc[0]
         artist = record.get('artist', '')
         title = record.get('title', '')
-        discogs_lowest_price = record.get('discogs_lowest_price')
-        discogs_estimated_price = record.get('discogs_estimated_price')
+        discogs_suggested_price = record.get('discogs_suggested_price')
         
         # Calculate store price using current configuration
         store_price = self._calculate_store_price(
-            discogs_lowest_price, 
-            discogs_estimated_price, 
-            lowest_multiplier, 
+            discogs_suggested_price, 
             estimated_multiplier, 
             minimum_price
         )
@@ -220,27 +199,23 @@ class StorePricingTab:
         # Update the store_price field
         success = st.session_state.db_manager.update_record(record_id, {'store_price': store_price})
         if success:
-            price_info = []
-            if discogs_lowest_price:
-                price_info.append(f"lowest: ${discogs_lowest_price:.2f}×{lowest_multiplier}=${discogs_lowest_price * lowest_multiplier:.2f}")
-            if discogs_estimated_price:
-                price_info.append(f"est: ${discogs_estimated_price:.2f}×{estimated_multiplier}=${discogs_estimated_price * estimated_multiplier:.2f}")
-            price_str = " + ".join(price_info) if price_info else "no Discogs data"
-            st.success(f"✅ Updated store price for {artist} - {title}: {price_str} → ${store_price:.2f}")
+            if discogs_suggested_price:
+                price_info = f"Discogs: ${discogs_suggested_price:.2f}×{estimated_multiplier}=${discogs_suggested_price * estimated_multiplier:.2f}"
+            else:
+                price_info = "no Discogs data"
+            st.success(f"✅ Updated store price for {artist} - {title}: {price_info} → ${store_price:.2f}")
             return 1
         else:
             st.error(f"❌ Database update failed for {artist} - {title}")
             return 0
 
-    def _calculate_store_price(self, discogs_lowest_price, discogs_estimated_price, lowest_multiplier, estimated_multiplier, minimum_price):
-        """Calculate store price using the configured formula"""
+    def _calculate_store_price(self, discogs_suggested_price, estimated_multiplier, minimum_price):
+        """Calculate store price using the current formula"""
         candidates = []
         
-        if discogs_lowest_price and discogs_lowest_price > 0:
-            candidates.append(discogs_lowest_price * lowest_multiplier)
-        
-        if discogs_estimated_price and discogs_estimated_price > 0:
-            candidates.append(discogs_estimated_price * estimated_multiplier)
+        if discogs_suggested_price and discogs_suggested_price > 0:
+            # Use the selected Discogs condition price with the estimated multiplier
+            candidates.append(discogs_suggested_price * estimated_multiplier)
         
         if candidates:
             raw_price = max(candidates)

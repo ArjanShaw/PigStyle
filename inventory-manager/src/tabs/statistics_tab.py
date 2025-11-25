@@ -28,7 +28,7 @@ class StatisticsTab:
                 with col1:
                     self._render_genre_chart()
                 with col2:
-                    self._render_price_distribution_chart()
+                    self._render_price_comparison_chart()
             else:
                 st.info("No records available for analytics. Add some records first!")
                 
@@ -36,7 +36,7 @@ class StatisticsTab:
             st.error(f"Error loading statistics: {e}")
 
     def _render_genre_chart(self):
-        """Render only the top 10 genre bar graph"""
+        """Render vertical bar chart for top 10 genres"""
         try:
             # Get genre statistics from records
             conn = st.session_state.db_manager._get_connection()
@@ -58,18 +58,18 @@ class StatisticsTab:
             if len(df) > 0:
                 fig = px.bar(
                     df,
-                    x='record_count',
-                    y='genre',
-                    orientation='h',
+                    x='genre',
+                    y='record_count',
                     title='Top 10 Genres',
                     color='record_count',
                     color_continuous_scale='blues'
                 )
                 fig.update_layout(
-                    xaxis_title='Number of Records',
-                    yaxis_title='Genre',
+                    xaxis_title='Genre',
+                    yaxis_title='Number of Records',
                     height=400,
-                    showlegend=False
+                    showlegend=False,
+                    xaxis_tickangle=-45
                 )
                 st.plotly_chart(fig, width= 'stretch')
             else:
@@ -78,117 +78,78 @@ class StatisticsTab:
         except Exception as e:
             st.error(f"Error rendering genre chart: {e}")
 
-    def _render_price_distribution_chart(self):
-        """Render price distribution for eBay and store prices"""
+    def _render_price_comparison_chart(self):
+        """Render price comparison chart between eBay, Discogs, and Store prices"""
         try:
-            # Get price data from records
+            # Get price data from records - using available price columns
             conn = st.session_state.db_manager._get_connection()
             
-            # Get records with eBay and store prices - using available price columns
+            # Get records with valid prices
             df = pd.read_sql('''
                 SELECT 
-                    ebay_median_price,
-                    ebay_lowest_price,
-                    ebay_highest_price,
+                    ebay_sell_at,
                     store_price,
-                    discogs_median_price
+                    discogs_suggested_price
                 FROM records 
-                WHERE (ebay_median_price IS NOT NULL AND ebay_median_price > 0)
+                WHERE (ebay_sell_at IS NOT NULL AND ebay_sell_at > 0)
                    OR (store_price IS NOT NULL AND store_price > 0)
-                   OR (discogs_median_price IS NOT NULL AND discogs_median_price > 0)
+                   OR (discogs_suggested_price IS NOT NULL AND discogs_suggested_price > 0)
             ''', conn)
             conn.close()
             
             if len(df) > 0:
-                # Create subplots for price distributions
-                fig = make_subplots(
-                    rows=2, cols=1,
-                    subplot_titles=('eBay Price Distribution', 'Store & Discogs Price Distribution'),
-                    vertical_spacing=0.15
-                )
+                # Calculate average prices
+                avg_prices = {
+                    'eBay': df['ebay_sell_at'].mean() if 'ebay_sell_at' in df.columns and df['ebay_sell_at'].notna().any() else 0,
+                    'Store': df['store_price'].mean() if 'store_price' in df.columns and df['store_price'].notna().any() else 0,
+                    'Discogs': df['discogs_suggested_price'].mean() if 'discogs_suggested_price' in df.columns and df['discogs_suggested_price'].notna().any() else 0
+                }
                 
-                # eBay Median Price distribution
-                ebay_prices = df[df['ebay_median_price'].notna() & (df['ebay_median_price'] > 0)]['ebay_median_price']
-                if len(ebay_prices) > 0:
-                    fig.add_trace(
-                        go.Histogram(
-                            x=ebay_prices,
-                            name='eBay Median Price',
-                            nbinsx=20,
-                            marker_color='#1f77b4',
-                            opacity=0.7
-                        ),
-                        row=1, col=1
+                # Remove zero values
+                avg_prices = {k: v for k, v in avg_prices.items() if v > 0}
+                
+                if avg_prices:
+                    # Create comparison bar chart
+                    fig = px.bar(
+                        x=list(avg_prices.keys()),
+                        y=list(avg_prices.values()),
+                        title='Average Price Comparison',
+                        color=list(avg_prices.keys()),
+                        color_discrete_sequence=['#1f77b4', '#ff7f0e', '#2ca02c']
                     )
-                
-                # Store Price distribution
-                store_prices = df[df['store_price'].notna() & (df['store_price'] > 0)]['store_price']
-                if len(store_prices) > 0:
-                    fig.add_trace(
-                        go.Histogram(
-                            x=store_prices,
-                            name='Store Price',
-                            nbinsx=20,
-                            marker_color='#ff7f0e',
-                            opacity=0.7
-                        ),
-                        row=2, col=1
+                    
+                    fig.update_layout(
+                        xaxis_title='Price Type',
+                        yaxis_title='Average Price ($)',
+                        height=400,
+                        showlegend=False
                     )
-                
-                # Discogs Median Price distribution (overlay on store prices)
-                discogs_prices = df[df['discogs_median_price'].notna() & (df['discogs_median_price'] > 0)]['discogs_median_price']
-                if len(discogs_prices) > 0:
-                    fig.add_trace(
-                        go.Histogram(
-                            x=discogs_prices,
-                            name='Discogs Median Price',
-                            nbinsx=20,
-                            marker_color='#2ca02c',
-                            opacity=0.7
-                        ),
-                        row=2, col=1
-                    )
-                
-                # Update layout
-                fig.update_layout(
-                    height=500,
-                    showlegend=True,
-                    title_text="Price Distributions",
-                    title_x=0.5,
-                    legend=dict(
-                        orientation="h",
-                        yanchor="bottom",
-                        y=1.02,
-                        xanchor="right",
-                        x=1
-                    )
-                )
-                
-                # Update axes
-                fig.update_xaxes(title_text="Price ($)", row=1, col=1)
-                fig.update_xaxes(title_text="Price ($)", row=2, col=1)
-                fig.update_yaxes(title_text="Count", row=1, col=1)
-                fig.update_yaxes(title_text="Count", row=2, col=1)
-                
-                st.plotly_chart(fig, width= 'stretch')
-                
-                # Add some statistics
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if len(ebay_prices) > 0:
-                        st.metric("eBay Median Records", len(ebay_prices))
-                        st.metric("Avg eBay Price", f"${ebay_prices.mean():.2f}")
-                with col2:
-                    if len(store_prices) > 0:
-                        st.metric("Store Price Records", len(store_prices))
-                        st.metric("Avg Store Price", f"${store_prices.mean():.2f}")
-                with col3:
-                    if len(discogs_prices) > 0:
-                        st.metric("Discogs Records", len(discogs_prices))
-                        st.metric("Avg Discogs Price", f"${discogs_prices.mean():.2f}")
+                    
+                    # Format y-axis as currency
+                    fig.update_yaxes(tickprefix='$', tickformat='.2f')
+                    
+                    st.plotly_chart(fig, width= 'stretch')
+                    
+                    # Add some statistics
+                    col1, col2, col3 = st.columns(3)
+                    
+                    if 'eBay' in avg_prices:
+                        with col1:
+                            st.metric("Avg eBay Price", f"${avg_prices['eBay']:.2f}")
+                    
+                    if 'Store' in avg_prices:
+                        with col2:
+                            st.metric("Avg Store Price", f"${avg_prices['Store']:.2f}")
+                    
+                    if 'Discogs' in avg_prices:
+                        with col3:
+                            st.metric("Avg Discogs Price", f"${avg_prices['Discogs']:.2f}")
+                            
+                else:
+                    st.info("No valid price data available for comparison chart.")
                         
             else:
-                st.info("No price data available for distribution charts. Update prices using the Pricing section.")
+                st.info("No price data available for comparison charts. Update prices using the Pricing section.")
                 
         except Exception as e:
-            st.error(f"Error rendering price distribution chart: {e}")
+            st.error(f"Error rendering price comparison chart: {e}")

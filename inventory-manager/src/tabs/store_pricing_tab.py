@@ -100,9 +100,14 @@ class StorePricingTab:
             duration = time.time() - start_time
 
     def _update_all_store_prices(self):
-        """Update store prices for all inventory records using current configuration"""
+        """Update store prices for all inventory records using current configuration - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+        ''', conn)
         conn.close()
         
         # Get current configuration
@@ -171,9 +176,15 @@ class StorePricingTab:
         return updated_count
 
     def _update_single_store_price(self, record_id):
-        """Update store price for a single record using current configuration"""
+        """Update store price for a single record using current configuration - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE id = ?', conn, params=(record_id,))
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+            WHERE r.id = ?
+        ''', conn, params=(record_id,))
         conn.close()
         
         if len(df) == 0:

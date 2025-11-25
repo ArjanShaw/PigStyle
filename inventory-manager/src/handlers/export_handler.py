@@ -16,12 +16,18 @@ class ExportHandler:
             st.warning("Please select records first using the checkboxes in the table.")
             return
         
-        # Get selected records data
+        # Get selected records data - FIXED QUERY
         selected_ids = st.session_state.selected_records
         placeholders = ','.join(['?'] * len(selected_ids))
         
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql(f'SELECT * FROM records_with_genres WHERE id IN ({placeholders})', conn, params=selected_ids)
+        df = pd.read_sql(f'''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+            WHERE r.id IN ({placeholders})
+        ''', conn, params=selected_ids)
         conn.close()
         
         records_list = df.to_dict('records')
@@ -113,13 +119,18 @@ class ExportHandler:
         return max(ebay_sell_at, 0.00)
 
     def update_all_ebay_prices(self, ebay_handler):
-        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here"""
+        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here - FIXED QUERY"""
         if not ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+        ''', conn)
         conn.close()
         
         updated_count = 0
@@ -208,13 +219,19 @@ class ExportHandler:
         return updated_count
 
     def update_single_ebay_prices(self, ebay_handler, record_id):
-        """Update eBay prices for a single record - DO NOT update ebay_sell_at here"""
+        """Update eBay prices for a single record - DO NOT update ebay_sell_at here - FIXED QUERY"""
         if not ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE id = ?', conn, params=(record_id,))
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+            WHERE r.id = ?
+        ''', conn, params=(record_id,))
         conn.close()
         
         if len(df) == 0:
@@ -271,9 +288,14 @@ class ExportHandler:
             return 0
 
     def update_all_ebay_sell_at(self):
-        """Update eBay sell prices for all inventory records using existing lowest prices"""
+        """Update eBay sell prices for all inventory records using existing lowest prices - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+        ''', conn)
         conn.close()
         
         updated_count = 0
@@ -337,9 +359,15 @@ class ExportHandler:
         return updated_count
 
     def update_single_ebay_sell_at(self, record_id):
-        """Update eBay sell price for a single record using existing lowest price"""
+        """Update eBay sell price for a single record using existing lowest price - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE id = ?', conn, params=(record_id,))
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+            WHERE r.id = ?
+        ''', conn, params=(record_id,))
         conn.close()
         
         if len(df) == 0:

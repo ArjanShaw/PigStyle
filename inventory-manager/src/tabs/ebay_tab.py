@@ -331,10 +331,14 @@ class EBayTab:
             self.gallery_json_manager.trigger_rebuild(async_mode=True)
 
     def _find_record_by_artist_title(self, artist, title):
-        """Find a record by artist and title"""
+        """Find a record by artist and title - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql(
-            'SELECT * FROM records_with_genres WHERE artist LIKE ? AND title LIKE ?',
+            '''SELECT r.*, g.genre_name as genre, c.name as consignor_name
+               FROM records r
+               LEFT JOIN genres g ON r.genre_id = g.id
+               LEFT JOIN consignors c ON r.consignor_id = c.id
+               WHERE r.artist LIKE ? AND r.title LIKE ?''',
             conn,
             params=(f'%{artist}%', f'%{title}%')
         )
@@ -345,15 +349,18 @@ class EBayTab:
         return None
 
     def _export_ebay_draft_csv(self, num_listings):
-        """Export eBay draft listings CSV"""
+        """Export eBay draft listings CSV - FIXED QUERY"""
         st.subheader("Generating eBay Draft Listings")
         
-        # Get records sorted by eBay sell price descending, without eBay item numbers
+        # Get records sorted by eBay sell price descending, without eBay item numbers - FIXED QUERY
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql(f'''
-            SELECT * FROM records_with_genres 
-            WHERE ebay_item_number IS NULL OR ebay_item_number = ''
-            ORDER BY ebay_sell_at DESC 
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+            WHERE r.ebay_item_number IS NULL OR r.ebay_item_number = ''
+            ORDER BY r.ebay_sell_at DESC 
             LIMIT {num_listings}
         ''', conn)
         conn.close()
@@ -605,13 +612,18 @@ class EBayTab:
             return {'type': 'FREE', 'cost': 0}
 
     def _update_all_ebay_prices_internal(self):
-        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here"""
+        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here - FIXED QUERY"""
         if not self.ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+        ''', conn)
         conn.close()
         
         updated_count = 0
@@ -700,13 +712,19 @@ class EBayTab:
         return updated_count
 
     def _update_single_ebay_prices_internal(self, record_id):
-        """Update eBay prices for a single record - DO NOT update ebay_sell_at here"""
+        """Update eBay prices for a single record - DO NOT update ebay_sell_at here - FIXED QUERY"""
         if not self.ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE id = ?', conn, params=(record_id,))
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+            WHERE r.id = ?
+        ''', conn, params=(record_id,))
         conn.close()
         
         if len(df) == 0:
@@ -763,9 +781,14 @@ class EBayTab:
             return 0
 
     def _update_all_ebay_sell_at_internal(self):
-        """Update eBay sell prices for all inventory records using existing lowest prices"""
+        """Update eBay sell prices for all inventory records using existing lowest prices - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres', conn)
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+        ''', conn)
         conn.close()
         
         updated_count = 0
@@ -829,9 +852,15 @@ class EBayTab:
         return updated_count
 
     def _update_single_ebay_sell_at_internal(self, record_id):
-        """Update eBay sell price for a single record using existing lowest price"""
+        """Update eBay sell price for a single record using existing lowest price - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('SELECT * FROM records_with_genres WHERE id = ?', conn, params=(record_id,))
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
+            WHERE r.id = ?
+        ''', conn, params=(record_id,))
         conn.close()
         
         if len(df) == 0:

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
+    <title>Consignment - PigStyle Records</title>
+    <link rel="stylesheet" href="consignment.css">
+</head>
+<body>
+    <!-- Background Image -->
+    <div class="background-container">
+        <img src="images/background.png" alt="Background" class="background-image">
+        <div class="background-overlay"></div>
+    </div>
+
+    <header>
+        <div class="header-content">
+            <div class="logo-container">
+                <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
+            </div>
+        </div>
+    </header>
+     
+    <div class="content-container">
+        <div class="page-title">
+            <h1>Sell Your Records With Me</h1>
+        </div>
+
+        <div class="consignment-content">
+            <div class="special-offer">
+                <h2>Opening Special: 90% to You</h2>
+                <p>For a limited time, keep 90% of your record sales - I only take 10%</p>
+            </div>
+
+            <div class="info-card">
+                <h2>How It Works</h2>
+                <div class="process-steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Bring Your Records</h3>
+                            <p>Call or email me to set up a time to bring in your vinyl. We'll look through your collection together and I'll help with price suggestions based on what's selling.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>I Handle the Sales</h3>
+                            <p>I take care of everything in the store - customers, sales, and keeping track of what sells. Your sales and inventory are tracked through automated software so we both know what's happening with your records.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>You Get Paid</h3>
+                            <p>When your records sell, you get paid. It's that simple. I provide monthly statements and payments for whatever sold.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-grid">
+                <div class="detail-card">
+                    <h3>The Deal</h3>
+                    <ul>
+                        <li>You keep 90% of sales</li>
+                        <li>I handle store operations</li>
+                        <li>Automated inventory tracking</li>
+                        <li>Monthly payments</li>
+                    </ul>
+                </div>
+                
+                <div class="detail-card">
+                    <h3>Simple & Secure</h3>
+                    <ul>
+                        <li>Clear contract protects your records</li>
+                        <li>Barcode tracking on every item</li>
+                        <li>Digital records of all sales</li>
+                        <li>Unsold records returned to you</li>
+                    </ul>
+                </div>
+                
+                <div class="detail-card">
+                    <h3>Get Started</h3>
+                    <ul>
+                        <li>Phone: <a href="tel:970-492-5630">970-492-5630</a></li>
+                        <li>Email: pigstyle.loveland@gmail.com</li>
+                        <li>Call or email to set up a time</li>
+                        <li>Building inventory for opening</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="simple-pitch">
+                <p>I'm setting up a straightforward consignment system where you control the prices and I handle the store. The software tracks everything automatically, and the contract makes sure your records are protected. It's a simple way to sell your vinyl without the hassle of doing it yourself.</p>
+                
+                <p>Right now I'm offering a special 90/10 split to help build up the store's selection. If you've got records you're ready to move, give me a call and let's work together.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple animation for step numbers
+        document.addEventListener('DOMContentLoaded', function() {
+            const steps = document.querySelectorAll('.step');
+            steps.forEach((step, index) => {
+                setTimeout(() => {
+                    step.style.opacity = '1';
+                    step.style.transform = 'translateY(0)';
+                }, index * 200);
+            });
+        });
+    </script>
+</body>
+</html>

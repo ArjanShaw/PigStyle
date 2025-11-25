@@ -1,3 +1,5 @@
+# FILE: inventory-manager/src/handlers/display_handler.py
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -212,6 +214,12 @@ class DisplayHandler:
                     for line in info_lines:
                         st.write(line)
         
+        # Show tracklist for Discogs records
+        if selected_record['type'] == 'discogs' and 'tracklist' in record:
+            st.subheader("🎵 Album Tracklist")
+            for i, track in enumerate(record['tracklist'], 1):
+                st.write(f"{i}. {track}")
+        
         if st.button("← Back to Results", key="back_to_results"):
             st.session_state.selected_record = None
             st.rerun()
@@ -283,7 +291,7 @@ class DisplayHandler:
         )
         record_data['compilation'] = compilation
         
-        # Show genre dropdown (NOW VISIBLE AFTER ALL API CALLS COMPLETE)
+        # Show genre dropdown
         suggested_genre = self._get_suggested_genre(record_data)
         
         col1, col2 = st.columns(2)
@@ -294,9 +302,6 @@ class DisplayHandler:
             default_index = 0
             if suggested_genre and suggested_genre in all_genres:
                 default_index = all_genres.index(suggested_genre) + 1
-            else:
-                # Genre is mandatory, show warning if no genre selected
-                st.warning("Genre is required")
             
             genre = st.selectbox(
                 "Genre:",
@@ -313,38 +318,8 @@ class DisplayHandler:
         # Show ALL pricing information (now fully loaded after ALL API calls)
         self._render_pricing_information(record_data)
         
-        # Show YouTube search results if available (now fully loaded)
-        if self.youtube_handler and self.youtube_handler.is_enabled():
-            st.subheader("🎵 YouTube Integration")
-            
-            # Show existing linked YouTube URL if any
-            current_youtube_url = record_data.get('youtube_url', '')
-            if current_youtube_url:
-                st.success(f"✅ Currently linked: {current_youtube_url}")
-                
-                # Show option to remove link
-                if st.button("❌ Remove YouTube Link", key="remove_youtube", width='stretch'):
-                    record_data['youtube_url'] = ''
-                    st.success("YouTube link removed!")
-                    st.rerun()
-            
-            # Show YouTube search results if available
-            if 'youtube_search_results' in st.session_state and st.session_state.youtube_search_results:
-                st.info("Click on a video to link it to this record")
-                
-                # Group by track if available
-                track_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'track']
-                album_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'album']
-                
-                if track_results:
-                    st.write("**🎵 Individual Track Recordings:**")
-                    for i, video in enumerate(track_results):
-                        self._render_youtube_video(video, i, record_data)
-                
-                if album_results:
-                    st.write("**📀 Album Content:**")
-                    for i, video in enumerate(album_results, start=len(track_results)):
-                        self._render_youtube_video(video, i, record_data)
+        # Show YouTube integration (merged search and manual input)
+        self._render_youtube_integration(record_data)
         
         # Single submit button - only enable if genre is selected
         button_label = "Add to Database" if selected_record['type'] == 'discogs' else "Update Record"
@@ -444,7 +419,7 @@ class DisplayHandler:
             return None, None, None
 
     def _should_be_compilation(self, artist, record_data):
-        """Determine if record should be marked as compilation based on artist name"""
+        """Determine if record should be marked as compilation based on artist name and artist history"""
         if not artist:
             return False
         
@@ -459,15 +434,51 @@ class DisplayHandler:
             'various artiists'  # Another common typo
         ]
         
+        # Check for compilation indicators in artist name
         for indicator in compilation_indicators:
             if indicator in artist_lower:
                 return True
+        
+        # Check artist history in database
+        if self._is_artist_mostly_compilation(artist):
+            return True
         
         # Also check if it's already marked as compilation in database record
         if record_data.get('compilation'):
             return True
             
         return False
+
+    def _is_artist_mostly_compilation(self, artist):
+        """Check if this artist's records are mostly marked as compilations in the database"""
+        try:
+            conn = st.session_state.db_manager._get_connection()
+            
+            # Count how many records by this artist are marked as compilations
+            df = pd.read_sql('''
+                SELECT compilation, COUNT(*) as count 
+                FROM records 
+                WHERE artist = ? 
+                GROUP BY compilation
+            ''', conn, params=(artist,))
+            conn.close()
+            
+            if len(df) == 0:
+                return False
+            
+            # Calculate compilation ratio
+            total_records = df['count'].sum()
+            compilation_count = df[df['compilation'] == True]['count'].sum() if True in df['compilation'].values else 0
+            
+            # If more than 50% of this artist's records are compilations, suggest compilation
+            if total_records > 0 and (compilation_count / total_records) > 0.5:
+                return True
+                
+            return False
+            
+        except Exception as e:
+            print(f"Error checking artist compilation history: {e}")
+            return False
 
     def _calculate_file_at(self, artist, genre, compilation):
         """Calculate file_at value for display in confirmation message"""
@@ -507,6 +518,11 @@ class DisplayHandler:
             pricing_data = discogs_handler.get_release_statistics_pricing(str(release_id))
             record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
             record_data['total_conditions'] = pricing_data.get('total_conditions', 0)
+            
+            # Fetch tracklist from Discogs
+            tracklist = discogs_handler.get_release_tracklist(release_id)
+            if tracklist:
+                record_data['tracklist'] = tracklist
         
         # Step 2: Fetch eBay pricing (BLOCKING)
         artist = record_data.get('artist', '')
@@ -521,13 +537,164 @@ class DisplayHandler:
         # Step 3: Fetch YouTube results (BLOCKING) - NOW WITH TRACKLIST
         if self.youtube_handler and self.youtube_handler.is_enabled():
             # Get tracklist from Discogs for better YouTube matching
-            track_titles = []
-            if discogs_handler and release_id:
-                track_titles = discogs_handler.get_release_tracklist(release_id)
+            track_titles = record_data.get('tracklist', [])
             
             search_query = f"{artist} {title}"
+            record_data['youtube_search_query'] = search_query
             youtube_results = self.youtube_handler.search_youtube_videos(search_query, record_data, track_titles)
             st.session_state.youtube_search_results = youtube_results
+
+    def _get_suggested_genre(self, record_data):
+        """Get suggested genre for a record based on artist history - ONLY suggest if artist exists in database"""
+        try:
+            # Priority 1: Check artist history in database - ONLY if artist has existing records
+            artist = record_data.get('artist', '')
+            if artist:
+                artist_genre = self._get_genre_from_artist_history(artist)
+                if artist_genre:
+                    return artist_genre
+            
+            # No suggestion available if artist doesn't exist in database
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting suggested genre: {e}")
+            return ""
+
+    def _get_genre_from_artist_history(self, artist):
+        """Get the most common genre for this artist from existing records - ONLY if artist exists"""
+        try:
+            conn = st.session_state.db_manager._get_connection()
+            
+            # First check if artist exists in database
+            artist_exists = pd.read_sql('''
+                SELECT COUNT(*) as count FROM records WHERE artist = ?
+            ''', conn, params=(artist,)).iloc[0]['count'] > 0
+            
+            if not artist_exists:
+                return ""
+            
+            # Find the most common genre for this artist
+            df = pd.read_sql('''
+                SELECT g.genre_name, COUNT(*) as count
+                FROM records r
+                JOIN genres g ON r.genre_id = g.id
+                WHERE r.artist = ? AND g.genre_name IS NOT NULL
+                GROUP BY g.genre_name
+                ORDER BY count DESC
+                LIMIT 1
+            ''', conn, params=(artist,))
+            conn.close()
+            
+            if len(df) > 0:
+                return df.iloc[0]['genre_name']
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting genre from artist history: {e}")
+            return ""
+
+    def _get_suggestion_source(self, record_data, suggested_genre):
+        """Explain where the genre suggestion came from"""
+        artist = record_data.get('artist', '')
+        if artist and suggested_genre == self._get_genre_from_artist_history(artist):
+            return "Artist history"
+        
+        return "Unknown"
+
+    def _get_all_genres(self):
+        """Get all available genres from database"""
+        try:
+            genres_df = st.session_state.db_manager.get_all_genres()
+            return genres_df['genre_name'].tolist()
+        except Exception as e:
+            print(f"Error getting genres: {e}")
+            return []
+
+    def _get_condition_description(self, condition):
+        """Map condition codes to readable descriptions"""
+        condition_descriptions = {
+            'Mint (M)': 'Perfect condition, still sealed or like new',
+            'Near Mint (NM or M-)': 'Almost perfect, very minor signs of handling',
+            'Very Good Plus (VG+)': 'Excellent condition with minor wear',
+            'Very Good (VG)': 'Good condition with some visible wear',
+            'Good Plus (G+)': 'Playable condition with noticeable wear',
+            'Good (G)': 'Heavy wear but still playable',
+            'Fair (F)': 'Significant wear, may have skips',
+            'Poor (P)': 'Poor condition, may not play properly',
+            'Generic': 'No specific condition information'
+        }
+        return condition_descriptions.get(condition, 'Unknown condition')
+
+    def _render_youtube_integration(self, record_data):
+        """Render merged YouTube integration with search results and manual input"""
+        st.subheader("🎵 YouTube Integration")
+        
+        # Show current linked YouTube URL
+        current_youtube_url = record_data.get('youtube_url', '')
+        if current_youtube_url:
+            st.success(f"✅ Currently linked: {current_youtube_url}")
+            
+            # Show option to remove link
+            if st.button("❌ Remove YouTube Link", key="remove_youtube", width='stretch'):
+                record_data['youtube_url'] = ''
+                st.success("YouTube link removed!")
+                st.rerun()
+        
+        # Manual YouTube URL input
+        st.write("**Manual YouTube Link**")
+        manual_url = st.text_input(
+            "Paste YouTube URL:",
+            value="",
+            placeholder="https://www.youtube.com/watch?v=...",
+            key="manual_youtube_url"
+        )
+        
+        if manual_url and "youtube.com" in manual_url:
+            if st.button("🔗 Use This YouTube URL", key="use_manual_url", width='stretch'):
+                record_data['youtube_url'] = manual_url
+                st.success("✅ YouTube URL linked!")
+                st.rerun()
+        
+        # Show YouTube search results if available
+        if 'youtube_search_results' in st.session_state and st.session_state.youtube_search_results:
+            search_query = record_data.get('youtube_search_query', 'Unknown search')
+            st.info(f"YouTube search '{search_query}' completed - {len(st.session_state.youtube_search_results)} results found")
+            
+            st.write("**Search Results:**")
+            
+            # Group by track if available
+            track_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'track']
+            album_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'album']
+            
+            if track_results:
+                st.write("**🎵 Individual Track Recordings:**")
+                for i, video in enumerate(track_results):
+                    self._render_youtube_video_option(video, i, record_data)
+            
+            if album_results:
+                st.write("**📀 Album Content:**")
+                for i, video in enumerate(album_results, start=len(track_results)):
+                    self._render_youtube_video_option(video, i, record_data)
+        else:
+            st.info("No YouTube search results available")
+
+    def _render_youtube_video_option(self, video, index, record_data):
+        """Display a YouTube video option with link button"""
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col1:
+            if video.get('thumbnail'):
+                st.image(video['thumbnail'], width=80)
+        with col2:
+            st.write(f"**{video['title']}**")
+            st.write(f"Channel: {video['channel']}")
+            if video.get('track_title'):
+                st.write(f"Track: {video['track_title']}")
+        with col3:
+            if st.button("🔗 Link", key=f"youtube_link_{index}", width='stretch'):
+                record_data['youtube_url'] = video['url']
+                st.success(f"✅ Linked to: {video['title']}")
+                st.rerun()
 
     def _render_pricing_information(self, record_data):
         """Render ALL pricing information - ONLY called after ALL API calls complete"""
@@ -535,7 +702,6 @@ class DisplayHandler:
         # Check if we have the required data from ALL APIs
         has_discogs_data = 'price_suggestions' in record_data
         has_ebay_data = 'ebay_condition_pricing' in record_data
-        has_youtube_data = 'youtube_search_results' in st.session_state
         
         # Discogs Pricing Section - ONLY show if data is available
         if has_discogs_data:
@@ -678,3 +844,85 @@ class DisplayHandler:
                         # Auto-select eBay condition that matches the selected Discogs condition
                         selected_discogs_condition = record_data.get('selected_condition')
                         default_ebay_index = 0
+                        if selected_discogs_condition and selected_discogs_condition in ebay_condition_options:
+                            default_ebay_index = ebay_condition_options.index(selected_discogs_condition)
+                        
+                        selected_ebay_condition = st.selectbox(
+                            "Choose eBay condition group:",
+                            options=ebay_condition_options,
+                            index=default_ebay_index,
+                            key="ebay_condition_select"
+                        )
+                        
+                        # Store eBay pricing data
+                        if selected_ebay_condition:
+                            ebay_pricing = ebay_condition_pricing[selected_ebay_condition]
+                            record_data['ebay_lowest_price'] = ebay_pricing['lowest_price']
+                            record_data['ebay_low_shipping'] = ebay_pricing['lowest_shipping']
+                            record_data['ebay_sell_at'] = self._calculate_ebay_sell_at(
+                                ebay_pricing['lowest_price'], 
+                                ebay_pricing['lowest_shipping']
+                            )
+            else:
+                st.write("No eBay pricing data available")
+            
+            st.divider()
+        else:
+            st.write("### 🛒 eBay Pricing")
+            st.info("eBay pricing data loading...")
+
+    def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping):
+        """Calculate eBay sell price from lowest price and shipping"""
+        # Get SHIPPING_COST from config
+        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        try:
+            shipping_cost = float(shipping_cost)
+        except (ValueError, TypeError):
+            shipping_cost = 5.72
+        
+        if ebay_lowest_price is not None:
+            ebay_lowest_price = float(ebay_lowest_price)
+            
+            # For CALC shipping, use just the base price
+            if ebay_low_shipping is None:
+                ebay_sell_at_raw = ebay_lowest_price
+            else:
+                ebay_low_shipping = float(ebay_low_shipping)
+                ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
+            
+            # Ensure not negative
+            ebay_sell_at_raw = max(ebay_sell_at_raw, 0.00)
+            
+            # Round to nearest .49 or .99
+            return self._round_to_49_or_99(ebay_sell_at_raw)
+        
+        return 0.0
+
+    def _round_to_49_or_99(self, price):
+        """Round to nearest .49 or .99"""
+        if price <= 0:
+            return 0.0
+        
+        base_price = math.floor(price)
+        decimal_part = price - base_price
+        
+        if decimal_part < 0.25:
+            return base_price + 0.49
+        elif decimal_part < 0.75:
+            return base_price + 0.49
+        else:
+            return base_price + 0.99
+
+    def _delete_record(self, record_id):
+        """Delete a record from the database"""
+        try:
+            success = st.session_state.db_manager.delete_record(record_id)
+            if success:
+                st.success("Record deleted successfully!")
+                return True
+            else:
+                st.error("Failed to delete record")
+                return False
+        except Exception as e:
+            st.error(f"Error deleting record: {e}")
+            return False

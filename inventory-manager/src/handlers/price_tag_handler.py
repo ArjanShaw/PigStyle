@@ -26,15 +26,14 @@ class PriceTagHandler:
         return Path(__file__).parent.parent / "print_config.json"
     
     def get_records_without_barcodes(self):
-        """Get records that don't have barcodes"""
+        """Get records that don't have barcodes - FIXED QUERY"""
         try:
             conn = self.db_manager._get_connection()
             query = '''
                 SELECT r.*, g.genre_name as genre, c.name as consignor_name
                 FROM records r
                 LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
-                LEFT JOIN consignors c ON cs.consignor_id = c.id
+                LEFT JOIN consignors c ON r.consignor_id = c.id
                 WHERE r.barcode IS NULL OR r.barcode = ''
                 ORDER BY r.artist, r.title
             '''
@@ -120,15 +119,14 @@ class PriceTagHandler:
             if not barcode_mapping:
                 return None, "Failed to assign barcodes"
             
-            # Step 2: Get record data
+            # Step 2: Get record data - FIXED QUERY
             conn = self.db_manager._get_connection()
             placeholders = ','.join(['?'] * len(record_ids))
             query = f'''
                 SELECT r.*, g.genre_name as genre, c.name as consignor_name
                 FROM records r
                 LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
-                LEFT JOIN consignors c ON cs.consignor_id = c.id
+                LEFT JOIN consignors c ON r.consignor_id = c.id
                 WHERE r.id IN ({placeholders})
             '''
             df = pd.read_sql(query, conn, params=record_ids)

@@ -10,6 +10,7 @@ from tabs.ebay_tab import EBayTab
 from tabs.store_pricing_tab import StorePricingTab
 from tabs.tools_sync_tab import ToolsSyncTab
 from tabs.consignment_tab import ConsignmentTab
+from tabs.price_tag_tab import PriceTagTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -103,10 +104,12 @@ def main():
     store_pricing_tab = StorePricingTab()
     tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
     consignment_tab = ConsignmentTab()
+    price_tag_tab = PriceTagTab(st.session_state.db_manager)
 
     # Create tabs
     tabs = st.tabs([
         "📦 Inventory",
+        "🏷️ Print Price Tags",
         "🏪 Store Pricing",
         "🛒 eBay", 
         "📊 Statistics",
@@ -118,18 +121,21 @@ def main():
         inventory_tab.render()
     
     with tabs[1]:
-        store_pricing_tab.render()
+        price_tag_tab.render()
     
     with tabs[2]:
-        ebay_tab.render()
+        store_pricing_tab.render()
     
     with tabs[3]:
-        statistics_tab.render()
+        ebay_tab.render()
     
     with tabs[4]:
-        consignment_tab.render()
+        statistics_tab.render()
     
     with tabs[5]:
+        consignment_tab.render()
+    
+    with tabs[6]:
         tools_sync_tab.render()
 
 if __name__ == "__main__":

@@ -1,27 +1,28 @@
 import os
+import argparse
 from pathlib import Path
 
-def create_repo_dump():
-    """Create ONE file with full repo structure and code from multiple folders"""
-    target_folders = [
-        'inventory-manager/src',
-        'web',
-        'voting-system'
-    ]
+def create_repo_dump(target_folder=None, output_file='REPO_STRUCTURE_AND_CODE.txt'):
+    """Create ONE file with full repo structure and code from specified folder"""
     
-    output_file = 'REPO_STRUCTURE_AND_CODE.txt'
+    # If no target folder provided, use current directory
+    if target_folder is None:
+        target_folder = '.'
+    
+    # Validate target folder exists
+    if not os.path.exists(target_folder):
+        print(f"❌ Target folder '{target_folder}' not found!")
+        return
+    
+    print(f"🎯 Processing folder: {target_folder}")
     
     with open(output_file, 'w', encoding='utf-8') as f:
         # Write header
-        f.write("COMPLETE REPOSITORY STRUCTURE + CODE FROM: inventory-manager/src, web, voting-system\n")
-        f.write("=" * 70 + "\n")
-        f.write("Target folders for code:\n")
-        for folder in target_folders:
-            f.write(f"- {folder}\n")
+        f.write(f"REPOSITORY STRUCTURE + CODE FROM: {target_folder}\n")
         f.write("=" * 70 + "\n\n")
         
-        # Build and write COMPLETE directory tree
-        f.write("FULL REPOSITORY STRUCTURE:\n")
+        # Build and write directory tree
+        f.write("REPOSITORY STRUCTURE:\n")
         f.write("-" * 40 + "\n")
         
         def build_tree(dir_path, prefix='', is_last=True):
@@ -29,15 +30,16 @@ def create_repo_dump():
             path_obj = Path(dir_path)
             
             # Skip system directories
-            if any(part in ['.git', '__pycache__', 'venv', 'env'] for part in path_obj.parts):
+            skip_dirs = ['.git', '__pycache__', 'venv', 'env', 'node_modules']
+            if any(part in skip_dirs for part in path_obj.parts):
                 return lines
             
             # Current directory
             current_prefix = '└── ' if is_last else '├── '
             dir_name = path_obj.name + '/'
             
-            # Highlight the target folders
-            if str(path_obj) in target_folders:
+            # Highlight the target folder
+            if str(path_obj) == target_folder or target_folder == '.':
                 dir_name = f"🎯 {dir_name} [TARGET]"
             
             lines.append(prefix + current_prefix + dir_name)
@@ -50,7 +52,7 @@ def create_repo_dump():
                 for item in os.listdir(dir_path):
                     item_path = os.path.join(dir_path, item)
                     # Skip system files/dirs
-                    if not any(skip in item_path for skip in ['.git', '__pycache__', 'venv', 'env']):
+                    if not any(skip in item_path for skip in skip_dirs):
                         items.append(item_path)
                 
                 # Sort directories first, then files
@@ -66,11 +68,17 @@ def create_repo_dump():
                         file_display = os.path.basename(item_path)
                         
                         # Highlight code files
-                        if item_path.endswith(('.py', '.html', '.css', '.js', '.json')):
-                            file_icon = "🐍" if item_path.endswith('.py') else "🌐"
-                            file_display += f" {file_icon}"
-                            if any(target in item_path for target in target_folders):
-                                file_display = f"⭐ {file_display}"
+                        code_extensions = ['.py', '.html', '.css', '.js', '.json', '.txt', '.md', '.yaml', '.yml']
+                        file_ext = os.path.splitext(file_display)[1].lower()
+                        
+                        if file_ext in code_extensions:
+                            icons = {
+                                '.py': '🐍', '.html': '🌐', '.css': '🎨', 
+                                '.js': '📜', '.json': '📋', '.txt': '📄',
+                                '.md': '📖', '.yaml': '⚙️', '.yml': '⚙️'
+                            }
+                            file_icon = icons.get(file_ext, '📄')
+                            file_display = f"{file_display} {file_icon}"
                         
                         lines.append(new_prefix + file_prefix + file_display)
                         
@@ -80,56 +88,50 @@ def create_repo_dump():
             return lines
         
         # Write the complete tree structure
-        tree_lines = build_tree('.')
+        tree_lines = build_tree(target_folder if target_folder != '.' else '.')
         f.write("\n".join(tree_lines))
         f.write("\n\n" + "=" * 70 + "\n\n")
         
-        # Process each target folder
+        # Process the target folder
         total_files_found = 0
         
-        for target_folder in target_folders:
-            # Check if target folder exists
-            if not os.path.exists(target_folder):
-                f.write(f"❌ Target folder '{target_folder}' not found!\n\n")
-                print(f"❌ Target folder '{target_folder}' not found!")
-                continue
+        f.write(f"CODE FROM: {target_folder}\n")
+        f.write("=" * 70 + "\n\n")
+        
+        # File extensions to include
+        code_extensions = ['.py', '.html', '.css', '.js', '.json', '.txt', '.md', '.yaml', '.yml']
+        
+        # Walk through the target folder
+        for root, dirs, files in os.walk(target_folder):
+            # Skip system directories
+            skip_dirs = ['__pycache__', '.git', 'venv', 'env', 'node_modules']
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
             
-            f.write(f"CODE FROM: {target_folder}\n")
-            f.write("=" * 70 + "\n\n")
-            
-            folder_files_found = 0
-            
-            # Walk through the target folder
-            for root, dirs, files in os.walk(target_folder):
-                # Skip system directories
-                dirs[:] = [d for d in dirs if d not in ['__pycache__']]
-                
-                for file in files:
-                    # Include all code files: Python, HTML, CSS, JS, JSON
-                    if file.endswith(('.py', '.html', '.css', '.js', '.json')):
-                        file_path = os.path.join(root, file)
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as code_file:
-                                content = code_file.read()
-                            
-                            relative_path = os.path.relpath(file_path, '.')
-                            f.write(f"FILE: {relative_path}\n")
-                            f.write("-" * 50 + "\n")
-                            f.write(content)
-                            f.write("\n\n" + "=" * 70 + "\n\n")
-                            
-                            folder_files_found += 1
-                            total_files_found += 1
-                            print(f"✅ Added: {relative_path}")
-                            
-                        except Exception as e:
-                            f.write(f"FILE: {file_path} - ERROR: {e}\n")
-                            f.write("=" * 70 + "\n\n")
-            
-            f.write(f"📊 Files from {target_folder}: {folder_files_found}\n\n")
-            
-            if folder_files_found == 0:
-                f.write(f"No code files found in {target_folder}!\n\n")
+            for file in files:
+                # Include code files
+                if any(file.endswith(ext) for ext in code_extensions):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as code_file:
+                            content = code_file.read()
+                        
+                        relative_path = os.path.relpath(file_path, '.')
+                        f.write(f"FILE: {relative_path}\n")
+                        f.write("-" * 50 + "\n")
+                        f.write(content)
+                        f.write("\n\n" + "=" * 70 + "\n\n")
+                        
+                        total_files_found += 1
+                        print(f"✅ Added: {relative_path}")
+                        
+                    except Exception as e:
+                        f.write(f"FILE: {file_path} - ERROR: {e}\n")
+                        f.write("=" * 70 + "\n\n")
+        
+        f.write(f"📊 Total files processed: {total_files_found}\n\n")
+        
+        if total_files_found == 0:
+            f.write(f"No code files found in {target_folder}!\n\n")
     
     print(f"\n🎯 DONE: {output_file}")
     print(f"📊 Total code files: {total_files_found}")
@@ -138,6 +140,17 @@ def create_repo_dump():
     size = os.path.getsize(output_file)
     print(f"📏 Output size: {size} bytes ({size/1024:.1f} KB)")
 
+def main():
+    parser = argparse.ArgumentParser(description='Create repository structure and code dump')
+    parser.add_argument('folder', nargs='?', default='.', 
+                       help='Target folder to extract (default: current directory)')
+    parser.add_argument('-o', '--output', default='REPO_STRUCTURE_AND_CODE.txt',
+                       help='Output filename (default: REPO_STRUCTURE_AND_CODE.txt)')
+    
+    args = parser.parse_args()
+    
+    create_repo_dump(args.folder, args.output)
+
 # RUN IT
 if __name__ == "__main__":
-    create_repo_dump()
+    main()

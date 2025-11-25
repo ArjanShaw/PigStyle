@@ -1,131 +1,60 @@
-COMPLETE REPOSITORY STRUCTURE + CODE FROM: inventory-manager/src
-======================================================================
-Target folder for code: inventory-manager/src
+REPOSITORY STRUCTURE + CODE FROM: inventory-manager/src
 ======================================================================
 
-FULL REPOSITORY STRUCTURE:
+REPOSITORY STRUCTURE:
 ----------------------------------------
-└── /
-    ├── data/
-    │   ├── export_gb.py 🐍
-    │   ├── records.db
-    │   └── records.sqbpro
+└── 🎯 src/ [TARGET]
+    ├── EbayDraftFiles/
+    │   ├── ebay_drafts oct 16 21_21.csv
+    │   └── ebay_drafts oct 16_21.21 (2).csv
+    ├── gallery/
+    │   ├── __init__.py 🐍
+    │   └── generator.py 🐍
+    ├── handlers/
+    │   ├── __init__.py 🐍
+    │   ├── api_key_handler.py 🐍
+    │   ├── barcode_generator.py 🐍
+    │   ├── discogs_handler.py 🐍
+    │   ├── display_handler.py 🐍
+    │   ├── draft_csv_handler.py 🐍
+    │   ├── ebay_handler.py 🐍
+    │   ├── export_handler.py 🐍
+    │   ├── genre_handler.py 🐍
+    │   ├── github_sync_handler.py 🐍
+    │   ├── imagebb_handler.py 🐍
+    │   ├── price_handler.py 🐍
+    │   ├── price_tag_handler.py 🐍
+    │   ├── record_operations_handler.py 🐍
+    │   ├── search_handler.py 🐍
+    │   └── youtube_handler.py 🐍
     ├── images/
-    ├── inventory-manager/
-    │   ├── 🎯 src/ [TARGET]
-    │   │   ├── EbayDraftFiles/
-    │   │   │   ├── ebay_drafts oct 16 21_21.csv
-    │   │   │   └── ebay_drafts oct 16_21.21 (2).csv
-    │   │   ├── gallery/
-    │   │   │   ├── ⭐ __init__.py 🐍
-    │   │   │   └── ⭐ generator.py 🐍
-    │   │   ├── handlers/
-    │   │   │   ├── ⭐ __init__.py 🐍
-    │   │   │   ├── ⭐ api_key_handler.py 🐍
-    │   │   │   ├── ⭐ barcode_generator.py 🐍
-    │   │   │   ├── ⭐ discogs_handler.py 🐍
-    │   │   │   ├── ⭐ display_handler.py 🐍
-    │   │   │   ├── ⭐ draft_csv_handler.py 🐍
-    │   │   │   ├── ⭐ ebay_handler.py 🐍
-    │   │   │   ├── ⭐ export_handler.py 🐍
-    │   │   │   ├── ⭐ genre_handler.py 🐍
-    │   │   │   ├── ⭐ github_sync_handler.py 🐍
-    │   │   │   ├── ⭐ imagebb_handler.py 🐍
-    │   │   │   ├── ⭐ price_handler.py 🐍
-    │   │   │   ├── ⭐ record_operations_handler.py 🐍
-    │   │   │   ├── ⭐ search_handler.py 🐍
-    │   │   │   └── ⭐ youtube_handler.py 🐍
-    │   │   ├── tabs/
-    │   │   │   ├── ⭐ consignment_tab.py 🐍
-    │   │   │   ├── ⭐ debug_tab.py 🐍
-    │   │   │   ├── ⭐ ebay_tab.py 🐍
-    │   │   │   ├── ⭐ genre_mappings_tab.py 🐍
-    │   │   │   ├── ⭐ import_export_tab.py 🐍
-    │   │   │   ├── ⭐ inventory_tab.py 🐍
-    │   │   │   ├── ⭐ statistics_tab.py 🐍
-    │   │   │   ├── ⭐ store_pricing_tab.py 🐍
-    │   │   │   └── ⭐ tools_sync_tab.py 🐍
-    │   │   ├── ⭐ config.py 🐍
-    │   │   ├── ⭐ database_manager.py 🐍
-    │   │   ├── ⭐ desktop_app.py 🐍
-    │   │   ├── ⭐ image_formatter.py 🐍
-    │   │   ├── print_config.json
-    │   │   ├── records.zip
-    │   │   ├── Screenshot from 2025-10-24 21-15-56.png
-    │   │   ├── ⭐ sku_generator.py 🐍
-    │   │   └── ⭐ streamlit_app.py 🐍
-    │   ├── print_config.json
-    │   └── requirements.txt
     ├── payloads/
-    ├── voting-system/
-    │   ├── requirements.txt
-    │   ├── votes.db
-    │   └── voting_api.py 🐍
-    ├── web/
-    │   └── public/
-    │       ├── css/
-    │       │   └── style.css
-    │       ├── fonts/
-    │       │   ├── forum-regular-webfont.eot
-    │       │   ├── forum-regular-webfont.svg
-    │       │   ├── forum-regular-webfont.ttf
-    │       │   └── forum-regular-webfont.woff
-    │       ├── images/
-    │       │   ├── art-in-record-store.png
-    │       │   ├── audio-gear.jpg
-    │       │   ├── background.png
-    │       │   ├── bg-body.jpg
-    │       │   ├── bg-header.png
-    │       │   ├── border-horizontal.gif
-    │       │   ├── button-plus.png
-    │       │   ├── cassette-tapes.png
-    │       │   ├── frame1.gif
-    │       │   ├── frame2.gif
-    │       │   ├── icons.png
-    │       │   ├── interface.png
-    │       │   ├── logo.png
-    │       │   ├── music_text.png
-    │       │   ├── pig_head.png
-    │       │   ├── pigstyle_icon.png
-    │       │   ├── pigstyle_text.png
-    │       │   ├── recliner.png
-    │       │   ├── record-store-exterior.jpg
-    │       │   ├── shadow.png
-    │       │   ├── vinyl_records.jpg
-    │       │   └── yellow-record.png
-    │       ├── js/
-    │       │   ├── gallery-popup.js
-    │       │   ├── script.js
-    │       │   ├── streaming.js
-    │       │   └── voting.js
-    │       ├── catalog.css
-    │       ├── catalog.html
-    │       ├── CNAME
-    │       ├── gallery-data.json
-    │       ├── index.css
-    │       ├── index.html
-    │       ├── streaming.css
-    │       ├── streaming.html
-    │       └── style.css
-    ├── Accounting.gnucash
-    ├── Accounting.gnucash.LCK
-    ├── app.py 🐍
-    ├── app_config.json
-    ├── current_database.txt
-    ├── fb background.odp
-    ├── gallery-data.json
-    ├── print_config.json
-    ├── README.md
-    ├── repo_structure.py 🐍
-    ├── REPO_STRUCTURE_AND_CODE.txt
-    ├── requirements.txt
-    ├── sync_to_github.py 🐍
-    ├── To
-    └── voting_api_fixed.py 🐍
+    ├── tabs/
+    │   ├── consignment_tab.py 🐍
+    │   ├── debug_tab.py 🐍
+    │   ├── ebay_tab.py 🐍
+    │   ├── genre_mappings_tab.py 🐍
+    │   ├── import_export_tab.py 🐍
+    │   ├── inventory_tab.py 🐍
+    │   ├── price_tag_tab.py 🐍
+    │   ├── print_config.json 📋
+    │   ├── statistics_tab.py 🐍
+    │   ├── store_pricing_tab.py 🐍
+    │   └── tools_sync_tab.py 🐍
+    ├── app_config.json 📋
+    ├── config.py 🐍
+    ├── database_manager.py 🐍
+    ├── desktop_app.py 🐍
+    ├── image_formatter.py 🐍
+    ├── print_config.json 📋
+    ├── records.zip
+    ├── Screenshot from 2025-10-24 21-15-56.png
+    ├── sku_generator.py 🐍
+    └── streamlit_app.py 🐍
 
 ======================================================================
 
-PYTHON CODE FROM: inventory-manager/src
+CODE FROM: inventory-manager/src
 ======================================================================
 
 FILE: inventory-manager/src/desktop_app.py
@@ -388,6 +317,35 @@ if __name__ == "__main__":
 
 ======================================================================
 
+FILE: inventory-manager/src/print_config.json
+--------------------------------------------------
+{
+  "label_width_mm": 45.0,
+  "label_height_mm": 16.8,
+  "left_margin_mm": 6.5,
+  "gutter_spacing_mm": 6.5,
+  "top_margin_mm": 14.0,
+  "font_size": 7,
+  "last_genre": "Rock & Pop",
+  "genre_font_size": 96,
+  "genre_font": "Helvetica-Bold",
+  "genre_custom_text": "A",
+  "price_font_size": 10,
+  "price_y_pos": 12.0,
+  "text_font_size": 6,
+  "artist_y_pos": 8.0,
+  "file_y_pos": 5.0,
+  "date_font_size": 5,
+  "date_y_pos": 12.0,
+  "barcode_y_pos": 2.0,
+  "barcode_height": 6.0,
+  "rows": 15,
+  "columns": 4,
+  "print_borders": true
+}
+
+======================================================================
+
 FILE: inventory-manager/src/streamlit_app.py
 --------------------------------------------------
 import streamlit as st
@@ -402,6 +360,7 @@ from tabs.ebay_tab import EBayTab
 from tabs.store_pricing_tab import StorePricingTab
 from tabs.tools_sync_tab import ToolsSyncTab
 from tabs.consignment_tab import ConsignmentTab
+from tabs.price_tag_tab import PriceTagTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -495,10 +454,12 @@ def main():
     store_pricing_tab = StorePricingTab()
     tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
     consignment_tab = ConsignmentTab()
+    price_tag_tab = PriceTagTab(st.session_state.db_manager)
 
     # Create tabs
     tabs = st.tabs([
         "📦 Inventory",
+        "🏷️ Print Price Tags",
         "🏪 Store Pricing",
         "🛒 eBay", 
         "📊 Statistics",
@@ -510,18 +471,21 @@ def main():
         inventory_tab.render()
     
     with tabs[1]:
-        store_pricing_tab.render()
+        price_tag_tab.render()
     
     with tabs[2]:
-        ebay_tab.render()
+        store_pricing_tab.render()
     
     with tabs[3]:
-        statistics_tab.render()
+        ebay_tab.render()
     
     with tabs[4]:
-        consignment_tab.render()
+        statistics_tab.render()
     
     with tabs[5]:
+        consignment_tab.render()
+    
+    with tabs[6]:
         tools_sync_tab.render()
 
 if __name__ == "__main__":
@@ -1617,6 +1581,22 @@ class ImageFormatter:
             return save_path
         else:
             return buffer
+
+======================================================================
+
+FILE: inventory-manager/src/app_config.json
+--------------------------------------------------
+{
+  "database_path": "data/records.db",
+  "label_width_mm": 45.0,
+  "label_height_mm": 16.8,
+  "left_margin_mm": 6.5,
+  "gutter_spacing_mm": 6.5,
+  "top_margin_mm": 14.0,
+  "font_size": 7,
+  "last_genre": "",
+  "genre_font_size": 48
+}
 
 ======================================================================
 
@@ -3031,6 +3011,30 @@ class StorePricingTab:
 
 ======================================================================
 
+FILE: inventory-manager/src/tabs/print_config.json
+--------------------------------------------------
+{
+  "price_font_size": 10,
+  "price_y_pos": 12.0,
+  "text_font_size": 6,
+  "artist_y_pos": 8.0,
+  "file_y_pos": 5.0,
+  "date_font_size": 5,
+  "date_y_pos": 12.0,
+  "barcode_y_pos": 2.0,
+  "barcode_height": 6.0,
+  "label_width_mm": 45.0,
+  "label_height_mm": 16.8,
+  "left_margin_mm": 6.5,
+  "gutter_spacing_mm": 6.5,
+  "top_margin_mm": 14.0,
+  "rows": 15,
+  "columns": 4,
+  "print_borders": true
+}
+
+======================================================================
+
 FILE: inventory-manager/src/tabs/genre_mappings_tab.py
 --------------------------------------------------
 import streamlit as st
@@ -4182,6 +4186,455 @@ class StatisticsTab:
                 
         except Exception as e:
             st.error(f"Error rendering price distribution chart: {e}")
+
+======================================================================
+
+FILE: inventory-manager/src/tabs/price_tag_tab.py
+--------------------------------------------------
+# inventory-manager/src/tabs/price_tag_tab.py
+
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import tempfile
+import os
+import time
+import threading
+import queue
+import json
+from pathlib import Path
+
+class PriceTagTab:
+    def __init__(self, db_manager):
+        self.db_manager = db_manager
+        from handlers.price_tag_handler import PriceTagHandler
+        self.price_tag_handler = PriceTagHandler(db_manager)
+        
+        # Initialize session state
+        self._initialize_session_state()
+    
+    def _get_config_path(self):
+        """Get the unified configuration file path"""
+        return Path(__file__).parent / "print_config.json"
+    
+    def _initialize_session_state(self):
+        """Initialize session state with values from config file"""
+        # Load saved layout configuration
+        saved_config = self._load_layout_config()
+        
+        # Initialize ALL configuration parameters from the config file
+        config_keys = [
+            'price_font_size', 'price_y_pos', 'text_font_size', 'artist_y_pos', 'file_y_pos',
+            'date_font_size', 'date_y_pos', 'barcode_y_pos', 'barcode_height', 'label_width_mm',
+            'label_height_mm', 'left_margin_mm', 'gutter_spacing_mm', 'top_margin_mm', 'rows',
+            'columns', 'print_borders', 'print_first_x', 'select_all', 'print_status',
+            'print_message', 'print_success'
+        ]
+        
+        for key in config_keys:
+            if key not in st.session_state:
+                if key not in saved_config:
+                    raise Exception(f"Missing required configuration key: {key}")
+                st.session_state[key] = saved_config[key]
+    
+    def _load_layout_config(self):
+        """Load layout configuration from file"""
+        config_file = self._get_config_path()
+        
+        if not config_file.exists():
+            raise Exception(f"Configuration file not found: {config_file}")
+        
+        try:
+            with open(config_file, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    raise Exception("Configuration file is empty")
+                saved_config = json.loads(content)
+            return saved_config
+        except (json.JSONDecodeError, Exception) as e:
+            raise Exception(f"Error loading layout config: {e}")
+    
+    def _save_layout_config(self, config):
+        """Save layout configuration to file"""
+        try:
+            config_file = self._get_config_path()
+            with open(config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            raise Exception(f"Error saving layout config: {e}")
+    
+    def _save_current_layout_config(self):
+        """Save current layout configuration to file"""
+        current_config = {
+            # Label Layout Configuration
+            'price_font_size': st.session_state.price_font_size,
+            'price_y_pos': st.session_state.price_y_pos,
+            'text_font_size': st.session_state.text_font_size,
+            'artist_y_pos': st.session_state.artist_y_pos,
+            'file_y_pos': st.session_state.file_y_pos,
+            'date_font_size': st.session_state.date_font_size,
+            'date_y_pos': st.session_state.date_y_pos,
+            'barcode_y_pos': st.session_state.barcode_y_pos,
+            'barcode_height': st.session_state.barcode_height,
+            # Page Layout Configuration
+            'label_width_mm': st.session_state.label_width_mm,
+            'label_height_mm': st.session_state.label_height_mm,
+            'left_margin_mm': st.session_state.left_margin_mm,
+            'gutter_spacing_mm': st.session_state.gutter_spacing_mm,
+            'top_margin_mm': st.session_state.top_margin_mm,
+            'rows': st.session_state.rows,
+            'columns': st.session_state.columns,
+            # Border Configuration
+            'print_borders': st.session_state.print_borders
+        }
+        self._save_layout_config(current_config)
+    
+    def render(self):
+        st.header("🏷️ Print Price Tags")
+        
+        # Show status message
+        if st.session_state.print_status:
+            if st.session_state.print_success:
+                st.success(st.session_state.print_message)
+            else:
+                st.error(st.session_state.print_message)
+        
+        # Check dependencies
+        try:
+            import barcode
+            import reportlab
+            st.success("✅ Printing dependencies available")
+        except ImportError as e:
+            st.error(f"❌ Missing: {e}")
+            st.info("Install: pip install python-barcode reportlab")
+            return
+        
+        # Configuration Sections
+        with st.expander("📐 Label Layout Configuration", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.number_input("Price Font Size", min_value=6, max_value=20, value=st.session_state.price_font_size, key="price_font_size")
+                st.number_input("Price Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.price_y_pos, step=0.5, key="price_y_pos")
+                st.number_input("Text Font Size", min_value=4, max_value=12, value=st.session_state.text_font_size, key="text_font_size")
+                
+            with col2:
+                st.number_input("Artist Title Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.artist_y_pos, step=0.5, key="artist_y_pos")
+                st.number_input("File Location Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.file_y_pos, step=0.5, key="file_y_pos")
+                st.number_input("Date Font Size", min_value=4, max_value=12, value=st.session_state.date_font_size, key="date_font_size")
+                
+            with col3:
+                st.number_input("Date Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.date_y_pos, step=0.5, key="date_y_pos")
+                st.number_input("Barcode Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.barcode_y_pos, step=0.5, key="barcode_y_pos")
+                st.number_input("Barcode Height (mm)", min_value=4.0, max_value=12.0, value=st.session_state.barcode_height, step=0.5, key="barcode_height")
+            
+            # Border Configuration
+            st.checkbox("Print Borders Around Labels", value=st.session_state.print_borders, key="print_borders")
+        
+        with st.expander("📄 Page Layout Configuration", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.number_input("Label Width (mm)", min_value=10.0, max_value=100.0, value=st.session_state.label_width_mm, step=0.1, key="label_width_mm")
+                st.number_input("Label Height (mm)", min_value=10.0, max_value=100.0, value=st.session_state.label_height_mm, step=0.1, key="label_height_mm")
+                st.number_input("Left Margin (mm)", min_value=0.0, max_value=50.0, value=st.session_state.left_margin_mm, step=0.1, key="left_margin_mm")
+                
+            with col2:
+                st.number_input("Gutter Spacing (mm)", min_value=0.0, max_value=50.0, value=st.session_state.gutter_spacing_mm, step=0.1, key="gutter_spacing_mm")
+                st.number_input("Top Margin (mm)", min_value=0.0, max_value=50.0, value=st.session_state.top_margin_mm, step=0.1, key="top_margin_mm")
+                st.number_input("Rows per Page", min_value=1, max_value=50, value=st.session_state.rows, key="rows")
+                st.number_input("Columns per Page", min_value=1, max_value=10, value=st.session_state.columns, key="columns")
+        
+        # Save configuration button
+        if st.button("💾 Save Layout Configuration", use_container_width=True):
+            self._save_current_layout_config()
+            st.success("✅ Layout configuration saved!")
+        
+        # Get records without barcodes
+        records = self.price_tag_handler.get_records_without_barcodes()
+        
+        # MANAGEMENT SECTION
+        st.subheader("Manage Printed Tags")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ CLEAR ALL BARCODES", type="secondary", use_container_width=True):
+                self._clear_barcodes()
+        
+        with col2:
+            conn = self.db_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM records WHERE barcode IS NOT NULL AND barcode != ""')
+            printed_count = cursor.fetchone()[0]
+            cursor.execute('SELECT COUNT(*) FROM records')
+            total_count = cursor.fetchone()[0]
+            conn.close()
+            st.metric("Printed", f"{printed_count}/{total_count}")
+        
+        if not records:
+            st.info("All records have price tags printed. Use the 'Clear All Barcodes' button above to reset them.")
+            return
+        
+        st.subheader(f"Records Needing Price Tags ({len(records)} found)")
+        
+        # Toggle Select All button
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.session_state.select_all:
+                if st.button("❌ Deselect All", use_container_width=True):
+                    st.session_state.select_all = False
+                    st.rerun()
+            else:
+                if st.button("✅ Select All", use_container_width=True):
+                    st.session_state.select_all = True
+                    st.rerun()
+        
+        # Print first X labels field - ensure value doesn't exceed max
+        with col2:
+            current_value = min(st.session_state.print_first_x, len(records))
+            st.number_input("Print First X Labels", min_value=0, max_value=len(records), value=current_value, key="print_first_x")
+        
+        # Display records table
+        display_data = []
+        for i, record in enumerate(records):
+            # If print_first_x is set and we're within the range, auto-select
+            auto_select = st.session_state.select_all or (st.session_state.print_first_x > 0 and i < st.session_state.print_first_x)
+            
+            display_data.append({
+                'Select': auto_select,
+                'ID': record['id'],
+                'Artist': record['artist'],
+                'Title': record['title'],
+                'Price': f"${record.get('store_price', 0):.2f}" if record.get('store_price') else 'N/A',
+                'File Location': record.get('file_at', ''),
+            })
+        
+        df = pd.DataFrame(display_data)
+        edited_df = st.data_editor(
+            df,
+            column_config={
+                "Select": st.column_config.CheckboxColumn("Select", default=False),
+                "ID": st.column_config.NumberColumn("ID", disabled=True),
+                "Artist": st.column_config.TextColumn("Artist", disabled=True),
+                "Title": st.column_config.TextColumn("Title", disabled=True),
+                "Price": st.column_config.TextColumn("Price", disabled=True),
+                "File Location": st.column_config.TextColumn("File Location", disabled=True),
+            },
+            hide_index=True,
+            use_container_width=True,
+            key="price_tag_editor"
+        )
+        
+        selected_records = edited_df[edited_df['Select'] == True]
+        
+        if len(selected_records) > 0:
+            st.subheader(f"Selected for Printing ({len(selected_records)} records)")
+            st.dataframe(selected_records[['ID', 'Artist', 'Title', 'Price']], hide_index=True)
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("🖨️ Print Price Tags", type="primary", use_container_width=True):
+                    self._print_tags(selected_records['ID'].tolist())
+            with col2:
+                if st.button("⚡ Quick Assign Barcodes Only", use_container_width=True):
+                    self._quick_assign_barcodes(selected_records['ID'].tolist())
+    
+    def _print_tags(self, record_ids):
+        """Print price tags with robust error handling and progress tracking"""
+        if not record_ids:
+            st.session_state.print_status = "error"
+            st.session_state.print_message = "❌ No records selected"
+            st.session_state.print_success = False
+            st.rerun()
+            return
+        
+        try:
+            st.session_state.print_status = "processing"
+            st.session_state.print_message = f"🔄 Starting price tag generation for {len(record_ids)} records..."
+            st.session_state.print_success = False
+
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            # Step 1: Assign barcodes
+            status_text.text("Step 1/3: Assigning barcodes...")
+            barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
+            progress_bar.progress(33)
+            
+            if not barcode_mapping:
+                st.session_state.print_status = "error"
+                st.session_state.print_message = "❌ Failed to assign barcodes"
+                st.session_state.print_success = False
+                progress_bar.empty()
+                status_text.empty()
+                st.rerun()
+                return
+            
+            # Step 2: Get record data
+            status_text.text("Step 2/3: Loading record data...")
+            conn = self.db_manager._get_connection()
+            placeholders = ','.join(['?'] * len(record_ids))
+            query = f'''
+                SELECT r.*, g.genre_name as genre, c.name as consignor_name
+                FROM records r
+                LEFT JOIN genres g ON r.genre_id = g.id
+                LEFT JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
+                LEFT JOIN consignors c ON cs.consignor_id = c.id
+                WHERE r.id IN ({placeholders})
+            '''
+            df = pd.read_sql(query, conn, params=record_ids)
+            conn.close()
+            progress_bar.progress(66)
+            
+            # Step 3: Generate PDF with timeout protection
+            status_text.text("Step 3/3: Generating PDF...")
+            result_queue = queue.Queue()
+            
+            # Capture all layout parameters BEFORE creating the thread
+            layout_params = {
+                # Label Layout Configuration
+                'price_font_size': st.session_state.price_font_size,
+                'price_y_pos': st.session_state.price_y_pos,
+                'text_font_size': st.session_state.text_font_size,
+                'artist_y_pos': st.session_state.artist_y_pos,
+                'file_y_pos': st.session_state.file_y_pos,
+                'date_font_size': st.session_state.date_font_size,
+                'date_y_pos': st.session_state.date_y_pos,
+                'barcode_y_pos': st.session_state.barcode_y_pos,
+                'barcode_height': st.session_state.barcode_height,
+                # Page Layout Configuration
+                'label_width_mm': st.session_state.label_width_mm,
+                'label_height_mm': st.session_state.label_height_mm,
+                'left_margin_mm': st.session_state.left_margin_mm,
+                'gutter_spacing_mm': st.session_state.gutter_spacing_mm,
+                'top_margin_mm': st.session_state.top_margin_mm,
+                'rows': st.session_state.rows,
+                'columns': st.session_state.columns,
+                # Border Configuration
+                'print_borders': st.session_state.print_borders
+            }
+            
+            def generate_pdf_thread():
+                try:
+                    # Use the captured layout_params instead of st.session_state
+                    pdf_path = self.price_tag_handler.generate_pdf(df, barcode_mapping, layout_params)
+                    result_queue.put(('success', pdf_path))
+                except Exception as e:
+                    result_queue.put(('error', str(e)))
+            
+            # Start PDF generation in thread
+            pdf_thread = threading.Thread(target=generate_pdf_thread)
+            pdf_thread.daemon = True
+            pdf_thread.start()
+            
+            # Wait for PDF generation with timeout
+            pdf_thread.join(timeout=20)
+            
+            progress_bar.progress(100)
+            
+            if pdf_thread.is_alive():
+                st.session_state.print_status = "error"
+                st.session_state.print_message = "❌ PDF generation timed out after 20 seconds"
+                st.session_state.print_success = False
+            else:
+                try:
+                    result_type, result_data = result_queue.get_nowait()
+                    
+                    if result_type == 'success' and result_data and os.path.exists(result_data):
+                        with open(result_data, "rb") as f:
+                            st.session_state.pdf_data = f.read()
+                        st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                        
+                        try:
+                            os.unlink(result_data)
+                        except:
+                            pass
+                        
+                        st.session_state.print_status = "completed"
+                        st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
+                        st.session_state.print_success = True
+                    else:
+                        st.session_state.print_status = "error"
+                        st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
+                        st.session_state.print_success = False
+                        
+                except queue.Empty:
+                    st.session_state.print_status = "error"
+                    st.session_state.print_message = "❌ PDF generation failed - no result received"
+                    st.session_state.print_success = False
+            
+            progress_bar.empty()
+            status_text.empty()
+            
+        except Exception as e:
+            st.session_state.print_status = "error"
+            st.session_state.print_message = f"❌ Unexpected error: {str(e)}"
+            st.session_state.print_success = False
+        
+        if st.session_state.print_success and 'pdf_data' in st.session_state:
+            st.download_button(
+                label="📄 Download Price Tags PDF",
+                data=st.session_state.pdf_data,
+                file_name=st.session_state.pdf_filename,
+                mime="application/pdf",
+                use_container_width=True,
+                key=f"download_pdf_{datetime.now().strftime('%H%M%S')}"
+            )
+        
+        if not st.session_state.print_success:
+            st.rerun()
+     
+    def _quick_assign_barcodes(self, record_ids):
+        """Quickly assign barcodes without PDF generation"""
+        if not record_ids:
+            st.session_state.print_status = "error"
+            st.session_state.print_message = "❌ No records selected"
+            st.session_state.print_success = False
+            st.rerun()
+            return
+        
+        try:
+            st.session_state.print_status = "processing"
+            st.session_state.print_message = f"🔄 Assigning barcodes to {len(record_ids)} records..."
+            st.session_state.print_success = False
+            st.rerun()
+            
+            barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
+            
+            if barcode_mapping:
+                st.session_state.print_status = "completed"
+                st.session_state.print_message = f"✅ Successfully assigned barcodes to {len(record_ids)} records. You can print labels later."
+                st.session_state.print_success = True
+            else:
+                st.session_state.print_status = "error"
+                st.session_state.print_message = "❌ Failed to assign barcodes"
+                st.session_state.print_success = False
+                
+        except Exception as e:
+            st.session_state.print_status = "error"
+            st.session_state.print_message = f"❌ Error assigning barcodes: {str(e)}"
+            st.session_state.print_success = False
+        
+        st.rerun()
+    
+    def _clear_barcodes(self):
+        """Clear all barcodes"""
+        try:
+            conn = self.db_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('UPDATE records SET barcode = NULL')
+            conn.commit()
+            conn.close()
+            
+            st.session_state.print_status = "completed"
+            st.session_state.print_message = "✅ All barcodes cleared successfully!"
+            st.session_state.print_success = True
+        except Exception as e:
+            st.session_state.print_status = "error"
+            st.session_state.print_message = f"❌ Error clearing barcodes: {e}"
+            st.session_state.print_success = False
+        
+        st.rerun()
 
 ======================================================================
 
@@ -7547,88 +8000,26 @@ class YouTubeHandler:
     def __init__(self, api_key=None):
         self.api_key = api_key or os.getenv('YOUTUBE_API_KEY')
         self.enabled = bool(self.api_key)
+        self.quota_exceeded = False
         
     def search_youtube_videos(self, search_query, record_data, track_titles=None):
         """Search YouTube for videos matching track titles from the record"""
         if not self.enabled:
             st.error("🎵 YouTube API key not configured. Please set YOUTUBE_API_KEY in your environment variables.")
             return []
+        
+        if self.quota_exceeded:
+            st.warning("🎵 YouTube API quota exceeded. YouTube search is temporarily disabled.")
+            return []
             
-        if track_titles and len(track_titles) > 0:
-            # Search for individual tracks from the record
-            return self._search_track_videos(record_data, track_titles)
-        else:
-            # Fallback to album search
-            return self._search_album_videos(search_query, record_data)
+        # Always search for the album first, then filter results
+        return self._search_album_and_filter_tracks(search_query, record_data, track_titles)
 
-    def _search_track_videos(self, record_data, track_titles):
-        """Search YouTube for individual track videos"""
+    def _search_album_and_filter_tracks(self, search_query, record_data, track_titles):
+        """Search once for the album and filter results to match track titles"""
         artist = record_data.get('artist', '')
-        all_results = []
+        album_title = record_data.get('title', '')
         
-        # Limit to first 5 tracks to avoid too many API calls
-        tracks_to_search = track_titles[:5]
-        
-        for track_title in tracks_to_search:
-            track_query = f"{artist} {track_title}"
-            
-            # Log the API call
-            api_title = f"🎵 YouTube Track Search API: {track_query}"
-            start_time = time.time()
-            self._log_api_call(api_title, {
-                'endpoint': 'https://www.googleapis.com/youtube/v3/search',
-                'request': {
-                    'search_query': track_query,
-                    'artist': artist,
-                    'track_title': track_title,
-                    'maxResults': 5
-                }
-            })
-            
-            try:
-                youtube = build('youtube', 'v3', developerKey=self.api_key)
-                request = youtube.search().list(
-                    q=track_query,
-                    part='snippet',
-                    type='video',
-                    maxResults=5,
-                    videoEmbeddable='true',
-                    videoDuration='short',
-                    order='relevance'
-                )
-                
-                response = request.execute()
-                track_results = self._process_track_results(response, track_title, artist)
-                all_results.extend(track_results)
-                
-                duration = round(time.time() - start_time, 2)
-                self._log_api_response(api_title, {
-                    'status_code': 200,
-                    'track': track_title,
-                    'results_count': len(track_results),
-                    'results_sample': track_results[:2] if track_results else []
-                }, duration)
-                
-            except Exception as e:
-                duration = round(time.time() - start_time, 2)
-                self._log_api_response(api_title, {
-                    'status_code': 'Error',
-                    'error': str(e),
-                    'track': track_title
-                }, duration)
-        
-        # Remove duplicates by video URL
-        unique_results = []
-        seen_urls = set()
-        for result in all_results:
-            if result['url'] not in seen_urls:
-                seen_urls.add(result['url'])
-                unique_results.append(result)
-        
-        return unique_results
-
-    def _search_album_videos(self, search_query, record_data):
-        """Fallback: Search YouTube for album videos (original behavior)"""
         # Log the API call
         api_title = f"🎵 YouTube Album Search API: {search_query}"
         start_time = time.time()
@@ -7636,104 +8027,172 @@ class YouTubeHandler:
             'endpoint': 'https://www.googleapis.com/youtube/v3/search',
             'request': {
                 'search_query': search_query,
-                'artist': record_data.get('artist'),
-                'title': record_data.get('title'),
-                'maxResults': 10
+                'artist': artist,
+                'album_title': album_title,
+                'track_titles_count': len(track_titles) if track_titles else 0,
+                'maxResults': 20  # Get more results to filter through
             }
         })
         
-        # Build YouTube service and make real API call
-        youtube = build('youtube', 'v3', developerKey=self.api_key)
-        
-        request = youtube.search().list(
-            q=search_query,
-            part='snippet',
-            type='video',
-            maxResults=10,
-            videoEmbeddable='true',
-            videoDuration='short',
-            order='relevance'
-        )
-        
-        response = request.execute()
-        
-        # Process results
-        results = []
-        for item in response.get('items', []):
-            video_id = item['id']['videoId']
-            snippet = item['snippet']
-            results.append({
-                'title': snippet['title'],
-                'channel': snippet['channelTitle'],
-                'thumbnail': snippet['thumbnails']['default']['url'],
-                'url': f"https://www.youtube.com/watch?v={video_id}",
-                'type': 'album'
-            })
-        
-        duration = round(time.time() - start_time, 2)
-        
-        # Log the response
-        self._log_api_response(api_title, {
-            'status_code': 200,
-            'results_count': len(results),
-            'results_sample': results[:3] if results else []
-        }, duration)
-        
-        return results
+        try:
+            youtube = build('youtube', 'v3', developerKey=self.api_key)
+            request = youtube.search().list(
+                q=search_query,
+                part='snippet',
+                type='video',
+                maxResults=20,  # Get more results to find matching tracks
+                videoEmbeddable='true',
+                videoDuration='short',
+                order='relevance'
+            )
+            
+            response = request.execute()
+            
+            # Process all results and categorize them
+            all_results = self._process_youtube_results(response, track_titles, artist, album_title)
+            
+            duration = round(time.time() - start_time, 2)
+            
+            # Log the response
+            self._log_api_response(api_title, {
+                'status_code': 200,
+                'results_count': len(all_results),
+                'track_matches': len([r for r in all_results if r.get('type') == 'track']),
+                'album_matches': len([r for r in all_results if r.get('type') == 'album'])
+            }, duration)
+            
+            return all_results
+            
+        except HttpError as e:
+            duration = round(time.time() - start_time, 2)
+            if e.resp.status == 403 and 'quotaExceeded' in str(e):
+                self.quota_exceeded = True
+                self._log_api_response(api_title, {
+                    'status_code': 403,
+                    'error': 'YouTube API quota exceeded'
+                }, duration)
+                st.error("🎵 YouTube API quota exceeded. Please try again tomorrow.")
+                return []
+            else:
+                self._log_api_response(api_title, {
+                    'status_code': e.resp.status,
+                    'error': str(e)
+                }, duration)
+                st.error(f"🎵 YouTube API error: {e}")
+                return []
+        except Exception as e:
+            duration = round(time.time() - start_time, 2)
+            self._log_api_response(api_title, {
+                'status_code': 'Error',
+                'error': str(e)
+            }, duration)
+            st.error(f"🎵 YouTube search error: {e}")
+            return []
 
-    def _process_track_results(self, response, track_title, artist):
-        """Process YouTube search results and filter for track matches"""
-        results = []
+    def _process_youtube_results(self, response, track_titles, artist, album_title):
+        """Process YouTube search results and categorize them by track matches"""
+        track_results = []
+        album_results = []
         
         for item in response.get('items', []):
             video_id = item['id']['videoId']
             snippet = item['snippet']
             video_title = snippet['title']
             
-            # Check if video title contains the track title (case insensitive)
-            if self._is_track_match(video_title, track_title, artist):
-                results.append({
-                    'title': snippet['title'],
-                    'channel': snippet['channelTitle'],
-                    'thumbnail': snippet['thumbnails']['default']['url'],
-                    'url': f"https://www.youtube.com/watch?v={video_id}",
-                    'type': 'track',
-                    'track_title': track_title
-                })
+            video_data = {
+                'title': snippet['title'],
+                'channel': snippet['channelTitle'],
+                'thumbnail': snippet['thumbnails']['default']['url'],
+                'url': f"https://www.youtube.com/watch?v={video_id}",
+                'video_id': video_id
+            }
+            
+            # Check if this video matches any track title
+            matched_track = self._find_matching_track(video_title, track_titles, artist)
+            if matched_track:
+                video_data['type'] = 'track'
+                video_data['track_title'] = matched_track
+                track_results.append(video_data)
+            else:
+                # Check if it's likely album content
+                if self._is_album_content(video_title, album_title, artist):
+                    video_data['type'] = 'album'
+                    album_results.append(video_data)
+                else:
+                    video_data['type'] = 'other'
+                    album_results.append(video_data)
         
-        return results
+        # Return track matches first, then album content
+        return track_results + album_results
 
-    def _is_track_match(self, video_title, track_title, artist):
-        """Check if video title matches the track title"""
-        # Convert to lowercase for case-insensitive matching
+    def _find_matching_track(self, video_title, track_titles, artist):
+        """Find if video title matches any track title from the record"""
+        if not track_titles:
+            return None
+            
         video_lower = video_title.lower()
-        track_lower = track_title.lower()
         artist_lower = artist.lower()
         
-        # Remove common prefixes and suffixes
-        clean_track = self._clean_track_title(track_lower)
-        clean_video = self._clean_video_title(video_lower)
-        
-        # Check if clean track title appears in clean video title
-        if clean_track in clean_video:
-            return True
-        
-        # Check if track title appears in video title (with some tolerance)
-        if track_lower in video_lower:
-            return True
+        for track_title in track_titles:
+            track_lower = track_title.lower()
             
+            # Clean both titles for better matching
+            clean_video = self._clean_video_title(video_lower)
+            clean_track = self._clean_track_title(track_lower)
+            
+            # Check various matching strategies
+            if self._is_track_match(clean_video, clean_track, artist_lower):
+                return track_title
+                
+        return None
+
+    def _is_track_match(self, video_title, track_title, artist):
+        """Check if video title matches track title"""
+        # Remove artist name from video title for cleaner matching
+        video_without_artist = video_title.replace(artist, '').strip()
+        
+        # Check if clean track title appears in video title
+        if track_title in video_title or track_title in video_without_artist:
+            return True
+        
         # Check for common variations
         variations = [
-            track_lower,
-            track_lower.replace('(', '').replace(')', ''),
-            track_lower.replace('-', ' '),
-            track_lower.replace("'", '')
+            track_title,
+            track_title.replace('(', '').replace(')', ''),
+            track_title.replace('-', ' '),
+            track_title.replace("'", ''),
+            track_title.replace('"', '')
         ]
         
         for variation in variations:
-            if variation and len(variation) > 3 and variation in video_lower:
+            if variation and len(variation) > 3 and variation in video_title:
                 return True
         
+        return False
+
+    def _is_album_content(self, video_title, album_title, artist):
+        """Check if video is likely album content (full album, review, etc.)"""
+        video_lower = video_title.lower()
+        album_lower = album_title.lower()
+        artist_lower = artist.lower()
+        
+        # Check for full album indicators
+        full_album_indicators = [
+            'full album',
+            'complete album',
+            'album completo',
+            f'{album_lower} full',
+            f'{album_lower} complete'
+        ]
+        
+        for indicator in full_album_indicators:
+            if indicator in video_lower:
+                return True
+        
+        # Check if video contains both artist and album title
+        if artist_lower in video_lower and album_lower in video_lower:
+            return True
+            
         return False
 
     def _clean_track_title(self, track_title):
@@ -7812,6 +8271,294 @@ class YouTubeHandler:
     def is_enabled(self):
         """Check if YouTube handler is enabled"""
         return self.enabled
+
+======================================================================
+
+FILE: inventory-manager/src/handlers/price_tag_handler.py
+--------------------------------------------------
+# inventory-manager/src/handlers/price_tag_handler.py
+
+import sqlite3
+import os
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import mm
+import barcode
+from barcode.writer import ImageWriter
+import io
+import tempfile
+from datetime import datetime
+import pandas as pd
+import streamlit as st
+import json
+from pathlib import Path
+
+class PriceTagHandler:
+    """Price tag handler for configurable labels"""
+    
+    def __init__(self, db_manager):
+        self.db_manager = db_manager
+    
+    def _get_config_path(self):
+        """Get the unified configuration file path"""
+        return Path(__file__).parent.parent / "print_config.json"
+    
+    def get_records_without_barcodes(self):
+        """Get records that don't have barcodes"""
+        try:
+            conn = self.db_manager._get_connection()
+            query = '''
+                SELECT r.*, g.genre_name as genre, c.name as consignor_name
+                FROM records r
+                LEFT JOIN genres g ON r.genre_id = g.id
+                LEFT JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
+                LEFT JOIN consignors c ON cs.consignor_id = c.id
+                WHERE r.barcode IS NULL OR r.barcode = ''
+                ORDER BY r.artist, r.title
+            '''
+            df = pd.read_sql(query, conn)
+            conn.close()
+            return df.to_dict('records')
+        except Exception as e:
+            st.error(f"Error getting records: {e}")
+            return []
+    
+    def assign_barcodes(self, record_ids):
+        """Assign sequential barcodes to records"""
+        if not record_ids:
+            return {}
+        
+        conn = None
+        try:
+            conn = self.db_manager._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT MAX(CAST(barcode AS INTEGER)) FROM records WHERE barcode != '' AND barcode IS NOT NULL")
+            result = cursor.fetchone()
+            
+            if result and result[0] is not None:
+                start_barcode = result[0] + 1
+            else:
+                start_barcode = 100000
+            
+            barcode_mapping = {}
+            current_barcode = start_barcode
+            
+            for record_id in record_ids:
+                barcode_str = str(current_barcode)
+                cursor.execute('UPDATE records SET barcode = ? WHERE id = ?', (barcode_str, record_id))
+                barcode_mapping[record_id] = barcode_str
+                current_barcode += 1
+            
+            conn.commit()
+            return barcode_mapping
+            
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            return {}
+        finally:
+            if conn:
+                conn.close()
+    
+    def generate_barcode(self, barcode_number):
+        """Generate barcode image"""
+        try:
+            if not barcode_number:
+                return None
+                
+            # Use Code128
+            barcode_class = barcode.get_barcode_class('code128')
+            barcode_obj = barcode_class(str(barcode_number), writer=ImageWriter())
+            
+            # Save to bytes buffer
+            buffer = io.BytesIO()
+            barcode_obj.write(buffer, options={
+                'module_height': 6.0,  # Reduced height
+                'font_size': 0,
+                'quiet_zone': 1.0,    # Reduced quiet zone
+                'write_text': False
+            })
+            buffer.seek(0)
+            
+            return buffer
+            
+        except Exception as e:
+            st.error(f"Barcode error: {e}")
+            return None
+    
+    def print_price_tags(self, record_ids):
+        """Main printing method"""
+        if not record_ids:
+            return None, "No records selected"
+        
+        try:
+            # Step 1: Assign barcodes
+            barcode_mapping = self.assign_barcodes(record_ids)
+            if not barcode_mapping:
+                return None, "Failed to assign barcodes"
+            
+            # Step 2: Get record data
+            conn = self.db_manager._get_connection()
+            placeholders = ','.join(['?'] * len(record_ids))
+            query = f'''
+                SELECT r.*, g.genre_name as genre, c.name as consignor_name
+                FROM records r
+                LEFT JOIN genres g ON r.genre_id = g.id
+                LEFT JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
+                LEFT JOIN consignors c ON cs.consignor_id = c.id
+                WHERE r.id IN ({placeholders})
+            '''
+            df = pd.read_sql(query, conn, params=record_ids)
+            conn.close()
+            
+            # Step 3: Generate PDF
+            pdf_path = self.generate_pdf(df, barcode_mapping)
+            
+            if pdf_path and os.path.exists(pdf_path):
+                return pdf_path, f"✅ Printed {len(record_ids)} price tags"
+            else:
+                return None, "❌ Failed to generate PDF"
+            
+        except Exception as e:
+            return None, f"❌ Error: {str(e)}"
+    
+    def generate_pdf(self, df, barcode_mapping, layout_params=None):
+        """Generate PDF with price tags using configurable layout"""
+        try:
+            # Create temp file
+            temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+            output_path = temp_file.name
+            temp_file.close()
+            
+            c = canvas.Canvas(output_path, pagesize=letter)
+            
+            # Use provided layout parameters or defaults
+            params = layout_params if layout_params else self._get_default_layout_params()
+            
+            # Calculate layout from parameters
+            label_width = params['label_width_mm'] * mm
+            label_height = params['label_height_mm'] * mm
+            left_margin = params['left_margin_mm'] * mm
+            gutter_spacing = params['gutter_spacing_mm'] * mm
+            top_margin = params['top_margin_mm'] * mm
+            rows = params['rows']
+            columns = params['columns']
+            
+            labels_per_page = rows * columns
+            current_label = 0
+            
+            for _, record in df.iterrows():
+                if current_label % labels_per_page == 0 and current_label > 0:
+                    c.showPage()
+                
+                # Calculate position
+                row = (current_label % labels_per_page) // columns
+                col = (current_label % labels_per_page) % columns
+                
+                x = left_margin + col * (label_width + gutter_spacing)
+                y = letter[1] - top_margin - (row + 1) * label_height
+                
+                self.draw_tag(c, x, y, label_width, label_height, record, barcode_mapping.get(record['id']), params)
+                current_label += 1
+            
+            c.save()
+            return output_path
+            
+        except Exception as e:
+            st.error(f"PDF error: {e}")
+            return None
+    
+    def _get_default_layout_params(self):
+        """Get default layout parameters"""
+        config_file = self._get_config_path()
+        if not config_file.exists():
+            raise Exception(f"Configuration file not found: {config_file}")
+        
+        try:
+            with open(config_file, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    raise Exception("Configuration file is empty")
+                config = json.loads(content)
+            return config
+        except (json.JSONDecodeError, Exception) as e:
+            raise Exception(f"Error loading layout config: {e}")
+    
+    def draw_tag(self, c, x, y, label_width, label_height, record, barcode_number, params):
+        """Draw a single price tag with configurable layout"""
+        try:
+            # Draw border only if enabled
+            if params.get('print_borders', True):
+                c.setStrokeColorRGB(0, 0, 0)
+                c.setLineWidth(0.5)
+                c.rect(x, y, label_width, label_height, stroke=1, fill=0)
+            
+            # Calculate positions with proper spacing
+            left_margin = x + 2 * mm
+            right_margin = x + label_width - 2 * mm
+            
+            # Top of label (starting from top going down)
+            top_start = y + label_height - 2 * mm
+            
+            # PRICE
+            price = record.get('store_price', 0)
+            price_text = f"${price:.2f}" if price else "$0.00"
+            c.setFont("Helvetica-Bold", params['price_font_size'])
+            price_y = top_start - (params['price_y_pos'] * mm)
+            c.drawString(left_margin, price_y, price_text)
+            
+            # ARTIST - TITLE
+            c.setFont("Helvetica", params['text_font_size'])
+            artist = record.get('artist', '')[:15]
+            title = record.get('title', '')[:15]
+            artist_title = f"{artist} - {title}"
+            artist_title_y = top_start - (params['artist_y_pos'] * mm)
+            c.drawString(left_margin, artist_title_y, artist_title)
+            
+            # FILE LOCATION
+            file_at = record.get('file_at', '')[:20]
+            if file_at:
+                file_at_y = top_start - (params['file_y_pos'] * mm)
+                c.drawString(left_margin, file_at_y, file_at)
+            
+            # BARCODE
+            if barcode_number:
+                barcode_bytes = self.generate_barcode(barcode_number)
+                if barcode_bytes:
+                    try:
+                        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                            temp_file.write(barcode_bytes.getvalue())
+                            temp_path = temp_file.name
+                        
+                        # Calculate barcode position
+                        barcode_height = params['barcode_height'] * mm
+                        barcode_width = 25 * mm
+                        barcode_x = left_margin
+                        barcode_y = y + (params['barcode_y_pos'] * mm)
+                        
+                        c.drawImage(temp_path, barcode_x, barcode_y, width=barcode_width, height=barcode_height)
+                        os.unlink(temp_path)
+                    except Exception:
+                        pass  # Skip barcode on error
+            
+            # RIGHT SIDE INFO - date and consignor
+            print_date = datetime.now().strftime("%m/%d/%y")
+            c.setFont("Helvetica", params['date_font_size'])
+            
+            # Date at top right
+            date_y = top_start - (params['date_y_pos'] * mm)
+            c.drawRightString(right_margin, date_y, print_date)
+            
+            # Consignor below date
+            consignor = record.get('consignor_name', '')[:10]
+            if consignor:
+                consignor_y = date_y - (3.5 * mm)  # Fixed spacing below date
+                c.drawRightString(right_margin, consignor_y, consignor)
+                
+        except Exception as e:
+            print(f"Error drawing tag: {e}")  # Debug output
+            pass  # Continue if one tag fails
 
 ======================================================================
 
@@ -8045,9 +8792,13 @@ class EbayHandler:
                 shipping_type = shipping_info['type']
                 shipping_cost_value = shipping_info['cost']
                 
+                # Skip items that are local pickup only (ignore them for pricing)
+                if shipping_type == 'LOCAL_PICKUP_ONLY':
+                    continue
+
                 # Calculate total cost for ranking - use config shipping for CALC items
                 if shipping_type == 'CALC':
-                    total_cost_for_ranking = base_price + shipping_cost
+                    total_cost_for_ranking = base_price + shipping_cost  # Use config shipping cost
                 elif shipping_cost_value is not None:
                     total_cost_for_ranking = base_price + shipping_cost_value
                 else:
@@ -8125,6 +8876,62 @@ class EbayHandler:
         
         return result
 
+    def _extract_shipping_info(self, item):
+        """Extract shipping information from eBay item data - IMPROVED VERSION"""
+        try:
+            # Priority 1: Check shippingOptions first (most reliable)
+            shipping_options = item.get('shippingOptions', [])
+            if shipping_options:
+                for option in shipping_options:
+                    shipping_cost_type = option.get('shippingCostType', '')
+                    if shipping_cost_type == 'CALCULATED':
+                        # For CALCULATED shipping, return None for cost
+                        return {'type': 'CALC', 'cost': None}
+                    elif shipping_cost_type == 'FIXED':
+                        shipping_cost = option.get('shippingCost', {})
+                        if 'value' in shipping_cost:
+                            cost = float(shipping_cost['value'])
+                            return {'type': 'FIXED', 'cost': cost}
+                    elif shipping_cost_type == 'FREE':
+                        return {'type': 'FREE', 'cost': 0}
+
+            # Priority 2: Check shippingCostSummary
+            shipping_cost_summary = item.get('shippingCostSummary', {})
+            if shipping_cost_summary:
+                shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
+                if shipping_cost_type == 'CALCULATED':
+                    return {'type': 'CALC', 'cost': None}
+                elif shipping_cost_type == 'FIXED':
+                    shipping_cost = shipping_cost_summary.get('shippingCost', {})
+                    if 'value' in shipping_cost:
+                        cost = float(shipping_cost['value'])
+                        return {'type': 'FIXED', 'cost': cost}
+                elif shipping_cost_type == 'FREE':
+                    return {'type': 'FREE', 'cost': 0}
+
+            # Priority 3: Check for legacy shipping fields
+            if 'shippingCostFixed' in item:
+                cost = float(item['shippingCostFixed'])
+                return {'type': 'FIXED', 'cost': cost}
+
+            # Priority 4: Check estimatedAvailabilities for pickup info
+            estimated_availabilities = item.get('estimatedAvailabilities', [])
+            for availability in estimated_availabilities:
+                delivery_options = availability.get('deliveryOptions', [])
+                # If only local pickup is available and no shipping, treat as local pickup only
+                if (delivery_options and 
+                    all(option == 'SELLER_ARRANGED_LOCAL_PICKUP' for option in delivery_options)):
+                    return {'type': 'LOCAL_PICKUP_ONLY', 'cost': None}
+
+            # If no shipping cost found and not local pickup only, assume calculated shipping
+            # Many eBay listings default to calculated shipping when not explicitly set
+            return {'type': 'CALC', 'cost': None}
+                
+        except Exception as e:
+            print(f"Error extracting shipping info: {e}")
+            # Default to calculated shipping on error
+            return {'type': 'CALC', 'cost': None}
+
     def _detect_discogs_condition(self, item):
         """Detect Discogs condition from eBay item title and description"""
         # Get text to scan
@@ -8158,47 +8965,6 @@ class EbayHandler:
         
         # Default to "Generic" if no condition detected
         return "Generic"
-
-    def _extract_shipping_info(self, item):
-        """Extract shipping information from eBay item data"""
-        try:
-            # Try to get shipping cost from shippingOptions first
-            shipping_options = item.get('shippingOptions', [])
-            if shipping_options:
-                for option in shipping_options:
-                    shipping_cost_type = option.get('shippingCostType', '')
-                    if shipping_cost_type == 'CALCULATED':
-                        # For CALCULATED shipping, return None for cost
-                        return {'type': 'CALC', 'cost': None}
-                    elif shipping_cost_type == 'FIXED':
-                        shipping_cost = option.get('shippingCost', {})
-                        if 'value' in shipping_cost:
-                            cost = float(shipping_cost['value'])
-                            return {'type': 'FIXED', 'cost': cost}
-            
-            # If no shipping options, check for calculated shipping
-            shipping_cost_summary = item.get('shippingCostSummary', {})
-            if shipping_cost_summary:
-                shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
-                if shipping_cost_type == 'CALCULATED':
-                    # For CALCULATED shipping, return None for cost
-                    return {'type': 'CALC', 'cost': None}
-                elif shipping_cost_type == 'FIXED':
-                    shipping_cost = shipping_cost_summary.get('shippingCost', {})
-                    if 'value' in shipping_cost:
-                        cost = float(shipping_cost['value'])
-                        return {'type': 'FIXED', 'cost': cost}
-            
-            # Check for fixed shipping cost
-            if 'shippingCostFixed' in item:
-                cost = float(item['shippingCostFixed'])
-                return {'type': 'FIXED', 'cost': cost}
-            
-            # If no shipping cost found, assume free shipping
-            return {'type': 'FREE', 'cost': 0}
-                
-        except Exception as e:
-            return {'type': 'FREE', 'cost': 0}
 
     def get_item_details(self, item_id):
         """Get detailed information for a specific eBay item"""
@@ -8386,4 +9152,6 @@ class BarcodeGenerator:
             return None
 
 ======================================================================
+
+📊 Total files processed: 37
 

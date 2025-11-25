@@ -120,9 +120,13 @@ class EbayHandler:
                 shipping_type = shipping_info['type']
                 shipping_cost_value = shipping_info['cost']
                 
+                # Skip items that are local pickup only (ignore them for pricing)
+                if shipping_type == 'LOCAL_PICKUP_ONLY':
+                    continue
+
                 # Calculate total cost for ranking - use config shipping for CALC items
                 if shipping_type == 'CALC':
-                    total_cost_for_ranking = base_price + shipping_cost
+                    total_cost_for_ranking = base_price + shipping_cost  # Use config shipping cost
                 elif shipping_cost_value is not None:
                     total_cost_for_ranking = base_price + shipping_cost_value
                 else:
@@ -200,6 +204,62 @@ class EbayHandler:
         
         return result
 
+    def _extract_shipping_info(self, item):
+        """Extract shipping information from eBay item data - IMPROVED VERSION"""
+        try:
+            # Priority 1: Check shippingOptions first (most reliable)
+            shipping_options = item.get('shippingOptions', [])
+            if shipping_options:
+                for option in shipping_options:
+                    shipping_cost_type = option.get('shippingCostType', '')
+                    if shipping_cost_type == 'CALCULATED':
+                        # For CALCULATED shipping, return None for cost
+                        return {'type': 'CALC', 'cost': None}
+                    elif shipping_cost_type == 'FIXED':
+                        shipping_cost = option.get('shippingCost', {})
+                        if 'value' in shipping_cost:
+                            cost = float(shipping_cost['value'])
+                            return {'type': 'FIXED', 'cost': cost}
+                    elif shipping_cost_type == 'FREE':
+                        return {'type': 'FREE', 'cost': 0}
+
+            # Priority 2: Check shippingCostSummary
+            shipping_cost_summary = item.get('shippingCostSummary', {})
+            if shipping_cost_summary:
+                shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
+                if shipping_cost_type == 'CALCULATED':
+                    return {'type': 'CALC', 'cost': None}
+                elif shipping_cost_type == 'FIXED':
+                    shipping_cost = shipping_cost_summary.get('shippingCost', {})
+                    if 'value' in shipping_cost:
+                        cost = float(shipping_cost['value'])
+                        return {'type': 'FIXED', 'cost': cost}
+                elif shipping_cost_type == 'FREE':
+                    return {'type': 'FREE', 'cost': 0}
+
+            # Priority 3: Check for legacy shipping fields
+            if 'shippingCostFixed' in item:
+                cost = float(item['shippingCostFixed'])
+                return {'type': 'FIXED', 'cost': cost}
+
+            # Priority 4: Check estimatedAvailabilities for pickup info
+            estimated_availabilities = item.get('estimatedAvailabilities', [])
+            for availability in estimated_availabilities:
+                delivery_options = availability.get('deliveryOptions', [])
+                # If only local pickup is available and no shipping, treat as local pickup only
+                if (delivery_options and 
+                    all(option == 'SELLER_ARRANGED_LOCAL_PICKUP' for option in delivery_options)):
+                    return {'type': 'LOCAL_PICKUP_ONLY', 'cost': None}
+
+            # If no shipping cost found and not local pickup only, assume calculated shipping
+            # Many eBay listings default to calculated shipping when not explicitly set
+            return {'type': 'CALC', 'cost': None}
+                
+        except Exception as e:
+            print(f"Error extracting shipping info: {e}")
+            # Default to calculated shipping on error
+            return {'type': 'CALC', 'cost': None}
+
     def _detect_discogs_condition(self, item):
         """Detect Discogs condition from eBay item title and description"""
         # Get text to scan
@@ -233,47 +293,6 @@ class EbayHandler:
         
         # Default to "Generic" if no condition detected
         return "Generic"
-
-    def _extract_shipping_info(self, item):
-        """Extract shipping information from eBay item data"""
-        try:
-            # Try to get shipping cost from shippingOptions first
-            shipping_options = item.get('shippingOptions', [])
-            if shipping_options:
-                for option in shipping_options:
-                    shipping_cost_type = option.get('shippingCostType', '')
-                    if shipping_cost_type == 'CALCULATED':
-                        # For CALCULATED shipping, return None for cost
-                        return {'type': 'CALC', 'cost': None}
-                    elif shipping_cost_type == 'FIXED':
-                        shipping_cost = option.get('shippingCost', {})
-                        if 'value' in shipping_cost:
-                            cost = float(shipping_cost['value'])
-                            return {'type': 'FIXED', 'cost': cost}
-            
-            # If no shipping options, check for calculated shipping
-            shipping_cost_summary = item.get('shippingCostSummary', {})
-            if shipping_cost_summary:
-                shipping_cost_type = shipping_cost_summary.get('shippingCostType', '')
-                if shipping_cost_type == 'CALCULATED':
-                    # For CALCULATED shipping, return None for cost
-                    return {'type': 'CALC', 'cost': None}
-                elif shipping_cost_type == 'FIXED':
-                    shipping_cost = shipping_cost_summary.get('shippingCost', {})
-                    if 'value' in shipping_cost:
-                        cost = float(shipping_cost['value'])
-                        return {'type': 'FIXED', 'cost': cost}
-            
-            # Check for fixed shipping cost
-            if 'shippingCostFixed' in item:
-                cost = float(item['shippingCostFixed'])
-                return {'type': 'FIXED', 'cost': cost}
-            
-            # If no shipping cost found, assume free shipping
-            return {'type': 'FREE', 'cost': 0}
-                
-        except Exception as e:
-            return {'type': 'FREE', 'cost': 0}
 
     def get_item_details(self, item_id):
         """Get detailed information for a specific eBay item"""

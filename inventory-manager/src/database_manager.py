@@ -25,7 +25,7 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        # Records table - with consignment columns
+        # Records table - with consignment columns and compilation
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,11 +47,14 @@ class DatabaseManager:
                 date_returned DATE,
                 date_picked_up DATE,
                 date_paid DATE,
-                consignment_session_id INTEGER,
+                consignor_id INTEGER,
+                commission_rate REAL,
+                store_return_days INTEGER,
+                compilation BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (genre_id) REFERENCES genres (id),
-                FOREIGN KEY (consignment_session_id) REFERENCES consignment_sessions (id)
+                FOREIGN KEY (consignor_id) REFERENCES consignors (id)
             )
         ''')
         
@@ -68,20 +71,6 @@ class DatabaseManager:
             )
         ''')
         
-        # Consignment sessions table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS consignment_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                consignor_id INTEGER NOT NULL,
-                session_date DATE DEFAULT CURRENT_DATE,
-                commission_rate REAL NOT NULL,
-                store_return_days INTEGER NOT NULL,
-                session_notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (consignor_id) REFERENCES consignors (id)
-            )
-        ''')
-        
         # Add columns if they don't exist (without DEFAULT for date_added)
         columns_to_add = [
             ('store_price', 'REAL'),
@@ -95,7 +84,10 @@ class DatabaseManager:
             ('date_returned', 'DATE'),
             ('date_picked_up', 'DATE'),
             ('date_paid', 'DATE'),
-            ('consignment_session_id', 'INTEGER')
+            ('consignor_id', 'INTEGER'),
+            ('commission_rate', 'REAL'),
+            ('store_return_days', 'INTEGER'),
+            ('compilation', 'BOOLEAN DEFAULT FALSE')
         ]
         
         for column_name, column_type in columns_to_add:
@@ -170,27 +162,38 @@ class DatabaseManager:
     
     def _create_triggers(self, cursor, conn):
         """Create all database triggers"""
-        # Trigger for file_at when artist or genre_id changes
+        # Trigger for file_at when artist, genre_id, or compilation changes
         cursor.execute('''
             CREATE TRIGGER IF NOT EXISTS update_file_at
-            AFTER UPDATE OF artist, genre_id ON records
+            AFTER UPDATE OF artist, genre_id, compilation ON records
             FOR EACH ROW
             WHEN (NEW.artist IS NOT NULL AND NEW.genre_id IS NOT NULL)
             BEGIN
                 UPDATE records 
                 SET file_at = (
-                    SELECT COALESCE(g.genre_name, 'Unknown') || '(' || 
+                    SELECT 
                         CASE 
-                            WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN '0' AND '9' THEN
-                                CASE SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)
-                                    WHEN '0' THEN 'Z' WHEN '1' THEN 'O' WHEN '2' THEN 'T' 
-                                    WHEN '3' THEN 'T' WHEN '4' THEN 'F' WHEN '5' THEN 'F' 
-                                    WHEN '6' THEN 'S' WHEN '7' THEN 'S' WHEN '8' THEN 'E' 
-                                    WHEN '9' THEN 'N' ELSE '?' END
-                            WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN 'A' AND 'Z' THEN
-                                UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1))
-                            ELSE '?'
-                        END || ')'
+                            WHEN NEW.compilation = TRUE THEN
+                                'Comp(' || 
+                                CASE 
+                                    WHEN UPPER(SUBSTR(g.genre_name, 1, 1)) BETWEEN 'A' AND 'Z' THEN
+                                        UPPER(SUBSTR(g.genre_name, 1, 1))
+                                    ELSE '?'
+                                END || ')'
+                            ELSE
+                                g.genre_name || '(' || 
+                                CASE 
+                                    WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN '0' AND '9' THEN
+                                        CASE SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)
+                                            WHEN '0' THEN 'Z' WHEN '1' THEN 'O' WHEN '2' THEN 'T' 
+                                            WHEN '3' THEN 'T' WHEN '4' THEN 'F' WHEN '5' THEN 'F' 
+                                            WHEN '6' THEN 'S' WHEN '7' THEN 'S' WHEN '8' THEN 'E' 
+                                            WHEN '9' THEN 'N' ELSE '?' END
+                                    WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN 'A' AND 'Z' THEN
+                                        UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1))
+                                    ELSE '?'
+                                END || ')'
+                        END
                     FROM genres g WHERE g.id = NEW.genre_id
                 )
                 WHERE id = NEW.id;
@@ -206,18 +209,29 @@ class DatabaseManager:
             BEGIN
                 UPDATE records 
                 SET file_at = (
-                    SELECT COALESCE(g.genre_name, 'Unknown') || '(' || 
+                    SELECT 
                         CASE 
-                            WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN '0' AND '9' THEN
-                                CASE SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)
-                                    WHEN '0' THEN 'Z' WHEN '1' THEN 'O' WHEN '2' THEN 'T' 
-                                    WHEN '3' THEN 'T' WHEN '4' THEN 'F' WHEN '5' THEN 'F' 
-                                    WHEN '6' THEN 'S' WHEN '7' THEN 'S' WHEN '8' THEN 'E' 
-                                    WHEN '9' THEN 'N' ELSE '?' END
-                            WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN 'A' AND 'Z' THEN
-                                UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1))
-                            ELSE '?'
-                        END || ')'
+                            WHEN NEW.compilation = TRUE THEN
+                                'Comp(' || 
+                                CASE 
+                                    WHEN UPPER(SUBSTR(g.genre_name, 1, 1)) BETWEEN 'A' AND 'Z' THEN
+                                        UPPER(SUBSTR(g.genre_name, 1, 1))
+                                    ELSE '?'
+                                END || ')'
+                            ELSE
+                                g.genre_name || '(' || 
+                                CASE 
+                                    WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN '0' AND '9' THEN
+                                        CASE SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)
+                                            WHEN '0' THEN 'Z' WHEN '1' THEN 'O' WHEN '2' THEN 'T' 
+                                            WHEN '3' THEN 'T' WHEN '4' THEN 'F' WHEN '5' THEN 'F' 
+                                            WHEN '6' THEN 'S' WHEN '7' THEN 'S' WHEN '8' THEN 'E' 
+                                            WHEN '9' THEN 'N' ELSE '?' END
+                                    WHEN UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1)) BETWEEN 'A' AND 'Z' THEN
+                                        UPPER(SUBSTR(REPLACE(NEW.artist, 'The ', ''), 1, 1))
+                                    ELSE '?'
+                                END || ')'
+                        END
                     FROM genres g WHERE g.id = NEW.genre_id
                 )
                 WHERE id = NEW.id;
@@ -260,8 +274,8 @@ class DatabaseManager:
             (artist, title, barcode, genre_id, image_url,
              discogs_suggested_price,
              catalog_number, format, condition, file_at, store_price, ebay_sell_at, youtube_url,
-             date_added, consignment_session_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             date_added, consignor_id, commission_rate, store_return_days, compilation)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             result_data.get('artist', result_data.get('discogs_artist', '')),
             result_data.get('title', result_data.get('discogs_title', '')),
@@ -277,7 +291,10 @@ class DatabaseManager:
             result_data.get('ebay_sell_at'),
             result_data.get('youtube_url'),
             date_added,
-            result_data.get('consignment_session_id')
+            result_data.get('consignor_id'),
+            result_data.get('commission_rate'),
+            result_data.get('store_return_days'),
+            result_data.get('compilation', False)
         ))
         
         conn.commit()
@@ -412,87 +429,25 @@ class DatabaseManager:
         conn.close()
         return True
     
-    # Consignment session management methods
-    def get_all_consignment_sessions(self):
-        """Get all consignment sessions with consignor info"""
-        conn = self._get_connection()
-        df = pd.read_sql('''
-            SELECT cs.*, c.name as consignor_name
-            FROM consignment_sessions cs
-            JOIN consignors c ON cs.consignor_id = c.id
-            ORDER BY cs.session_date DESC
-        ''', conn)
-        conn.close()
-        return df
-    
-    def get_consignment_session_by_id(self, session_id):
-        """Get consignment session by ID"""
-        conn = self._get_connection()
-        df = pd.read_sql('''
-            SELECT cs.*, c.name as consignor_name
-            FROM consignment_sessions cs
-            JOIN consignors c ON cs.consignor_id = c.id
-            WHERE cs.id = ?
-        ''', conn, params=(session_id,))
-        conn.close()
-        return df.iloc[0] if len(df) > 0 else None
-    
-    def get_sessions_by_consignor(self, consignor_id):
-        """Get all sessions for a consignor"""
-        conn = self._get_connection()
-        df = pd.read_sql('''
-            SELECT cs.*, c.name as consignor_name
-            FROM consignment_sessions cs
-            JOIN consignors c ON cs.consignor_id = c.id
-            WHERE cs.consignor_id = ?
-            ORDER BY cs.session_date DESC
-        ''', conn, params=(consignor_id,))
-        conn.close()
-        return df
-    
-    def add_consignment_session(self, consignor_id, session_date=None, commission_rate=None, store_return_days=None, session_notes=None):
-        """Add a new consignment session"""
-        if session_date is None:
-            session_date = datetime.now().date()
-        
-        if commission_rate is None:
-            commission_rate = float(self.get_config_value('DEFAULT_COMMISSION_RATE', '0.50'))
-        
-        if store_return_days is None:
-            store_return_days = int(self.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO consignment_sessions (consignor_id, session_date, commission_rate, store_return_days, session_notes)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (consignor_id, session_date, commission_rate, store_return_days, session_notes))
-        
-        conn.commit()
-        session_id = cursor.lastrowid
-        conn.close()
-        return session_id
-    
     # Consignment record queries
     def get_consignment_records_ready_for_payment(self, consignor_id=None):
         """Get consignment records ready for payment (passed customer return period)"""
         customer_return_days = int(self.get_config_value('CUSTOMER_RETURN_DAYS', '30'))
         
         query = '''
-            SELECT r.*, cs.commission_rate, c.name as consignor_name
+            SELECT r.*, c.name as consignor_name, r.commission_rate
             FROM records r
-            JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
-            JOIN consignors c ON cs.consignor_id = c.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
             WHERE r.date_sold IS NOT NULL
             AND r.date_paid IS NULL
+            AND r.consignor_id IS NOT NULL
             AND r.date_sold < date('now', '-' || ? || ' days')
         '''
         
         params = [customer_return_days]
         
         if consignor_id:
-            query += ' AND cs.consignor_id = ?'
+            query += ' AND r.consignor_id = ?'
             params.append(consignor_id)
         
         query += ' ORDER BY r.date_sold'
@@ -505,19 +460,19 @@ class DatabaseManager:
     def get_consignment_records_ready_for_pickup(self, consignor_id=None):
         """Get consignment records ready for pickup (past store return deadline)"""
         query = '''
-            SELECT r.*, cs.store_return_days, c.name as consignor_name
+            SELECT r.*, c.name as consignor_name, r.store_return_days
             FROM records r
-            JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
-            JOIN consignors c ON cs.consignor_id = c.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
             WHERE r.date_sold IS NULL
             AND r.date_returned IS NOT NULL
             AND r.date_picked_up IS NULL
+            AND r.consignor_id IS NOT NULL
         '''
         
         params = []
         
         if consignor_id:
-            query += ' AND cs.consignor_id = ?'
+            query += ' AND r.consignor_id = ?'
             params.append(consignor_id)
         
         query += ' ORDER BY r.date_returned'
@@ -533,13 +488,13 @@ class DatabaseManager:
         
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, cs.store_return_days, c.name as consignor_name
+            SELECT r.*, c.name as consignor_name, r.store_return_days
             FROM records r
-            JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
-            JOIN consignors c ON cs.consignor_id = c.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
             WHERE r.date_sold IS NULL
             AND r.date_returned IS NOT NULL
             AND r.date_picked_up IS NULL
+            AND r.consignor_id IS NOT NULL
             AND r.date_returned < date('now', '-' || ? || ' days')
             ORDER BY r.date_returned
         ''', conn, params=(consignor_pickup_days,))
@@ -554,14 +509,10 @@ class DatabaseManager:
         cursor.execute('''
             UPDATE records 
             SET date_returned = CURRENT_DATE
-            WHERE consignment_session_id IS NOT NULL
+            WHERE consignor_id IS NOT NULL
             AND date_sold IS NULL
             AND date_returned IS NULL
-            AND date_added < (
-                SELECT date('now', '-' || cs.store_return_days || ' days')
-                FROM consignment_sessions cs
-                WHERE cs.id = records.consignment_session_id
-            )
+            AND date_added < date('now', '-' || store_return_days || ' days')
         ''')
         
         updated_count = cursor.rowcount
@@ -578,12 +529,15 @@ class DatabaseManager:
         
         cursor.execute('''
             UPDATE records 
-            SET consignment_session_id = NULL,
+            SET consignor_id = NULL,
+                commission_rate = NULL,
+                store_return_days = NULL,
                 date_returned = NULL,
                 date_picked_up = CURRENT_DATE
             WHERE date_sold IS NULL
             AND date_returned IS NOT NULL
             AND date_picked_up IS NULL
+            AND consignor_id IS NOT NULL
             AND date_returned < date('now', '-' || ? || ' days')
         ''', (consignor_pickup_days,))
         
@@ -596,9 +550,10 @@ class DatabaseManager:
         """Get a record by ID"""
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
             WHERE r.id = ?
         ''', conn, params=(record_id,))
         conn.close()
@@ -649,9 +604,10 @@ class DatabaseManager:
         """Get all records from database"""
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
             ORDER BY r.created_at DESC
         ''', conn)
         conn.close()
@@ -661,9 +617,10 @@ class DatabaseManager:
         """Get recent records"""
         conn = self._get_connection()
         df = pd.read_sql(f'''
-            SELECT r.*, g.genre_name as genre
+            SELECT r.*, g.genre_name as genre, c.name as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN consignors c ON r.consignor_id = c.id
             ORDER BY r.created_at DESC LIMIT {limit}
         ''', conn)
         conn.close()
@@ -676,7 +633,6 @@ class DatabaseManager:
         # Use COALESCE to handle NULL values and ensure we get 0 instead of None
         records_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM records', conn).iloc[0]['count']
         consignors_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM consignors', conn).iloc[0]['count']
-        sessions_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM consignment_sessions', conn).iloc[0]['count']
         
         # For latest timestamps, handle case where tables are empty
         latest_record_df = pd.read_sql('SELECT MAX(created_at) as latest FROM records', conn)
@@ -687,7 +643,6 @@ class DatabaseManager:
         return {
             'records_count': int(records_count),
             'consignors_count': int(consignors_count),
-            'sessions_count': int(sessions_count),
             'latest_record': latest_record,
             'db_path': self.db_path
         }
@@ -813,7 +768,6 @@ class DatabaseManager:
         cursor = conn.cursor()
         cursor.execute('DELETE FROM records')
         cursor.execute('DELETE FROM genres')
-        cursor.execute('DELETE FROM consignment_sessions')
         cursor.execute('DELETE FROM consignors')
         conn.commit()
         conn.close()
@@ -822,7 +776,7 @@ class DatabaseManager:
         """Search for records by search term"""
         conn = self._get_connection()
         df = pd.read_sql(
-            'SELECT r.*, g.genre_name as genre FROM records r LEFT JOIN genres g ON r.genre_id = g.id WHERE r.artist LIKE ? OR r.title LIKE ? ORDER BY r.created_at DESC',
+            'SELECT r.*, g.genre_name as genre, c.name as consignor_name FROM records r LEFT JOIN genres g ON r.genre_id = g.id LEFT JOIN consignors c ON r.consignor_id = c.id WHERE r.artist LIKE ? OR r.title LIKE ? ORDER BY r.created_at DESC',
             conn,
             params=(f'%{search_term}%', f'%{search_term}%')
         )
@@ -833,7 +787,7 @@ class DatabaseManager:
         """Get a record by barcode"""
         conn = self._get_connection()
         df = pd.read_sql(
-            'SELECT r.*, g.genre_name as genre FROM records r LEFT JOIN genres g ON r.genre_id = g.id WHERE r.barcode = ?',
+            'SELECT r.*, g.genre_name as genre, c.name as consignor_name FROM records r LEFT JOIN genres g ON r.genre_id = g.id LEFT JOIN consignors c ON r.consignor_id = c.id WHERE r.barcode = ?',
             conn,
             params=(barcode,)
         )
@@ -845,7 +799,7 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id, artist, genre_id FROM records')
+        cursor.execute('SELECT id, artist, genre_id, compilation FROM records')
         records = cursor.fetchall()
         
         updated_count = 0
@@ -853,6 +807,7 @@ class DatabaseManager:
             record_id = record[0]
             artist = record[1]
             genre_id = record[2]
+            compilation = record[3]
             
             if genre_id:
                 cursor.execute('SELECT genre_name FROM genres WHERE id = ?', (genre_id,))
@@ -861,8 +816,7 @@ class DatabaseManager:
             else:
                 genre = 'Unknown'
                 
-            file_at_letter = self._calculate_file_at(artist)
-            file_at_value = f"{genre}({file_at_letter})"
+            file_at_value = self._calculate_file_at(artist, genre, compilation)
             
             cursor.execute('UPDATE records SET file_at = ? WHERE id = ?', (file_at_value, record_id))
             updated_count += 1
@@ -871,28 +825,35 @@ class DatabaseManager:
         conn.close()
         return updated_count
     
-    def _calculate_file_at(self, artist):
+    def _calculate_file_at(self, artist, genre, compilation):
         """Calculate file_at value for an artist"""
-        if not artist:
+        if not artist or not genre:
             return "?"
         
-        artist_clean = artist.strip().lower()
-        
-        if artist_clean.startswith('the '):
-            artist_clean = artist_clean[4:]
-        
-        if artist_clean and artist_clean[0].isdigit():
-            number_words = {
-                '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
-                '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
-            }
-            first_char = artist_clean[0]
-            return number_words.get(first_char, '?')[0].upper()
-        
-        if artist_clean and artist_clean[0].isalpha():
-            return artist_clean[0].upper()
-        
-        return "?"
+        if compilation:
+            # For compilations: Comp(first_letter_of_genre)
+            genre_first_char = genre[0].upper() if genre and genre[0].isalpha() else "?"
+            return f"Comp({genre_first_char})"
+        else:
+            # For regular records: genre(first_letter_of_artist)
+            artist_clean = artist.strip().lower()
+            
+            if artist_clean.startswith('the '):
+                artist_clean = artist_clean[4:]
+            
+            if artist_clean and artist_clean[0].isdigit():
+                number_words = {
+                    '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+                    '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+                }
+                first_char = artist_clean[0]
+                file_at_letter = number_words.get(first_char, '?')[0].upper()
+            elif artist_clean and artist_clean[0].isalpha():
+                file_at_letter = artist_clean[0].upper()
+            else:
+                file_at_letter = "?"
+            
+            return f"{genre}({file_at_letter})"
 
     # Configuration methods
     def get_config_value(self, config_key, default=None):

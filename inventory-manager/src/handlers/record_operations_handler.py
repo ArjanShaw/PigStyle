@@ -54,6 +54,14 @@ class RecordOperationsHandler:
         selected_condition = record_data.get('selected_condition')
         selected_price = record_data.get('selected_price')
         
+        # Get compilation status from record_data
+        compilation = record_data.get('compilation', False)
+        
+        # Get consignment info from record_data
+        consignor_id = record_data.get('consignor_id')
+        commission_rate = record_data.get('commission_rate')
+        store_return_days = record_data.get('store_return_days')
+        
         # Get genre_id for the genre
         genre_id = None
         if genre:
@@ -71,7 +79,7 @@ class RecordOperationsHandler:
             conn.close()
         
         # Calculate file_at for confirmation message
-        file_at_value = self._calculate_file_at(artist, genre)
+        file_at_value = self._calculate_file_at(artist, genre, compilation)
         
         # Store pricing data in record_data for display
         if pricing_data:
@@ -98,7 +106,10 @@ class RecordOperationsHandler:
             'store_price': store_price,  # CALCULATED STORE PRICE
             'ebay_sell_at': ebay_sell_at,  # CALCULATED EBAY SELL PRICE
             'youtube_url': youtube_url,  # Include YouTube URL
-            'consignment_session_id': record_data.get('consignment_session_id')  # Include consignment session
+            'consignor_id': consignor_id,  # Include consignor directly
+            'commission_rate': commission_rate,  # Include commission rate directly
+            'store_return_days': store_return_days,  # Include store return days directly
+            'compilation': compilation  # Include compilation status
         }
         
         record_id = st.session_state.db_manager.save_record(result_data)
@@ -148,29 +159,35 @@ class RecordOperationsHandler:
         else:
             return base_price + 0.99
 
-    def _calculate_file_at(self, artist, genre):
+    def _calculate_file_at(self, artist, genre, compilation):
         """Calculate file_at value for an artist and genre"""
-        if not artist:
+        if not artist or not genre:
             return "?"
         
-        artist_clean = artist.strip().lower()
-        
-        if artist_clean.startswith('the '):
-            artist_clean = artist_clean[4:]
-        
-        if artist_clean and artist_clean[0].isdigit():
-            number_words = {
-                '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
-                '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
-            }
-            first_char = artist_clean[0]
-            file_at_letter = number_words.get(first_char, '?')[0].upper()
-        elif artist_clean and artist_clean[0].isalpha():
-            file_at_letter = artist_clean[0].upper()
+        if compilation:
+            # For compilations: Comp(first_letter_of_genre)
+            genre_first_char = genre[0].upper() if genre and genre[0].isalpha() else "?"
+            return f"Comp({genre_first_char})"
         else:
-            file_at_letter = "?"
-        
-        return f"{genre}({file_at_letter})"
+            # For regular records: genre(first_letter_of_artist)
+            artist_clean = artist.strip().lower()
+            
+            if artist_clean.startswith('the '):
+                artist_clean = artist_clean[4:]
+            
+            if artist_clean and artist_clean[0].isdigit():
+                number_words = {
+                    '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+                    '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+                }
+                first_char = artist_clean[0]
+                file_at_letter = number_words.get(first_char, '?')[0].upper()
+            elif artist_clean and artist_clean[0].isalpha():
+                file_at_letter = artist_clean[0].upper()
+            else:
+                file_at_letter = "?"
+            
+            return f"{genre}({file_at_letter})"
 
     def update_database_record(self, record_data, genre):
         """Update database record"""
@@ -180,6 +197,14 @@ class RecordOperationsHandler:
         print(f"🔴 DEBUG update_database_record: genre={genre}")
         
         record_id = record_data['id']
+        
+        # Get compilation status from record_data
+        compilation = record_data.get('compilation', False)
+        
+        # Get consignment info from record_data
+        consignor_id = record_data.get('consignor_id')
+        commission_rate = record_data.get('commission_rate')
+        store_return_days = record_data.get('store_return_days')
         
         # Get genre_id for the genre
         genre_id = None
@@ -193,7 +218,11 @@ class RecordOperationsHandler:
             conn.close()
         
         updates = {
-            'genre_id': genre_id
+            'genre_id': genre_id,
+            'compilation': compilation,
+            'consignor_id': consignor_id,
+            'commission_rate': commission_rate,
+            'store_return_days': store_return_days
         }
         
         success = st.session_state.db_manager.update_record(record_id, updates)

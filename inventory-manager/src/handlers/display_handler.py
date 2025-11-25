@@ -50,6 +50,9 @@ class DisplayHandler:
                     store_price = record.get('store_price')
                     ebay_sell_at = record.get('ebay_sell_at')
                     discogs_suggested_price = record.get('discogs_suggested_price')
+                    compilation = record.get('compilation', False)
+                    consignor_name = record.get('consignor_name', '')
+                    commission_rate = record.get('commission_rate')
                     
                     # SHOW THE REQUESTED FIELDS when selecting from inventory
                     record_id = record.get('id', '')
@@ -63,6 +66,9 @@ class DisplayHandler:
                     st.write(f"**ID:** {record_id} | **Barcode:** {barcode}")
                     st.write(f"**Catalog:** {catalog_number}" if catalog_number else "**Catalog:** N/A")
                     st.write(f"**Genre:** {genre}" if genre else "**Genre:** N/A")
+                    st.write(f"**Compilation:** {'✅ Yes' if compilation else '❌ No'}")
+                    if consignor_name:
+                        st.write(f"**Consignor:** {consignor_name} ({commission_rate*100 if commission_rate else 0}%)")
                     st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**Discogs Price:** ${discogs_suggested_price:.2f}" if discogs_suggested_price and discogs_suggested_price > 0 else "**Discogs Price:** N/A")
                     st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
@@ -156,6 +162,10 @@ class DisplayHandler:
                 catalog_number = record.get('catalog_number', '')
                 genre = record.get('genre', '')
                 discogs_suggested_price = record.get('discogs_suggested_price', '')
+                compilation = record.get('compilation', False)
+                consignor_name = record.get('consignor_name', '')
+                commission_rate = record.get('commission_rate')
+                store_return_days = record.get('store_return_days')
                 
                 st.write("---")
                 st.write("**Record Details:**")
@@ -163,6 +173,11 @@ class DisplayHandler:
                 st.write(f"**Barcode:** {barcode}")
                 st.write(f"**Catalog:** {catalog_number}" if catalog_number else "**Catalog:** N/A")
                 st.write(f"**Genre:** {genre}" if genre else "**Genre:** N/A")
+                st.write(f"**Compilation:** {'✅ Yes' if compilation else '❌ No'}")
+                if consignor_name:
+                    st.write(f"**Consignor:** {consignor_name}")
+                    st.write(f"**Commission Rate:** {commission_rate*100 if commission_rate else 0}%")
+                    st.write(f"**Store Return Days:** {store_return_days if store_return_days else 'N/A'}")
                 st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
                 st.write(f"**Discogs Price:** ${discogs_suggested_price:.2f}" if discogs_suggested_price and discogs_suggested_price > 0 else "**Discogs Price:** N/A")
                 st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
@@ -202,7 +217,7 @@ class DisplayHandler:
             st.rerun()
 
     def render_edit_section(self, selected_record, add_callback, update_callback, discogs_handler=None, ebay_handler=None):
-        """Render the edit properties section - SIMPLIFIED VERSION WITHOUT LOADING SCREEN"""
+        """Render the edit properties section - WITH COMPILATION AND DIRECT CONSIGNMENT SUPPORT"""
         
         record_data = selected_record['data']
         
@@ -221,13 +236,17 @@ class DisplayHandler:
         # Once ALL data is loaded, show the complete UI
         st.subheader("Edit Properties")
         
-        # Add consignment dropdown for both new and existing records
-        consignment_session_id = self._render_consignment_dropdown(record_data)
-        if consignment_session_id:
-            record_data['consignment_session_id'] = consignment_session_id
+        # Add consignment dropdown for both new and existing records - NOW DIRECT CONSIGNOR SELECTION
+        consignor_id, commission_rate, store_return_days = self._render_consignment_section(record_data)
+        if consignor_id:
+            record_data['consignor_id'] = consignor_id
+            record_data['commission_rate'] = commission_rate
+            record_data['store_return_days'] = store_return_days
         else:
             # Clear consignment if "Store Owned" is selected
-            record_data['consignment_session_id'] = None
+            record_data['consignor_id'] = None
+            record_data['commission_rate'] = None
+            record_data['store_return_days'] = None
         
         # Show editable artist field with cleaned version
         raw_artist = record_data.get('artist', '')
@@ -253,6 +272,16 @@ class DisplayHandler:
         record_data['title'] = title
         
         st.write(f"*Original artist from Discogs: {raw_artist}*")
+        
+        # Show compilation checkbox - auto-detect for Various artists
+        compilation_default = self._should_be_compilation(edited_artist, record_data)
+        compilation = st.checkbox(
+            "This is a compilation",
+            value=compilation_default,
+            key="compilation_checkbox",
+            help="Auto-detected for Various artists. Check if this is a compilation album."
+        )
+        record_data['compilation'] = compilation
         
         # Show genre dropdown (NOW VISIBLE AFTER ALL API CALLS COMPLETE)
         suggested_genre = self._get_suggested_genre(record_data)
@@ -318,57 +347,158 @@ class DisplayHandler:
                         self._render_youtube_video(video, i, record_data)
         
         # Single submit button - only enable if genre is selected
-        if st.button("Add to Database", width='stretch', disabled=not genre, key="add_to_database"):
+        button_label = "Add to Database" if selected_record['type'] == 'discogs' else "Update Record"
+        if st.button(button_label, width='stretch', disabled=not genre, key="add_to_database"):
             # Get the file_at value for confirmation message
-            file_at_value = self._calculate_file_at(record_data['artist'], genre)
-            success, record_id = add_callback(genre)
-            if success:
-                # Show confirmation message with artist, title, and fileat
-                st.success(f"✅ Record added successfully!\\n**Artist:** {record_data['artist']}\\n**Title:** {record_data['title']}\\n**File Location:** {file_at_value}")
-                st.session_state.record_added = True
+            file_at_value = self._calculate_file_at(record_data['artist'], genre, compilation)
+            if selected_record['type'] == 'discogs':
+                success, record_id = add_callback(genre)
+                if success:
+                    # Show confirmation message with artist, title, and fileat
+                    st.success(f"✅ Record added successfully!\\n**Artist:** {record_data['artist']}\\n**Title:** {record_data['title']}\\n**File Location:** {file_at_value}")
+                    st.session_state.record_added = True
+            else:
+                success = update_callback(genre)
+                if success:
+                    st.success(f"✅ Record updated successfully!\\n**File Location:** {file_at_value}")
 
-    def _render_youtube_video(self, video, index, record_data):
-        """Render a single YouTube video result"""
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if video.get('thumbnail'):
-                st.image(video['thumbnail'], width=120)
+    def _render_consignment_section(self, record_data=None):
+        """Render consignment section with direct consignor selection and individual rates"""
+        try:
+            # Get all consignors for dropdown
+            consignors_df = st.session_state.db_manager.get_all_consignors()
             
-            # Extract video ID for embedding
-            video_id = self.youtube_handler.extract_youtube_id(video['url']) if self.youtube_handler else self._extract_youtube_id(video['url'])
+            if len(consignors_df) == 0:
+                st.info("No consignors available. Add consignors in the Consignment tab first.")
+                return None, None, None
             
-            # Show play button that displays the actual video
-            if st.button(f"▶️ Play", key=f"play_{index}", width='stretch'):
-                # Store which video to play in session state
-                st.session_state.playing_video_index = index
-        
-        with col2:
-            st.write(f"**{video.get('title', 'No title')}**")
-            st.write(f"Channel: {video.get('channel', 'Unknown')}")
+            # Create options for dropdown
+            options = ["Store Owned"]  # Default option
             
-            # Show track info if it's a track recording
-            if video.get('type') == 'track' and video.get('track_title'):
-                st.write(f"🎵 **Track:** {video['track_title']}")
+            # Create mapping for consignor selection
+            consignor_mapping = {}
+            for _, consignor in consignors_df.iterrows():
+                option_text = f"{consignor['name']}"
+                options.append(option_text)
+                consignor_mapping[option_text] = consignor['id']
             
-            # Link this video to the record
-            if st.button("🔗 Link This Video", key=f"link_{index}", width='stretch'):
-                # Update the record with this YouTube URL
-                record_data['youtube_url'] = video['url']
-                st.success("✅ YouTube video will be linked when record is added!")
-                # Clear search results
-                st.session_state.youtube_search_results = []
-                st.rerun()
-        
-        # Show embedded video if this is the one being played
-        if st.session_state.get('playing_video_index') == index and video_id:
-            st.components.v1.iframe(
-                f"https://www.youtube.com/embed/{video_id}",
-                width=400,
-                height=225
+            # Determine default selection
+            default_index = 0  # Default to "Store Owned"
+            
+            # If editing existing record with consignment, find the matching consignor
+            current_consignor_name = record_data.get('consignor_name', '')
+            if current_consignor_name:
+                for option_text in consignor_mapping.keys():
+                    if current_consignor_name in option_text:
+                        default_index = options.index(option_text)
+                        break
+            
+            # Render consignor dropdown
+            selected_option = st.selectbox(
+                "Consignor:",
+                options=options,
+                index=default_index,
+                key="consignor_select"
             )
+            
+            # If Store Owned selected, return None for all values
+            if selected_option == "Store Owned":
+                return None, None, None
+            
+            # Get the selected consignor ID
+            consignor_id = consignor_mapping.get(selected_option)
+            
+            # Show commission rate input
+            current_commission_rate = record_data.get('commission_rate')
+            if current_commission_rate is None:
+                current_commission_rate = float(st.session_state.db_manager.get_config_value('DEFAULT_COMMISSION_RATE', '0.50'))
+            
+            commission_rate = st.number_input(
+                "Commission Rate:",
+                min_value=0.0,
+                max_value=1.0,
+                value=current_commission_rate,
+                step=0.05,
+                format="%.2f",
+                key="commission_rate_input"
+            )
+            
+            # Show store return days input
+            current_store_return_days = record_data.get('store_return_days')
+            if current_store_return_days is None:
+                current_store_return_days = int(st.session_state.db_manager.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
+            
+            store_return_days = st.number_input(
+                "Store Return Days:",
+                min_value=1,
+                max_value=365,
+                value=current_store_return_days,
+                step=1,
+                key="store_return_days_input"
+            )
+            
+            return consignor_id, commission_rate, store_return_days
+            
+        except Exception as e:
+            st.error(f"Error loading consignment section: {e}")
+            return None, None, None
+
+    def _should_be_compilation(self, artist, record_data):
+        """Determine if record should be marked as compilation based on artist name"""
+        if not artist:
+            return False
         
-        st.divider()
-    
+        artist_lower = artist.lower()
+        compilation_indicators = [
+            'various',
+            'various artists',
+            'va',
+            'v.a.',
+            'compilation',
+            'various artits',  # Common typo
+            'various artiists'  # Another common typo
+        ]
+        
+        for indicator in compilation_indicators:
+            if indicator in artist_lower:
+                return True
+        
+        # Also check if it's already marked as compilation in database record
+        if record_data.get('compilation'):
+            return True
+            
+        return False
+
+    def _calculate_file_at(self, artist, genre, compilation):
+        """Calculate file_at value for display in confirmation message"""
+        if not artist or not genre:
+            return "?"
+        
+        if compilation:
+            # For compilations: Comp(first_letter_of_genre)
+            genre_first_char = genre[0].upper() if genre and genre[0].isalpha() else "?"
+            return f"Comp({genre_first_char})"
+        else:
+            # For regular records: genre(first_letter_of_artist)
+            artist_clean = artist.strip().lower()
+            
+            if artist_clean.startswith('the '):
+                artist_clean = artist_clean[4:]
+            
+            if artist_clean and artist_clean[0].isdigit():
+                number_words = {
+                    '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+                    '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+                }
+                first_char = artist_clean[0]
+                file_at_letter = number_words.get(first_char, '?')[0].upper()
+            elif artist_clean and artist_clean[0].isalpha():
+                file_at_letter = artist_clean[0].upper()
+            else:
+                file_at_letter = "?"
+            
+            return f"{genre}({file_at_letter})"
+
     def _fetch_all_data_sync(self, record_data, discogs_handler, ebay_handler):
         """Fetch all required data synchronously (blocking calls) - ALL APIs must complete"""
         # Step 1: Fetch Discogs pricing (BLOCKING)
@@ -548,412 +678,3 @@ class DisplayHandler:
                         # Auto-select eBay condition that matches the selected Discogs condition
                         selected_discogs_condition = record_data.get('selected_condition')
                         default_ebay_index = 0
-                        
-                        # Try to find matching eBay condition
-                        if selected_discogs_condition:
-                            for i, ebay_condition in enumerate(ebay_condition_options):
-                                if ebay_condition == selected_discogs_condition:
-                                    default_ebay_index = i
-                                    break
-                        
-                        selected_ebay_condition = st.selectbox(
-                            "Choose eBay condition group:",
-                            options=ebay_condition_options,
-                            index=default_ebay_index,
-                            key="ebay_condition_select"
-                        )
-                        
-                        if selected_ebay_condition:
-                            selected_pricing = ebay_condition_pricing[selected_ebay_condition]
-                            # Calculate the suggested eBay sell price
-                            if selected_pricing['lowest_shipping'] is None:  # CALC shipping
-                                suggested_ebay_sell_at = selected_pricing['lowest_price']
-                            else:
-                                suggested_ebay_sell_at = self._calculate_ebay_sell_at(selected_pricing['lowest_price'], selected_pricing['lowest_shipping'])
-                            
-                            record_data['ebay_selected_condition'] = selected_ebay_condition
-                            record_data['ebay_lowest_price'] = selected_pricing['lowest_price']
-                            record_data['ebay_low_shipping'] = selected_pricing['lowest_shipping']
-                            record_data['ebay_listings_count'] = selected_pricing['count']
-                            record_data['ebay_low_url'] = selected_pricing['cheapest_item_url']
-                            record_data['ebay_sell_at'] = suggested_ebay_sell_at  # Store calculated sell price
-                            
-                            st.success(f"✅ Selected eBay {selected_ebay_condition} condition group")
-                            st.write(f"**Suggested eBay Sell At:** ${suggested_ebay_sell_at:.2f}")
-                            
-                            # Format shipping display for the calculation breakdown
-                            if selected_pricing['lowest_shipping'] is None:
-                                st.write(f"**Based on:** ${selected_pricing['lowest_price']:.2f} (lowest price only - CALC shipping)")
-                            else:
-                                st.write(f"**Based on:** ${selected_pricing['lowest_price']:.2f} (lowest) + ${selected_pricing['lowest_shipping']:.2f} shipping")
-                
-                st.write(f"**Total eBay items found:** {ebay_total_items_found}")
-            else:
-                st.write("No eBay pricing data available")
-            
-            st.divider()
-        else:
-            st.write("### 🛒 eBay Pricing")
-            st.info("eBay pricing data loading...")
-        
-        # Store Price Calculation Section - ONLY show if we have Discogs data
-        if has_discogs_data:
-            st.write("### 🏪 Store Price Calculation")
-            
-            # Calculate store price using current configuration
-            selected_price = record_data.get('selected_price')
-            store_price = self._calculate_store_price(selected_price)
-            
-            # Get current configuration for display
-            lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
-            estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
-            minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
-            
-            # Show calculation breakdown
-            col1, col2 = st.columns(2)
-            with col1:
-                if selected_price:
-                    suggested_calc = selected_price * estimated_multiplier
-                    st.write(f"**Selected × {estimated_multiplier}:** ${selected_price:.2f} × {estimated_multiplier} = ${suggested_calc:.2f}")
-                
-                st.write(f"**Minimum Price:** ${minimum_price:.2f}")
-            
-            with col2:
-                st.metric("Calculated Store Price", f"${store_price:.2f}", 
-                         help="Based on highest of: (Selected × Multiplier) or Minimum Price")
-
-    def _render_consignment_dropdown(self, record_data=None):
-        """Render consignment session dropdown for record addition - UPDATED to handle existing assignments"""
-        try:
-            # Get all consignment sessions for dropdown
-            sessions_df = st.session_state.db_manager.get_all_consignment_sessions()
-            
-            if len(sessions_df) == 0:
-                return None
-            
-            # Create options for dropdown
-            options = ["Store Owned"]  # Default option
-            
-            # Create mapping for session selection
-            session_mapping = {}
-            for _, session in sessions_df.iterrows():
-                option_text = f"{session['consignor_name']} - {session['session_date']} ({session['commission_rate']*100}%, {session['store_return_days']} days)"
-                options.append(option_text)
-                session_mapping[option_text] = session['id']
-            
-            # Store mapping in session state for retrieval
-            st.session_state.consignment_session_mapping = session_mapping
-            
-            # Determine default selection
-            default_index = 0  # Default to "Store Owned"
-            
-            # If editing existing record with consignment, find the matching session
-            if record_data and 'consignment_session_id' in record_data and record_data['consignment_session_id']:
-                existing_session_id = record_data['consignment_session_id']
-                # Find the session in the mapping
-                for option_text, session_id in session_mapping.items():
-                    if session_id == existing_session_id:
-                        # Find the index of this option
-                        default_index = options.index(option_text)
-                        break
-            
-            # Render dropdown
-            selected_option = st.selectbox(
-                "Consignment Session:",
-                options=options,
-                index=default_index,
-                key="consignment_session_select"
-            )
-            
-            # Return session ID if consignment selected, None for store owned
-            if selected_option == "Store Owned":
-                return None
-            else:
-                return session_mapping.get(selected_option)
-            
-        except Exception as e:
-            st.error(f"Error loading consignment sessions: {e}")
-            return None
-
-    def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping):
-        """Calculate eBay sell price from lowest eBay price and shipping"""
-        # Get SHIPPING_COST from config
-        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
-        try:
-            shipping_cost = float(shipping_cost)
-        except (ValueError, TypeError):
-            shipping_cost = 5.72
-        
-        if ebay_lowest_price is not None and ebay_low_shipping is not None:
-            # Convert to float to ensure numeric operations
-            ebay_lowest_price = float(ebay_lowest_price)
-            ebay_low_shipping = float(ebay_low_shipping)
-            
-            # Calculate ebay_sell_at = ebay_lowest_price + ebay_low_shipping - SHIPPING_COST
-            ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
-            
-            # Ensure ebay_sell_at is not negative - hardcoded minimum of 0.00
-            ebay_sell_at_raw = max(ebay_sell_at_raw, 0.00)
-            
-            # Round down to nearest .49 or .99
-            ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
-        else:
-            # No eBay data available
-            ebay_sell_at = 0.0
-        
-        return ebay_sell_at
-
-    def _round_down_to_49_or_99(self, price):
-        """Round down to nearest .49 or .99 that is less than or equal to original price"""
-        if price <= 0:
-            return 0.0
-        
-        # Check if price already ends with .49 or .99
-        if abs(price % 1 - 0.49) < 0.001 or abs(price % 1 - 0.99) < 0.001:
-            return price
-        
-        base_price = math.floor(price)
-        
-        # Calculate candidate prices
-        candidate_99 = base_price + 0.99
-        candidate_49 = base_price + 0.49
-        
-        # Return the highest candidate that is <= original price
-        if candidate_99 <= price:
-            return candidate_99
-        elif candidate_49 <= price:
-            return candidate_49
-        else:
-            # If both are too high, go down one dollar and use .99
-            return (base_price - 1) + 0.99
-
-    def _get_condition_description(self, condition):
-        """Get brief description for each Discogs condition"""
-        condition_descriptions = {
-            "Mint (M)": "Still sealed, perfect condition",
-            "Near Mint (NM or M-)": "Like new, minimal signs of handling",
-            "Very Good Plus (VG+)": "Light surface marks, plays perfectly",
-            "Very Good (VG)": "Visible wear but plays well",
-            "Good Plus (G+)": "Significant wear, some surface noise",
-            "Good (G)": "Heavy wear, noticeable surface noise",
-            "Fair (F)": "Poor condition, plays with difficulty",
-            "Poor (P)": "Badly damaged, may be unplayable",
-            "Generic": "Standard used condition",
-            "Not Graded": "Condition not specified"
-        }
-        
-        # Try exact match first
-        if condition in condition_descriptions:
-            return condition_descriptions[condition]
-        
-        # Try partial matches
-        for key, description in condition_descriptions.items():
-            if condition.lower() in key.lower() or key.lower() in condition.lower():
-                return description
-        
-        # Default description
-        return "Used record condition"
-
-    def _calculate_store_price(self, selected_price):
-        """Calculate store price using configurable parameters"""
-        # Get current configuration
-        lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
-        estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
-        minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
-        
-        candidates = []
-        
-        if selected_price and selected_price > 0:
-            # Use the selected price with the estimated multiplier
-            candidates.append(selected_price * estimated_multiplier)
-        
-        if candidates:
-            raw_price = max(candidates)
-            raw_price = max(raw_price, minimum_price)
-        else:
-            raw_price = minimum_price
-        
-        # Round to nearest .49 or .99
-        store_price = self._round_to_49_or_99(raw_price)
-        
-        return store_price
-
-    def _round_to_49_or_99(self, price):
-        """Round to nearest .49 or .99"""
-        if price <= 0:
-            return 0.0
-        
-        base_price = math.floor(price)
-        decimal_part = price - base_price
-        
-        if decimal_part < 0.25:
-            return base_price + 0.49
-        elif decimal_part < 0.75:
-            return base_price + 0.49
-        else:
-            return base_price + 0.99
-
-    def _calculate_file_at(self, artist, genre):
-        """Calculate file_at value for an artist and genre"""
-        if not artist:
-            return "?"
-        
-        artist_clean = artist.strip().lower()
-        
-        if artist_clean.startswith('the '):
-            artist_clean = artist_clean[4:]
-        
-        if artist_clean and artist_clean[0].isdigit():
-            number_words = {
-                '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
-                '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
-            }
-            first_char = artist_clean[0]
-            file_at_letter = number_words.get(first_char, '?')[0].upper()
-        elif artist_clean and artist_clean[0].isalpha():
-            file_at_letter = artist_clean[0].upper()
-        else:
-            file_at_letter = "?"
-        
-        return f"{genre}({file_at_letter})"
-
-    def _extract_youtube_id(self, url):
-        """Extract YouTube video ID from URL (fallback method)"""
-        # Handle various YouTube URL formats
-        patterns = [
-            r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)',
-            r'youtube\.com\/embed\/([^&\n?]+)',
-            r'youtube\.com\/v\/([^&\n?]+)'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, url)
-            if match:
-                return match.group(1)
-        return None
-
-    def _get_genre_id(self, genre_name):
-        """Get genre ID for a genre name"""
-        if not genre_name:
-            return None
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre_name,))
-        result = cursor.fetchone()
-        conn.close()
-        return result[0] if result else None
-
-    def _get_suggested_genre(self, record_data):
-        """Get suggested genre based on artist history and Discogs genre"""
-        artist = record_data.get('artist', '')
-        
-        # Priority 1: Check if artist exists in database and get most common genre
-        if artist:
-            artist_genre = self._get_artist_most_common_genre(artist)
-            if artist_genre:
-                return artist_genre
-        
-        # Priority 2: Try to get genre from Discogs data if available
-        if 'release_data' in record_data:
-            discogs_genre = self._extract_discogs_genre(record_data['release_data'])
-            if discogs_genre:
-                return discogs_genre
-        
-        return ""
-
-    def _extract_discogs_genre(self, release_data):
-        """Extract genre from Discogs release data"""
-        try:
-            if not release_data:
-                return ""
-            
-            # Discogs stores genres in a list under 'genres' key
-            genres = release_data.get('genres', [])
-            if genres and len(genres) > 0:
-                # Return the first genre (primary genre)
-                return genres[0]
-            
-            # Also check styles which are more specific sub-genres
-            styles = release_data.get('styles', [])
-            if styles and len(styles) > 0:
-                return styles[0]
-                
-        except Exception as e:
-            print(f"Error extracting Discogs genre: {e}")
-        
-        return ""
-
-    def _get_suggestion_source(self, record_data, suggested_genre):
-        """Get the source of the genre suggestion"""
-        artist = record_data.get('artist', '')
-        
-        # Check if it came from artist history
-        if artist:
-            artist_genre = self._get_artist_most_common_genre(artist)
-            if artist_genre == suggested_genre:
-                return "artist history"
-        
-        # Check if it came from Discogs data
-        if 'release_data' in record_data:
-            discogs_genre = self._extract_discogs_genre(record_data['release_data'])
-            if discogs_genre == suggested_genre:
-                return "Discogs data"
-        
-        return "unknown"
-
-    def _get_artist_most_common_genre(self, artist):
-        """Get the most common genre for an artist from existing records"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT g.genre_name as genre, COUNT(*) as count 
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            WHERE r.artist = ? AND g.genre_name IS NOT NULL AND g.genre_name != '' 
-            GROUP BY g.genre_name 
-            ORDER BY count DESC 
-            LIMIT 1
-        ''', conn, params=(artist,))
-        conn.close()
-        
-        if len(df) > 0:
-            return df.iloc[0]['genre']
-        return ""
-
-    def render_checkout_section(self, checkout_records, checkout_callback):
-        """Render checkout section"""
-        if not checkout_records:
-            return
-        
-        st.subheader("Checkout")
-        st.info("Checkout functionality is not available. The status column has been removed from the database.")
-
-    def render_genre_management(self):
-        """Render genre management, import/export, and printing"""
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("📤 Export Genre CSV", width='stretch', help="Export ID, Artist, Title, and Genre for all inventory records", key="export_genre_csv"):
-                self._export_genre_csv()
-
-    def _delete_record(self, record_id):
-        """Delete a record from the database"""
-        try:
-            success = st.session_state.db_manager.delete_record(record_id)
-            if success:
-                st.success("Record deleted successfully!")
-                return True
-            else:
-                st.error("Failed to delete record")
-                return False
-        except Exception as e:
-            st.error(f"Error deleting record: {e}")
-            return False
-
-    def _get_all_genres(self):
-        """Get all available genres"""
-        try:
-            genres_df = st.session_state.db_manager.get_all_genres()
-            return genres_df['genre_name'].tolist()
-        except Exception as e:
-            st.error(f"Error loading genres: {e}")
-            return []

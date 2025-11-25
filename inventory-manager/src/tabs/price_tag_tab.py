@@ -290,8 +290,7 @@ class PriceTagTab:
                 SELECT r.*, g.genre_name as genre, c.name as consignor_name
                 FROM records r
                 LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN consignment_sessions cs ON r.consignment_session_id = cs.id
-                LEFT JOIN consignors c ON cs.consignor_id = c.id
+                LEFT JOIN consignors c ON r.consignor_id = c.id
                 WHERE r.id IN ({placeholders})
             '''
             df = pd.read_sql(query, conn, params=record_ids)

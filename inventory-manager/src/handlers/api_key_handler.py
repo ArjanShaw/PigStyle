@@ -3,14 +3,14 @@ import streamlit as st
 from pathlib import Path
 
 class APIKeyHandler:
-    """Handles loading and validation of API keys from .env file only"""
+    """Handles loading and validation of API keys from both .env file and Streamlit secrets"""
     
     def __init__(self):
         self.env_vars = {}
         self.env_vars_loaded = False
     
     def get_environment_variables(self):
-        """Get environment variables ONLY from .env file in project base directory"""
+        """Get environment variables from Streamlit secrets (production) or .env file (local development)"""
         if self.env_vars_loaded:
             return self.env_vars
             
@@ -18,16 +18,43 @@ class APIKeyHandler:
             "IMAGEBB_API_KEY",
             "DISCOGS_USER_TOKEN", 
             "EBAY_CLIENT_ID",
-            "EBAY_CLIENT_SECRET"
+            "EBAY_CLIENT_SECRET",
+            "YOUTUBE_API_KEY"
         ]
         
-        # Get the project base directory and .env file path
+        # First try: Streamlit Secrets (for Streamlit Cloud)
+        try:
+            if hasattr(st, 'secrets'):
+                # Check if all required variables are in secrets
+                secrets_available = all(var in st.secrets for var in required_vars)
+                if secrets_available:
+                    for var in required_vars:
+                        self.env_vars[var] = st.secrets[var]
+                    self.env_vars_loaded = True
+                    return self.env_vars
+        except Exception as e:
+            print(f"Error accessing Streamlit secrets: {e}")
+        
+        # Second try: .env file (for local development)
         current_dir = os.getcwd()
         env_file_path = os.path.join(current_dir, '.env')
         
         # Check if .env file exists
         if not os.path.exists(env_file_path):
-            error_msg = f"❌ .env file not found at {env_file_path}"
+            error_msg = f"""
+            ❌ API keys not found!
+            
+            For local development:
+            - Create a .env file at {env_file_path} with:
+              IMAGEBB_API_KEY=your_key
+              DISCOGS_USER_TOKEN=your_token
+              EBAY_CLIENT_ID=your_id
+              EBAY_CLIENT_SECRET=your_secret
+              YOUTUBE_API_KEY=your_key (optional)
+            
+            For Streamlit Cloud:
+            - Add these secrets in app settings under 'Secrets'
+            """
             raise Exception(error_msg)
         
         # Load environment variables from .env file
@@ -54,7 +81,13 @@ class APIKeyHandler:
                 missing_vars.append(var)
         
         if missing_vars:
-            error_msg = f"❌ Missing required variables in .env file: {', '.join(missing_vars)}"
+            error_msg = f"""
+            ❌ Missing required API keys!
+            
+            Missing: {', '.join(missing_vars)}
+            
+            Please add these to your .env file or Streamlit Cloud secrets.
+            """
             raise Exception(error_msg)
         
         self.env_vars_loaded = True
@@ -80,9 +113,9 @@ class APIKeyHandler:
                 missing_keys.append(key)
                 
         if missing_keys:
-            return False
+            return False, missing_keys
             
-        return True
+        return True, []
     
     def get_available_sources(self):
         """Get information about available API key sources"""
@@ -92,6 +125,7 @@ class APIKeyHandler:
         sources = {
             "env_file_exists": os.path.exists(env_file_path),
             "env_file_path": env_file_path,
-            "current_directory": current_dir
+            "current_directory": current_dir,
+            "streamlit_secrets_available": hasattr(st, 'secrets')
         }
         return sources

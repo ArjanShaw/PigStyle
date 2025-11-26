@@ -97,14 +97,63 @@ header {
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
+/* Tabs */
+.tabs-container {
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.tabs {
+    display: flex;
+    background: #111;
+    border-bottom: 2px solid #333;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 15px 20px;
+    background: transparent;
+    border: none;
+    color: #ccc;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-button:hover {
+    background: rgba(255, 204, 0, 0.1);
+    color: #ffcc00;
+}
+
+.tab-button.active {
+    background: #ffcc00;
+    color: #333;
+    font-weight: bold;
+}
+
+.tab-content {
+    padding: 0;
+}
+
+.tab-pane {
+    display: none;
+    padding: 0;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
 /* Policy Table - Black background like other pages */
 .policy-table {
     width: 100%;
     border-collapse: collapse;
     background-color: #000;
     color: #fff;
-    margin: 20px 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    margin: 0;
 }
 
 .policy-table th, .policy-table td {
@@ -162,6 +211,159 @@ header {
     color: #ffcc00;
 }
 
+/* Contract PDF Styles */
+.pdf-container {
+    background: white;
+    color: #333;
+    min-height: 800px;
+    padding: 40px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    position: relative;
+}
+
+/* Draft Watermark */
+.draft-watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    font-size: 4rem;
+    color: rgba(255, 0, 0, 0.1);
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+/* Contract Banner */
+.contract-banner {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+    position: relative;
+    z-index: 2;
+}
+
+.banner-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.banner-content h3 {
+    color: #856404;
+    margin: 0 0 10px 0;
+    font-size: 1.3rem;
+}
+
+.banner-content p {
+    color: #856404;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.pdf-header {
+    text-align: center;
+    margin-bottom: 40px;
+    border-bottom: 3px solid #ffcc00;
+    padding-bottom: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.pdf-header h2 {
+    color: #333;
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.contract-date {
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.contract-content {
+    max-width: 800px;
+    margin: 0 auto;
+    line-height: 1.6;
+    position: relative;
+    z-index: 2;
+}
+
+.contract-section {
+    margin-bottom: 30px;
+    page-break-inside: avoid;
+}
+
+.contract-section h3 {
+    color: #ff9900;
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.contract-section p {
+    margin-bottom: 10px;
+}
+
+.contract-section ul {
+    margin: 10px 0 10px 30px;
+}
+
+.contract-section li {
+    margin-bottom: 8px;
+}
+
+.contract-section strong {
+    color: #333;
+}
+
+.signature-section {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 60px;
+    padding-top: 40px;
+    border-top: 2px solid #ccc;
+}
+
+.signature-block {
+    flex: 1;
+    margin: 0 20px;
+}
+
+.signature-line {
+    border-bottom: 1px solid #333;
+    padding-top: 30px;
+    margin-bottom: 10px;
+}
+
+/* Draft Footer */
+.draft-footer {
+    background: #f8f9fa;
+    border: 2px dashed #dc3545;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.draft-footer p {
+    margin: 5px 0;
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.draft-footer p:last-child {
+    font-weight: normal;
+    font-size: 0.9rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .policy-table {
@@ -192,6 +394,39 @@ header {
     .banner {
         margin: 0 10px 15px 10px;
         padding: 12px;
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .pdf-container {
+        padding: 20px;
+    }
+    
+    .pdf-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .signature-section {
+        flex-direction: column;
+    }
+    
+    .signature-block {
+        margin: 20px 0;
+    }
+    
+    .contract-banner {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .banner-icon {
+        align-self: center;
+    }
+    
+    .draft-watermark {
+        font-size: 2.5rem;
     }
 }
 
@@ -224,7 +459,27 @@ header {
         margin-bottom: 10px;
     }
     
-    .policy-table thead {
-        display: none;
+    .pdf-container {
+        padding: 15px;
+    }
+    
+    .pdf-header h2 {
+        font-size: 1.3rem;
+    }
+    
+    .contract-section h3 {
+        font-size: 1.1rem;
+    }
+    
+    .draft-watermark {
+        font-size: 2rem;
+    }
+    
+    .contract-banner {
+        padding: 15px;
+    }
+    
+    .banner-content h3 {
+        font-size: 1.1rem;
     }
 }

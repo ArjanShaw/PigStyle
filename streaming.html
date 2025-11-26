@@ -4,8 +4,8 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
-    <title>Streaming Station - PigStyle Records</title>
-    <link rel="stylesheet" href="streaming.css">
+    <title>Consignment - PigStyle Records</title>
+    <link rel="stylesheet" href="consignment.css">
 </head>
 <body>
     <!-- Background Image -->
@@ -19,592 +19,325 @@
             <div class="logo-container">
                 <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
             </div>
-            <div class="genre-selector">
-                <select id="genreFilter" class="genre-select">
-                    <option value="">All Genres</option>
-                </select>
-            </div>
         </div>
     </header>
      
-    <div class="player-container">
-        <div id="loading" class="loading">
-            <div class="loading-dots">
-                <div></div>
-                <div></div>
-                <div></div>
-                <div></div>
-            </div>
-            <p>Loading streaming station...</p>
+    <div class="content-container">
+        <div class="banner">
+            ⚠️ This is a draft document for review purposes only and is not the final policy.
         </div>
-        
-        <div id="playerContent" style="display: none;">
-            <div class="current-track">
-                <h2 id="trackTitle">Track Title</h2>
-                <p class="artist" id="trackArtist">Artist Name</p>
-                <div class="price-container">
-                    <div class="price-badge" id="trackPrice">$0.00</div>
-                    <div class="info-badges">
-                        <div class="detail-item format" id="trackFormat">
-                            <span class="format-icon" id="formatIcon">⚫</span>
+
+        <div class="page-title">
+            <h1>Consignment Program</h1>
+        </div>
+
+        <div class="tabs-container">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="policy">Program Policy</button>
+                <button class="tab-button" data-tab="contract">Draft Contract</button>
+            </div>
+            
+            <div class="tab-content">
+                <!-- Policy Tab -->
+                <div id="policy" class="tab-pane active">
+                    <table class="policy-table">
+                        <tbody>
+                            <tr class="category-header">
+                                <td colspan="2">Onboarding & Item Eligibility</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Eligible Items & Condition</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Condition:</strong> Must be Discogs VG (Very Good) grade or above</li>
+                                        <li><strong>Formats:</strong> Sealed items and standard LPs are accepted. Singles are not accepted</li>
+                                        <li><strong>Uniqueness:</strong> The store only accepts unique records; the portal checks for duplicates against existing inventory</li>
+                                        <li><strong>Not Accepted:</strong> Counterfeits/bootlegs, rare/high-value items requiring appraisal</li>
+                                        <li><strong>Store Discretion:</strong> The store may reject any item deemed unsellable or undesirable at either the portal submission stage or the in-store check-in</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Submission Process</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Consignor signs up and submits items via the online portal</li>
+                                        <li>Consignor brings the physical records to the store for final inspection</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Volume</td>
+                                <td>Maximum number of items is determined by store capacity; there is no minimum</td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Pricing, Sales & Commission</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Pricing & Reductions</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Initial Price:</strong> Set by consignor as a ratio (0.7 to 1.1) of the Discogs suggested price</li>
+                                        <li><strong>Price Reductions:</strong> No price changes will be suggested before the end of the initial 90-day term. After the term, if a price change is suggested, the consignor must either approve the change or pick up the item as unsold</li>
+                                        <li><strong>Markdowns:</strong> No markdowns for cosmetic issues; these should be accounted for in the initial grading and price</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Commission & Payout</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Rate:</strong> Variable commission based on store inventory: 10% at ≤70% capacity, linearly increasing to 40% at 110% capacity. <strong>Consignors see the current commission rate when checking in records via the online portal.</strong></li>
+                                        <li><strong>Incentive:</strong> A +5% commission bonus is offered for choosing store credit (e.g., 15% instead of 10%)</li>
+                                        <li><strong>Payout:</strong> Available upon request via the portal once balance meets the $10.00 minimum. If an account is closed, the consignor may request a final payout of any amount</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Sales Reporting</td>
+                                <td>Consignors monitor all sales and inventory status in real-time through the online portal. No separate reports are issued</td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Intake, Liability & Item Care</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Check-in & Verification</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Consignor self-grades items in the portal; the store verifies the grading during the physical check-in</li>
+                                        <li>A barcode is assigned to each record for tracking</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Liability & Disputes</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Store Responsibility:</strong> Covers missing items, visible damage missed at intake, burglary, natural disasters, and shoplifting</li>
+                                        <li><strong>Consignor Responsibility:</strong> Invisible defects (e.g., skips) are assumed pre-existing; the affected record is returned to the consignor as unsold</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Cleaning & Services</td>
+                                <td>Records should be clean at intake. The store offers a cleaning service at a discounted rate, billed separately</td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Unsold Items & End-of-Term</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Consignment Period</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Initial Term:</strong> 90 days at the consignor's set price</li>
+                                        <li><strong>Extension:</strong> Can be extended for another 90 days at a store-determined price with a new contract</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Unsold Item Process</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>After a record is taken from the shelves (for any reason), the consignor has 30 days to pick it up</li>
+                                        <li>The store sends weekly email reminders. Items not picked up within 30 days become store property</li>
+                                        <li><strong>Early Removal:</strong> Consignors may remove individual records or terminate the entire contract early at any time without consequence via the online portal; the store will take the items off the shelves for pickup, treating them as unsold/returned</li>
+                                    </ul>
+                                </td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Consignor Responsibilities & Systems</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Consignor Duties</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Certify legal ownership in the contract</li>
+                                        <li>Provide accurate grading and information</li>
+                                        <li>Keep contact information current to receive notifications</li>
+                                        <li>Pick up unsold/returned items within the 30-day deadline</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Technology & System</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Online Portal:</strong> Provides login for real-time inventory tracking, sales history, payout requests, and early item removal</li>
+                                        <li><strong>Notifications:</strong> Via email</li>
+                                    </ul>
+                                </td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Legal & Administrative</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Agreement Details</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Contract length is 90 days</li>
+                                        <li>The store provides a receipt of sales for tax purposes</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Contract Tab -->
+                <div id="contract" class="tab-pane">
+                    <div class="pdf-container">
+                        <div class="draft-watermark">DRAFT DOCUMENT - FOR REVIEW ONLY</div>
+                        <div class="contract-banner">
+                            <div class="banner-icon">⚠️</div>
+                            <div class="banner-content">
+                                <h3>DRAFT AGREEMENT - NOT LEGALLY BINDING</h3>
+                                <p>This document is provided for review and discussion purposes only. This is not a final contract and is not legally binding. Terms are subject to change based on feedback and legal review.</p>
+                            </div>
                         </div>
-                        <div class="detail-item condition" id="trackCondition">
-                            <span class="condition-stars" id="conditionStars"></span>
+                        
+                        <div class="pdf-header">
+                            <h2>PigStyle Records Consignment Agreement - DRAFT</h2>
+                            <p class="contract-date">Effective Date: [Date]</p>
                         </div>
-                        <!-- Vote controls -->
-                        <div class="vote-controls">
-                            <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
-                                👍
-                                <span class="vote-count-badge" id="upvoteCount">0</span>
-                            </button>
-                            <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">
-                                👎
-                                <span class="vote-count-badge" id="downvoteCount">0</span>
-                            </button>
+                        
+                        <div class="contract-content">
+                            <div class="contract-section">
+                                <h3>1. PARTIES</h3>
+                                <p>This Consignment Agreement ("Agreement") is made between:</p>
+                                <p><strong>Consignor:</strong> [Name], [Address], [Phone], [Email]</p>
+                                <p><strong>PigStyle Records:</strong> 100 E 3rd Street, Loveland CO 80637, 970-492-5630, pigstyle.loveland@gmail.com</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>2. TERM AND RENEWAL</h3>
+                                <p><strong>2.1 Initial Term:</strong> The initial consignment period shall be 90 days from the date of item intake.</p>
+                                <p><strong>2.2 Extension:</strong> Upon expiration of the initial term, items may be extended for an additional 90 days at pricing determined by PigStyle Records, subject to a new agreement.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>3. COMMISSION AND COMPENSATION</h3>
+                                <p><strong>3.1 Commission Rate:</strong> Consignor shall receive [Commission Rate]% of the final sale price for each item sold.</p>
+                                <p><strong>3.2 Payout Threshold:</strong> Payouts are available upon request once balance meets the $10.00 minimum.</p>
+                                <p><strong>3.3 Payment Methods:</strong> Check or cash (when available).</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>4. PRICING AND ADJUSTMENTS</h3>
+                                <p><strong>4.1 Initial Pricing:</strong> Consignor shall set initial prices using a ratio of 0.7 to 1.1 times the Discogs suggested valuation.</p>
+                                <p><strong>4.2 Price Changes:</strong> No price changes will be suggested during the initial 90-day term. After this period, any price reduction requires consignor approval.</p>
+                                <p><strong>4.3 Consignor Options:</strong> For any proposed price change, consignor may either approve the new price or retrieve the item as unsold.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>5. ITEM REQUIREMENTS AND INTAKE</h3>
+                                <p><strong>5.1 Condition Standards:</strong> All items must meet Discogs VG (Very Good) grade or above.</p>
+                                <p><strong>5.2 Accepted Formats:</strong> Sealed items and standard LPs are accepted. Singles are not accepted.</p>
+                                <p><strong>5.3 Prohibited Items:</strong> Counterfeits, bootlegs, and rare/high-value items requiring appraisal are not accepted.</p>
+                                <p><strong>5.4 Store Discretion:</strong> PigStyle Records may reject any item deemed unsellable or undesirable at portal submission or in-store check-in.</p>
+                                <p><strong>5.5 Uniqueness:</strong> Only unique records not already in store inventory are accepted.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>6. LIABILITY AND INSURANCE</h3>
+                                <p><strong>6.1 Store Responsibility:</strong> PigStyle Records assumes responsibility for:</p>
+                                <ul>
+                                    <li>Missing items</li>
+                                    <li>Visible damage not detected during intake</li>
+                                    <li>Burglary, natural disasters, and shoplifting</li>
+                                </ul>
+                                <p><strong>6.2 Consignor Responsibility:</strong> Consignor assumes responsibility for invisible defects (skips, scratches) discovered after sale. Such items will be returned to consignor as unsold.</p>
+                                <p><strong>6.3 Liability Limit:</strong> Maximum liability per item: $10,000.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>7. UNSOLD ITEMS</h3>
+                                <p><strong>7.1 Pickup Period:</strong> Consignor has 30 days to retrieve unsold items after they are removed from shelves.</p>
+                                <p><strong>7.2 Notifications:</strong> PigStyle Records will send weekly email reminders during the pickup period.</p>
+                                <p><strong>7.3 Abandoned Property:</strong> Items not retrieved within 30 days become property of PigStyle Records.</p>
+                                <p><strong>7.4 Early Removal:</strong> Consignor may remove items early via the online portal without penalty.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>8. PAYMENTS AND REPORTING</h3>
+                                <p><strong>8.1 Payout Threshold:</strong> Minimum payout amount is $10.00.</p>
+                                <p><strong>8.2 Payment Methods:</strong> Check or cash (when available).</p>
+                                <p><strong>8.3 Payment Requests:</strong> Consignors may request payouts via the online portal.</p>
+                                <p><strong>8.4 Sales Reporting:</strong> Real-time inventory and sales tracking available through online portal. No separate reports issued.</p>
+                                <p><strong>8.5 Tax Documentation:</strong> PigStyle Records provides receipts of sales for tax purposes.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>9. CONSIGNOR RESPONSIBILITIES</h3>
+                                <p><strong>9.1 Legal Ownership:</strong> Consignor certifies legal ownership of all consigned items.</p>
+                                <p><strong>9.2 Accurate Information:</strong> Consignor provides accurate grading and item information during online check-in.</p>
+                                <p><strong>9.3 Contact Information:</strong> Consignor maintains current contact information to receive notifications.</p>
+                                <p><strong>9.4 Timely Retrieval:</strong> Consignor retrieves unsold/returned items within specified deadlines.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>10. TERMINATION</h3>
+                                <p><strong>10.1 Early Termination:</strong> Consignor may terminate this agreement at any time without penalty by removing items via the online portal.</p>
+                                <p><strong>10.2 Store Closure:</strong> PigStyle Records assumes responsibility for items during store closure, renovation, or relocation.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>11. GENERAL PROVISIONS</h3>
+                                <p><strong>11.1 Entire Agreement:</strong> This document constitutes the entire agreement between parties.</p>
+                                <p><strong>11.2 Governing Law:</strong> This agreement shall be governed by Colorado law.</p>
+                                <p><strong>11.3 Amendments:</strong> Any amendments must be in writing and signed by both parties.</p>
+                            </div>
+
+                            <div class="signature-section">
+                                <div class="signature-block">
+                                    <p><strong>CONSIGNOR</strong></p>
+                                    <div class="signature-line">___________________________________</div>
+                                    <p>Name: ___________________________</p>
+                                    <p>Date: ___________________________</p>
+                                </div>
+                                
+                                <div class="signature-block">
+                                    <p><strong>PIGSTYLE RECORDS</strong></p>
+                                    <div class="signature-line">___________________________________</div>
+                                    <p>Name: ___________________________</p>
+                                    <p>Date: ___________________________</p>
+                                </div>
+                            </div>
+                            
+                            <div class="draft-footer">
+                                <p><strong>DRAFT DOCUMENT - FOR REVIEW PURPOSES ONLY</strong></p>
+                                <p>This is not a legally binding agreement. Final terms may vary.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="video-container" id="videoContainer">
-                <div class="record-image-overlay" id="recordImageOverlay"></div>
-                <div id="youtube-player"></div>
-            </div>
-            
-            <div class="nav-controls">
-                <button class="nav-btn" id="prevBtn">◀</button>
-                <button class="nav-btn" id="nextBtn">▶</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Store all records and filtered records
-        let allRecords = [];
-        let filteredRecords = [];
-        let currentTrackIndex = 0;
-        let youtubePlayer = null;
-        let autoplayEnabled = true;
-        let userIP = null;
-        let currentTrackId = null;
-
-        // Voting system using your PythonAnywhere API
-        class VotingSystem {
-            constructor() {
-                this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com/api';
-                this.voteCounts = {};
-                this.userIP = null;
-            }
-
-            async initialize() {
-                await this.getUserIP();
-                await this.loadAllVoteCounts();
-                this.setupVoteHandlers();
-            }
-
-            async getUserIP() {
-                try {
-                    const response = await fetch('https://api.ipify.org?format=json');
-                    const data = await response.json();
-                    this.userIP = data.ip;
-                    console.log('User IP:', this.userIP);
-                } catch (error) {
-                    console.error('Error getting IP:', error);
-                    // Fallback to random identifier
-                    this.userIP = 'unknown_' + Math.random().toString(36).substr(2, 9);
-                }
-            }
-
-            async loadAllVoteCounts() {
-                try {
-                    const response = await fetch(`${this.apiBaseUrl}/votes`);
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        this.voteCounts = data.vote_counts || {};
-                        console.log('Loaded vote counts:', this.voteCounts);
-                        this.updateAllVoteDisplays();
-                    } else {
-                        console.error('Failed to load vote counts:', data.error);
-                    }
-                } catch (error) {
-                    console.error('Error loading vote counts:', error);
-                }
-            }
-
-            async loadVoteCountsForRecord(artistTitle) {
-                try {
-                    const encodedArtistTitle = encodeURIComponent(artistTitle);
-                    const response = await fetch(`${this.apiBaseUrl}/votes/${encodedArtistTitle}`);
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        this.voteCounts[artistTitle] = {
-                            upvotes: data.upvotes,
-                            downvotes: data.downvotes
-                        };
-                        this.updateVoteDisplay(artistTitle);
-                        return this.voteCounts[artistTitle];
-                    } else {
-                        console.error('Failed to load vote counts for:', artistTitle, data.error);
-                        return { upvotes: 0, downvotes: 0 };
-                    }
-                } catch (error) {
-                    console.error('Error loading vote counts for', artistTitle, error);
-                    return { upvotes: 0, downvotes: 0 };
-                }
-            }
-
-            async vote(artistTitle, voteType) {
-                try {
-                    const response = await fetch(`${this.apiBaseUrl}/vote`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            artist_title: artistTitle,
-                            voter_hash: this.userIP,
-                            vote_type: voteType
-                        })
-                    });
-
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Update local vote counts
-                        this.voteCounts = { ...this.voteCounts, ...data.vote_counts };
-                        this.updateVoteDisplay(artistTitle);
-                        this.showVoteFeedback(artistTitle, voteType, true);
-                        return true;
-                    } else {
-                        this.showVoteFeedback(artistTitle, voteType, false, data.error);
-                        return false;
-                    }
-                } catch (error) {
-                    console.error('Error recording vote:', error);
-                    this.showVoteFeedback(artistTitle, voteType, false, 'Network error');
-                    return false;
-                }
-            }
-
-            updateVoteDisplay(artistTitle) {
-                const counts = this.voteCounts[artistTitle] || { upvotes: 0, downvotes: 0 };
-                
-                // Update the vote buttons in the UI
-                const upvoteBtn = document.getElementById('upvoteBtn');
-                const downvoteBtn = document.getElementById('downvoteBtn');
-                
-                if (upvoteBtn) {
-                    const upvoteCount = document.getElementById('upvoteCount');
-                    if (upvoteCount) upvoteCount.textContent = counts.upvotes;
-                }
-                
-                if (downvoteBtn) {
-                    const downvoteCount = document.getElementById('downvoteCount');
-                    if (downvoteCount) downvoteCount.textContent = counts.downvotes;
-                }
-            }
-
-            updateAllVoteDisplays() {
-                // This will update all vote displays when a new track loads
-                if (currentTrackId) {
-                    this.updateVoteDisplay(currentTrackId);
-                }
-            }
-
-            showVoteFeedback(artistTitle, voteType, success, errorMessage = '') {
-                // Create a temporary feedback message
-                const feedbackEl = document.createElement('div');
-                feedbackEl.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    color: white;
-                    font-weight: bold;
-                    z-index: 1000;
-                    transition: opacity 0.3s;
-                    background: ${success ? '#27ae60' : '#e74c3c'};
-                `;
-                
-                if (success) {
-                    feedbackEl.textContent = `✓ ${voteType === 'upvote' ? 'Liked!' : 'Disliked!'}`;
-                } else {
-                    feedbackEl.textContent = errorMessage || 'Vote failed';
-                }
-                
-                document.body.appendChild(feedbackEl);
-                
-                // Remove after 2 seconds
-                setTimeout(() => {
-                    feedbackEl.style.opacity = '0';
-                    setTimeout(() => {
-                        if (feedbackEl.parentNode) {
-                            feedbackEl.remove();
-                        }
-                    }, 300);
-                }, 2000);
-            }
-
-            setupVoteHandlers() {
-                document.getElementById('upvoteBtn').addEventListener('click', () => {
-                    if (currentTrackId) {
-                        this.vote(currentTrackId, 'upvote');
-                    }
-                });
-                
-                document.getElementById('downvoteBtn').addEventListener('click', () => {
-                    if (currentTrackId) {
-                        this.vote(currentTrackId, 'downvote');
-                    }
-                });
-            }
-        }
-
-        // Initialize voting system
-        const votingSystem = new VotingSystem();
-
-        // Weighted random selection parameters
-        const MIN_WEIGHT = 0.1;  // Even downvoted songs get some playtime
-        const MAX_WEIGHT = 3.0;  // Highly upvoted songs get more playtime
-        const BASE_WEIGHT = 1.0; // Default weight for songs with no votes
-
-        // Format icons mapping
-        const formatIcons = {
-            'vinyl': '⚫',
-            'record': '⚫',
-            'cassette': '📼',
-            'tape': '📼',
-            'cd': '📀',
-            'compact disc': '📀',
-            'digital': '🔊',
-            'stream': '🔊'
-        };
-
-        // Load data from gallery-data.json
-        async function loadStreamingData() {
-            try {
-                console.log('Loading streaming data...');
-                
-                // Initialize voting system
-                await votingSystem.initialize();
-                
-                const response = await fetch('gallery-data.json');
-                const data = await response.json();
-                
-                // Handle both data structures:
-                if (data && data.records && Array.isArray(data.records)) {
-                    allRecords = data.records;
-                } else if (Array.isArray(data)) {
-                    allRecords = data;
-                } else {
-                    console.error('Unexpected data structure:', data);
-                    allRecords = [];
-                }
-                
-                // Filter records to only those with YouTube videos
-                filteredRecords = allRecords.filter(record => {
-                    return extractYouTubeId(record.youtube_url) !== null;
-                });
-                
-                console.log(`Loaded ${filteredRecords.length} streamable records`);
-                
-                if (filteredRecords.length === 0) {
-                    document.getElementById('loading').innerHTML = '<div class="error-message">No streamable records found in the database.</div>';
-                    return;
-                }
-                
-                // Generate weighted playlist based on votes
-                generateWeightedPlaylist();
-                
-                populateGenreFilter();
-                initializePlayer();
-                
-            } catch (error) {
-                console.error('Error loading streaming data:', error);
-                document.getElementById('loading').innerHTML = '<div class="error-message">Error loading streaming station. Please try again later.</div>';
-            }
-        }
-
-        // Generate weighted playlist based on vote scores
-        function generateWeightedPlaylist() {
-            if (filteredRecords.length === 0) return;
-            
-            // Calculate scores and weights for all tracks
-            const tracksWithWeights = filteredRecords.map(record => {
-                const trackId = `${record.artist} - ${record.title}`;
-                const votes = votingSystem.voteCounts[trackId] || { upvotes: 0, downvotes: 0 };
-                const score = votes.upvotes - votes.downvotes;
-                
-                // Calculate weight using hybrid algorithm
-                let weight;
-                if (Object.keys(votingSystem.voteCounts).length === 0) {
-                    // If no votes data yet, use base weight for all
-                    weight = BASE_WEIGHT;
-                } else {
-                    // Find min and max scores across all tracks
-                    const allScores = Object.values(votingSystem.voteCounts).map(v => v.upvotes - v.downvotes);
-                    const minScore = Math.min(...allScores);
-                    const maxScore = Math.max(...allScores);
-                    
-                    if (minScore === maxScore) {
-                        // All songs have same score, use base weight
-                        weight = BASE_WEIGHT;
-                    } else {
-                        // Normalize score to 0-1 range and map to weight range
-                        const normalizedScore = (score - minScore) / (maxScore - minScore);
-                        weight = MIN_WEIGHT + (MAX_WEIGHT - MIN_WEIGHT) * normalizedScore;
-                    }
-                }
-                
-                return {
-                    record: record,
-                    weight: weight,
-                    score: score
-                };
-            });
-            
-            console.log('Track weights:', tracksWithWeights.map(t => ({
-                title: t.record.title,
-                score: t.score,
-                weight: t.weight.toFixed(2)
-            })));
-            
-            // Create weighted playlist by duplicating tracks based on weights
-            const weightedPlaylist = [];
-            tracksWithWeights.forEach(track => {
-                // Round weight to integer for duplication count
-                const count = Math.max(1, Math.round(track.weight));
-                for (let i = 0; i < count; i++) {
-                    weightedPlaylist.push(track.record);
-                }
-            });
-            
-            // Shuffle the weighted playlist
-            shuffleArray(weightedPlaylist);
-            filteredRecords = weightedPlaylist;
-            
-            console.log(`Generated weighted playlist with ${filteredRecords.length} entries (from ${tracksWithWeights.length} unique tracks)`);
-        }
-
-        // Fisher-Yates shuffle algorithm
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        }
-
-        // Populate genre filter dropdown
-        function populateGenreFilter() {
-            const genreFilter = document.getElementById('genreFilter');
-            // Get unique genres from original records (before weighting)
-            const uniqueRecords = allRecords.filter(record => 
-                extractYouTubeId(record.youtube_url) !== null
-            );
-            const genres = [...new Set(uniqueRecords.map(record => record.genre))].sort();
-            
-            genres.forEach(genre => {
-                const option = document.createElement('option');
-                option.value = genre;
-                option.textContent = genre;
-                genreFilter.appendChild(option);
-            });
-            
-            // Add event listener for genre filter
-            genreFilter.addEventListener('change', function() {
-                applyGenreFilter(this.value);
-            });
-        }
-
-        // Apply genre filter
-        function applyGenreFilter(genre) {
-            let filteredByYouTube = allRecords.filter(record => extractYouTubeId(record.youtube_url) !== null);
-            
-            if (!genre) {
-                // Use all streamable records
-                filteredRecords = filteredByYouTube;
-            } else {
-                // Filter by genre
-                filteredRecords = filteredByYouTube.filter(record => record.genre === genre);
-            }
-            
-            // Regenerate weighted playlist for the filtered results
-            generateWeightedPlaylist();
-            
-            if (filteredRecords.length === 0) {
-                // If no records after filtering, show message and stop player
-                document.getElementById('playerContent').style.display = 'none';
-                document.getElementById('loading').innerHTML = '<div class="error-message">No records found for this genre.</div>';
-                return;
-            }
-            
-            // Reset to first track and start playing
-            currentTrackIndex = 0;
-            loadCurrentTrack();
-        }
-
-        // Initialize the player
-        function initializePlayer() {
-            // Hide loading, show player
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('playerContent').style.display = 'block';
-            
-            // Load YouTube API and first track
-            loadYouTubeAPI();
-            
-            // Add event listeners for navigation
-            document.getElementById('prevBtn').addEventListener('click', playPreviousTrack);
-            document.getElementById('nextBtn').addEventListener('click', playNextTrack);
-        }
-
-        // Load YouTube API
-        function loadYouTubeAPI() {
-            // Load YouTube IFrame API
-            const tag = document.createElement('script');
-            tag.src = 'https://www.youtube.com/iframe_api';
-            const firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-            
-            // This function will be called by YouTube API when ready
-            window.onYouTubeIframeAPIReady = function() {
-                loadCurrentTrack();
-            };
-        }
-
-        // Load current track
-        function loadCurrentTrack() {
-            if (filteredRecords.length === 0) return;
-            
-            const currentRecord = filteredRecords[currentTrackIndex];
-            const youtubeId = extractYouTubeId(currentRecord.youtube_url);
-            currentTrackId = `${currentRecord.artist} - ${currentRecord.title}`;
-            
-            // Update track info
-            document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
-            document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
-            
-            // Update format with icon
-            const format = currentRecord.format || 'vinyl';
-            const formatText = format.toLowerCase();
-            const formatIcon = formatIcons[formatText] || '⚫';
-            document.getElementById('formatIcon').textContent = formatIcon;
-            
-            // Update condition with stars
-            const condition = parseInt(currentRecord.condition) || 5;
-            updateConditionStars(condition);
-            
-            // Update price
-            const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
-            document.getElementById('trackPrice').textContent = price;
-            
-            // Update vote display for this track
-            votingSystem.updateVoteDisplay(currentTrackId);
-            
-            // Set record image as overlay
-            const recordImageUrl = currentRecord.image_url || 'images/default-record.jpg';
-            document.getElementById('recordImageOverlay').style.backgroundImage = `url('${recordImageUrl}')`;
-            
-            // Reset video container class
-            document.getElementById('videoContainer').classList.remove('video-playing');
-            
-            // Create or update YouTube player
-            if (!youtubePlayer) {
-                youtubePlayer = new YT.Player('youtube-player', {
-                    height: '100%',
-                    width: '100%',
-                    videoId: youtubeId,
-                    playerVars: {
-                        'autoplay': autoplayEnabled ? 1 : 0,
-                        'controls': 1,
-                        'rel': 0,
-                        'modestbranding': 1,
-                        'cc_load_policy': 0,
-                        'iv_load_policy': 3
-                    },
-                    events: {
-                        'onReady': onPlayerReady,
-                        'onStateChange': onPlayerStateChange
-                    }
-                });
-            } else {
-                youtubePlayer.loadVideoById(youtubeId);
-                if (autoplayEnabled) {
-                    youtubePlayer.playVideo();
-                }
-            }
-        }
-
-        // Update condition stars display
-        function updateConditionStars(condition) {
-            const starsContainer = document.getElementById('conditionStars');
-            starsContainer.innerHTML = '';
-            
-            for (let i = 1; i <= 5; i++) {
-                const star = document.createElement('span');
-                star.className = i <= condition ? 'condition-star' : 'condition-star empty';
-                star.textContent = '★';
-                starsContainer.appendChild(star);
-            }
-        }
-
-        // YouTube player ready callback
-        function onPlayerReady(event) {
-            console.log('YouTube player ready');
-            if (autoplayEnabled) {
-                event.target.playVideo();
-            }
-        }
-
-        // YouTube player state change callback
-        function onPlayerStateChange(event) {
-            // When video starts playing, hide the record image overlay
-            if (event.data === YT.PlayerState.PLAYING) {
-                document.getElementById('videoContainer').classList.add('video-playing');
-            }
-            // When video ends, play next track
-            if (event.data === YT.PlayerState.ENDED) {
-                playNextTrack();
-            }
-        }
-
-        // Play previous track
-        function playPreviousTrack() {
-            currentTrackIndex = (currentTrackIndex - 1 + filteredRecords.length) % filteredRecords.length;
-            loadCurrentTrack();
-        }
-
-        // Play next track
-        function playNextTrack() {
-            currentTrackIndex = (currentTrackIndex + 1) % filteredRecords.length;
-            loadCurrentTrack();
-        }
-
-        // Extract YouTube video ID from URL
-        function extractYouTubeId(url) {
-            if (!url) return null;
-            
-            const patterns = [
-                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)/,
-                /youtube\.com\/embed\/([^&\n?]+)/,
-                /youtube\.com\/v\/([^&\n?]+)/
-            ];
-            
-            for (const pattern of patterns) {
-                const match = url.match(pattern);
-                if (match) {
-                    return match[1];
-                }
-            }
-            return null;
-        }
-
-        // Load the streaming data when page loads
+        // Tab functionality
         document.addEventListener('DOMContentLoaded', function() {
-            loadStreamingData();
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all buttons and panes
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabPanes.forEach(pane => pane.classList.remove('active'));
+                    
+                    // Add active class to clicked button and corresponding pane
+                    this.classList.add('active');
+                    document.getElementById(targetTab).classList.add('active');
+                });
+            });
         });
     </script>
 </body>

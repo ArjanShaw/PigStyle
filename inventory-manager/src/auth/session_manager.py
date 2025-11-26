@@ -91,6 +91,14 @@ class SessionManager:
         """Get current user information"""
         return st.session_state.user if st.session_state.authenticated else None
     
+    def change_password(self, current_password: str, new_password: str) -> tuple[bool, str]:
+        """Change current user's password"""
+        if not st.session_state.authenticated or not st.session_state.user:
+            return False, "Not authenticated"
+        
+        user_id = st.session_state.user['id']
+        return self.auth_manager.change_password(user_id, current_password, new_password)
+    
     def require_auth(self):
         """Decorator to require authentication for functions"""
         def decorator(func):

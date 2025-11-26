@@ -303,6 +303,87 @@ class AuthManager:
         conn.commit()
         conn.close()
     
+    def change_password(self, user_id: int, current_password: str, new_password: str) -> tuple[bool, str]:
+        """Change user password"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Get current password hash
+        cursor.execute('SELECT password_hash FROM users WHERE id = ?', (user_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            conn.close()
+            return False, "User not found"
+        
+        current_password_hash = result[0]
+        
+        # Verify current password
+        if not self._verify_password(current_password, current_password_hash):
+            conn.close()
+            return False, "Current password is incorrect"
+        
+        # Validate new password strength
+        is_strong, message = self._validate_password_strength(new_password)
+        if not is_strong:
+            conn.close()
+            return False, f"New password is weak: {message}"
+        
+        # Hash and update new password
+        new_password_hash = self._hash_password(new_password)
+        
+        try:
+            cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, user_id))
+            
+            # Log the password change
+            cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+            username = cursor.fetchone()[0]
+            
+            cursor.execute('''
+                INSERT INTO audit_log (user_id, action, description)
+                VALUES (?, ?, ?)
+            ''', (user_id, 'PASSWORD_CHANGE', 'User changed password'))
+            
+            conn.commit()
+            conn.close()
+            return True, "Password changed successfully"
+            
+        except Exception as e:
+            conn.close()
+            return False, f"Error changing password: {str(e)}"
+    
+    def reset_password(self, admin_user_id: int, target_user_id: int, new_password: str) -> tuple[bool, str]:
+        """Admin reset user password (admin only)"""
+        # Validate new password strength
+        is_strong, message = self._validate_password_strength(new_password)
+        if not is_strong:
+            return False, f"New password is weak: {message}"
+        
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # Hash and update new password
+            new_password_hash = self._hash_password(new_password)
+            cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, target_user_id))
+            
+            # Log the action
+            cursor.execute('SELECT username FROM users WHERE id = ?', (target_user_id,))
+            target_username = cursor.fetchone()[0]
+            
+            cursor.execute('''
+                INSERT INTO audit_log (user_id, action, description)
+                VALUES (?, ?, ?)
+            ''', (admin_user_id, 'PASSWORD_RESET', f'Admin reset password for user {target_username}'))
+            
+            conn.commit()
+            conn.close()
+            return True, "Password reset successfully"
+            
+        except Exception as e:
+            conn.close()
+            return False, f"Error resetting password: {str(e)}"
+    
     def get_all_users(self):
         """Get all users (admin only)"""
         conn = sqlite3.connect(self.db_path)

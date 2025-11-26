@@ -181,7 +181,7 @@ def render_main_app():
 
 def render_header(user, session_manager):
     """Render application header with user information"""
-    col1, col2, col3 = st.columns([3, 1, 1])
+    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     
     with col1:
         st.title("🎵 PigStyle Inventory Manager")
@@ -192,8 +192,53 @@ def render_header(user, session_manager):
         st.caption(f"Role: {role_display}")
     
     with col3:
+        if st.button("🔐 Change Password", use_container_width=True, use_container_width=True):
+            st.session_state.show_change_password = True
+    
+    with col4:
         if st.button("🚪 Logout", use_container_width=True):
             session_manager.logout()
+    
+    # Show change password form if triggered
+    if st.session_state.get('show_change_password', False):
+        render_change_password_form(session_manager)
+
+def render_change_password_form(session_manager):
+    """Render password change form"""
+    with st.expander("🔐 Change Password", expanded=True):
+        with st.form("change_password_form"):
+            st.write("### Change Your Password")
+            
+            current_password = st.text_input("Current Password", type="password", 
+                                           placeholder="Enter your current password")
+            new_password = st.text_input("New Password", type="password", 
+                                       placeholder="Enter new password")
+            confirm_password = st.text_input("Confirm New Password", type="password", 
+                                           placeholder="Confirm new password")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                submit = st.form_submit_button("💾 Update Password", use_container_width=True)
+            with col2:
+                cancel = st.form_submit_button("❌ Cancel", use_container_width=True)
+            
+            if cancel:
+                st.session_state.show_change_password = False
+                st.rerun()
+            
+            if submit:
+                if not all([current_password, new_password, confirm_password]):
+                    st.error("Please fill all fields")
+                elif new_password != confirm_password:
+                    st.error("New passwords do not match")
+                else:
+                    success, message = session_manager.change_password(current_password, new_password)
+                    if success:
+                        st.success(message)
+                        st.session_state.show_change_password = False
+                        st.rerun()
+                    else:
+                        st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
                                    ebay_tab, statistics_tab, consignment_tab, tools_sync_tab):
@@ -253,7 +298,7 @@ def render_user_management():
     session_manager = SessionManager(auth_manager)
     current_user = session_manager.get_current_user()
     
-    tab1, tab2, tab3 = st.tabs(["Users", "Create User", "Audit Log"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Users", "Create User", "Reset Passwords", "Audit Log"])
     
     with tab1:
         st.subheader("User Accounts")
@@ -322,6 +367,37 @@ def render_user_management():
                         st.error(message)
     
     with tab3:
+        st.subheader("Reset User Passwords")
+        users = auth_manager.get_all_users()
+        
+        if users:
+            for user in users:
+                user_id, username, email, role, full_name, is_active, created_at, last_login = user
+                
+                with st.expander(f"Reset password for {username}"):
+                    new_password = st.text_input("New Password", type="password", 
+                                               placeholder="Enter new password",
+                                               key=f"new_pass_{user_id}")
+                    confirm_password = st.text_input("Confirm Password", type="password",
+                                                   placeholder="Confirm new password",
+                                                   key=f"confirm_pass_{user_id}")
+                    
+                    if st.button("Reset Password", key=f"reset_{user_id}"):
+                        if not new_password or not confirm_password:
+                            st.error("Please enter both password fields")
+                        elif new_password != confirm_password:
+                            st.error("Passwords do not match")
+                        else:
+                            success, message = auth_manager.reset_password(current_user['id'], user_id, new_password)
+                            if success:
+                                st.success(message)
+                                st.rerun()
+                            else:
+                                st.error(message)
+        else:
+            st.info("No users found")
+    
+    with tab4:
         st.subheader("Audit Log")
         logs = auth_manager.get_audit_log(limit=50)
         

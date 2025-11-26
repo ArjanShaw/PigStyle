@@ -244,51 +244,46 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
                                    ebay_tab, statistics_tab, consignment_tab, tools_sync_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
-    accessible_modules = PermissionManager.get_accessible_modules(user_role)
     
     tab_configs = []
     
-    # Define tab configurations with required permissions
-    if 'inventory' in accessible_modules:
-        tab_configs.append(("📦 Inventory", inventory_tab.render, ['view']))
+    # Always show these tabs for authenticated users with basic view permissions
+    if PermissionManager.has_permission(user_role, 'inventory', 'view'):
+        tab_configs.append(("📦 Inventory", inventory_tab.render))
     
     if PermissionManager.has_permission(user_role, 'inventory', 'add'):
-        tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render, ['view']))
+        tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render))
     
-    if 'pricing' in accessible_modules:
-        tab_configs.append(("🏪 Store Pricing", store_pricing_tab.render, ['view']))
+    if PermissionManager.has_permission(user_role, 'pricing', 'view'):
+        tab_configs.append(("🏪 Store Pricing", store_pricing_tab.render))
     
-    if 'ebay' in accessible_modules:
-        tab_configs.append(("🛒 eBay", ebay_tab.render, ['view']))
+    if PermissionManager.has_permission(user_role, 'ebay', 'view'):
+        tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    if 'reports' in accessible_modules:
-        tab_configs.append(("📊 Statistics", statistics_tab.render, ['view']))
+    if PermissionManager.has_permission(user_role, 'reports', 'view'):
+        tab_configs.append(("📊 Statistics", statistics_tab.render))
     
-    if 'consignment' in accessible_modules:
-        tab_configs.append(("🤝 Consignment", consignment_tab.render, ['view']))
+    if PermissionManager.has_permission(user_role, 'consignment', 'view'):
+        tab_configs.append(("🤝 Consignment", consignment_tab.render))
     
     if PermissionManager.has_permission(user_role, 'system', 'view'):
-        tab_configs.append(("🛠️ Tools & Sync", tools_sync_tab.render, ['view']))
+        tab_configs.append(("🛠️ Tools & Sync", tools_sync_tab.render))
     
-    # Admin-only tabs
+    # Admin-only tabs - check specific admin permissions
     if user_role == 'admin':
-        tab_configs.append(("👥 User Management", render_user_management, ['view']))
+        tab_configs.append(("👥 User Management", render_user_management))
     
     # Create tabs
     if tab_configs:
         tab_names = [config[0] for config in tab_configs]
         tabs = st.tabs(tab_names)
         
-        for i, (tab_name, render_function, required_perms) in enumerate(tab_configs):
+        for i, (tab_name, render_function) in enumerate(tab_configs):
             with tabs[i]:
-                # Check permissions before rendering
-                module = tab_name.split(' ')[1].lower() if ' ' in tab_name else tab_name.lower()
-                has_access = all(PermissionManager.has_permission(user_role, module, perm) for perm in required_perms)
-                
-                if has_access:
+                try:
                     render_function()
-                else:
-                    st.warning(f"You don't have permission to access {tab_name}")
+                except Exception as e:
+                    st.error(f"Error loading {tab_name}: {str(e)}")
 
 def render_user_management():
     """Render user management interface (admin only)"""
@@ -297,6 +292,11 @@ def render_user_management():
     auth_manager = AuthManager()
     session_manager = SessionManager(auth_manager)
     current_user = session_manager.get_current_user()
+    
+    # Double-check that user is admin
+    if current_user['role'] != 'admin':
+        st.error("❌ Access denied. Administrator privileges required.")
+        return
     
     tab1, tab2, tab3, tab4 = st.tabs(["Users", "Create User", "Reset Passwords", "Audit Log"])
     
@@ -316,6 +316,7 @@ def render_user_management():
                         st.write(f"**Created:** {created_at.split(' ')[0]}")
                         if last_login:
                             st.write(f"**Last Login:** {last_login.split(' ')[0]}")
+                        st.write(f"**Active:** {'✅ Yes' if is_active else '❌ No'}")
                     
                     with col2:
                         new_role = st.selectbox(

@@ -2,6 +2,8 @@ import sqlite3
 import pandas as pd
 import os
 from datetime import datetime
+import requests
+import tempfile
 
 class DatabaseManager:
     """Handles all database operations for Discogs data"""
@@ -18,7 +20,37 @@ class DatabaseManager:
         
         # Ensure directory exists
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        
+        # Always download database from GitHub - never use local copy
+        self._download_database_from_github()
+        
         self._init_database()
+    
+    def _download_database_from_github(self):
+        """Download database from GitHub - never use local copy"""
+        github_db_url = "https://github.com/ArjanShaw/PigStyle/raw/main/data/records.db"
+        
+        try:
+            print("Downloading database from GitHub...")
+            response = requests.get(github_db_url, timeout=30)
+            if response.status_code == 200:
+                # Write to temporary file first
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as temp_file:
+                    temp_file.write(response.content)
+                    temp_path = temp_file.name
+                
+                # Replace local database
+                if os.path.exists(self.db_path):
+                    os.remove(self.db_path)
+                os.rename(temp_path, self.db_path)
+                print("✅ Database downloaded successfully from GitHub")
+            else:
+                raise Exception(f"Failed to download database: HTTP {response.status_code}")
+        except Exception as e:
+            # Remove any existing local database to ensure consistency
+            if os.path.exists(self.db_path):
+                os.remove(self.db_path)
+            raise Exception(f"Could not download database from GitHub: {e}")
     
     def _init_database(self):
         """Initialize SQLite database with required tables and triggers"""

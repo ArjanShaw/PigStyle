@@ -4,7 +4,7 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
-    <title>Consignment Policy - PigStyle Records</title>
+    <title>Consignment - PigStyle Records</title>
     <link rel="stylesheet" href="consignment.css">
 </head>
 <body>
@@ -28,155 +28,305 @@
         </div>
 
         <div class="page-title">
-            <h1>Consignment Program Policy</h1>
+            <h1>Consignment Program</h1>
         </div>
 
-        <table class="policy-table">
-            <tbody>
-                <tr class="category-header">
-                    <td colspan="2">Onboarding & Item Eligibility</td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Eligible Items & Condition</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li><strong>Condition:</strong> Must be Discogs VG (Very Good) grade or above</li>
-                            <li><strong>Formats:</strong> Sealed items and standard LPs are accepted. Singles are not accepted</li>
-                            <li><strong>Uniqueness:</strong> The store only accepts unique records; the portal checks for duplicates against existing inventory</li>
-                            <li><strong>Not Accepted:</strong> Counterfeits/bootlegs, rare/high-value items requiring appraisal</li>
-                            <li><strong>Store Discretion:</strong> The store may reject any item deemed unsellable or undesirable at either the portal submission stage or the in-store check-in</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Submission Process</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li>Consignor signs up and submits items via the online portal</li>
-                            <li>Consignor brings the physical records to the store for final inspection</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Volume</td>
-                    <td>Maximum number of items is determined by store capacity; there is no minimum</td>
-                </tr>
+        <div class="tabs-container">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="policy">Program Policy</button>
+                <button class="tab-button" data-tab="contract">Draft Contract</button>
+            </div>
+            
+            <div class="tab-content">
+                <!-- Policy Tab -->
+                <div id="policy" class="tab-pane active">
+                    <table class="policy-table">
+                        <tbody>
+                            <tr class="category-header">
+                                <td colspan="2">Onboarding & Item Eligibility</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Eligible Items & Condition</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Condition:</strong> Must be Discogs VG (Very Good) grade or above</li>
+                                        <li><strong>Formats:</strong> Sealed items and standard LPs are accepted. Singles are not accepted</li>
+                                        <li><strong>Uniqueness:</strong> The store only accepts unique records; the portal checks for duplicates against existing inventory</li>
+                                        <li><strong>Not Accepted:</strong> Counterfeits/bootlegs, rare/high-value items requiring appraisal</li>
+                                        <li><strong>Store Discretion:</strong> The store may reject any item deemed unsellable or undesirable at either the portal submission stage or the in-store check-in</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Submission Process</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Consignor signs up and submits items via the online portal</li>
+                                        <li>Consignor brings the physical records to the store for final inspection</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Volume</td>
+                                <td>Maximum number of items is determined by store capacity; there is no minimum</td>
+                            </tr>
 
-                <tr class="category-header">
-                    <td colspan="2">Pricing, Sales & Commission</td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Pricing & Reductions</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li><strong>Initial Price:</strong> Set by consignor as a ratio (0.7 to 1.1) of the Discogs suggested price</li>
-                            <li><strong>Price Reductions:</strong> No price changes will be suggested before the end of the initial 90-day term. After the term, if a price change is suggested, the consignor must either approve the change or pick up the item as unsold</li>
-                            <li><strong>Markdowns:</strong> No markdowns for cosmetic issues; these should be accounted for in the initial grading and price</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Commission & Payout</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li><strong>Rate:</strong> Variable commission based on store inventory: 10% at ≤70% capacity, linearly increasing to 40% at 110% capacity. <strong>Consignors see the current commission rate when checking in records via the online portal.</strong></li>
-                            <li><strong>Incentive:</strong> A +5% commission bonus is offered for choosing store credit (e.g., 15% instead of 10%)</li>
-                            <li><strong>Payout:</strong> Available upon request via the portal once balance meets the $10.00 minimum. If an account is closed, the consignor may request a final payout of any amount</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Sales Reporting</td>
-                    <td>Consignors monitor all sales and inventory status in real-time through the online portal. No separate reports are issued</td>
-                </tr>
+                            <tr class="category-header">
+                                <td colspan="2">Pricing, Sales & Commission</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Pricing & Reductions</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Initial Price:</strong> Set by consignor as a ratio (0.7 to 1.1) of the Discogs suggested price</li>
+                                        <li><strong>Price Reductions:</strong> No price changes will be suggested before the end of the initial 90-day term. After the term, if a price change is suggested, the consignor must either approve the change or pick up the item as unsold</li>
+                                        <li><strong>Markdowns:</strong> No markdowns for cosmetic issues; these should be accounted for in the initial grading and price</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Commission & Payout</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Rate:</strong> Variable commission based on store inventory: 10% at ≤70% capacity, linearly increasing to 40% at 110% capacity. Consignor specifies batch size which determines an average rate for the entire batch. <strong>Consignors see the current commission rate when checking in records via the online portal.</strong></li>
+                                        <li><strong>Incentive:</strong> A +5% commission bonus is offered for choosing store credit (e.g., 15% instead of 10%)</li>
+                                        <li><strong>Payout:</strong> Available upon request via the portal once balance meets the $10.00 minimum. If an account is closed, the consignor may request a final payout of any amount</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Sales Reporting</td>
+                                <td>Consignors monitor all sales and inventory status in real-time through the online portal. No separate reports are issued</td>
+                            </tr>
 
-                <tr class="category-header">
-                    <td colspan="2">Intake, Liability & Item Care</td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Check-in & Verification</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li>Consignor self-grades items in the portal; the store verifies the grading during the physical check-in</li>
-                            <li>A barcode is assigned to each record for tracking</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Liability & Disputes</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li><strong>Store Responsibility:</strong> Covers missing items, visible damage missed at intake, burglary, natural disasters, and shoplifting</li>
-                            <li><strong>Consignor Responsibility:</strong> Invisible defects (e.g., skips) are assumed pre-existing; the affected record is returned to the consignor as unsold</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Cleaning & Services</td>
-                    <td>Records should be clean at intake. The store offers a cleaning service at a discounted rate, billed separately</td>
-                </tr>
+                            <tr class="category-header">
+                                <td colspan="2">Intake, Liability & Item Care</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Check-in & Verification</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Consignor self-grades items in the portal; the store verifies the grading during the physical check-in</li>
+                                        <li>A barcode is assigned to each record for tracking</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Liability & Disputes</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Store Responsibility:</strong> Covers missing items, visible damage missed at intake, burglary, natural disasters, and shoplifting</li>
+                                        <li><strong>Consignor Responsibility:</strong> Invisible defects (e.g., skips) are assumed pre-existing; the affected record is returned to the consignor as unsold</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Cleaning & Services</td>
+                                <td>Records should be clean at intake. The store offers a cleaning service at a discounted rate, billed separately</td>
+                            </tr>
 
-                <tr class="category-header">
-                    <td colspan="2">Unsold Items & End-of-Term</td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Consignment Period</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li><strong>Initial Term:</strong> 90 days at the consignor's set price</li>
-                            <li><strong>Extension:</strong> Can be extended for another 90 days at a store-determined price with a new contract</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Unsold Item Process</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li>After a record is taken from the shelves (for any reason), the consignor has 30 days to pick it up</li>
-                            <li>The store sends weekly email reminders. Items not picked up within 30 days become store property</li>
-                            <li><strong>Early Removal:</strong> Consignors may remove individual records or terminate the entire contract early at any time without consequence via the online portal; the store will take the items off the shelves for pickup, treating them as unsold/returned</li>
-                        </ul>
-                    </td>
-                </tr>
+                            <tr class="category-header">
+                                <td colspan="2">Unsold Items & End-of-Term</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Consignment Period</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Initial Term:</strong> 90 days at the consignor's set price</li>
+                                        <li><strong>Extension:</strong> Can be extended for another 90 days at a store-determined price with a new contract</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Unsold Item Process</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>After a record is taken from the shelves (for any reason), the consignor has 30 days to pick it up</li>
+                                        <li>The store sends weekly email reminders. Items not picked up within 30 days become store property</li>
+                                        <li><strong>Early Removal:</strong> Consignors may remove individual records or terminate the entire contract early at any time without consequence via the online portal; the store will take the items off the shelves for pickup, treating them as unsold/returned</li>
+                                    </ul>
+                                </td>
+                            </tr>
 
-                <tr class="category-header">
-                    <td colspan="2">Consignor Responsibilities & Systems</td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Consignor Duties</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li>Certify legal ownership in the contract</li>
-                            <li>Provide accurate grading and information</li>
-                            <li>Keep contact information current to receive notifications</li>
-                            <li>Pick up unsold/returned items within the 30-day deadline</li>
-                        </ul>
-                    </td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Technology & System</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li><strong>Online Portal:</strong> Provides login for real-time inventory tracking, sales history, payout requests, and early item removal</li>
-                            <li><strong>Notifications:</strong> Via email</li>
-                        </ul>
-                    </td>
-                </tr>
+                            <tr class="category-header">
+                                <td colspan="2">Consignor Responsibilities & Systems</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Consignor Duties</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Certify legal ownership in the contract</li>
+                                        <li>Provide accurate grading and information</li>
+                                        <li>Keep contact information current to receive notifications</li>
+                                        <li>Pick up unsold/returned items within the 30-day deadline</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Technology & System</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Online Portal:</strong> Provides login for real-time inventory tracking, sales history, payout requests, and early item removal</li>
+                                        <li><strong>Notifications:</strong> Via email</li>
+                                    </ul>
+                                </td>
+                            </tr>
 
-                <tr class="category-header">
-                    <td colspan="2">Legal & Administrative</td>
-                </tr>
-                <tr class="sub-item">
-                    <td>Agreement Details</td>
-                    <td>
-                        <ul class="conditions-list">
-                            <li>Contract length is 90 days</li>
-                            <li>The store provides a receipt of sales for tax purposes</li>
-                        </ul>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+                            <tr class="category-header">
+                                <td colspan="2">Legal & Administrative</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Agreement Details</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Contract length is 90 days</li>
+                                        <li>The store provides a receipt of sales for tax purposes</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Contract Tab -->
+                <div id="contract" class="tab-pane">
+                    <div class="pdf-container">
+                        <div class="draft-watermark">DRAFT DOCUMENT - FOR REVIEW ONLY</div>
+                        <div class="contract-banner">
+                            <div class="banner-icon">⚠️</div>
+                            <div class="banner-content">
+                                <h3>DRAFT AGREEMENT - NOT LEGALLY BINDING</h3>
+                                <p>This document is provided for review and discussion purposes only. This is not a final contract and is not legally binding. Terms are subject to change based on feedback and legal review.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="pdf-header">
+                            <h2>PigStyle Records Consignment Agreement - DRAFT</h2>
+                            <p class="contract-date">Effective Date: [Date]</p>
+                        </div>
+                        
+                        <div class="contract-content">
+                            <div class="contract-section">
+                                <h3>1. PARTIES</h3>
+                                <p>This Consignment Agreement ("Agreement") is made between:</p>
+                                <p><strong>Consignor:</strong> [Name], [Address], [Phone], [Email]</p>
+                                <p><strong>PigStyle Records:</strong> 100 E 3rd Street, Loveland CO 80637, 970-492-5630, pigstyle.loveland@gmail.com</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>2. TERM</h3>
+                                <p>The consignment period shall be 90 days from the date of item intake.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>3. COMMISSION AND COMPENSATION</h3>
+                                <p><strong>3.1 Commission Rate:</strong> Consignor shall receive [Commission Rate]% of the final sale price for each item sold.</p>
+                                <p><strong>3.2 Payout Threshold:</strong> Payouts are available upon request once balance meets the $10.00 minimum, unless closing account.</p>
+                                <p><strong>3.3 Payment Methods:</strong> Check or cash (when available). Consignors may request payouts via the online portal to receive a check in the mail.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>4. PRICING</h3>
+                                <p>Consigned items shall be priced as follows:</p>
+                                <ul>
+                                    <li>Record 1: $[Price]</li>
+                                    <li>Record 2: $[Price]</li>
+                                    <li>Record 3: $[Price]</li>
+                                    <li>Record 4: $[Price]</li>
+                                    <li>Record 5: $[Price]</li>
+                                </ul>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>5. INTAKE</h3>
+                                <p>PigStyle Records may reject any item at portal submission or in-store check-in for any reason including: prohibited item, misrepresentation of condition, unacceptable format, or not unique for store inventory.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>6. LIABILITY AND INSURANCE</h3>
+                                <p><strong>6.1 Store Responsibility:</strong> PigStyle Records assumes responsibility for:</p>
+                                <ul>
+                                    <li>Missing items</li>
+                                    <li>Visible damage not detected during intake</li>
+                                    <li>Burglary, natural disasters, and shoplifting</li>
+                                </ul>
+                                <p><strong>6.2 Consignor Responsibility:</strong> Consignor assumes responsibility for invisible defects (skips, scratches) discovered after sale. Such items will be returned to consignor as unsold.</p>
+                                <p><strong>6.3 Liability Limit:</strong> Maximum liability per item: $30.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>7. ITEM REMOVAL AND UNSOLD ITEMS</h3>
+                                <p><strong>7.1 Mutual Removal:</strong> Both store and consignor may remove a record from consignment at any time for any reason. PigStyle Records may decide to take items out of active inventory during store closure, renovation, or relocation.</p>
+                                <p><strong>7.2 Pickup Period:</strong> Consignor has 30 days to retrieve items after they were notified of removal.</p>
+                                <p><strong>7.3 Abandoned Property:</strong> Items not retrieved within 30 days after notification become property of PigStyle Records.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>8. PAYMENTS</h3>
+                                <p><strong>8.1 Payout Threshold:</strong> Minimum payout amount is $10.00, unless closing account.</p>
+                                <p><strong>8.2 Payment Methods:</strong> Check or cash (when available). Consignors may request payouts via the online portal to receive a check in the mail.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>9. CONSIGNOR RESPONSIBILITIES</h3>
+                                <p><strong>9.1 Legal Ownership:</strong> Consignor certifies legal ownership of all consigned items.</p>
+                                <p><strong>9.2 Contact Information:</strong> Consignor is responsible for missed communication sent to provided contact details.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>10. GENERAL PROVISIONS</h3>
+                                <p><strong>10.1 Entire Agreement:</strong> This document constitutes the entire agreement between parties.</p>
+                                <p><strong>10.2 Governing Law:</strong> This agreement shall be governed by Colorado law.</p>
+                                <p><strong>10.3 Amendments:</strong> Any amendments must be in writing and signed by both parties.</p>
+                            </div>
+
+                            <div class="signature-section">
+                                <div class="signature-block">
+                                    <p><strong>CONSIGNOR</strong></p>
+                                    <div class="signature-line">___________________________________</div>
+                                    <p>Name: ___________________________</p>
+                                    <p>Date: ___________________________</p>
+                                </div>
+                                
+                                <div class="signature-block">
+                                    <p><strong>PIGSTYLE RECORDS</strong></p>
+                                    <div class="signature-line">___________________________________</div>
+                                    <p>Name: ___________________________</p>
+                                    <p>Date: ___________________________</p>
+                                </div>
+                            </div>
+                            
+                            <div class="draft-footer">
+                                <p><strong>DRAFT DOCUMENT - FOR REVIEW PURPOSES ONLY</strong></p>
+                                <p>This is not a legally binding agreement. Final terms may vary.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <script>
+        // Tab functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all buttons and panes
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabPanes.forEach(pane => pane.classList.remove('active'));
+                    
+                    // Add active class to clicked button and corresponding pane
+                    this.classList.add('active');
+                    document.getElementById(targetTab).classList.add('active');
+                });
+            });
+        });
+    </script>
 </body>
 </html>

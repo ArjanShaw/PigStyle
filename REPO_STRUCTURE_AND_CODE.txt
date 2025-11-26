@@ -700,94 +700,325 @@ FILE: web/public/consignment.html
     </header>
      
     <div class="content-container">
-        <div class="page-title">
-            <h1>Sell Your Records With Me</h1>
+        <div class="banner">
+            ⚠️ This is a draft document for review purposes only and is not the final policy.
         </div>
 
-        <div class="consignment-content">
-            <div class="special-offer">
-                <h2>Opening Special: 90% to You</h2>
-                <p>For a limited time, keep 90% of your record sales - I only take 10%</p>
-            </div>
+        <div class="page-title">
+            <h1>Consignment Program</h1>
+        </div>
 
-            <div class="info-card">
-                <h2>How It Works</h2>
-                <div class="process-steps">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <h3>Bring Your Records</h3>
-                            <p>Call or email me to set up a time to bring in your vinyl. We'll look through your collection together and I'll help with price suggestions based on what's selling.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <h3>I Handle the Sales</h3>
-                            <p>I take care of everything in the store - customers, sales, and keeping track of what sells. Your sales and inventory are tracked through automated software so we both know what's happening with your records.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <h3>You Get Paid</h3>
-                            <p>When your records sell, you get paid. It's that simple. I provide monthly statements and payments for whatever sold.</p>
-                        </div>
-                    </div>
-                </div>
+        <div class="tabs-container">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="policy">Program Policy</button>
+                <button class="tab-button" data-tab="contract">Draft Contract</button>
             </div>
+            
+            <div class="tab-content">
+                <!-- Policy Tab -->
+                <div id="policy" class="tab-pane active">
+                    <table class="policy-table">
+                        <tbody>
+                            <tr class="category-header">
+                                <td colspan="2">Onboarding & Item Eligibility</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Eligible Items & Condition</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Condition:</strong> Must be Discogs VG (Very Good) grade or above</li>
+                                        <li><strong>Formats:</strong> Sealed items and standard LPs are accepted. Singles are not accepted</li>
+                                        <li><strong>Uniqueness:</strong> The store only accepts unique records; the portal checks for duplicates against existing inventory</li>
+                                        <li><strong>Not Accepted:</strong> Counterfeits/bootlegs, rare/high-value items requiring appraisal</li>
+                                        <li><strong>Store Discretion:</strong> The store may reject any item deemed unsellable or undesirable at either the portal submission stage or the in-store check-in</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Submission Process</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Consignor signs up and submits items via the online portal</li>
+                                        <li>Consignor brings the physical records to the store for final inspection</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Volume</td>
+                                <td>Maximum number of items is determined by store capacity; there is no minimum</td>
+                            </tr>
 
-            <div class="details-grid">
-                <div class="detail-card">
-                    <h3>The Deal</h3>
-                    <ul>
-                        <li>You keep 90% of sales</li>
-                        <li>I handle store operations</li>
-                        <li>Automated inventory tracking</li>
-                        <li>Monthly payments</li>
-                    </ul>
+                            <tr class="category-header">
+                                <td colspan="2">Pricing, Sales & Commission</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Pricing & Reductions</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Initial Price:</strong> Set by consignor as a ratio (0.7 to 1.1) of the Discogs suggested price</li>
+                                        <li><strong>Price Reductions:</strong> No price changes will be suggested before the end of the initial 90-day term. After the term, if a price change is suggested, the consignor must either approve the change or pick up the item as unsold</li>
+                                        <li><strong>Markdowns:</strong> No markdowns for cosmetic issues; these should be accounted for in the initial grading and price</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Commission & Payout</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Rate:</strong> Variable commission based on store inventory: 10% at ≤70% capacity, linearly increasing to 40% at 110% capacity. <strong>Consignors see the current commission rate when checking in records via the online portal.</strong></li>
+                                        <li><strong>Incentive:</strong> A +5% commission bonus is offered for choosing store credit (e.g., 15% instead of 10%)</li>
+                                        <li><strong>Payout:</strong> Available upon request via the portal once balance meets the $10.00 minimum. If an account is closed, the consignor may request a final payout of any amount</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Sales Reporting</td>
+                                <td>Consignors monitor all sales and inventory status in real-time through the online portal. No separate reports are issued</td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Intake, Liability & Item Care</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Check-in & Verification</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Consignor self-grades items in the portal; the store verifies the grading during the physical check-in</li>
+                                        <li>A barcode is assigned to each record for tracking</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Liability & Disputes</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Store Responsibility:</strong> Covers missing items, visible damage missed at intake, burglary, natural disasters, and shoplifting</li>
+                                        <li><strong>Consignor Responsibility:</strong> Invisible defects (e.g., skips) are assumed pre-existing; the affected record is returned to the consignor as unsold</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Cleaning & Services</td>
+                                <td>Records should be clean at intake. The store offers a cleaning service at a discounted rate, billed separately</td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Unsold Items & End-of-Term</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Consignment Period</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Initial Term:</strong> 90 days at the consignor's set price</li>
+                                        <li><strong>Extension:</strong> Can be extended for another 90 days at a store-determined price with a new contract</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Unsold Item Process</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>After a record is taken from the shelves (for any reason), the consignor has 30 days to pick it up</li>
+                                        <li>The store sends weekly email reminders. Items not picked up within 30 days become store property</li>
+                                        <li><strong>Early Removal:</strong> Consignors may remove individual records or terminate the entire contract early at any time without consequence via the online portal; the store will take the items off the shelves for pickup, treating them as unsold/returned</li>
+                                    </ul>
+                                </td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Consignor Responsibilities & Systems</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Consignor Duties</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Certify legal ownership in the contract</li>
+                                        <li>Provide accurate grading and information</li>
+                                        <li>Keep contact information current to receive notifications</li>
+                                        <li>Pick up unsold/returned items within the 30-day deadline</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Technology & System</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li><strong>Online Portal:</strong> Provides login for real-time inventory tracking, sales history, payout requests, and early item removal</li>
+                                        <li><strong>Notifications:</strong> Via email</li>
+                                    </ul>
+                                </td>
+                            </tr>
+
+                            <tr class="category-header">
+                                <td colspan="2">Legal & Administrative</td>
+                            </tr>
+                            <tr class="sub-item">
+                                <td>Agreement Details</td>
+                                <td>
+                                    <ul class="conditions-list">
+                                        <li>Contract length is 90 days</li>
+                                        <li>The store provides a receipt of sales for tax purposes</li>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
                 
-                <div class="detail-card">
-                    <h3>Simple & Secure</h3>
-                    <ul>
-                        <li>Clear contract protects your records</li>
-                        <li>Barcode tracking on every item</li>
-                        <li>Digital records of all sales</li>
-                        <li>Unsold records returned to you</li>
-                    </ul>
-                </div>
-                
-                <div class="detail-card">
-                    <h3>Get Started</h3>
-                    <ul>
-                        <li>Phone: <a href="tel:970-492-5630">970-492-5630</a></li>
-                        <li>Email: pigstyle.loveland@gmail.com</li>
-                        <li>Call or email to set up a time</li>
-                        <li>Building inventory for opening</li>
-                    </ul>
-                </div>
-            </div>
+                <!-- Contract Tab -->
+                <div id="contract" class="tab-pane">
+                    <div class="pdf-container">
+                        <div class="draft-watermark">DRAFT DOCUMENT - FOR REVIEW ONLY</div>
+                        <div class="contract-banner">
+                            <div class="banner-icon">⚠️</div>
+                            <div class="banner-content">
+                                <h3>DRAFT AGREEMENT - NOT LEGALLY BINDING</h3>
+                                <p>This document is provided for review and discussion purposes only. This is not a final contract and is not legally binding. Terms are subject to change based on feedback and legal review.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="pdf-header">
+                            <h2>PigStyle Records Consignment Agreement - DRAFT</h2>
+                            <p class="contract-date">Effective Date: [Date]</p>
+                        </div>
+                        
+                        <div class="contract-content">
+                            <div class="contract-section">
+                                <h3>1. PARTIES</h3>
+                                <p>This Consignment Agreement ("Agreement") is made between:</p>
+                                <p><strong>Consignor:</strong> [Name], [Address], [Phone], [Email]</p>
+                                <p><strong>PigStyle Records:</strong> 100 E 3rd Street, Loveland CO 80637, 970-492-5630, pigstyle.loveland@gmail.com</p>
+                            </div>
 
-            <div class="simple-pitch">
-                <p>I'm setting up a straightforward consignment system where you control the prices and I handle the store. The software tracks everything automatically, and the contract makes sure your records are protected. It's a simple way to sell your vinyl without the hassle of doing it yourself.</p>
-                
-                <p>Right now I'm offering a special 90/10 split to help build up the store's selection. If you've got records you're ready to move, give me a call and let's work together.</p>
+                            <div class="contract-section">
+                                <h3>2. TERM AND RENEWAL</h3>
+                                <p><strong>2.1 Initial Term:</strong> The initial consignment period shall be 90 days from the date of item intake.</p>
+                                <p><strong>2.2 Extension:</strong> Upon expiration of the initial term, items may be extended for an additional 90 days at pricing determined by PigStyle Records, subject to a new agreement.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>3. COMMISSION AND COMPENSATION</h3>
+                                <p><strong>3.1 Commission Structure:</strong> Commission rates vary based on store inventory capacity:</p>
+                                <ul>
+                                    <li>10% commission when store inventory is at 70% capacity or less</li>
+                                    <li>Commission increases linearly up to 40% when store inventory reaches 110% capacity</li>
+                                    <li>No items accepted when store inventory exceeds 110% capacity</li>
+                                </ul>
+                                <p><strong>3.2 Store Credit Bonus:</strong> Consignors receive a +5% commission bonus when choosing store credit instead of cash payment.</p>
+                                <p><strong>3.3 Current Rate Display:</strong> The current commission rate is displayed to consignors during the online check-in process.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>4. PRICING AND ADJUSTMENTS</h3>
+                                <p><strong>4.1 Initial Pricing:</strong> Consignor shall set initial prices using a ratio of 0.7 to 1.1 times the Discogs suggested valuation.</p>
+                                <p><strong>4.2 Price Changes:</strong> No price changes will be suggested during the initial 90-day term. After this period, any price reduction requires consignor approval.</p>
+                                <p><strong>4.3 Consignor Options:</strong> For any proposed price change, consignor may either approve the new price or retrieve the item as unsold.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>5. ITEM REQUIREMENTS AND INTAKE</h3>
+                                <p><strong>5.1 Condition Standards:</strong> All items must meet Discogs VG (Very Good) grade or above.</p>
+                                <p><strong>5.2 Accepted Formats:</strong> Sealed items and standard LPs are accepted. Singles are not accepted.</p>
+                                <p><strong>5.3 Prohibited Items:</strong> Counterfeits, bootlegs, and rare/high-value items requiring appraisal are not accepted.</p>
+                                <p><strong>5.4 Store Discretion:</strong> PigStyle Records may reject any item deemed unsellable or undesirable at portal submission or in-store check-in.</p>
+                                <p><strong>5.5 Uniqueness:</strong> Only unique records not already in store inventory are accepted.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>6. LIABILITY AND INSURANCE</h3>
+                                <p><strong>6.1 Store Responsibility:</strong> PigStyle Records assumes responsibility for:</p>
+                                <ul>
+                                    <li>Missing items</li>
+                                    <li>Visible damage not detected during intake</li>
+                                    <li>Burglary, natural disasters, and shoplifting</li>
+                                </ul>
+                                <p><strong>6.2 Consignor Responsibility:</strong> Consignor assumes responsibility for invisible defects (skips, scratches) discovered after sale. Such items will be returned to consignor as unsold.</p>
+                                <p><strong>6.3 Liability Limit:</strong> Maximum liability per item: $10,000.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>7. UNSOLD ITEMS</h3>
+                                <p><strong>7.1 Pickup Period:</strong> Consignor has 30 days to retrieve unsold items after they are removed from shelves.</p>
+                                <p><strong>7.2 Notifications:</strong> PigStyle Records will send weekly email reminders during the pickup period.</p>
+                                <p><strong>7.3 Abandoned Property:</strong> Items not retrieved within 30 days become property of PigStyle Records.</p>
+                                <p><strong>7.4 Early Removal:</strong> Consignor may remove items early via the online portal without penalty.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>8. PAYMENTS AND REPORTING</h3>
+                                <p><strong>8.1 Payout Threshold:</strong> Minimum payout amount is $10.00.</p>
+                                <p><strong>8.2 Payment Methods:</strong> Check or cash (when available).</p>
+                                <p><strong>8.3 Payment Requests:</strong> Consignors may request payouts via the online portal.</p>
+                                <p><strong>8.4 Sales Reporting:</strong> Real-time inventory and sales tracking available through online portal. No separate reports issued.</p>
+                                <p><strong>8.5 Tax Documentation:</strong> PigStyle Records provides receipts of sales for tax purposes.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>9. CONSIGNOR RESPONSIBILITIES</h3>
+                                <p><strong>9.1 Legal Ownership:</strong> Consignor certifies legal ownership of all consigned items.</p>
+                                <p><strong>9.2 Accurate Information:</strong> Consignor provides accurate grading and item information during online check-in.</p>
+                                <p><strong>9.3 Contact Information:</strong> Consignor maintains current contact information to receive notifications.</p>
+                                <p><strong>9.4 Timely Retrieval:</strong> Consignor retrieves unsold/returned items within specified deadlines.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>10. TERMINATION</h3>
+                                <p><strong>10.1 Early Termination:</strong> Consignor may terminate this agreement at any time without penalty by removing items via the online portal.</p>
+                                <p><strong>10.2 Store Closure:</strong> PigStyle Records assumes responsibility for items during store closure, renovation, or relocation.</p>
+                            </div>
+
+                            <div class="contract-section">
+                                <h3>11. GENERAL PROVISIONS</h3>
+                                <p><strong>11.1 Entire Agreement:</strong> This document constitutes the entire agreement between parties.</p>
+                                <p><strong>11.2 Governing Law:</strong> This agreement shall be governed by Colorado law.</p>
+                                <p><strong>11.3 Amendments:</strong> Any amendments must be in writing and signed by both parties.</p>
+                            </div>
+
+                            <div class="signature-section">
+                                <div class="signature-block">
+                                    <p><strong>CONSIGNOR</strong></p>
+                                    <div class="signature-line">___________________________________</div>
+                                    <p>Name: ___________________________</p>
+                                    <p>Date: ___________________________</p>
+                                </div>
+                                
+                                <div class="signature-block">
+                                    <p><strong>PIGSTYLE RECORDS</strong></p>
+                                    <div class="signature-line">___________________________________</div>
+                                    <p>Name: ___________________________</p>
+                                    <p>Date: ___________________________</p>
+                                </div>
+                            </div>
+                            
+                            <div class="draft-footer">
+                                <p><strong>DRAFT DOCUMENT - FOR REVIEW PURPOSES ONLY</strong></p>
+                                <p>This is not a legally binding agreement. Final terms may vary.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Simple animation for step numbers
+        // Tab functionality
         document.addEventListener('DOMContentLoaded', function() {
-            const steps = document.querySelectorAll('.step');
-            steps.forEach((step, index) => {
-                setTimeout(() => {
-                    step.style.opacity = '1';
-                    step.style.transform = 'translateY(0)';
-                }, index * 200);
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all buttons and panes
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabPanes.forEach(pane => pane.classList.remove('active'));
+                    
+                    // Add active class to clicked button and corresponding pane
+                    this.classList.add('active');
+                    document.getElementById(targetTab).classList.add('active');
+                });
             });
         });
     </script>
@@ -1225,6 +1456,21 @@ header {
     transform: scale(1.05);
 }
 
+/* Banner */
+.banner {
+    background: linear-gradient(135deg, #ffcc00, #ff9900);
+    color: #333;
+    text-align: center;
+    padding: 15px;
+    font-weight: bold;
+    font-size: clamp(16px, 4vw, 18px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    z-index: 100;
+    position: relative;
+    margin: 0 20px 20px 20px;
+    border-radius: 8px;
+}
+
 /* Main content container */
 .content-container {
     max-width: 1200px;
@@ -1241,208 +1487,342 @@ header {
 }
 
 .page-title h1 {
-    font-size: 2.8rem;
+    font-size: 2.5rem;
     margin-bottom: 10px;
     color: white;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
-/* Special offer */
-.special-offer {
-    background: linear-gradient(135deg, #ffcc00, #ff9900);
-    color: #333;
-    padding: 25px;
-    border-radius: 12px;
-    text-align: center;
-    margin-bottom: 30px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-}
-
-.special-offer h2 {
-    font-size: 2rem;
-    margin-bottom: 10px;
-    font-weight: bold;
-}
-
-.special-offer p {
-    font-size: 1.2rem;
-    font-weight: 500;
-}
-
-/* Consignment content */
-.consignment-content {
-    max-width: 1000px;
-    margin: 0 auto;
-}
-
-.info-card {
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 15px;
-    padding: 30px;
-    margin-bottom: 30px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.info-card h2 {
-    color: #ffcc00;
-    margin-bottom: 25px;
-    text-align: center;
-    font-size: 2rem;
-}
-
-/* Process steps */
-.process-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-}
-
-.step {
-    display: flex;
-    align-items: flex-start;
-    gap: 20px;
-    padding: 20px;
-    background: rgba(255, 255, 255, 0.05);
+/* Tabs */
+.tabs-container {
+    background: rgba(0, 0, 0, 0.8);
     border-radius: 10px;
-    border-left: 4px solid #ffcc00;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 0.6s ease;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
-.step-number {
+.tabs {
+    display: flex;
+    background: #111;
+    border-bottom: 2px solid #333;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 15px 20px;
+    background: transparent;
+    border: none;
+    color: #ccc;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-button:hover {
+    background: rgba(255, 204, 0, 0.1);
+    color: #ffcc00;
+}
+
+.tab-button.active {
     background: #ffcc00;
     color: #333;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-weight: bold;
-    font-size: 1.2rem;
-    flex-shrink: 0;
 }
 
-.step-content h3 {
-    color: #ffcc00;
-    margin-bottom: 8px;
-    font-size: 1.3rem;
-}
-
-.step-content p {
-    line-height: 1.6;
-    opacity: 0.9;
-}
-
-/* Details grid */
-.details-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-.detail-card {
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 12px;
-    padding: 25px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease;
-}
-
-.detail-card:hover {
-    transform: translateY(-5px);
-}
-
-.detail-card h3 {
-    color: #ffcc00;
-    margin-bottom: 15px;
-    font-size: 1.3rem;
-}
-
-.detail-card ul {
-    list-style: none;
+.tab-content {
     padding: 0;
 }
 
-.detail-card li {
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.tab-pane {
+    display: none;
+    padding: 0;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Policy Table - Black background like other pages */
+.policy-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #000;
+    color: #fff;
+    margin: 0;
+}
+
+.policy-table th, .policy-table td {
+    padding: 15px;
+    text-align: left;
+    vertical-align: top;
+    background-color: #000;
+}
+
+.policy-table th {
+    background-color: #111;
+    font-weight: bold;
+    color: #fff;
+    font-size: 1.1rem;
+}
+
+.policy-table tr:nth-child(even) td {
+    background-color: #111;
+}
+
+.category-header {
+    background-color: #222 !important;
+    font-weight: bold;
+    color: #fff;
+}
+
+.category-header td {
+    font-size: 1.2rem;
+    padding: 20px 15px;
+    border-top: 2px solid #333;
+}
+
+.sub-item td:first-child {
+    padding-left: 40px;
+    font-weight: 600;
+    color: #ffcc00;
+}
+
+.sub-item td:last-child {
+    padding-left: 40px;
+}
+
+.conditions-list {
+    margin: 0;
+    padding-left: 20px;
+    color: #fff;
+}
+
+.conditions-list li {
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.conditions-list strong {
+    color: #ffcc00;
+}
+
+/* Contract PDF Styles */
+.pdf-container {
+    background: white;
+    color: #333;
+    min-height: 800px;
+    padding: 40px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    position: relative;
+}
+
+/* Draft Watermark */
+.draft-watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    font-size: 4rem;
+    color: rgba(255, 0, 0, 0.1);
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+/* Contract Banner */
+.contract-banner {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+    position: relative;
+    z-index: 2;
+}
+
+.banner-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.banner-content h3 {
+    color: #856404;
+    margin: 0 0 10px 0;
+    font-size: 1.3rem;
+}
+
+.banner-content p {
+    color: #856404;
+    margin: 0;
     line-height: 1.5;
 }
 
-.detail-card li:last-child {
-    border-bottom: none;
+.pdf-header {
+    text-align: center;
+    margin-bottom: 40px;
+    border-bottom: 3px solid #ffcc00;
+    padding-bottom: 20px;
+    position: relative;
+    z-index: 2;
 }
 
-.detail-card a {
-    color: #ffcc00;
-    text-decoration: none;
-    transition: color 0.3s ease;
+.pdf-header h2 {
+    color: #333;
+    font-size: 2rem;
+    margin-bottom: 10px;
 }
 
-.detail-card a:hover {
+.contract-date {
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.contract-content {
+    max-width: 800px;
+    margin: 0 auto;
+    line-height: 1.6;
+    position: relative;
+    z-index: 2;
+}
+
+.contract-section {
+    margin-bottom: 30px;
+    page-break-inside: avoid;
+}
+
+.contract-section h3 {
     color: #ff9900;
-    text-decoration: underline;
-}
-
-/* Simple pitch */
-.simple-pitch {
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 12px;
-    padding: 25px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    line-height: 1.7;
-}
-
-.simple-pitch p {
     margin-bottom: 15px;
-    opacity: 0.9;
+    font-size: 1.3rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
 }
 
-.simple-pitch p:last-child {
-    margin-bottom: 0;
+.contract-section p {
+    margin-bottom: 10px;
+}
+
+.contract-section ul {
+    margin: 10px 0 10px 30px;
+}
+
+.contract-section li {
+    margin-bottom: 8px;
+}
+
+.contract-section strong {
+    color: #333;
+}
+
+.signature-section {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 60px;
+    padding-top: 40px;
+    border-top: 2px solid #ccc;
+}
+
+.signature-block {
+    flex: 1;
+    margin: 0 20px;
+}
+
+.signature-line {
+    border-bottom: 1px solid #333;
+    padding-top: 30px;
+    margin-bottom: 10px;
+}
+
+/* Draft Footer */
+.draft-footer {
+    background: #f8f9fa;
+    border: 2px dashed #dc3545;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.draft-footer p {
+    margin: 5px 0;
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.draft-footer p:last-child {
+    font-weight: normal;
+    font-size: 0.9rem;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .policy-table {
+        font-size: 0.9rem;
+    }
+    
+    .policy-table th, .policy-table td {
+        padding: 10px;
+    }
+    
+    .sub-item td:first-child,
+    .sub-item td:last-child {
+        padding-left: 20px;
+    }
+    
     .page-title h1 {
-        font-size: 2.2rem;
+        font-size: 2rem;
     }
     
-    .special-offer {
+    header {
+        padding: 15px;
+    }
+    
+    .logo-container img {
+        height: 50px;
+    }
+    
+    .banner {
+        margin: 0 10px 15px 10px;
+        padding: 12px;
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .pdf-container {
         padding: 20px;
     }
     
-    .special-offer h2 {
-        font-size: 1.6rem;
+    .pdf-header h2 {
+        font-size: 1.5rem;
     }
     
-    .info-card {
-        padding: 20px;
+    .signature-section {
+        flex-direction: column;
     }
     
-    .step {
+    .signature-block {
+        margin: 20px 0;
+    }
+    
+    .contract-banner {
         flex-direction: column;
         text-align: center;
-        gap: 15px;
     }
     
-    .details-grid {
-        grid-template-columns: 1fr;
+    .banner-icon {
+        align-self: center;
     }
     
-    .detail-card {
-        padding: 20px;
-    }
-    
-    .simple-pitch {
-        padding: 20px;
+    .draft-watermark {
+        font-size: 2.5rem;
     }
 }
 
@@ -1455,23 +1835,47 @@ header {
         font-size: 1.8rem;
     }
     
-    .info-card h2 {
-        font-size: 1.6rem;
+    .policy-table {
+        font-size: 0.8rem;
     }
     
-    header {
+    .policy-table th, .policy-table td {
+        padding: 8px;
+        display: block;
+        width: 100%;
+    }
+    
+    .sub-item td:first-child,
+    .sub-item td:last-child {
+        padding-left: 15px;
+    }
+    
+    .policy-table tr {
+        display: block;
+        margin-bottom: 10px;
+    }
+    
+    .pdf-container {
         padding: 15px;
     }
     
-    .logo-container img {
-        height: 50px;
+    .pdf-header h2 {
+        font-size: 1.3rem;
     }
     
-    .special-offer h2 {
-        font-size: 1.4rem;
+    .contract-section h3 {
+        font-size: 1.1rem;
     }
     
-    .special-offer p {
+    .draft-watermark {
+        font-size: 2rem;
+    }
+    
+    .contract-banner {
+        padding: 15px;
+    }
+    
+    .banner-content h3 {
         font-size: 1.1rem;
     }
 }

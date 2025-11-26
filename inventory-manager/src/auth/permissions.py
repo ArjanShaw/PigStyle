@@ -1,7 +1,7 @@
 class PermissionManager:
     """Manage role-based permissions"""
     
-    # Define permissions for each role
+    # Define permissions for each role - simplified to only admin and consignor
     ROLE_PERMISSIONS = {
         'admin': {
             'inventory': ['view', 'add', 'edit', 'delete', 'export'],
@@ -12,25 +12,7 @@ class PermissionManager:
             'users': ['view', 'create', 'edit', 'delete'],
             'system': ['configure', 'maintenance']
         },
-        'manager': {
-            'inventory': ['view', 'add', 'edit', 'delete', 'export'],
-            'pricing': ['view', 'edit', 'calculate'],
-            'ebay': ['view', 'sync', 'export', 'import'],
-            'consignment': ['view', 'manage', 'payments'],
-            'reports': ['view', 'export'],
-            'users': ['view'],
-            'system': ['view']
-        },
-        'clerk': {
-            'inventory': ['view', 'add', 'edit'],
-            'pricing': ['view'],
-            'ebay': ['view'],
-            'consignment': ['view'],
-            'reports': ['view'],
-            'users': [],
-            'system': []
-        },
-        'viewer': {
+        'consignor': {
             'inventory': ['view'],
             'pricing': ['view'],
             'ebay': ['view'],
@@ -63,8 +45,6 @@ class PermissionManager:
         """Get human-readable role description"""
         descriptions = {
             'admin': 'Full system access including user management',
-            'manager': 'Inventory and business operations management',
-            'clerk': 'Basic inventory operations',
-            'viewer': 'Read-only access to view data'
+            'consignor': 'View-only access to consignment data'
         }
         return descriptions.get(role, 'Unknown role')

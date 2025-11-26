@@ -19,15 +19,17 @@ class AuthManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Users table
+        # Users table - simplified with only admin and consignor roles
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'viewer',
+                role TEXT NOT NULL DEFAULT 'consignor',
                 full_name TEXT,
+                phone TEXT,
+                address TEXT,
                 is_active BOOLEAN DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
@@ -107,7 +109,7 @@ class AuthManager:
             return False, "Password must contain at least one number"
         return True, "Password is strong"
     
-    def create_user(self, username: str, email: str, password: str, role: str = "viewer", full_name: str = "") -> tuple[bool, str]:
+    def create_user(self, username: str, email: str, password: str, role: str = "consignor", full_name: str = "", phone: str = "", address: str = "") -> tuple[bool, str]:
         """Create a new user account"""
         # Validate inputs
         if not username or not email or not password:
@@ -133,9 +135,9 @@ class AuthManager:
         password_hash = self._hash_password(password)
         try:
             cursor.execute('''
-                INSERT INTO users (username, email, password_hash, role, full_name)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (username, email, password_hash, role, full_name))
+                INSERT INTO users (username, email, password_hash, role, full_name, phone, address)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (username, email, password_hash, role, full_name, phone, address))
             
             user_id = cursor.lastrowid
             
@@ -390,7 +392,7 @@ class AuthManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT id, username, email, role, full_name, is_active, created_at, last_login
+            SELECT id, username, email, role, full_name, phone, address, is_active, created_at, last_login
             FROM users ORDER BY username
         ''')
         

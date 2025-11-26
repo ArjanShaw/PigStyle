@@ -69,7 +69,7 @@ def render_login_page(auth_manager, session_manager):
             st.session_state.authenticated = True
             st.session_state.user = {
                 'username': 'demo_user',
-                'role': 'viewer',
+                'role': 'consignor',
                 'full_name': 'Demo User'
             }
             st.session_state.session_token = None
@@ -181,22 +181,24 @@ def render_main_app():
 
 def render_header(user, session_manager):
     """Render application header with user information"""
-    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+    # Compact header in single row
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     
     with col1:
-        st.title("🎵 PigStyle Inventory Manager")
+        # Removed "PigStyle Inventory Manager" header as requested
+        pass
     
     with col2:
-        role_display = user['role'].title()
-        st.write(f"**Welcome, {user['full_name'] or user['username']}**")
-        st.caption(f"Role: {role_display}")
+        role_display = "👑 Admin" if user['role'] == 'admin' else "🤝 Consignor"
+        st.write(f"**{user['full_name'] or user['username']}**")
+        st.caption(role_display)
     
     with col3:
-        if st.button("🔐 Change Password", use_container_width=True):
+        if st.button("🔐 PW", help="Change Password", use_container_width=True):
             st.session_state.show_change_password = True
     
     with col4:
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button("🚪", help="Logout", use_container_width=True):
             session_manager.logout()
     
     # Show change password form if triggered
@@ -269,7 +271,7 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
     if PermissionManager.has_permission(user_role, 'system', 'view'):
         tab_configs.append(("🛠️ Tools & Sync", tools_sync_tab.render))
     
-    # Admin-only tabs - check specific admin permissions
+    # Admin-only tabs
     if user_role == 'admin':
         tab_configs.append(("👥 User Management", render_user_management))
     
@@ -306,13 +308,17 @@ def render_user_management():
         
         if users:
             for user in users:
-                user_id, username, email, role, full_name, is_active, created_at, last_login = user
+                user_id, username, email, role, full_name, phone, address, is_active, created_at, last_login = user
                 
                 with st.expander(f"{username} ({role}) - {full_name or 'No name'}"):
                     col1, col2 = st.columns(2)
                     
                     with col1:
                         st.write(f"**Email:** {email}")
+                        if phone:
+                            st.write(f"**Phone:** {phone}")
+                        if address:
+                            st.write(f"**Address:** {address}")
                         st.write(f"**Created:** {created_at.split(' ')[0]}")
                         if last_login:
                             st.write(f"**Last Login:** {last_login.split(' ')[0]}")
@@ -321,8 +327,8 @@ def render_user_management():
                     with col2:
                         new_role = st.selectbox(
                             "Role",
-                            options=['admin', 'manager', 'clerk', 'viewer'],
-                            index=['admin', 'manager', 'clerk', 'viewer'].index(role),
+                            options=['admin', 'consignor'],
+                            index=0 if role == 'admin' else 1,
                             key=f"role_{user_id}"
                         )
                         
@@ -348,11 +354,13 @@ def render_user_management():
                 username = st.text_input("Username*", placeholder="Enter username")
                 email = st.text_input("Email*", placeholder="user@example.com")
                 full_name = st.text_input("Full Name", placeholder="Optional full name")
+                phone = st.text_input("Phone", placeholder="Optional phone number")
             
             with col2:
                 password = st.text_input("Password*", type="password", placeholder="Enter password")
                 confirm_password = st.text_input("Confirm Password*", type="password", placeholder="Confirm password")
-                role = st.selectbox("Role*", options=['viewer', 'clerk', 'manager', 'admin'])
+                role = st.selectbox("Role*", options=['consignor', 'admin'])
+                address = st.text_area("Address", placeholder="Optional address", height=80)
             
             if st.form_submit_button("Create User", use_container_width=True):
                 if not all([username, email, password, confirm_password]):
@@ -360,7 +368,7 @@ def render_user_management():
                 elif password != confirm_password:
                     st.error("Passwords do not match")
                 else:
-                    success, message = auth_manager.create_user(username, email, password, role, full_name)
+                    success, message = auth_manager.create_user(username, email, password, role, full_name, phone, address)
                     if success:
                         st.success(message)
                         st.rerun()
@@ -373,7 +381,7 @@ def render_user_management():
         
         if users:
             for user in users:
-                user_id, username, email, role, full_name, is_active, created_at, last_login = user
+                user_id, username, email, role, full_name, phone, address, is_active, created_at, last_login = user
                 
                 with st.expander(f"Reset password for {username}"):
                     new_password = st.text_input("New Password", type="password", 

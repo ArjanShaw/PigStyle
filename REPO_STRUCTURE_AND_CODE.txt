@@ -57,11 +57,71 @@ REPOSITORY STRUCTURE:
     │   ├── Screenshot from 2025-10-24 21-15-56.png
     │   ├── sku_generator.py 🐍
     │   └── streamlit_app.py 🐍
-    └── requirements.txt 📄
+    ├── requirements.txt 📄
+    └── reset_admin.py 🐍
 
 ======================================================================
 
 CODE FROM: inventory-manager
+======================================================================
+
+FILE: inventory-manager/reset_admin.py
+--------------------------------------------------
+#!/usr/bin/env python3
+import sqlite3
+import hashlib
+import secrets
+
+def reset_admin():
+    db_path = "data/records.db"
+    
+    # Connect to database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Disable foreign keys
+    cursor.execute("PRAGMA foreign_keys = OFF")
+    
+    try:
+        # Clear user_sessions and audit_log tables first
+        cursor.execute("DELETE FROM user_sessions")
+        cursor.execute("DELETE FROM audit_log")
+        
+        # Clear consignor_id from records
+        cursor.execute("UPDATE records SET consignor_id = NULL")
+        
+        # Delete all users
+        cursor.execute("DELETE FROM users")
+        
+        # Create admin user with plain text password that will be hashed properly
+        username = "admin"
+        password = "admin123"
+        email = "admin@pigstylerecords.com"
+        
+        # Generate proper hash using the same method as auth_manager
+        salt = secrets.token_hex(16)
+        password_hash = f"{salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"
+        
+        cursor.execute('''
+            INSERT INTO users (username, email, password_hash, role, full_name, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (username, email, password_hash, 'admin', 'System Administrator', 1))
+        
+        conn.commit()
+        print("✅ Admin user created successfully!")
+        print(f"Username: {username}")
+        print(f"Password: {password}")
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        conn.rollback()
+    finally:
+        cursor.execute("PRAGMA foreign_keys = ON")
+        conn.close()
+
+if __name__ == "__main__":
+    reset_admin()
+
 ======================================================================
 
 FILE: inventory-manager/requirements.txt
@@ -3938,7 +3998,7 @@ class ConsignmentTab:
         
         # Get user info
         user = st.session_state.db_manager.get_user_by_id(user_id)
-        if not user:
+        if user is None or user.empty:  # FIX: Check if user is None or empty DataFrame
             st.error("User profile not found. Please contact administrator.")
             return
         
@@ -5714,9 +5774,7 @@ class InventoryTab:
             # For consignors, only count their own records
             cursor.execute('''
                 SELECT COUNT(*) FROM records r
-                JOIN consignors c ON r.consignor_id = c.id
-                JOIN users u ON c.user_id = u.id
-                WHERE u.id = ?
+                WHERE r.consignor_id = ?
             ''', (user_id,))
         else:
             # For admins, count all records
@@ -5817,12 +5875,16 @@ class AuthManager:
         
         # Create default admin user if none exists
         cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
-        if cursor.fetchone()[0] == 0:
-            default_password = self._hash_password("admin123")
+        admin_count = cursor.fetchone()[0]
+        
+        if admin_count == 0:
+            # Create admin user with password admin123
+            password_hash = self._hash_password("admin123")
             cursor.execute('''
-                INSERT INTO users (username, email, password_hash, role, full_name)
-                VALUES (?, ?, ?, ?, ?)
-            ''', ('admin', 'admin@pigstylerecords.com', default_password, 'admin', 'System Administrator'))
+                INSERT INTO users (username, email, password_hash, role, full_name, is_active)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', ('admin', 'admin@pigstylerecords.com', password_hash, 'admin', 'System Administrator', 1))
+            print("✅ Default admin user created: admin / admin123")
         
         conn.commit()
         conn.close()
@@ -9783,9 +9845,10 @@ class SearchHandler:
             
             # Updated query to include catalog_number search
             df = pd.read_sql(
-                '''SELECT r.*, g.genre_name as genre 
+                '''SELECT r.*, g.genre_name as genre, u.username as consignor_name
                    FROM records r 
                    LEFT JOIN genres g ON r.genre_id = g.id 
+                   LEFT JOIN users u ON r.consignor_id = u.id
                    WHERE (r.artist LIKE ? OR r.title LIKE ? OR r.barcode LIKE ? OR r.catalog_number LIKE ?) 
                    ORDER BY r.artist, r.title''',
                 conn,
@@ -9807,12 +9870,14 @@ class SearchHandler:
                     'file_at': record.get('file_at', ''),
                     'store_price': record.get('store_price', ''),
                     'ebay_sell_at': record.get('ebay_sell_at', ''),
-                    'discogs_lowest_price': record.get('discogs_lowest_price', ''),
-                    'discogs_estimated_price': record.get('discogs_estimated_price', ''),
+                    'discogs_suggested_price': record.get('discogs_suggested_price', ''),
                     'ebay_lowest_price': record.get('ebay_lowest_price', ''),
                     'condition': record.get('condition', ''),
                     'genre': record.get('genre', ''),
-                    'youtube_url': record.get('youtube_url', '')
+                    'youtube_url': record.get('youtube_url', ''),
+                    'consignor_name': record.get('consignor_name', ''),
+                    'commission_rate': record.get('commission_rate', ''),
+                    'compilation': record.get('compilation', False)
                 }
                 
                 formatted_results.append(formatted_result)
@@ -10318,5 +10383,5 @@ class BarcodeGenerator:
 
 ======================================================================
 
-📊 Total files processed: 42
+📊 Total files processed: 43
 

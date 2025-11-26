@@ -10,3 +10,4 @@ apps/inventory-manager/.env
 .env
 data/records.db
 data/records.db
+data/records.db

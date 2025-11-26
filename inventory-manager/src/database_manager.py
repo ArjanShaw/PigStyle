@@ -190,7 +190,8 @@ class DatabaseManager:
             ('DEFAULT_COMMISSION_RATE', '0.50'),
             ('DEFAULT_STORE_RETURN_DAYS', '90'),
             ('CUSTOMER_RETURN_DAYS', '30'),
-            ('CONSIGNOR_PICKUP_DAYS', '30')
+            ('CONSIGNOR_PICKUP_DAYS', '30'),
+            ('STORE_CAPACITY', '1000')
         ]
         
         for config_key, config_value in default_configs:

@@ -1,5 +1,4 @@
 # FILE: inventory-manager/src/handlers/display_handler.py
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -50,7 +49,6 @@ class DisplayHandler:
                 # Type-specific fields
                 if result_type == "Edit or Delete item":
                     store_price = record.get('store_price')
-                    ebay_sell_at = record.get('ebay_sell_at')
                     discogs_suggested_price = record.get('discogs_suggested_price')
                     compilation = record.get('compilation', False)
                     consignor_name = record.get('consignor_name', '')
@@ -73,7 +71,6 @@ class DisplayHandler:
                         st.write(f"**Consignor:** {consignor_name} ({commission_rate*100 if commission_rate else 0}%)")
                     st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**Discogs Price:** ${discogs_suggested_price:.2f}" if discogs_suggested_price and discogs_suggested_price > 0 else "**Discogs Price:** N/A")
-                    st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
                     st.write(f"**File Location:** {file_at}")
                     if youtube_url:
                         st.write(f"🎵 **YouTube:** {youtube_url}")
@@ -159,7 +156,6 @@ class DisplayHandler:
                 barcode = record.get('barcode', '')
                 file_at = record.get('file_at', '')
                 store_price = record.get('store_price', '')
-                ebay_sell_at = record.get('ebay_sell_at', '')
                 youtube_url = record.get('youtube_url', '')
                 catalog_number = record.get('catalog_number', '')
                 genre = record.get('genre', '')
@@ -182,7 +178,6 @@ class DisplayHandler:
                     st.write(f"**Store Return Days:** {store_return_days if store_return_days else 'N/A'}")
                 st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
                 st.write(f"**Discogs Price:** ${discogs_suggested_price:.2f}" if discogs_suggested_price and discogs_suggested_price > 0 else "**Discogs Price:** N/A")
-                st.write(f"**eBay Sell At:** ${ebay_sell_at:.2f}" if ebay_sell_at and ebay_sell_at > 0 else "**eBay Sell At:** N/A")
                 st.write(f"**File Location:** {file_at}")
                 if youtube_url:
                     st.write(f"🎵 **YouTube:** {youtube_url}")
@@ -224,7 +219,7 @@ class DisplayHandler:
             st.session_state.selected_record = None
             st.rerun()
 
-    def render_edit_section(self, selected_record, add_callback, update_callback, discogs_handler=None, ebay_handler=None):
+    def render_edit_section(self, selected_record, add_callback, update_callback, discogs_handler=None, ebay_handler=None, store_fill_fraction=0.0):
         """Render the edit properties section - WITH COMPILATION AND DIRECT CONSIGNMENT SUPPORT"""
         
         record_data = selected_record['data']
@@ -232,7 +227,7 @@ class DisplayHandler:
         # For Discogs records, fetch all data before showing ANY UI
         if selected_record['type'] == 'discogs' and not record_data.get('pricing_fetched'):
             # Show spinner while fetching ALL data
-            with st.spinner("🔄 Fetching pricing data from Discogs, eBay, and YouTube..."):
+            with st.spinner("🔄 Fetching pricing data from Discogs and YouTube..."):
                 # Fetch all required data sequentially
                 self._fetch_all_data_sync(record_data, discogs_handler, ebay_handler)
             
@@ -244,8 +239,20 @@ class DisplayHandler:
         # Once ALL data is loaded, show the complete UI
         st.subheader("Edit Properties")
         
+        # Calculate current consignment rate based on store fill
+        current_consignment_rate = self._calculate_consignment_rate(store_fill_fraction)
+        
+        # Show current store fill status and consignment rate
+        st.info(f"**Store Fill:** {store_fill_fraction*100:.1f}% | **Current Consignment Rate:** {current_consignment_rate:.1%}")
+        
+        # Disable add button if store is over capacity
+        add_disabled = store_fill_fraction > 1.10
+        
+        if add_disabled:
+            st.error("❌ Cannot add new items - store is over capacity!")
+        
         # Add consignment dropdown for both new and existing records - NOW DIRECT USER SELECTION
-        user_id, commission_rate, store_return_days = self._render_consignment_section(record_data)
+        user_id, commission_rate, store_return_days = self._render_consignment_section(record_data, current_consignment_rate)
         if user_id:
             record_data['consignor_id'] = user_id
             record_data['commission_rate'] = commission_rate
@@ -321,9 +328,11 @@ class DisplayHandler:
         # Show YouTube integration (merged search and manual input)
         self._render_youtube_integration(record_data)
         
-        # Single submit button - only enable if genre is selected
+        # Single submit button - only enable if genre is selected and not over capacity
         button_label = "Add to Database" if selected_record['type'] == 'discogs' else "Update Record"
-        if st.button(button_label, width='stretch', disabled=not genre, key="add_to_database"):
+        disabled_condition = not genre or (selected_record['type'] == 'discogs' and add_disabled)
+        
+        if st.button(button_label, width='stretch', disabled=disabled_condition, key="add_to_database"):
             # Get the file_at value for confirmation message
             file_at_value = self._calculate_file_at(record_data['artist'], genre, compilation)
             if selected_record['type'] == 'discogs':
@@ -337,7 +346,19 @@ class DisplayHandler:
                 if success:
                     st.success(f"✅ Record updated successfully!\\n**File Location:** {file_at_value}")
 
-    def _render_consignment_section(self, record_data=None):
+    def _calculate_consignment_rate(self, fill_fraction):
+        """Calculate consignment rate based on store fill fraction"""
+        if fill_fraction < 0.60:
+            return 0.10  # 10% when below 60%
+        elif fill_fraction <= 1.10:
+            # Linear increase from 10% to 40% between 60% and 110%
+            # At 0.60: 0.10, at 1.10: 0.40
+            slope = (0.40 - 0.10) / (1.10 - 0.60)
+            return 0.10 + slope * (fill_fraction - 0.60)
+        else:
+            return 0.40  # 40% when above 110%
+
+    def _render_consignment_section(self, record_data=None, current_consignment_rate=0.10):
         """Render consignment section with direct user selection and individual rates"""
         try:
             # Get all users for dropdown
@@ -383,10 +404,10 @@ class DisplayHandler:
             # Get the selected user ID
             user_id = user_mapping.get(selected_option)
             
-            # Show commission rate input
+            # Use current calculated consignment rate as default
             current_commission_rate = record_data.get('commission_rate')
             if current_commission_rate is None:
-                current_commission_rate = float(st.session_state.db_manager.get_config_value('DEFAULT_COMMISSION_RATE', '0.50'))
+                current_commission_rate = current_consignment_rate
             
             commission_rate = st.number_input(
                 "Commission Rate:",
@@ -524,22 +545,12 @@ class DisplayHandler:
             if tracklist:
                 record_data['tracklist'] = tracklist
         
-        # Step 2: Fetch eBay pricing (BLOCKING)
-        artist = record_data.get('artist', '')
-        title = record_data.get('title', '')
-        if ebay_handler and artist and title:
-            ebay_pricing = ebay_handler.get_ebay_pricing(artist, title)
-            if ebay_pricing:
-                record_data['ebay_condition_pricing'] = ebay_pricing.get('condition_pricing', {})
-                record_data['ebay_total_items_found'] = ebay_pricing.get('total_items_found', 0)
-                record_data['ebay_search_url'] = ebay_pricing.get('search_url', '')
-        
         # Step 3: Fetch YouTube results (BLOCKING) - NOW WITH TRACKLIST
         if self.youtube_handler and self.youtube_handler.is_enabled():
             # Get tracklist from Discogs for better YouTube matching
             track_titles = record_data.get('tracklist', [])
             
-            search_query = f"{artist} {title}"
+            search_query = f"{record_data.get('artist', '')} {record_data.get('title', '')}"
             record_data['youtube_search_query'] = search_query
             youtube_results = self.youtube_handler.search_youtube_videos(search_query, record_data, track_titles)
             st.session_state.youtube_search_results = youtube_results
@@ -701,7 +712,6 @@ class DisplayHandler:
         
         # Check if we have the required data from ALL APIs
         has_discogs_data = 'price_suggestions' in record_data
-        has_ebay_data = 'ebay_condition_pricing' in record_data
         
         # Discogs Pricing Section - ONLY show if data is available
         if has_discogs_data:
@@ -754,164 +764,6 @@ class DisplayHandler:
         else:
             st.write("### 📀 Discogs Pricing")
             st.info("Discogs pricing data loading...")
-        
-        # eBay Pricing Section - ONLY show if data is available
-        if has_ebay_data:
-            st.write("### 🛒 eBay Pricing")
-            
-            ebay_condition_pricing = record_data.get('ebay_condition_pricing', {})
-            ebay_total_items_found = record_data.get('ebay_total_items_found', 0)
-            
-            if ebay_condition_pricing:
-                # Create a table showing eBay pricing grouped by Discogs condition
-                ebay_data = []
-                for condition, pricing in ebay_condition_pricing.items():
-                    # Calculate suggested eBay sell price - use lowest price only for CALC shipping
-                    if pricing['lowest_shipping'] is None:  # CALC shipping
-                        suggested_ebay_sell_at = pricing['lowest_price']
-                    else:
-                        suggested_ebay_sell_at = self._calculate_ebay_sell_at(pricing['lowest_price'], pricing['lowest_shipping'])
-                    
-                    # Format shipping cost display - show "CALC" for calculated shipping
-                    shipping_display = "CALC" if pricing['lowest_shipping'] is None else f"${pricing['lowest_shipping']:.2f}"
-                    
-                    # Format total display - show N/A for CALC shipping
-                    total_display = "N/A" if pricing['lowest_shipping'] is None else f"${pricing['lowest_price'] + pricing['lowest_shipping']:.2f}"
-                    
-                    # Create hyperlink for the listing - FIXED URL FORMAT
-                    listing_url = pricing.get('cheapest_item_url', '')
-                    if listing_url:
-                        ebay_data.append({
-                            'Condition': condition,
-                            'Listings': pricing['count'],
-                            'Lowest Price': f"${pricing['lowest_price']:.2f}",
-                            'Lowest Shipping': shipping_display,
-                            'Lowest Total': total_display,
-                            'Suggested eBay Sell At': f"${suggested_ebay_sell_at:.2f}",
-                            'Listing': listing_url
-                        })
-                    else:
-                        ebay_data.append({
-                            'Condition': condition,
-                            'Listings': pricing['count'],
-                            'Lowest Price': f"${pricing['lowest_price']:.2f}",
-                            'Lowest Shipping': shipping_display,
-                            'Lowest Total': total_display,
-                            'Suggested eBay Sell At': f"${suggested_ebay_sell_at:.2f}",
-                            'Listing': 'No URL'
-                        })
-                
-                # Sort by condition from Mint to Poor, with Generic at bottom
-                condition_order = [
-                    'Mint (M)',
-                    'Near Mint (NM or M-)', 
-                    'Very Good Plus (VG+)',
-                    'Very Good (VG)',
-                    'Good Plus (G+)',
-                    'Good (G)',
-                    'Fair (F)',
-                    'Poor (P)',
-                    'Generic'
-                ]
-                
-                # Sort the data
-                sorted_ebay_data = []
-                for condition in condition_order:
-                    for item in ebay_data:
-                        if item['Condition'] == condition:
-                            sorted_ebay_data.append(item)
-                            break
-                
-                if sorted_ebay_data:
-                    ebay_df = pd.DataFrame(sorted_ebay_data)
-                    
-                    # Display the dataframe with clickable links - FIXED URL FORMAT
-                    st.dataframe(
-                        ebay_df,
-                        width='stretch',
-                        hide_index=True,
-                        column_config={
-                            "Listing": st.column_config.LinkColumn(
-                                "Listing",
-                                help="Click to view the eBay listing"
-                            )
-                        }
-                    )
-                    
-                    # Let user select which eBay condition group to use for pricing
-                    ebay_condition_options = list(ebay_condition_pricing.keys())
-                    if ebay_condition_options:
-                        # Auto-select eBay condition that matches the selected Discogs condition
-                        selected_discogs_condition = record_data.get('selected_condition')
-                        default_ebay_index = 0
-                        if selected_discogs_condition and selected_discogs_condition in ebay_condition_options:
-                            default_ebay_index = ebay_condition_options.index(selected_discogs_condition)
-                        
-                        selected_ebay_condition = st.selectbox(
-                            "Choose eBay condition group:",
-                            options=ebay_condition_options,
-                            index=default_ebay_index,
-                            key="ebay_condition_select"
-                        )
-                        
-                        # Store eBay pricing data
-                        if selected_ebay_condition:
-                            ebay_pricing = ebay_condition_pricing[selected_ebay_condition]
-                            record_data['ebay_lowest_price'] = ebay_pricing['lowest_price']
-                            record_data['ebay_low_shipping'] = ebay_pricing['lowest_shipping']
-                            record_data['ebay_sell_at'] = self._calculate_ebay_sell_at(
-                                ebay_pricing['lowest_price'], 
-                                ebay_pricing['lowest_shipping']
-                            )
-            else:
-                st.write("No eBay pricing data available")
-            
-            st.divider()
-        else:
-            st.write("### 🛒 eBay Pricing")
-            st.info("eBay pricing data loading...")
-
-    def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping):
-        """Calculate eBay sell price from lowest price and shipping"""
-        # Get SHIPPING_COST from config
-        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
-        try:
-            shipping_cost = float(shipping_cost)
-        except (ValueError, TypeError):
-            shipping_cost = 5.72
-        
-        if ebay_lowest_price is not None:
-            ebay_lowest_price = float(ebay_lowest_price)
-            
-            # For CALC shipping, use just the base price
-            if ebay_low_shipping is None:
-                ebay_sell_at_raw = ebay_lowest_price
-            else:
-                ebay_low_shipping = float(ebay_low_shipping)
-                ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
-            
-            # Ensure not negative
-            ebay_sell_at_raw = max(ebay_sell_at_raw, 0.00)
-            
-            # Round to nearest .49 or .99
-            return self._round_to_49_or_99(ebay_sell_at_raw)
-        
-        return 0.0
-
-    def _round_to_49_or_99(self, price):
-        """Round to nearest .49 or .99"""
-        if price <= 0:
-            return 0.0
-        
-        base_price = math.floor(price)
-        decimal_part = price - base_price
-        
-        if decimal_part < 0.25:
-            return base_price + 0.49
-        elif decimal_part < 0.75:
-            return base_price + 0.49
-        else:
-            return base_price + 0.99
 
     def _delete_record(self, record_id):
         """Delete a record from the database"""

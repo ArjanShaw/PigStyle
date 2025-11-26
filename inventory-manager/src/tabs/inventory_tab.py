@@ -1,3 +1,4 @@
+# FILE: inventory-manager/src/tabs/inventory_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -30,19 +31,31 @@ class InventoryTab:
         
         # Database statistics - show only user's records for consignors
         stats = self._get_user_database_stats()
-            
+        
+        # Calculate store fill fraction and consignment rate
+        store_fill_info = self._get_store_fill_info()
+        consignment_rate = self._calculate_consignment_rate(store_fill_info['fill_fraction'])
+        
         # Top row: Stats
-        col1, col2 = st.columns([1, 1])
+        col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
             st.metric("Inventory Records", stats['records_count'])
+        with col2:
+            st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
+        with col3:
+            st.metric("Consignment Rate", f"{consignment_rate:.1%}")
+        
+        # Show warning if store is over capacity
+        if store_fill_info['fill_fraction'] > 1.10:
+            st.error("🚨 Store is over capacity! Cannot add new items.")
         
         # Inventory Controls (NO EXPANDER)
-        self._render_unified_operations()
+        self._render_unified_operations(store_fill_info['fill_fraction'])
         
         # API Requests & Responses - Show immediately when available
         self._render_api_logs_section()
 
-    def _render_unified_operations(self):
+    def _render_unified_operations(self, store_fill_fraction):
         """Render the unified search/add/checkout operations"""
         # Initialize session state for search
         if 'search_type' not in st.session_state:
@@ -64,22 +77,29 @@ class InventoryTab:
             search_type = st.radio(
                 "Action:",
                 ["Add item", "Edit or Delete item"],
-                key="search_type_radio"
+                key="search_type_radio",
+                disabled=(store_fill_fraction > 1.10 and "Add item" in ["Add item"])
             )
+        
+        # Disable search input if store is over capacity and trying to add items
+        search_disabled = (store_fill_fraction > 1.10 and search_type == "Add item")
         
         # Search input and button
         search_input = st.text_input(
             "Search:",
             placeholder="Enter barcode, artist, or title...",
-            key="unified_search_input"
+            key="unified_search_input",
+            disabled=search_disabled
         )
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            search_submitted = st.button("🔍 Search", width='stretch')
+            search_submitted = st.button("🔍 Search", width='stretch', disabled=search_disabled)
         
         # Handle Enter key press in search input
-        if st.session_state.get('unified_search_input') and st.session_state.unified_search_input.strip():
+        if (not search_disabled and 
+            st.session_state.get('unified_search_input') and 
+            st.session_state.unified_search_input.strip()):
             if st.session_state.unified_search_input != st.session_state.get('last_search', ''):
                 st.session_state.current_search = st.session_state.unified_search_input.strip()
                 st.session_state.selected_record = None
@@ -96,7 +116,7 @@ class InventoryTab:
                 st.rerun()
         
         # Handle search button click
-        if search_submitted and search_input and search_input.strip():
+        if (not search_disabled and search_submitted and search_input and search_input.strip()):
             st.session_state.current_search = search_input.strip()
             st.session_state.selected_record = None
             st.session_state.record_added = None
@@ -128,7 +148,14 @@ class InventoryTab:
         # Edit properties and action button (only show when selection is made and no record was just added)
         if (st.session_state.selected_record and 
             st.session_state.record_added is None):
-            self.display_handler.render_edit_section(st.session_state.selected_record, self._handle_add_record, self._handle_update_record, self.discogs_handler, self.ebay_handler)
+            self.display_handler.render_edit_section(
+                st.session_state.selected_record, 
+                self._handle_add_record, 
+                self._handle_update_record, 
+                self.discogs_handler, 
+                self.ebay_handler,
+                store_fill_fraction
+            )
         
         # Checkout section for database search
         if (search_type == "Edit or Delete item" and 
@@ -136,6 +163,50 @@ class InventoryTab:
             st.session_state.record_added is None):
             self.display_handler.render_checkout_section(st.session_state.checkout_records, self._process_checkout)
 
+    def _get_store_fill_info(self):
+        """Calculate store fill fraction based on total inventory and store capacity"""
+        try:
+            # Get store capacity from config
+            store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
+            
+            # Get total inventory count
+            conn = st.session_state.db_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM records')
+            total_inventory = cursor.fetchone()[0]
+            conn.close()
+            
+            # Calculate fill fraction and percentage
+            fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
+            fill_percentage = fill_fraction * 100
+            
+            return {
+                'total_inventory': total_inventory,
+                'store_capacity': store_capacity,
+                'fill_fraction': fill_fraction,
+                'fill_percentage': fill_percentage
+            }
+        except Exception as e:
+            return {
+                'total_inventory': 0,
+                'store_capacity': 1000,
+                'fill_fraction': 0,
+                'fill_percentage': 0
+            }
+
+    def _calculate_consignment_rate(self, fill_fraction):
+        """Calculate consignment rate based on store fill fraction"""
+        if fill_fraction < 0.60:
+            return 0.10  # 10% when below 60%
+        elif fill_fraction <= 1.10:
+            # Linear increase from 10% to 40% between 60% and 110%
+            # At 0.60: 0.10, at 1.10: 0.40
+            slope = (0.40 - 0.10) / (1.10 - 0.60)
+            return 0.10 + slope * (fill_fraction - 0.60)
+        else:
+            return 0.40  # 40% when above 110%
+
+    # ... rest of the existing methods remain unchanged ...
     def _handle_add_record(self, genre):
         """Handle adding an inventory record to database"""
         record_data = st.session_state.selected_record['data']

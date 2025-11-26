@@ -1,3 +1,4 @@
+# FILE: inventory-manager/src/tabs/ebay_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -12,6 +13,12 @@ class EBayTab:
 
     def render(self):
         st.header("🛒 eBay Management")
+        
+        # Check if user is admin
+        user = st.session_state.get('user', {})
+        if user.get('role') != 'admin':
+            st.error("❌ Access denied. Administrator privileges required to view eBay tab.")
+            return
         
         # eBay Pricing Strategy
         with st.expander("💰 eBay Pricing Strategy", expanded=True):
@@ -334,10 +341,10 @@ class EBayTab:
         """Find a record by artist and title - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql(
-            '''SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            '''SELECT r.*, g.genre_name as genre, u.username as consignor_name
                FROM records r
                LEFT JOIN genres g ON r.genre_id = g.id
-               LEFT JOIN consignors c ON r.consignor_id = c.id
+               LEFT JOIN users u ON r.consignor_id = u.id
                WHERE r.artist LIKE ? AND r.title LIKE ?''',
             conn,
             params=(f'%{artist}%', f'%{title}%')
@@ -355,10 +362,10 @@ class EBayTab:
         # Get records sorted by eBay sell price descending, without eBay item numbers - FIXED QUERY
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql(f'''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             WHERE r.ebay_item_number IS NULL OR r.ebay_item_number = ''
             ORDER BY r.ebay_sell_at DESC 
             LIMIT {num_listings}
@@ -619,10 +626,10 @@ class EBayTab:
         
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
         ''', conn)
         conn.close()
         
@@ -719,10 +726,10 @@ class EBayTab:
         
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             WHERE r.id = ?
         ''', conn, params=(record_id,))
         conn.close()
@@ -784,10 +791,10 @@ class EBayTab:
         """Update eBay sell prices for all inventory records using existing lowest prices - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
         ''', conn)
         conn.close()
         
@@ -855,10 +862,10 @@ class EBayTab:
         """Update eBay sell price for a single record using existing lowest price - FIXED QUERY"""
         conn = st.session_state.db_manager._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             WHERE r.id = ?
         ''', conn, params=(record_id,))
         conn.close()

@@ -1,3 +1,4 @@
+# FILE: inventory-manager/src/tabs/tools_sync_tab.py
 import streamlit as st
 import subprocess
 import os
@@ -55,6 +56,41 @@ class ToolsSyncTab:
                 st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
                 st.write(f"**Last commit:** {status['last_commit']}")
         
+        # Store Capacity Configuration
+        st.subheader("🏪 Store Capacity Configuration")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            current_capacity = st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000')
+            store_capacity = st.number_input(
+                "Store Capacity (total records):",
+                min_value=100,
+                max_value=10000,
+                value=int(current_capacity),
+                step=100,
+                help="Total number of records the store can hold"
+            )
+            if st.button("💾 Save Store Capacity", width='stretch'):
+                st.session_state.db_manager.set_config_value('STORE_CAPACITY', str(store_capacity))
+                st.success("✅ Store capacity saved!")
+        
+        with col2:
+            # Show store fill information
+            store_fill_info = self._get_store_fill_info()
+            st.metric(
+                "Store Fill Percentage", 
+                f"{store_fill_info['fill_percentage']:.1f}%",
+                f"{store_fill_info['total_inventory']} / {store_fill_info['store_capacity']} records"
+            )
+            
+            # Show commission rate based on store fill
+            commission_rate = self._calculate_commission_rate(store_fill_info['fill_percentage'])
+            st.metric(
+                "Current Commission Rate",
+                f"{commission_rate:.1%}",
+                "Based on store fill"
+            )
+        
         # Database Management
         st.subheader("🗃️ Database Tools")
         col1, col2 = st.columns(2)
@@ -84,6 +120,47 @@ class ToolsSyncTab:
             with col1:
                 st.metric("Total Records", stats['records_count'])
             with col2:
-                st.metric("Consignors", stats['consignors_count'])
+                st.metric("Users", stats['users_count'])
             with col3:
                 st.metric("Database Path", stats['db_path'])
+
+    def _get_store_fill_info(self):
+        """Calculate store fill percentage based on total inventory and store capacity"""
+        try:
+            # Get store capacity from config
+            store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
+            
+            # Get total inventory count
+            conn = st.session_state.db_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM records')
+            total_inventory = cursor.fetchone()[0]
+            conn.close()
+            
+            # Calculate fill percentage
+            fill_percentage = (total_inventory / store_capacity) * 100 if store_capacity > 0 else 0
+            
+            return {
+                'total_inventory': total_inventory,
+                'store_capacity': store_capacity,
+                'fill_percentage': fill_percentage
+            }
+        except Exception as e:
+            return {
+                'total_inventory': 0,
+                'store_capacity': 1000,
+                'fill_percentage': 0
+            }
+
+    def _calculate_commission_rate(self, fill_percentage):
+        """Calculate commission rate based on store fill percentage"""
+        fill_fraction = fill_percentage / 100.0
+        if fill_fraction < 0.60:
+            return 0.10  # 10% when below 60%
+        elif fill_fraction <= 1.10:
+            # Linear increase from 10% to 40% between 60% and 110%
+            # At 0.60: 0.10, at 1.10: 0.40
+            slope = (0.40 - 0.10) / (1.10 - 0.60)
+            return 0.10 + slope * (fill_fraction - 0.60)
+        else:
+            return 0.40  # 40% when above 110%

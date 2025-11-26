@@ -9,17 +9,17 @@ from typing import Optional, Dict, Any
 import os
 
 class AuthManager:
-    def __init__(self, db_path: str = "data/auth.db"):
+    def __init__(self, db_path: str = "data/records.db"):
         self.db_path = db_path
         self._init_auth_database()
     
     def _init_auth_database(self):
-        """Initialize authentication database"""
+        """Initialize authentication database within main records database"""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Users table - simplified with only admin and consignor roles
+        # Users table - with contact info and role
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,12 +69,16 @@ class AuthManager:
         
         # Create default admin user if none exists
         cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
-        if cursor.fetchone()[0] == 0:
-            default_password = self._hash_password("admin123")
+        admin_count = cursor.fetchone()[0]
+        
+        if admin_count == 0:
+            # Create admin user with password admin123
+            password_hash = self._hash_password("admin123")
             cursor.execute('''
-                INSERT INTO users (username, email, password_hash, role, full_name)
-                VALUES (?, ?, ?, ?, ?)
-            ''', ('admin', 'admin@pigstylerecords.com', default_password, 'admin', 'System Administrator'))
+                INSERT INTO users (username, email, password_hash, role, full_name, is_active)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', ('admin', 'admin@pigstylerecords.com', password_hash, 'admin', 'System Administrator', 1))
+            print("✅ Default admin user created: admin / admin123")
         
         conn.commit()
         conn.close()
@@ -87,6 +91,9 @@ class AuthManager:
     def _verify_password(self, password: str, password_hash: str) -> bool:
         """Verify password against hash"""
         try:
+            if not password_hash or '$' not in password_hash:
+                return False
+                
             salt, hash_value = password_hash.split('$')
             return hashlib.sha256((salt + password).encode()).hexdigest() == hash_value
         except:

@@ -52,9 +52,10 @@ class SearchHandler:
             
             # Updated query to include catalog_number search
             df = pd.read_sql(
-                '''SELECT r.*, g.genre_name as genre 
+                '''SELECT r.*, g.genre_name as genre, u.username as consignor_name
                    FROM records r 
                    LEFT JOIN genres g ON r.genre_id = g.id 
+                   LEFT JOIN users u ON r.consignor_id = u.id
                    WHERE (r.artist LIKE ? OR r.title LIKE ? OR r.barcode LIKE ? OR r.catalog_number LIKE ?) 
                    ORDER BY r.artist, r.title''',
                 conn,
@@ -76,12 +77,14 @@ class SearchHandler:
                     'file_at': record.get('file_at', ''),
                     'store_price': record.get('store_price', ''),
                     'ebay_sell_at': record.get('ebay_sell_at', ''),
-                    'discogs_lowest_price': record.get('discogs_lowest_price', ''),
-                    'discogs_estimated_price': record.get('discogs_estimated_price', ''),
+                    'discogs_suggested_price': record.get('discogs_suggested_price', ''),
                     'ebay_lowest_price': record.get('ebay_lowest_price', ''),
                     'condition': record.get('condition', ''),
                     'genre': record.get('genre', ''),
-                    'youtube_url': record.get('youtube_url', '')
+                    'youtube_url': record.get('youtube_url', ''),
+                    'consignor_name': record.get('consignor_name', ''),
+                    'commission_rate': record.get('commission_rate', ''),
+                    'compilation': record.get('compilation', False)
                 }
                 
                 formatted_results.append(formatted_result)

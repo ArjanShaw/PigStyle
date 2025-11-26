@@ -244,10 +244,10 @@ class DisplayHandler:
         # Once ALL data is loaded, show the complete UI
         st.subheader("Edit Properties")
         
-        # Add consignment dropdown for both new and existing records - NOW DIRECT CONSIGNOR SELECTION
-        consignor_id, commission_rate, store_return_days = self._render_consignment_section(record_data)
-        if consignor_id:
-            record_data['consignor_id'] = consignor_id
+        # Add consignment dropdown for both new and existing records - NOW DIRECT USER SELECTION
+        user_id, commission_rate, store_return_days = self._render_consignment_section(record_data)
+        if user_id:
+            record_data['consignor_id'] = user_id
             record_data['commission_rate'] = commission_rate
             record_data['store_return_days'] = store_return_days
         else:
@@ -338,37 +338,37 @@ class DisplayHandler:
                     st.success(f"✅ Record updated successfully!\\n**File Location:** {file_at_value}")
 
     def _render_consignment_section(self, record_data=None):
-        """Render consignment section with direct consignor selection and individual rates"""
+        """Render consignment section with direct user selection and individual rates"""
         try:
-            # Get all consignors for dropdown
-            consignors_df = st.session_state.db_manager.get_all_consignors()
+            # Get all users for dropdown
+            users_df = st.session_state.db_manager.get_all_users()
             
-            if len(consignors_df) == 0:
-                st.info("No consignors available. Add consignors in the Consignment tab first.")
+            if len(users_df) == 0:
+                st.info("No users available. Add users in the Consignment tab first.")
                 return None, None, None
             
             # Create options for dropdown
             options = ["Store Owned"]  # Default option
             
-            # Create mapping for consignor selection
-            consignor_mapping = {}
-            for _, consignor in consignors_df.iterrows():
-                option_text = f"{consignor['name']}"
+            # Create mapping for user selection
+            user_mapping = {}
+            for _, user in users_df.iterrows():
+                option_text = f"{user['username']} ({user['full_name'] or 'No name'})"
                 options.append(option_text)
-                consignor_mapping[option_text] = consignor['id']
+                user_mapping[option_text] = user['id']
             
             # Determine default selection
             default_index = 0  # Default to "Store Owned"
             
-            # If editing existing record with consignment, find the matching consignor
+            # If editing existing record with consignment, find the matching user
             current_consignor_name = record_data.get('consignor_name', '')
             if current_consignor_name:
-                for option_text in consignor_mapping.keys():
+                for option_text in user_mapping.keys():
                     if current_consignor_name in option_text:
                         default_index = options.index(option_text)
                         break
             
-            # Render consignor dropdown
+            # Render user dropdown
             selected_option = st.selectbox(
                 "Consignor:",
                 options=options,
@@ -380,8 +380,8 @@ class DisplayHandler:
             if selected_option == "Store Owned":
                 return None, None, None
             
-            # Get the selected consignor ID
-            consignor_id = consignor_mapping.get(selected_option)
+            # Get the selected user ID
+            user_id = user_mapping.get(selected_option)
             
             # Show commission rate input
             current_commission_rate = record_data.get('commission_rate')
@@ -412,7 +412,7 @@ class DisplayHandler:
                 key="store_return_days_input"
             )
             
-            return consignor_id, commission_rate, store_return_days
+            return user_id, commission_rate, store_return_days
             
         except Exception as e:
             st.error(f"Error loading consignment section: {e}")

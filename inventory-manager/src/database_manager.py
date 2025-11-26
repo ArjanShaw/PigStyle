@@ -51,23 +51,31 @@ class DatabaseManager:
                 commission_rate REAL,
                 store_return_days INTEGER,
                 compilation BOOLEAN DEFAULT FALSE,
+                payment_requested DATE,
+                pickup_confirmed DATE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (genre_id) REFERENCES genres (id),
-                FOREIGN KEY (consignor_id) REFERENCES consignors (id)
+                FOREIGN KEY (consignor_id) REFERENCES users (id)
             )
         ''')
         
-        # Consignors table
+        # Users table (replaces consignors table)
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS consignors (
+            CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'consignor',
+                full_name TEXT,
                 phone TEXT,
                 address TEXT,
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                is_active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP,
+                failed_attempts INTEGER DEFAULT 0,
+                locked_until TIMESTAMP
             )
         ''')
         
@@ -87,7 +95,9 @@ class DatabaseManager:
             ('consignor_id', 'INTEGER'),
             ('commission_rate', 'REAL'),
             ('store_return_days', 'INTEGER'),
-            ('compilation', 'BOOLEAN DEFAULT FALSE')
+            ('compilation', 'BOOLEAN DEFAULT FALSE'),
+            ('payment_requested', 'DATE'),
+            ('pickup_confirmed', 'DATE')
         ]
         
         for column_name, column_type in columns_to_add:
@@ -380,38 +390,45 @@ class DatabaseManager:
         
         return result[0] if result else None
     
-    # Consignor management methods
-    def get_all_consignors(self):
-        """Get all consignors"""
+    # User management methods (replacing consignor methods)
+    def get_all_users(self):
+        """Get all users"""
         conn = self._get_connection()
-        df = pd.read_sql('SELECT * FROM consignors ORDER BY name', conn)
+        df = pd.read_sql('SELECT * FROM users ORDER BY username', conn)
         conn.close()
         return df
     
-    def get_consignor_by_id(self, consignor_id):
-        """Get consignor by ID"""
+    def get_user_by_id(self, user_id):
+        """Get user by ID"""
         conn = self._get_connection()
-        df = pd.read_sql('SELECT * FROM consignors WHERE id = ?', conn, params=(consignor_id,))
+        df = pd.read_sql('SELECT * FROM users WHERE id = ?', conn, params=(user_id,))
+        conn.close()
+        return df.iloc[0] if len(df) > 0 else None
+
+    def get_consignor_by_user_id(self, user_id):
+        """Get user by user ID (replaces get_consignor_by_user_id)"""
+        conn = self._get_connection()
+        df = pd.read_sql('SELECT * FROM users WHERE id = ?', conn, params=(user_id,))
         conn.close()
         return df.iloc[0] if len(df) > 0 else None
     
-    def add_consignor(self, name, email=None, phone=None, address=None, notes=None):
-        """Add a new consignor"""
+    def add_user(self, username, email, password_hash, role='consignor', full_name=None, phone=None, address=None):
+        """Add a new user (replaces add_consignor)"""
         conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
-            INSERT INTO consignors (name, email, phone, address, notes)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (name, email, phone, address, notes))
+            INSERT INTO users (username, email, password_hash, role, full_name, phone, address)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (username, email, password_hash, role, full_name, phone, address))
         
         conn.commit()
-        consignor_id = cursor.lastrowid
+        user_id = cursor.lastrowid
         conn.close()
-        return consignor_id
+        return user_id
     
-    def update_consignor(self, consignor_id, updates):
-        """Update a consignor"""
+    def update_user(self, user_id, updates):
+        """Update a user (replaces update_consignor)"""
         conn = self._get_connection()
         cursor = conn.cursor()
         
@@ -421,23 +438,23 @@ class DatabaseManager:
             set_clause.append(f"{field} = ?")
             values.append(value)
         
-        values.append(consignor_id)
-        query = f"UPDATE consignors SET {', '.join(set_clause)} WHERE id = ?"
+        values.append(user_id)
+        query = f"UPDATE users SET {', '.join(set_clause)} WHERE id = ?"
         cursor.execute(query, values)
         
         conn.commit()
         conn.close()
         return True
     
-    # Consignment record queries
-    def get_consignment_records_ready_for_payment(self, consignor_id=None):
+    # Consignment record queries (updated to use users table)
+    def get_consignment_records_ready_for_payment(self, user_id=None):
         """Get consignment records ready for payment (passed customer return period)"""
         customer_return_days = int(self.get_config_value('CUSTOMER_RETURN_DAYS', '30'))
         
         query = '''
-            SELECT r.*, c.name as consignor_name, r.commission_rate
+            SELECT r.*, u.username as consignor_name, u.full_name, r.commission_rate
             FROM records r
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             WHERE r.date_sold IS NOT NULL
             AND r.date_paid IS NULL
             AND r.consignor_id IS NOT NULL
@@ -446,9 +463,9 @@ class DatabaseManager:
         
         params = [customer_return_days]
         
-        if consignor_id:
+        if user_id:
             query += ' AND r.consignor_id = ?'
-            params.append(consignor_id)
+            params.append(user_id)
         
         query += ' ORDER BY r.date_sold'
         
@@ -456,13 +473,32 @@ class DatabaseManager:
         df = pd.read_sql(query, conn, params=params)
         conn.close()
         return df
+
+    def get_user_consignment_records_ready_for_payment(self, user_id):
+        """Get consignment records ready for payment for a specific user"""
+        customer_return_days = int(self.get_config_value('CUSTOMER_RETURN_DAYS', '30'))
+        
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT r.*, u.username as consignor_name, u.full_name, r.commission_rate
+            FROM records r
+            LEFT JOIN users u ON r.consignor_id = u.id
+            WHERE r.date_sold IS NOT NULL
+            AND r.date_paid IS NULL
+            AND r.consignor_id IS NOT NULL
+            AND r.date_sold < date('now', '-' || ? || ' days')
+            AND u.id = ?
+            ORDER BY r.date_sold
+        ''', conn, params=(customer_return_days, user_id))
+        conn.close()
+        return df
     
-    def get_consignment_records_ready_for_pickup(self, consignor_id=None):
+    def get_consignment_records_ready_for_pickup(self, user_id=None):
         """Get consignment records ready for pickup (past store return deadline)"""
         query = '''
-            SELECT r.*, c.name as consignor_name, r.store_return_days
+            SELECT r.*, u.username as consignor_name, u.full_name, r.store_return_days
             FROM records r
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             WHERE r.date_sold IS NULL
             AND r.date_returned IS NOT NULL
             AND r.date_picked_up IS NULL
@@ -471,14 +507,31 @@ class DatabaseManager:
         
         params = []
         
-        if consignor_id:
+        if user_id:
             query += ' AND r.consignor_id = ?'
-            params.append(consignor_id)
+            params.append(user_id)
         
         query += ' ORDER BY r.date_returned'
         
         conn = self._get_connection()
         df = pd.read_sql(query, conn, params=params)
+        conn.close()
+        return df
+
+    def get_user_consignment_records_ready_for_pickup(self, user_id):
+        """Get consignment records ready for pickup for a specific user"""
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT r.*, u.username as consignor_name, u.full_name, r.store_return_days
+            FROM records r
+            LEFT JOIN users u ON r.consignor_id = u.id
+            WHERE r.date_sold IS NULL
+            AND r.date_returned IS NOT NULL
+            AND r.date_picked_up IS NULL
+            AND r.consignor_id IS NOT NULL
+            AND u.id = ?
+            ORDER BY r.date_returned
+        ''', conn, params=(user_id,))
         conn.close()
         return df
     
@@ -488,9 +541,9 @@ class DatabaseManager:
         
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, c.name as consignor_name, r.store_return_days
+            SELECT r.*, u.username as consignor_name, u.full_name, r.store_return_days
             FROM records r
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             WHERE r.date_sold IS NULL
             AND r.date_returned IS NOT NULL
             AND r.date_picked_up IS NULL
@@ -550,10 +603,10 @@ class DatabaseManager:
         """Get a record by ID"""
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             WHERE r.id = ?
         ''', conn, params=(record_id,))
         conn.close()
@@ -604,12 +657,26 @@ class DatabaseManager:
         """Get all records from database"""
         conn = self._get_connection()
         df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             ORDER BY r.created_at DESC
         ''', conn)
+        conn.close()
+        return df
+
+    def get_user_records(self, user_id):
+        """Get records for a specific user (consignor)"""
+        conn = self._get_connection()
+        df = pd.read_sql('''
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            LEFT JOIN users u ON r.consignor_id = u.id
+            WHERE u.id = ?
+            ORDER BY r.created_at DESC
+        ''', conn, params=(user_id,))
         conn.close()
         return df
     
@@ -617,10 +684,10 @@ class DatabaseManager:
         """Get recent records"""
         conn = self._get_connection()
         df = pd.read_sql(f'''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
+            SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
             FROM records r
             LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
+            LEFT JOIN users u ON r.consignor_id = u.id
             ORDER BY r.created_at DESC LIMIT {limit}
         ''', conn)
         conn.close()
@@ -632,7 +699,7 @@ class DatabaseManager:
         
         # Use COALESCE to handle NULL values and ensure we get 0 instead of None
         records_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM records', conn).iloc[0]['count']
-        consignors_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM consignors', conn).iloc[0]['count']
+        users_count = pd.read_sql('SELECT COALESCE(COUNT(*), 0) as count FROM users', conn).iloc[0]['count']
         
         # For latest timestamps, handle case where tables are empty
         latest_record_df = pd.read_sql('SELECT MAX(created_at) as latest FROM records', conn)
@@ -642,8 +709,28 @@ class DatabaseManager:
         
         return {
             'records_count': int(records_count),
-            'consignors_count': int(consignors_count),
+            'users_count': int(users_count),
             'latest_record': latest_record,
+            'db_path': self.db_path
+        }
+
+    def get_user_database_stats(self, user_id):
+        """Get database statistics for a specific user"""
+        conn = self._get_connection()
+        
+        # Get records count for user
+        records_count_df = pd.read_sql('''
+            SELECT COALESCE(COUNT(*), 0) as count 
+            FROM records r
+            LEFT JOIN users u ON r.consignor_id = u.id
+            WHERE u.id = ?
+        ''', conn, params=(user_id,))
+        records_count = records_count_df.iloc[0]['count']
+        
+        conn.close()
+        
+        return {
+            'records_count': int(records_count),
             'db_path': self.db_path
         }
     
@@ -768,7 +855,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         cursor.execute('DELETE FROM records')
         cursor.execute('DELETE FROM genres')
-        cursor.execute('DELETE FROM consignors')
+        cursor.execute('DELETE FROM users')
         conn.commit()
         conn.close()
     
@@ -776,7 +863,7 @@ class DatabaseManager:
         """Search for records by search term"""
         conn = self._get_connection()
         df = pd.read_sql(
-            'SELECT r.*, g.genre_name as genre, c.name as consignor_name FROM records r LEFT JOIN genres g ON r.genre_id = g.id LEFT JOIN consignors c ON r.consignor_id = c.id WHERE r.artist LIKE ? OR r.title LIKE ? ORDER BY r.created_at DESC',
+            'SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name FROM records r LEFT JOIN genres g ON r.genre_id = g.id LEFT JOIN users u ON r.consignor_id = u.id WHERE r.artist LIKE ? OR r.title LIKE ? ORDER BY r.created_at DESC',
             conn,
             params=(f'%{search_term}%', f'%{search_term}%')
         )
@@ -787,7 +874,7 @@ class DatabaseManager:
         """Get a record by barcode"""
         conn = self._get_connection()
         df = pd.read_sql(
-            'SELECT r.*, g.genre_name as genre, c.name as consignor_name FROM records r LEFT JOIN genres g ON r.genre_id = g.id LEFT JOIN consignors c ON r.consignor_id = c.id WHERE r.barcode = ?',
+            'SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name FROM records r LEFT JOIN genres g ON r.genre_id = g.id LEFT JOIN users u ON r.consignor_id = u.id WHERE r.barcode = ?',
             conn,
             params=(barcode,)
         )

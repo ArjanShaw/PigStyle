@@ -8,52 +8,168 @@ class ConsignmentTab:
         pass
     
     def render(self):
-        st.header("🤝 Consignment Services")
+        user = st.session_state.get('user', {})
+        user_role = user.get('role', 'consignor')
+        user_id = user.get('id')
         
-        # Initialize session state for selected consignor
-        if 'selected_consignor_id' not in st.session_state:
-            st.session_state.selected_consignor_id = None
-        if 'selected_session_id' not in st.session_state:
-            st.session_state.selected_session_id = None
+        if user_role == 'admin':
+            self._render_admin_consignment()
+        else:
+            self._render_consignor_consignment(user_id)
+    
+    def _render_consignor_consignment(self, user_id):
+        """Render consignment tab for individual users to check pickups/returns and request payment"""
+        st.header("🤝 My Consignment")
         
-        # Tab layout for different consignment functions
-        tab1, tab2, tab3 = st.tabs([
-            "💰 Payment Processing",
-            "📦 Pickup & Returns", 
-            "👥 Consignor Management"
+        if not user_id:
+            st.error("Unable to identify user. Please contact administrator.")
+            return
+        
+        # Get user info
+        user = st.session_state.db_manager.get_user_by_id(user_id)
+        if user is None or user.empty:  # FIX: Check if user is None or empty DataFrame
+            st.error("User profile not found. Please contact administrator.")
+            return
+        
+        st.write(f"**User:** {user['full_name'] or user['username']}")
+        
+        # Tab layout for user functions
+        tab1, tab2 = st.tabs([
+            "💰 Request Payment",
+            "📦 Pickup & Returns"
         ])
         
         with tab1:
-            self._render_payment_processing()
+            self._render_consignor_payment_requests(user_id, user)
         
         with tab2:
-            self._render_pickup_returns()
+            self._render_consignor_pickup_returns(user_id, user)
+    
+    def _render_admin_consignment(self):
+        """Render consignment tab for admin to manage all users"""
+        st.header("🤝 Consignment Management")
+        
+        # Tab layout for admin functions
+        tab1, tab2, tab3 = st.tabs([
+            "💰 Payment Processing", 
+            "📦 Pickup & Returns",
+            "👥 User Management"
+        ])
+        
+        with tab1:
+            self._render_admin_payment_processing()
+        
+        with tab2:
+            self._render_admin_pickup_returns()
         
         with tab3:
-            self._render_consignor_management()
+            self._render_user_management()
     
-    def _render_payment_processing(self):
-        """Render payment processing section"""
-        st.subheader("💰 Consignor Payment Processing")
+    def _render_consignor_payment_requests(self, user_id, user):
+        """Render payment request section for users"""
+        st.subheader("💰 Request Payment")
         
-        # Consignor selection
-        consignor_id = self._render_consignor_selector("payment")
-        if not consignor_id:
-            st.info("Please select a consignor to process payments")
-            return
-        
-        # Get payment-ready records for this consignor
-        payment_records = st.session_state.db_manager.get_consignment_records_ready_for_payment(consignor_id)
+        # Get payment-ready records for this user
+        payment_records = st.session_state.db_manager.get_consignment_records_ready_for_payment(user_id)
         
         if len(payment_records) == 0:
-            st.info("No records ready for payment for this consignor")
+            st.info("No records ready for payment at this time.")
             return
         
         # Display payment summary
         total_sales = payment_records['store_price'].sum()
         commission_rate = payment_records.iloc[0]['commission_rate'] if len(payment_records) > 0 else 0
         store_commission = total_sales * commission_rate
-        consignor_payout = total_sales - store_commission
+        user_payout = total_sales - store_commission
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Records Ready", len(payment_records))
+        with col2:
+            st.metric("Total Sales", f"${total_sales:.2f}")
+        with col3:
+            st.metric("Store Commission", f"${store_commission:.2f}")
+        with col4:
+            st.metric("Your Payout", f"${user_payout:.2f}")
+        
+        # Display records table
+        st.subheader("Records Ready for Payment")
+        display_df = payment_records[['id', 'artist', 'title', 'store_price', 'date_sold']].copy()
+        display_df['date_sold'] = pd.to_datetime(display_df['date_sold']).dt.date
+        
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        # Payment request action
+        if st.button("💳 Request Payment", type="primary", use_container_width=True):
+            success = self._request_payment(payment_records, user_id)
+            if success:
+                st.success("Payment request submitted! The store will process your payment soon.")
+                st.rerun()
+    
+    def _render_consignor_pickup_returns(self, user_id, user):
+        """Render pickup and returns section for users"""
+        st.subheader("📦 Pickup & Returns")
+        
+        # Get pickup-ready records for this user
+        pickup_records = st.session_state.db_manager.get_consignment_records_ready_for_pickup(user_id)
+        
+        if len(pickup_records) == 0:
+            st.info("No records ready for pickup at this time.")
+            return
+        
+        # Display pickup summary
+        st.metric("Records Ready for Pickup", len(pickup_records))
+        
+        # Display records table
+        st.subheader("Records Ready for Pickup")
+        display_df = pickup_records[['id', 'artist', 'title', 'store_price', 'date_returned']].copy()
+        display_df['date_returned'] = pd.to_datetime(display_df['date_returned']).dt.date
+        
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        # Pickup confirmation action
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📤 Confirm Pickup", type="primary", use_container_width=True):
+                success = self._confirm_pickup(pickup_records)
+                if success:
+                    st.success("Pickup confirmed! Please arrange to pick up your records.")
+                    st.rerun()
+        
+        with col2:
+            if st.button("📋 Generate Pickup List", use_container_width=True):
+                self._generate_pickup_list(pickup_records)
+    
+    def _render_admin_payment_processing(self):
+        """Render payment processing section for admin"""
+        st.subheader("💰 User Payment Processing")
+        
+        # User selection
+        user_id = self._render_user_selector("payment")
+        if not user_id:
+            st.info("Please select a user to process payments")
+            return
+        
+        # Get payment-ready records for this user
+        payment_records = st.session_state.db_manager.get_consignment_records_ready_for_payment(user_id)
+        
+        if len(payment_records) == 0:
+            st.info("No records ready for payment for this user")
+            return
+        
+        # Display payment summary
+        total_sales = payment_records['store_price'].sum()
+        commission_rate = payment_records.iloc[0]['commission_rate'] if len(payment_records) > 0 else 0
+        store_commission = total_sales * commission_rate
+        user_payout = total_sales - store_commission
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -63,7 +179,7 @@ class ConsignmentTab:
         with col3:
             st.metric("Store Commission", f"${store_commission:.2f}")
         with col4:
-            st.metric("Consignor Payout", f"${consignor_payout:.2f}")
+            st.metric("User Payout", f"${user_payout:.2f}")
         
         # Display records table
         st.subheader("Records Ready for Payment")
@@ -83,23 +199,23 @@ class ConsignmentTab:
                 self._process_payment(payment_records)
         with col2:
             if st.button("🧾 Generate Payment Report", use_container_width=True):
-                self._generate_payment_report(payment_records, consignor_payout, store_commission)
+                self._generate_payment_report(payment_records, user_payout, store_commission)
     
-    def _render_pickup_returns(self):
-        """Render pickup and returns section"""
-        st.subheader("📦 Consignor Pickup & Returns")
+    def _render_admin_pickup_returns(self):
+        """Render pickup and returns section for admin"""
+        st.subheader("📦 User Pickup & Returns")
         
-        # Consignor selection
-        consignor_id = self._render_consignor_selector("pickup")
-        if not consignor_id:
-            st.info("Please select a consignor to process pickups")
+        # User selection
+        user_id = self._render_user_selector("pickup")
+        if not user_id:
+            st.info("Please select a user to process pickups")
             return
         
-        # Get pickup-ready records for this consignor
-        pickup_records = st.session_state.db_manager.get_consignment_records_ready_for_pickup(consignor_id)
+        # Get pickup-ready records for this user
+        pickup_records = st.session_state.db_manager.get_consignment_records_ready_for_pickup(user_id)
         
         if len(pickup_records) == 0:
-            st.info("No records ready for pickup for this consignor")
+            st.info("No records ready for pickup for this user")
             return
         
         # Display pickup summary
@@ -125,7 +241,7 @@ class ConsignmentTab:
             if st.button("📋 Generate Pickup List", use_container_width=True):
                 self._generate_pickup_list(pickup_records)
         
-        # Auto-return tools
+        # Auto-return tools for admin only
         st.subheader("Auto-Return Tools")
         col1, col2 = st.columns(2)
         with col1:
@@ -146,151 +262,138 @@ class ConsignmentTab:
                 else:
                     st.info("No abandoned records found")
     
-    def _render_consignor_management(self):
-        """Render consignor management section"""
-        st.subheader("👥 Consignor Management")
+    def _render_user_management(self):
+        """Render user management section (admin only)"""
+        st.subheader("👥 User Management")
         
-        # Add new consignor
-        with st.expander("➕ Add New Consignor", expanded=False):
-            self._render_add_consignor_form()
+        # Add new user
+        with st.expander("➕ Add New User", expanded=False):
+            self._render_add_user_form()
         
-        # Add new consignment session
-        with st.expander("📅 Add New Consignment Session", expanded=False):
-            self._render_add_session_form()
+        # User list
+        st.subheader("Users")
+        users = st.session_state.db_manager.get_all_users()
         
-        # Consignor list
-        st.subheader("Consignors")
-        consignors = st.session_state.db_manager.get_all_consignors()
-        
-        if len(consignors) == 0:
-            st.info("No consignors found. Add a new consignor to get started.")
+        if len(users) == 0:
+            st.info("No users found. Add a new user to get started.")
             return
         
-        # Display consignors with their stats
-        for _, consignor in consignors.iterrows():
-            with st.expander(f"👤 {consignor['name']}", expanded=False):
+        # Display users with their stats
+        for _, user in users.iterrows():
+            with st.expander(f"👤 {user['username']} ({user['role']})", expanded=False):
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.write(f"**Email:** {consignor['email'] or 'N/A'}")
-                    st.write(f"**Phone:** {consignor['phone'] or 'N/A'}")
+                    st.write(f"**Email:** {user['email'] or 'N/A'}")
+                    st.write(f"**Phone:** {user['phone'] or 'N/A'}")
                 with col2:
-                    st.write(f"**Address:** {consignor['address'] or 'N/A'}")
+                    st.write(f"**Full Name:** {user['full_name'] or 'N/A'}")
+                    st.write(f"**Address:** {user['address'] or 'N/A'}")
                 with col3:
-                    st.write(f"**Notes:** {consignor['notes'] or 'N/A'}")
-                
-                # Show consignor sessions
-                sessions = st.session_state.db_manager.get_sessions_by_consignor(consignor['id'])
-                if len(sessions) > 0:
-                    st.write("**Sessions:**")
-                    for _, session in sessions.iterrows():
-                        st.write(f"- {session['session_date']}: {session['commission_rate']*100}% commission, {session['store_return_days']} days")
+                    st.write(f"**Created:** {user['created_at'].split(' ')[0] if user['created_at'] else 'N/A'}")
+                    st.write(f"**Last Login:** {user['last_login'].split(' ')[0] if user['last_login'] else 'N/A'}")
+                    st.write(f"**Active:** {'✅ Yes' if user['is_active'] else '❌ No'}")
     
-    def _render_consignor_selector(self, context):
-        """Render consignor selector dropdown"""
-        consignors = st.session_state.db_manager.get_all_consignors()
+    def _render_user_selector(self, context):
+        """Render user selector dropdown"""
+        users = st.session_state.db_manager.get_all_users()
         
-        if len(consignors) == 0:
-            st.error("No consignors found. Please add consignors first.")
+        if len(users) == 0:
+            st.error("No users found. Please add users first.")
             return None
         
         # Create display names for dropdown
-        consignor_options = ["Select Consignor..."] + [
-            f"{row['name']} (ID: {row['id']})" for _, row in consignors.iterrows()
+        user_options = ["Select User..."] + [
+            f"{row['username']} ({row['full_name'] or 'No name'})" for _, row in users.iterrows()
         ]
         
-        selected_consignor = st.selectbox(
-            "Select Consignor:",
-            options=consignor_options,
-            key=f"consignor_selector_{context}"
+        selected_user = st.selectbox(
+            "Select User:",
+            options=user_options,
+            key=f"user_selector_{context}"
         )
         
-        if selected_consignor == "Select Consignor...":
+        if selected_user == "Select User...":
             return None
         
-        # Extract consignor ID from selection
-        consignor_id = int(selected_consignor.split("(ID: ")[1].rstrip(")"))
-        return consignor_id
+        # Extract user ID from selection
+        username = selected_user.split(" (")[0]
+        user = users[users['username'] == username].iloc[0]
+        return user['id']
     
-    def _render_add_consignor_form(self):
-        """Render form to add new consignor"""
-        with st.form("add_consignor_form"):
+    def _render_add_user_form(self):
+        """Render form to add new user"""
+        with st.form("add_user_form"):
             col1, col2 = st.columns(2)
             with col1:
-                name = st.text_input("Name *", placeholder="Consignor full name")
-                email = st.text_input("Email", placeholder="email@example.com")
-                phone = st.text_input("Phone", placeholder="(555) 123-4567")
+                username = st.text_input("Username *", placeholder="Enter username")
+                email = st.text_input("Email *", placeholder="user@example.com")
+                password = st.text_input("Password *", type="password", placeholder="Enter password")
+                confirm_password = st.text_input("Confirm Password *", type="password", placeholder="Confirm password")
             with col2:
-                address = st.text_area("Address", placeholder="Street address")
-                notes = st.text_area("Notes", placeholder="Additional notes")
+                full_name = st.text_input("Full Name", placeholder="Optional full name")
+                phone = st.text_input("Phone", placeholder="Optional phone number")
+                role = st.selectbox("Role", options=['consignor', 'admin'])
+                address = st.text_area("Address", placeholder="Optional address", height=80)
             
-            if st.form_submit_button("Add Consignor", use_container_width=True):
-                if not name:
-                    st.error("Name is required")
-                    return
-                
-                consignor_id = st.session_state.db_manager.add_consignor(
-                    name=name,
-                    email=email or None,
-                    phone=phone or None,
-                    address=address or None,
-                    notes=notes or None
-                )
-                
-                if consignor_id:
-                    st.success(f"✅ Consignor '{name}' added successfully!")
-                    st.rerun()
+            if st.form_submit_button("Add User", use_container_width=True):
+                if not all([username, email, password, confirm_password]):
+                    st.error("Please fill all required fields (*)")
+                elif password != confirm_password:
+                    st.error("Passwords do not match")
+                else:
+                    # Use the auth manager to properly create the user with hashed password
+                    from auth.auth_manager import AuthManager
+                    auth_manager = AuthManager()
+                    
+                    success, message = auth_manager.create_user(
+                        username=username,
+                        email=email,
+                        password=password,
+                        role=role,
+                        full_name=full_name or None,
+                        phone=phone or None,
+                        address=address or None
+                    )
+                    
+                    if success:
+                        st.success(f"✅ User '{username}' added successfully!")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {message}")
     
-    def _render_add_session_form(self):
-        """Render form to add new consignment session"""
-        consignors = st.session_state.db_manager.get_all_consignors()
-        
-        if len(consignors) == 0:
-            st.info("Please add consignors first before creating sessions")
-            return
-        
-        with st.form("add_session_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                consignor_id = st.selectbox(
-                    "Consignor *",
-                    options=consignors['id'].tolist(),
-                    format_func=lambda x: consignors[consignors['id'] == x]['name'].iloc[0]
-                )
-                session_date = st.date_input("Session Date", value=datetime.now().date())
-                commission_rate = st.number_input(
-                    "Commission Rate *",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=float(st.session_state.db_manager.get_config_value('DEFAULT_COMMISSION_RATE', '0.50')),
-                    step=0.05,
-                    format="%.2f"
-                )
-            with col2:
-                store_return_days = st.number_input(
-                    "Store Return Days *",
-                    min_value=1,
-                    max_value=365,
-                    value=int(st.session_state.db_manager.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90')),
-                    step=1
-                )
-                session_notes = st.text_area("Session Notes", placeholder="Special terms, collection type, etc.")
+    def _request_payment(self, payment_records, user_id):
+        """Request payment for selected records (user action)"""
+        try:
+            # For users, this just marks them as payment requested
+            # Admin will actually process the payment later
+            for _, record in payment_records.iterrows():
+                st.session_state.db_manager.update_record(record['id'], {
+                    'payment_requested': datetime.now().date()
+                })
             
-            if st.form_submit_button("Add Consignment Session", use_container_width=True):
-                session_id = st.session_state.db_manager.add_consignment_session(
-                    consignor_id=consignor_id,
-                    session_date=session_date,
-                    commission_rate=commission_rate,
-                    store_return_days=store_return_days,
-                    session_notes=session_notes or None
-                )
-                
-                if session_id:
-                    consignor_name = consignors[consignors['id'] == consignor_id]['name'].iloc[0]
-                    st.success(f"✅ Consignment session for '{consignor_name}' added successfully!")
-                    st.rerun()
+            return True
+            
+        except Exception as e:
+            st.error(f"❌ Error requesting payment: {e}")
+            return False
+    
+    def _confirm_pickup(self, pickup_records):
+        """Confirm pickup for selected records (user action)"""
+        try:
+            # For users, this confirms they will pick up
+            for _, record in pickup_records.iterrows():
+                st.session_state.db_manager.update_record(record['id'], {
+                    'pickup_confirmed': datetime.now().date()
+                })
+            
+            return True
+            
+        except Exception as e:
+            st.error(f"❌ Error confirming pickup: {e}")
+            return False
     
     def _process_payment(self, payment_records):
-        """Process payment for selected records"""
+        """Process payment for selected records (admin action)"""
         try:
             # Mark records as paid
             for _, record in payment_records.iterrows():
@@ -305,7 +408,7 @@ class ConsignmentTab:
             st.error(f"❌ Error processing payment: {e}")
     
     def _process_pickup(self, pickup_records):
-        """Process pickup for selected records"""
+        """Process pickup for selected records (admin action)"""
         try:
             # Mark records as picked up
             for _, record in pickup_records.iterrows():
@@ -319,7 +422,7 @@ class ConsignmentTab:
         except Exception as e:
             st.error(f"❌ Error processing pickup: {e}")
     
-    def _generate_payment_report(self, payment_records, consignor_payout, store_commission):
+    def _generate_payment_report(self, payment_records, user_payout, store_commission):
         """Generate payment report CSV"""
         try:
             # Create detailed report
@@ -340,7 +443,7 @@ class ConsignmentTab:
                 'Artist': '',
                 'Title': '',
                 'Sale Price': f"Total: ${payment_records['store_price'].sum():.2f}",
-                'Date Sold': f"Payout: ${consignor_payout:.2f}",
+                'Date Sold': f"Payout: ${user_payout:.2f}",
                 'Commission Rate': f"Commission: ${store_commission:.2f}"
             })
             

@@ -28,8 +28,8 @@ class InventoryTab:
     def render(self):
         """Render the combined inventory, check-in, and checkout functionality"""
         
-        # Database statistics - direct count from inventory records
-        stats = self._get_database_stats_direct()
+        # Database statistics - show only user's records for consignors
+        stats = self._get_user_database_stats()
             
         # Top row: Stats
         col1, col2 = st.columns([1, 1])
@@ -222,12 +222,25 @@ class InventoryTab:
                                 st.write("**Response:**")
                                 st.json(response_data)
 
-    def _get_database_stats_direct(self) -> dict:
-        """Get database statistics directly from records table"""
+    def _get_user_database_stats(self) -> dict:
+        """Get database statistics filtered by user for consignors"""
+        user = st.session_state.get('user', {})
+        user_role = user.get('role', 'consignor')
+        user_id = user.get('id')
+        
         conn = st.session_state.db_manager._get_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT COUNT(*) FROM records')
+        if user_role == 'consignor' and user_id:
+            # For consignors, only count their own records
+            cursor.execute('''
+                SELECT COUNT(*) FROM records r
+                WHERE r.consignor_id = ?
+            ''', (user_id,))
+        else:
+            # For admins, count all records
+            cursor.execute('SELECT COUNT(*) FROM records')
+        
         records_count_result = cursor.fetchone()
         records_count = records_count_result[0] if records_count_result else 0
         

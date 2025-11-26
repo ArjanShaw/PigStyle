@@ -256,13 +256,16 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
     if PermissionManager.has_permission(user_role, 'inventory', 'add'):
         tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render))
     
-    if PermissionManager.has_permission(user_role, 'pricing', 'view'):
-        tab_configs.append(("🏪 Store Pricing", store_pricing_tab.render))
+    # Store Pricing tab removed for all users as requested
+    # if PermissionManager.has_permission(user_role, 'pricing', 'view'):
+    #     tab_configs.append(("🏪 Store Pricing", store_pricing_tab.render))
     
-    if PermissionManager.has_permission(user_role, 'ebay', 'view'):
+    # eBay tab only for admin
+    if user_role == 'admin' and PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    if PermissionManager.has_permission(user_role, 'reports', 'view'):
+    # Statistics tab only for admin
+    if user_role == 'admin' and PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("📊 Statistics", statistics_tab.render))
     
     if PermissionManager.has_permission(user_role, 'consignment', 'view'):

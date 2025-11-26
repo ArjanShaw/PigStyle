@@ -31,7 +31,7 @@ class SessionManager:
                 self.logout()
         
         # Check for session token in query params (for remember me functionality)
-        query_params = st.experimental_get_query_params()
+        query_params = st.query_params
         if 'token' in query_params:
             token = query_params['token'][0]
             is_valid, user_info = self.auth_manager.validate_session(token)
@@ -65,7 +65,7 @@ class SessionManager:
             
             # Set query param for "remember me" functionality
             if remember_me:
-                st.experimental_set_query_params(token=user_info['session_token'])
+                st.query_params = {"token": user_info['session_token']}
             
             return True, message
         else:
@@ -82,7 +82,7 @@ class SessionManager:
         st.session_state.session_token = None
         
         # Clear query params
-        st.experimental_set_query_params()
+        st.query_params = {}
         
         # Force rerun to show login page
         st.rerun()

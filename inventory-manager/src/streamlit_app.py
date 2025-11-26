@@ -192,7 +192,7 @@ def render_header(user, session_manager):
         st.caption(f"Role: {role_display}")
     
     with col3:
-        if st.button("🔐 Change Password", use_container_width=True, use_container_width=True):
+        if st.button("🔐 Change Password", use_container_width=True):
             st.session_state.show_change_password = True
     
     with col4:

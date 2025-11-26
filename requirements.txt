@@ -9,3 +9,5 @@ Pillow
 python-barcode
 google-api-python-client
 flask
+PyJWT==2.8.0  # NEW: For JWT tokens (if needed later)
+bcrypt==4.0.1  # NEW: For password hashing

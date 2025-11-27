@@ -159,7 +159,7 @@ class PriceTagTab:
             self._save_current_layout_config()
             st.success("✅ Layout configuration saved!")
         
-        # Get records without barcodes
+        # Get records without barcodes - FIXED QUERY (removed consignors reference)
         records = self.price_tag_handler.get_records_without_barcodes()
         
         # MANAGEMENT SECTION
@@ -282,15 +282,15 @@ class PriceTagTab:
                 st.rerun()
                 return
             
-            # Step 2: Get record data
+            # Step 2: Get record data - FIXED QUERY (removed consignors reference)
             status_text.text("Step 2/3: Loading record data...")
             conn = self.db_manager._get_connection()
             placeholders = ','.join(['?'] * len(record_ids))
             query = f'''
-                SELECT r.*, g.genre_name as genre, c.name as consignor_name
+                SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
                 FROM records r
                 LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN consignors c ON r.consignor_id = c.id
+                LEFT JOIN users u ON r.consignor_id = u.id
                 WHERE r.id IN ({placeholders})
             '''
             df = pd.read_sql(query, conn, params=record_ids)

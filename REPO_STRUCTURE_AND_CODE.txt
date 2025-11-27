@@ -36,6 +36,7 @@ REPOSITORY STRUCTURE:
     │   ├── images/
     │   ├── payloads/
     │   ├── tabs/
+    │   │   ├── admin_config_tab.py 🐍
     │   │   ├── consignment_tab.py 🐍
     │   │   ├── debug_tab.py 🐍
     │   │   ├── ebay_tab.py 🐍
@@ -452,6 +453,7 @@ from tabs.store_pricing_tab import StorePricingTab
 from tabs.tools_sync_tab import ToolsSyncTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
+from tabs.admin_config_tab import AdminConfigTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -603,13 +605,14 @@ def render_main_app():
     tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
+    admin_config_tab = AdminConfigTab()
 
     # Render header with user info
     render_header(user, session_manager)
     
     # Create tabs based on user permissions
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab)
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab)
 
 def render_header(user, session_manager):
     """Render application header with user information"""
@@ -675,7 +678,7 @@ def render_change_password_form(session_manager):
                         st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab):
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
     
@@ -708,7 +711,7 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
     
     # Admin-only tabs
     if user_role == 'admin':
-        tab_configs.append(("👥 User Management", render_user_management))
+        tab_configs.append(("⚙️ Admin Config", admin_config_tab.render))
     
     # Create tabs
     if tab_configs:
@@ -721,137 +724,6 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
                     render_function()
                 except Exception as e:
                     st.error(f"Error loading {tab_name}: {str(e)}")
-
-def render_user_management():
-    """Render user management interface (admin only)"""
-    st.header("👥 User Management")
-    
-    auth_manager = AuthManager()
-    session_manager = SessionManager(auth_manager)
-    current_user = session_manager.get_current_user()
-    
-    # Double-check that user is admin
-    if current_user['role'] != 'admin':
-        st.error("❌ Access denied. Administrator privileges required.")
-        return
-    
-    tab1, tab2, tab3, tab4 = st.tabs(["Users", "Create User", "Reset Passwords", "Audit Log"])
-    
-    with tab1:
-        st.subheader("User Accounts")
-        users = auth_manager.get_all_users()
-        
-        if users:
-            for user in users:
-                user_id, username, email, role, full_name, phone, address, is_active, created_at, last_login = user
-                
-                with st.expander(f"{username} ({role}) - {full_name or 'No name'}"):
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write(f"**Email:** {email}")
-                        if phone:
-                            st.write(f"**Phone:** {phone}")
-                        if address:
-                            st.write(f"**Address:** {address}")
-                        st.write(f"**Created:** {created_at.split(' ')[0]}")
-                        if last_login:
-                            st.write(f"**Last Login:** {last_login.split(' ')[0]}")
-                        st.write(f"**Active:** {'✅ Yes' if is_active else '❌ No'}")
-                    
-                    with col2:
-                        new_role = st.selectbox(
-                            "Role",
-                            options=['admin', 'consignor'],
-                            index=0 if role == 'admin' else 1,
-                            key=f"role_{user_id}"
-                        )
-                        
-                        if new_role != role:
-                            if st.button("Update Role", key=f"update_{user_id}"):
-                                success, message = auth_manager.update_user_role(user_id, new_role, current_user['id'])
-                                if success:
-                                    st.success(message)
-                                    st.rerun()
-                                else:
-                                    st.error(message)
-        
-        else:
-            st.info("No users found")
-    
-    with tab2:
-        st.subheader("Create New User")
-        
-        with st.form("create_user_form"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                username = st.text_input("Username*", placeholder="Enter username")
-                email = st.text_input("Email*", placeholder="user@example.com")
-                full_name = st.text_input("Full Name", placeholder="Optional full name")
-                phone = st.text_input("Phone", placeholder="Optional phone number")
-            
-            with col2:
-                password = st.text_input("Password*", type="password", placeholder="Enter password")
-                confirm_password = st.text_input("Confirm Password*", type="password", placeholder="Confirm password")
-                role = st.selectbox("Role*", options=['consignor', 'admin'])
-                address = st.text_area("Address", placeholder="Optional address", height=80)
-            
-            if st.form_submit_button("Create User", use_container_width=True):
-                if not all([username, email, password, confirm_password]):
-                    st.error("Please fill all required fields (*)")
-                elif password != confirm_password:
-                    st.error("Passwords do not match")
-                else:
-                    success, message = auth_manager.create_user(username, email, password, role, full_name, phone, address)
-                    if success:
-                        st.success(message)
-                        st.rerun()
-                    else:
-                        st.error(message)
-    
-    with tab3:
-        st.subheader("Reset User Passwords")
-        users = auth_manager.get_all_users()
-        
-        if users:
-            for user in users:
-                user_id, username, email, role, full_name, phone, address, is_active, created_at, last_login = user
-                
-                with st.expander(f"Reset password for {username}"):
-                    new_password = st.text_input("New Password", type="password", 
-                                               placeholder="Enter new password",
-                                               key=f"new_pass_{user_id}")
-                    confirm_password = st.text_input("Confirm Password", type="password",
-                                                   placeholder="Confirm new password",
-                                                   key=f"confirm_pass_{user_id}")
-                    
-                    if st.button("Reset Password", key=f"reset_{user_id}"):
-                        if not new_password or not confirm_password:
-                            st.error("Please enter both password fields")
-                        elif new_password != confirm_password:
-                            st.error("Passwords do not match")
-                        else:
-                            success, message = auth_manager.reset_password(current_user['id'], user_id, new_password)
-                            if success:
-                                st.success(message)
-                                st.rerun()
-                            else:
-                                st.error(message)
-        else:
-            st.info("No users found")
-    
-    with tab4:
-        st.subheader("Audit Log")
-        logs = auth_manager.get_audit_log(limit=50)
-        
-        if logs:
-            for log in logs:
-                timestamp, username, action, description, ip_address = log
-                st.write(f"**{timestamp}** - {username or 'System'} - {action}")
-                st.caption(f"{description} | IP: {ip_address or 'Unknown'}")
-        else:
-            st.info("No audit logs found")
 
 def main():
     """Main application entry point"""
@@ -4038,7 +3910,7 @@ class ConsignmentTab:
         
         # Get user info
         user = st.session_state.db_manager.get_user_by_id(user_id)
-        if user is None or user.empty:  # FIX: Check if user is None or empty DataFrame
+        if user is None:
             st.error("User profile not found. Please contact administrator.")
             return
         
@@ -4061,10 +3933,9 @@ class ConsignmentTab:
         st.header("🤝 Consignment Management")
         
         # Tab layout for admin functions
-        tab1, tab2, tab3 = st.tabs([
+        tab1, tab2 = st.tabs([
             "💰 Payment Processing", 
-            "📦 Pickup & Returns",
-            "👥 User Management"
+            "📦 Pickup & Returns"
         ])
         
         with tab1:
@@ -4072,16 +3943,13 @@ class ConsignmentTab:
         
         with tab2:
             self._render_admin_pickup_returns()
-        
-        with tab3:
-            self._render_user_management()
     
     def _render_consignor_payment_requests(self, user_id, user):
         """Render payment request section for users"""
         st.subheader("💰 Request Payment")
         
         # Get payment-ready records for this user
-        payment_records = st.session_state.db_manager.get_consignment_records_ready_for_payment(user_id)
+        payment_records = st.session_state.db_manager.get_user_consignment_records_ready_for_payment(user_id)
         
         if len(payment_records) == 0:
             st.info("No records ready for payment at this time.")
@@ -4126,7 +3994,7 @@ class ConsignmentTab:
         st.subheader("📦 Pickup & Returns")
         
         # Get pickup-ready records for this user
-        pickup_records = st.session_state.db_manager.get_consignment_records_ready_for_pickup(user_id)
+        pickup_records = st.session_state.db_manager.get_user_consignment_records_ready_for_pickup(user_id)
         
         if len(pickup_records) == 0:
             st.info("No records ready for pickup at this time.")
@@ -4273,37 +4141,6 @@ class ConsignmentTab:
                 else:
                     st.info("No abandoned records found")
     
-    def _render_user_management(self):
-        """Render user management section (admin only)"""
-        st.subheader("👥 User Management")
-        
-        # Add new user
-        with st.expander("➕ Add New User", expanded=False):
-            self._render_add_user_form()
-        
-        # User list
-        st.subheader("Users")
-        users = st.session_state.db_manager.get_all_users()
-        
-        if len(users) == 0:
-            st.info("No users found. Add a new user to get started.")
-            return
-        
-        # Display users with their stats
-        for _, user in users.iterrows():
-            with st.expander(f"👤 {user['username']} ({user['role']})", expanded=False):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.write(f"**Email:** {user['email'] or 'N/A'}")
-                    st.write(f"**Phone:** {user['phone'] or 'N/A'}")
-                with col2:
-                    st.write(f"**Full Name:** {user['full_name'] or 'N/A'}")
-                    st.write(f"**Address:** {user['address'] or 'N/A'}")
-                with col3:
-                    st.write(f"**Created:** {user['created_at'].split(' ')[0] if user['created_at'] else 'N/A'}")
-                    st.write(f"**Last Login:** {user['last_login'].split(' ')[0] if user['last_login'] else 'N/A'}")
-                    st.write(f"**Active:** {'✅ Yes' if user['is_active'] else '❌ No'}")
-    
     def _render_user_selector(self, context):
         """Render user selector dropdown"""
         users = st.session_state.db_manager.get_all_users()
@@ -4330,47 +4167,6 @@ class ConsignmentTab:
         username = selected_user.split(" (")[0]
         user = users[users['username'] == username].iloc[0]
         return user['id']
-    
-    def _render_add_user_form(self):
-        """Render form to add new user"""
-        with st.form("add_user_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                username = st.text_input("Username *", placeholder="Enter username")
-                email = st.text_input("Email *", placeholder="user@example.com")
-                password = st.text_input("Password *", type="password", placeholder="Enter password")
-                confirm_password = st.text_input("Confirm Password *", type="password", placeholder="Confirm password")
-            with col2:
-                full_name = st.text_input("Full Name", placeholder="Optional full name")
-                phone = st.text_input("Phone", placeholder="Optional phone number")
-                role = st.selectbox("Role", options=['consignor', 'admin'])
-                address = st.text_area("Address", placeholder="Optional address", height=80)
-            
-            if st.form_submit_button("Add User", use_container_width=True):
-                if not all([username, email, password, confirm_password]):
-                    st.error("Please fill all required fields (*)")
-                elif password != confirm_password:
-                    st.error("Passwords do not match")
-                else:
-                    # Use the auth manager to properly create the user with hashed password
-                    from auth.auth_manager import AuthManager
-                    auth_manager = AuthManager()
-                    
-                    success, message = auth_manager.create_user(
-                        username=username,
-                        email=email,
-                        password=password,
-                        role=role,
-                        full_name=full_name or None,
-                        phone=phone or None,
-                        address=address or None
-                    )
-                    
-                    if success:
-                        st.success(f"✅ User '{username}' added successfully!")
-                        st.rerun()
-                    else:
-                        st.error(f"❌ {message}")
     
     def _request_payment(self, payment_records, user_id):
         """Request payment for selected records (user action)"""
@@ -4562,6 +4358,231 @@ class DebugTab:
         if st.button("Clear Logs"):
             st.session_state.debug_logs = []
             st.rerun()
+
+======================================================================
+
+FILE: inventory-manager/src/tabs/admin_config_tab.py
+--------------------------------------------------
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+class AdminConfigTab:
+    def __init__(self):
+        pass
+    
+    def render(self):
+        st.header("⚙️ Admin Configuration")
+        
+        # Check if user is admin
+        user = st.session_state.get('user', {})
+        if user.get('role') != 'admin':
+            st.error("❌ Access denied. Administrator privileges required to view configuration.")
+            return
+        
+        # Main configuration interface
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            self._render_config_editor()
+        
+        with col2:
+            self._render_config_help()
+    
+    def _render_config_editor(self):
+        """Render the configuration editor"""
+        st.subheader("Configuration Values")
+        
+        # Get all current configuration
+        config_data = self._get_all_config_values()
+        
+        if not config_data:
+            st.info("No configuration values found.")
+            return
+        
+        # Create editable dataframe
+        config_df = pd.DataFrame(config_data)
+        
+        # Display current values
+        st.write("**Current Configuration:**")
+        
+        edited_df = st.data_editor(
+            config_df,
+            column_config={
+                "config_key": st.column_config.TextColumn("Key", disabled=True),
+                "config_value": st.column_config.TextColumn("Value"),
+                "description": st.column_config.TextColumn("Description", disabled=True),
+                "updated_at": st.column_config.TextColumn("Last Updated", disabled=True)
+            },
+            hide_index=True,
+            use_container_width=True,
+            key="config_editor"
+        )
+        
+        # Save changes
+        if not edited_df.equals(config_df):
+            changes_made = False
+            for _, row in edited_df.iterrows():
+                original_row = config_df[config_df['config_key'] == row['config_key']].iloc[0]
+                if original_row['config_value'] != row['config_value']:
+                    success = st.session_state.db_manager.set_config_value(
+                        row['config_key'], 
+                        row['config_value']
+                    )
+                    if success:
+                        changes_made = True
+                        st.success(f"✅ Updated {row['config_key']}")
+                    else:
+                        st.error(f"❌ Failed to update {row['config_key']}")
+            
+            if changes_made:
+                st.rerun()
+        
+        # Add new configuration key
+        st.subheader("Add New Configuration")
+        with st.form("add_config_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                new_key = st.text_input("Configuration Key", placeholder="e.g., NEW_SETTING")
+            with col2:
+                new_value = st.text_input("Configuration Value", placeholder="e.g., 100")
+            
+            new_description = st.text_area("Description", placeholder="What does this setting control?")
+            
+            if st.form_submit_button("➕ Add Configuration", use_container_width=True):
+                if new_key and new_value:
+                    success = st.session_state.db_manager.set_config_value(new_key, new_value)
+                    if success:
+                        st.success(f"✅ Added configuration key: {new_key}")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Failed to add configuration key: {new_key}")
+                else:
+                    st.error("Please provide both key and value")
+    
+    def _render_config_help(self):
+        """Render configuration help and descriptions"""
+        st.subheader("Configuration Help")
+        
+        config_descriptions = {
+            'SHIPPING_COST': 'Default shipping cost for eBay price calculations ($)',
+            'MIN_STORE_PRICE': 'Minimum price for any record in the store ($)',
+            'STORE_PRICE_LOWEST_MULTIPLIER': 'Multiplier for lowest price when calculating store price',
+            'STORE_PRICE_ESTIMATED_MULTIPLIER': 'Multiplier for estimated price when calculating store price',
+            'STORE_PRICE_MINIMUM': 'Absolute minimum store price regardless of calculations ($)',
+            'DEFAULT_COMMISSION_RATE': 'Default commission rate for new consignment records (0.0-1.0)',
+            'DEFAULT_STORE_RETURN_DAYS': 'Default number of days before unsold consignment records are returned',
+            'CUSTOMER_RETURN_DAYS': 'Number of days before sold consignment records can be paid out',
+            'CONSIGNOR_PICKUP_DAYS': 'Number of days consignors have to pick up returned records',
+            'STORE_CAPACITY': 'Maximum number of records the store can hold'
+        }
+        
+        for key, description in config_descriptions.items():
+            with st.expander(f"**{key}**", expanded=False):
+                st.write(description)
+        
+        st.subheader("Quick Actions")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Reset to Defaults", use_container_width=True):
+                self._reset_to_defaults()
+        
+        with col2:
+            if st.button("📊 Export Config", use_container_width=True):
+                self._export_config()
+    
+    def _get_all_config_values(self):
+        """Get all configuration values from database"""
+        try:
+            conn = st.session_state.db_manager._get_connection()
+            df = pd.read_sql('''
+                SELECT config_key, config_value, updated_at 
+                FROM app_config 
+                ORDER BY config_key
+            ''', conn)
+            conn.close()
+            
+            # Add descriptions
+            descriptions = {
+                'SHIPPING_COST': 'Default eBay shipping cost',
+                'MIN_STORE_PRICE': 'Minimum store price',
+                'STORE_PRICE_LOWEST_MULTIPLIER': 'Lowest price multiplier',
+                'STORE_PRICE_ESTIMATED_MULTIPLIER': 'Estimated price multiplier',
+                'STORE_PRICE_MINIMUM': 'Absolute minimum price',
+                'DEFAULT_COMMISSION_RATE': 'Default commission rate',
+                'DEFAULT_STORE_RETURN_DAYS': 'Default return days',
+                'CUSTOMER_RETURN_DAYS': 'Customer return period',
+                'CONSIGNOR_PICKUP_DAYS': 'Consignor pickup period',
+                'STORE_CAPACITY': 'Store capacity limit'
+            }
+            
+            config_data = []
+            for _, row in df.iterrows():
+                config_data.append({
+                    'config_key': row['config_key'],
+                    'config_value': row['config_value'],
+                    'description': descriptions.get(row['config_key'], 'No description'),
+                    'updated_at': row['updated_at'][:16] if row['updated_at'] else 'Unknown'
+                })
+            
+            return config_data
+            
+        except Exception as e:
+            st.error(f"Error loading configuration: {e}")
+            return []
+    
+    def _reset_to_defaults(self):
+        """Reset configuration to default values"""
+        default_configs = [
+            ('SHIPPING_COST', '5.72'),
+            ('MIN_STORE_PRICE', '1.99'),
+            ('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'),
+            ('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'),
+            ('STORE_PRICE_MINIMUM', '4.99'),
+            ('DEFAULT_COMMISSION_RATE', '0.50'),
+            ('DEFAULT_STORE_RETURN_DAYS', '90'),
+            ('CUSTOMER_RETURN_DAYS', '30'),
+            ('CONSIGNOR_PICKUP_DAYS', '30'),
+            ('STORE_CAPACITY', '1000')
+        ]
+        
+        updated_count = 0
+        for config_key, config_value in default_configs:
+            success = st.session_state.db_manager.set_config_value(config_key, config_value)
+            if success:
+                updated_count += 1
+        
+        if updated_count > 0:
+            st.success(f"✅ Reset {updated_count} configuration values to defaults!")
+            st.rerun()
+        else:
+            st.error("❌ Failed to reset configuration values")
+    
+    def _export_config(self):
+        """Export configuration to CSV"""
+        try:
+            config_data = self._get_all_config_values()
+            if config_data:
+                df = pd.DataFrame(config_data)
+                csv_data = df.to_csv(index=False)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"pigstyle_config_export_{timestamp}.csv"
+                
+                st.download_button(
+                    label="📥 Download Configuration CSV",
+                    data=csv_data,
+                    file_name=filename,
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.warning("No configuration data to export")
+                
+        except Exception as e:
+            st.error(f"Error exporting configuration: {e}")
 
 ======================================================================
 
@@ -4888,7 +4909,7 @@ class PriceTagTab:
             self._save_current_layout_config()
             st.success("✅ Layout configuration saved!")
         
-        # Get records without barcodes
+        # Get records without barcodes - FIXED QUERY (removed consignors reference)
         records = self.price_tag_handler.get_records_without_barcodes()
         
         # MANAGEMENT SECTION
@@ -5011,15 +5032,15 @@ class PriceTagTab:
                 st.rerun()
                 return
             
-            # Step 2: Get record data
+            # Step 2: Get record data - FIXED QUERY (removed consignors reference)
             status_text.text("Step 2/3: Loading record data...")
             conn = self.db_manager._get_connection()
             placeholders = ','.join(['?'] * len(record_ids))
             query = f'''
-                SELECT r.*, g.genre_name as genre, c.name as consignor_name
+                SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
                 FROM records r
                 LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN consignors c ON r.consignor_id = c.id
+                LEFT JOIN users u ON r.consignor_id = u.id
                 WHERE r.id IN ({placeholders})
             '''
             df = pd.read_sql(query, conn, params=record_ids)
@@ -5336,15 +5357,16 @@ class ToolsSyncTab:
 
     def _calculate_commission_rate(self, fill_percentage):
         """Calculate commission rate based on store fill percentage"""
-        if fill_percentage < 60:
-            return 0.1  # 10% when below 60%
-        elif fill_percentage <= 110:
+        fill_fraction = fill_percentage / 100.0
+        if fill_fraction < 0.60:
+            return 0.10  # 10% when below 60%
+        elif fill_fraction <= 1.10:
             # Linear increase from 10% to 40% between 60% and 110%
-            # At 60%: 0.1, at 110%: 0.4
-            slope = (0.4 - 0.1) / (110 - 60)
-            return 0.1 + slope * (fill_percentage - 60)
+            # At 0.60: 0.10, at 1.10: 0.40
+            slope = (0.40 - 0.10) / (1.10 - 0.60)
+            return 0.10 + slope * (fill_fraction - 0.60)
         else:
-            return 0.4  # 40% when above 110%
+            return 0.40  # 40% when above 110%
 
 ======================================================================
 
@@ -5686,19 +5708,31 @@ class InventoryTab:
         
         # Database statistics - show only user's records for consignors
         stats = self._get_user_database_stats()
-            
+        
+        # Calculate store fill fraction and consignment rate
+        store_fill_info = self._get_store_fill_info()
+        consignment_rate = self._calculate_consignment_rate(store_fill_info['fill_fraction'])
+        
         # Top row: Stats
-        col1, col2 = st.columns([1, 1])
+        col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
             st.metric("Inventory Records", stats['records_count'])
+        with col2:
+            st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
+        with col3:
+            st.metric("Consignment Rate", f"{consignment_rate:.1%}")
+        
+        # Show warning if store is over capacity
+        if store_fill_info['fill_fraction'] > 1.10:
+            st.error("🚨 Store is over capacity! Cannot add new items.")
         
         # Inventory Controls (NO EXPANDER)
-        self._render_unified_operations()
+        self._render_unified_operations(store_fill_info['fill_fraction'])
         
         # API Requests & Responses - Show immediately when available
         self._render_api_logs_section()
 
-    def _render_unified_operations(self):
+    def _render_unified_operations(self, store_fill_fraction):
         """Render the unified search/add/checkout operations"""
         # Initialize session state for search
         if 'search_type' not in st.session_state:
@@ -5720,22 +5754,29 @@ class InventoryTab:
             search_type = st.radio(
                 "Action:",
                 ["Add item", "Edit or Delete item"],
-                key="search_type_radio"
+                key="search_type_radio",
+                disabled=(store_fill_fraction > 1.10 and "Add item" in ["Add item"])
             )
+        
+        # Disable search input if store is over capacity and trying to add items
+        search_disabled = (store_fill_fraction > 1.10 and search_type == "Add item")
         
         # Search input and button
         search_input = st.text_input(
             "Search:",
             placeholder="Enter barcode, artist, or title...",
-            key="unified_search_input"
+            key="unified_search_input",
+            disabled=search_disabled
         )
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            search_submitted = st.button("🔍 Search", width='stretch')
+            search_submitted = st.button("🔍 Search", width='stretch', disabled=search_disabled)
         
         # Handle Enter key press in search input
-        if st.session_state.get('unified_search_input') and st.session_state.unified_search_input.strip():
+        if (not search_disabled and 
+            st.session_state.get('unified_search_input') and 
+            st.session_state.unified_search_input.strip()):
             if st.session_state.unified_search_input != st.session_state.get('last_search', ''):
                 st.session_state.current_search = st.session_state.unified_search_input.strip()
                 st.session_state.selected_record = None
@@ -5752,7 +5793,7 @@ class InventoryTab:
                 st.rerun()
         
         # Handle search button click
-        if search_submitted and search_input and search_input.strip():
+        if (not search_disabled and search_submitted and search_input and search_input.strip()):
             st.session_state.current_search = search_input.strip()
             st.session_state.selected_record = None
             st.session_state.record_added = None
@@ -5784,7 +5825,14 @@ class InventoryTab:
         # Edit properties and action button (only show when selection is made and no record was just added)
         if (st.session_state.selected_record and 
             st.session_state.record_added is None):
-            self.display_handler.render_edit_section(st.session_state.selected_record, self._handle_add_record, self._handle_update_record, self.discogs_handler, self.ebay_handler)
+            self.display_handler.render_edit_section(
+                st.session_state.selected_record, 
+                self._handle_add_record, 
+                self._handle_update_record, 
+                self.discogs_handler, 
+                self.ebay_handler,
+                store_fill_fraction
+            )
         
         # Checkout section for database search
         if (search_type == "Edit or Delete item" and 
@@ -5792,6 +5840,50 @@ class InventoryTab:
             st.session_state.record_added is None):
             self.display_handler.render_checkout_section(st.session_state.checkout_records, self._process_checkout)
 
+    def _get_store_fill_info(self):
+        """Calculate store fill fraction based on total inventory and store capacity"""
+        try:
+            # Get store capacity from config
+            store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
+            
+            # Get total inventory count
+            conn = st.session_state.db_manager._get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM records')
+            total_inventory = cursor.fetchone()[0]
+            conn.close()
+            
+            # Calculate fill fraction and percentage
+            fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
+            fill_percentage = fill_fraction * 100
+            
+            return {
+                'total_inventory': total_inventory,
+                'store_capacity': store_capacity,
+                'fill_fraction': fill_fraction,
+                'fill_percentage': fill_percentage
+            }
+        except Exception as e:
+            return {
+                'total_inventory': 0,
+                'store_capacity': 1000,
+                'fill_fraction': 0,
+                'fill_percentage': 0
+            }
+
+    def _calculate_consignment_rate(self, fill_fraction):
+        """Calculate consignment rate based on store fill fraction"""
+        if fill_fraction < 0.60:
+            return 0.10  # 10% when below 60%
+        elif fill_fraction <= 1.10:
+            # Linear increase from 10% to 40% between 60% and 110%
+            # At 0.60: 0.10, at 1.10: 0.40
+            slope = (0.40 - 0.10) / (1.10 - 0.60)
+            return 0.10 + slope * (fill_fraction - 0.60)
+        else:
+            return 0.40  # 40% when above 110%
+
+    # ... rest of the existing methods remain unchanged ...
     def _handle_add_record(self, genre):
         """Handle adding an inventory record to database"""
         record_data = st.session_state.selected_record['data']
@@ -5976,20 +6068,6 @@ class AuthManager:
             )
         ''')
         
-        # Audit log table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS audit_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                action TEXT NOT NULL,
-                description TEXT,
-                ip_address TEXT,
-                user_agent TEXT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        ''')
-        
         # Create default admin user if none exists
         cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
         admin_count = cursor.fetchone()[0]
@@ -6071,12 +6149,6 @@ class AuthManager:
             
             user_id = cursor.lastrowid
             
-            # Log the action
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (user_id, 'USER_CREATED', f'User {username} created with role {role}'))
-            
             conn.commit()
             conn.close()
             return True, "User created successfully"
@@ -6133,12 +6205,6 @@ class AuthManager:
                 VALUES (?, ?, ?, ?, ?)
             ''', (user_id, session_token, expires_at, ip_address, user_agent))
             
-            # Log successful login
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, 'LOGIN_SUCCESS', 'User logged in successfully', ip_address, user_agent))
-            
             conn.commit()
             conn.close()
             
@@ -6164,12 +6230,6 @@ class AuthManager:
             else:
                 cursor.execute('UPDATE users SET failed_attempts = ? WHERE id = ?', (failed_attempts, user_id))
                 message = f"Invalid password. {5 - failed_attempts} attempts remaining"
-            
-            # Log failed attempt
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, 'LOGIN_FAILED', f'Failed login attempt {failed_attempts}', ip_address, user_agent))
             
             conn.commit()
             conn.close()
@@ -6218,18 +6278,6 @@ class AuthManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Get user ID for logging
-        cursor.execute('SELECT user_id FROM user_sessions WHERE session_token = ?', (session_token,))
-        result = cursor.fetchone()
-        
-        if result:
-            user_id = result[0]
-            # Log logout
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (user_id, 'LOGOUT', 'User logged out'))
-        
         # Delete session
         cursor.execute('DELETE FROM user_sessions WHERE session_token = ?', (session_token,))
         conn.commit()
@@ -6267,15 +6315,6 @@ class AuthManager:
         try:
             cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, user_id))
             
-            # Log the password change
-            cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
-            username = cursor.fetchone()[0]
-            
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (user_id, 'PASSWORD_CHANGE', 'User changed password'))
-            
             conn.commit()
             conn.close()
             return True, "Password changed successfully"
@@ -6298,15 +6337,6 @@ class AuthManager:
             # Hash and update new password
             new_password_hash = self._hash_password(new_password)
             cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, target_user_id))
-            
-            # Log the action
-            cursor.execute('SELECT username FROM users WHERE id = ?', (target_user_id,))
-            target_username = cursor.fetchone()[0]
-            
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (admin_user_id, 'PASSWORD_RESET', f'Admin reset password for user {target_username}'))
             
             conn.commit()
             conn.close()
@@ -6339,15 +6369,6 @@ class AuthManager:
         try:
             cursor.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
             
-            # Log the action
-            cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
-            username = cursor.fetchone()[0]
-            
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (admin_id, 'ROLE_CHANGE', f'Changed role for {username} to {new_role}'))
-            
             conn.commit()
             conn.close()
             return True, "User role updated successfully"
@@ -6355,24 +6376,6 @@ class AuthManager:
         except Exception as e:
             conn.close()
             return False, f"Error updating user role: {str(e)}"
-    
-    def get_audit_log(self, limit: int = 100):
-        """Get audit log entries (admin only)"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT al.timestamp, u.username, al.action, al.description, al.ip_address
-            FROM audit_log al
-            LEFT JOIN users u ON al.user_id = u.id
-            ORDER BY al.timestamp DESC
-            LIMIT ?
-        ''', (limit,))
-        
-        logs = cursor.fetchall()
-        conn.close()
-        
-        return logs
 
 ======================================================================
 
@@ -7487,7 +7490,7 @@ class DisplayHandler:
             st.session_state.selected_record = None
             st.rerun()
 
-    def render_edit_section(self, selected_record, add_callback, update_callback, discogs_handler=None, ebay_handler=None):
+    def render_edit_section(self, selected_record, add_callback, update_callback, discogs_handler=None, ebay_handler=None, store_fill_fraction=0.0):
         """Render the edit properties section - WITH COMPILATION AND DIRECT CONSIGNMENT SUPPORT"""
         
         record_data = selected_record['data']
@@ -7507,8 +7510,20 @@ class DisplayHandler:
         # Once ALL data is loaded, show the complete UI
         st.subheader("Edit Properties")
         
+        # Calculate current consignment rate based on store fill
+        current_consignment_rate = self._calculate_consignment_rate(store_fill_fraction)
+        
+        # Show current store fill status and consignment rate
+        st.info(f"**Store Fill:** {store_fill_fraction*100:.1f}% | **Current Consignment Rate:** {current_consignment_rate:.1%}")
+        
+        # Disable add button if store is over capacity
+        add_disabled = store_fill_fraction > 1.10
+        
+        if add_disabled:
+            st.error("❌ Cannot add new items - store is over capacity!")
+        
         # Add consignment dropdown for both new and existing records - NOW DIRECT USER SELECTION
-        user_id, commission_rate, store_return_days = self._render_consignment_section(record_data)
+        user_id, commission_rate, store_return_days = self._render_consignment_section(record_data, current_consignment_rate)
         if user_id:
             record_data['consignor_id'] = user_id
             record_data['commission_rate'] = commission_rate
@@ -7584,9 +7599,11 @@ class DisplayHandler:
         # Show YouTube integration (merged search and manual input)
         self._render_youtube_integration(record_data)
         
-        # Single submit button - only enable if genre is selected
+        # Single submit button - only enable if genre is selected and not over capacity
         button_label = "Add to Database" if selected_record['type'] == 'discogs' else "Update Record"
-        if st.button(button_label, width='stretch', disabled=not genre, key="add_to_database"):
+        disabled_condition = not genre or (selected_record['type'] == 'discogs' and add_disabled)
+        
+        if st.button(button_label, width='stretch', disabled=disabled_condition, key="add_to_database"):
             # Get the file_at value for confirmation message
             file_at_value = self._calculate_file_at(record_data['artist'], genre, compilation)
             if selected_record['type'] == 'discogs':
@@ -7600,7 +7617,19 @@ class DisplayHandler:
                 if success:
                     st.success(f"✅ Record updated successfully!\\n**File Location:** {file_at_value}")
 
-    def _render_consignment_section(self, record_data=None):
+    def _calculate_consignment_rate(self, fill_fraction):
+        """Calculate consignment rate based on store fill fraction"""
+        if fill_fraction < 0.60:
+            return 0.10  # 10% when below 60%
+        elif fill_fraction <= 1.10:
+            # Linear increase from 10% to 40% between 60% and 110%
+            # At 0.60: 0.10, at 1.10: 0.40
+            slope = (0.40 - 0.10) / (1.10 - 0.60)
+            return 0.10 + slope * (fill_fraction - 0.60)
+        else:
+            return 0.40  # 40% when above 110%
+
+    def _render_consignment_section(self, record_data=None, current_consignment_rate=0.10):
         """Render consignment section with direct user selection and individual rates"""
         try:
             # Get all users for dropdown
@@ -7646,13 +7675,10 @@ class DisplayHandler:
             # Get the selected user ID
             user_id = user_mapping.get(selected_option)
             
-            # Calculate commission rate based on store fill
-            calculated_rate = self._calculate_commission_rate()
-            
-            # Show commission rate input with calculated default
+            # Use current calculated consignment rate as default
             current_commission_rate = record_data.get('commission_rate')
             if current_commission_rate is None:
-                current_commission_rate = calculated_rate
+                current_commission_rate = current_consignment_rate
             
             commission_rate = st.number_input(
                 "Commission Rate:",
@@ -7678,58 +7704,11 @@ class DisplayHandler:
                 key="store_return_days_input"
             )
             
-            # Show store fill information
-            store_fill_info = self._get_store_fill_info()
-            st.caption(f"Store Fill: {store_fill_info['fill_percentage']:.1f}% - Commission Rate: {calculated_rate:.1%}")
-            
             return user_id, commission_rate, store_return_days
             
         except Exception as e:
             st.error(f"Error loading consignment section: {e}")
             return None, None, None
-
-    def _calculate_commission_rate(self):
-        """Calculate commission rate based on store fill percentage"""
-        store_fill_info = self._get_store_fill_info()
-        fill_percentage = store_fill_info['fill_percentage']
-        
-        if fill_percentage < 60:
-            return 0.1  # 10% when below 60%
-        elif fill_percentage <= 110:
-            # Linear increase from 10% to 40% between 60% and 110%
-            # At 60%: 0.1, at 110%: 0.4
-            slope = (0.4 - 0.1) / (110 - 60)
-            return 0.1 + slope * (fill_percentage - 60)
-        else:
-            return 0.4  # 40% when above 110%
-
-    def _get_store_fill_info(self):
-        """Calculate store fill percentage based on total inventory and store capacity"""
-        try:
-            # Get store capacity from config
-            store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
-            
-            # Get total inventory count
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM records')
-            total_inventory = cursor.fetchone()[0]
-            conn.close()
-            
-            # Calculate fill percentage
-            fill_percentage = (total_inventory / store_capacity) * 100 if store_capacity > 0 else 0
-            
-            return {
-                'total_inventory': total_inventory,
-                'store_capacity': store_capacity,
-                'fill_percentage': fill_percentage
-            }
-        except Exception as e:
-            return {
-                'total_inventory': 0,
-                'store_capacity': 1000,
-                'fill_percentage': 0
-            }
 
     def _should_be_compilation(self, artist, record_data):
         """Determine if record should be marked as compilation based on artist name and artist history"""
@@ -9526,14 +9505,14 @@ class PriceTagHandler:
         return Path(__file__).parent.parent / "print_config.json"
     
     def get_records_without_barcodes(self):
-        """Get records that don't have barcodes - FIXED QUERY"""
+        """Get records that don't have barcodes - FIXED QUERY (uses users table)"""
         try:
             conn = self.db_manager._get_connection()
             query = '''
-                SELECT r.*, g.genre_name as genre, c.name as consignor_name
+                SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
                 FROM records r
                 LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN consignors c ON r.consignor_id = c.id
+                LEFT JOIN users u ON r.consignor_id = u.id
                 WHERE r.barcode IS NULL OR r.barcode = ''
                 ORDER BY r.artist, r.title
             '''
@@ -9619,14 +9598,14 @@ class PriceTagHandler:
             if not barcode_mapping:
                 return None, "Failed to assign barcodes"
             
-            # Step 2: Get record data - FIXED QUERY
+            # Step 2: Get record data - FIXED QUERY (uses users table)
             conn = self.db_manager._get_connection()
             placeholders = ','.join(['?'] * len(record_ids))
             query = f'''
-                SELECT r.*, g.genre_name as genre, c.name as consignor_name
+                SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
                 FROM records r
                 LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN consignors c ON r.consignor_id = c.id
+                LEFT JOIN users u ON r.consignor_id = u.id
                 WHERE r.id IN ({placeholders})
             '''
             df = pd.read_sql(query, conn, params=record_ids)
@@ -10376,5 +10355,5 @@ class BarcodeGenerator:
 
 ======================================================================
 
-📊 Total files processed: 43
+📊 Total files processed: 44
 

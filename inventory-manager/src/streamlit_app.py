@@ -20,6 +20,7 @@ from tabs.store_pricing_tab import StorePricingTab
 from tabs.tools_sync_tab import ToolsSyncTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
+from tabs.admin_config_tab import AdminConfigTab
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -171,13 +172,14 @@ def render_main_app():
     tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
+    admin_config_tab = AdminConfigTab()
 
     # Render header with user info
     render_header(user, session_manager)
     
     # Create tabs based on user permissions
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab)
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab)
 
 def render_header(user, session_manager):
     """Render application header with user information"""
@@ -243,7 +245,7 @@ def render_change_password_form(session_manager):
                         st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab):
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
     
@@ -276,7 +278,7 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
     
     # Admin-only tabs
     if user_role == 'admin':
-        tab_configs.append(("👥 User Management", render_user_management))
+        tab_configs.append(("⚙️ Admin Config", admin_config_tab.render))
     
     # Create tabs
     if tab_configs:
@@ -289,137 +291,6 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
                     render_function()
                 except Exception as e:
                     st.error(f"Error loading {tab_name}: {str(e)}")
-
-def render_user_management():
-    """Render user management interface (admin only)"""
-    st.header("👥 User Management")
-    
-    auth_manager = AuthManager()
-    session_manager = SessionManager(auth_manager)
-    current_user = session_manager.get_current_user()
-    
-    # Double-check that user is admin
-    if current_user['role'] != 'admin':
-        st.error("❌ Access denied. Administrator privileges required.")
-        return
-    
-    tab1, tab2, tab3, tab4 = st.tabs(["Users", "Create User", "Reset Passwords", "Audit Log"])
-    
-    with tab1:
-        st.subheader("User Accounts")
-        users = auth_manager.get_all_users()
-        
-        if users:
-            for user in users:
-                user_id, username, email, role, full_name, phone, address, is_active, created_at, last_login = user
-                
-                with st.expander(f"{username} ({role}) - {full_name or 'No name'}"):
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write(f"**Email:** {email}")
-                        if phone:
-                            st.write(f"**Phone:** {phone}")
-                        if address:
-                            st.write(f"**Address:** {address}")
-                        st.write(f"**Created:** {created_at.split(' ')[0]}")
-                        if last_login:
-                            st.write(f"**Last Login:** {last_login.split(' ')[0]}")
-                        st.write(f"**Active:** {'✅ Yes' if is_active else '❌ No'}")
-                    
-                    with col2:
-                        new_role = st.selectbox(
-                            "Role",
-                            options=['admin', 'consignor'],
-                            index=0 if role == 'admin' else 1,
-                            key=f"role_{user_id}"
-                        )
-                        
-                        if new_role != role:
-                            if st.button("Update Role", key=f"update_{user_id}"):
-                                success, message = auth_manager.update_user_role(user_id, new_role, current_user['id'])
-                                if success:
-                                    st.success(message)
-                                    st.rerun()
-                                else:
-                                    st.error(message)
-        
-        else:
-            st.info("No users found")
-    
-    with tab2:
-        st.subheader("Create New User")
-        
-        with st.form("create_user_form"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                username = st.text_input("Username*", placeholder="Enter username")
-                email = st.text_input("Email*", placeholder="user@example.com")
-                full_name = st.text_input("Full Name", placeholder="Optional full name")
-                phone = st.text_input("Phone", placeholder="Optional phone number")
-            
-            with col2:
-                password = st.text_input("Password*", type="password", placeholder="Enter password")
-                confirm_password = st.text_input("Confirm Password*", type="password", placeholder="Confirm password")
-                role = st.selectbox("Role*", options=['consignor', 'admin'])
-                address = st.text_area("Address", placeholder="Optional address", height=80)
-            
-            if st.form_submit_button("Create User", use_container_width=True):
-                if not all([username, email, password, confirm_password]):
-                    st.error("Please fill all required fields (*)")
-                elif password != confirm_password:
-                    st.error("Passwords do not match")
-                else:
-                    success, message = auth_manager.create_user(username, email, password, role, full_name, phone, address)
-                    if success:
-                        st.success(message)
-                        st.rerun()
-                    else:
-                        st.error(message)
-    
-    with tab3:
-        st.subheader("Reset User Passwords")
-        users = auth_manager.get_all_users()
-        
-        if users:
-            for user in users:
-                user_id, username, email, role, full_name, phone, address, is_active, created_at, last_login = user
-                
-                with st.expander(f"Reset password for {username}"):
-                    new_password = st.text_input("New Password", type="password", 
-                                               placeholder="Enter new password",
-                                               key=f"new_pass_{user_id}")
-                    confirm_password = st.text_input("Confirm Password", type="password",
-                                                   placeholder="Confirm new password",
-                                                   key=f"confirm_pass_{user_id}")
-                    
-                    if st.button("Reset Password", key=f"reset_{user_id}"):
-                        if not new_password or not confirm_password:
-                            st.error("Please enter both password fields")
-                        elif new_password != confirm_password:
-                            st.error("Passwords do not match")
-                        else:
-                            success, message = auth_manager.reset_password(current_user['id'], user_id, new_password)
-                            if success:
-                                st.success(message)
-                                st.rerun()
-                            else:
-                                st.error(message)
-        else:
-            st.info("No users found")
-    
-    with tab4:
-        st.subheader("Audit Log")
-        logs = auth_manager.get_audit_log(limit=50)
-        
-        if logs:
-            for log in logs:
-                timestamp, username, action, description, ip_address = log
-                st.write(f"**{timestamp}** - {username or 'System'} - {action}")
-                st.caption(f"{description} | IP: {ip_address or 'Unknown'}")
-        else:
-            st.info("No audit logs found")
 
 def main():
     """Main application entry point"""

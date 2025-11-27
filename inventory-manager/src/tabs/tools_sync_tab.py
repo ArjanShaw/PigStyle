@@ -68,11 +68,21 @@ class ToolsSyncTab:
                 max_value=10000,
                 value=int(current_capacity),
                 step=100,
-                help="Total number of records the store can hold"
+                help="Total number of records the store can hold",
+                key="store_capacity_input"
             )
             if st.button("💾 Save Store Capacity", width='stretch'):
-                st.session_state.db_manager.set_config_value('STORE_CAPACITY', str(store_capacity))
-                st.success("✅ Store capacity saved!")
+                success = st.session_state.db_manager.set_config_value('STORE_CAPACITY', str(store_capacity))
+                if success:
+                    st.success("✅ Store capacity saved!")
+                    # Clear cached store fill info to force refresh
+                    if 'store_fill_info' in st.session_state:
+                        del st.session_state.store_fill_info
+                    if 'store_capacity_cache' in st.session_state:
+                        del st.session_state.store_capacity_cache
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to save store capacity")
         
         with col2:
             # Show store fill information
@@ -126,31 +136,36 @@ class ToolsSyncTab:
 
     def _get_store_fill_info(self):
         """Calculate store fill percentage based on total inventory and store capacity"""
-        try:
-            # Get store capacity from config
-            store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
-            
-            # Get total inventory count
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM records')
-            total_inventory = cursor.fetchone()[0]
-            conn.close()
-            
-            # Calculate fill percentage
-            fill_percentage = (total_inventory / store_capacity) * 100 if store_capacity > 0 else 0
-            
-            return {
-                'total_inventory': total_inventory,
-                'store_capacity': store_capacity,
-                'fill_percentage': fill_percentage
-            }
-        except Exception as e:
-            return {
-                'total_inventory': 0,
-                'store_capacity': 1000,
-                'fill_percentage': 0
-            }
+        # Use cached value if available and store capacity hasn't changed
+        if 'store_fill_info' in st.session_state and 'store_capacity_cache' in st.session_state:
+            current_capacity = st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000')
+            if st.session_state.store_capacity_cache == current_capacity:
+                return st.session_state.store_fill_info
+        
+        # Get store capacity from config
+        store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
+        
+        # Get total inventory count
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM records')
+        total_inventory = cursor.fetchone()[0]
+        conn.close()
+        
+        # Calculate fill percentage
+        fill_percentage = (total_inventory / store_capacity) * 100 if store_capacity > 0 else 0
+        
+        store_fill_info = {
+            'total_inventory': total_inventory,
+            'store_capacity': store_capacity,
+            'fill_percentage': fill_percentage
+        }
+        
+        # Cache the result
+        st.session_state.store_fill_info = store_fill_info
+        st.session_state.store_capacity_cache = store_capacity
+        
+        return store_fill_info
 
     def _calculate_commission_rate(self, fill_percentage):
         """Calculate commission rate based on store fill percentage"""

@@ -53,20 +53,6 @@ class AuthManager:
             )
         ''')
         
-        # Audit log table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS audit_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                action TEXT NOT NULL,
-                description TEXT,
-                ip_address TEXT,
-                user_agent TEXT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        ''')
-        
         # Create default admin user if none exists
         cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
         admin_count = cursor.fetchone()[0]
@@ -148,12 +134,6 @@ class AuthManager:
             
             user_id = cursor.lastrowid
             
-            # Log the action
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (user_id, 'USER_CREATED', f'User {username} created with role {role}'))
-            
             conn.commit()
             conn.close()
             return True, "User created successfully"
@@ -210,12 +190,6 @@ class AuthManager:
                 VALUES (?, ?, ?, ?, ?)
             ''', (user_id, session_token, expires_at, ip_address, user_agent))
             
-            # Log successful login
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, 'LOGIN_SUCCESS', 'User logged in successfully', ip_address, user_agent))
-            
             conn.commit()
             conn.close()
             
@@ -241,12 +215,6 @@ class AuthManager:
             else:
                 cursor.execute('UPDATE users SET failed_attempts = ? WHERE id = ?', (failed_attempts, user_id))
                 message = f"Invalid password. {5 - failed_attempts} attempts remaining"
-            
-            # Log failed attempt
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, 'LOGIN_FAILED', f'Failed login attempt {failed_attempts}', ip_address, user_agent))
             
             conn.commit()
             conn.close()
@@ -295,18 +263,6 @@ class AuthManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Get user ID for logging
-        cursor.execute('SELECT user_id FROM user_sessions WHERE session_token = ?', (session_token,))
-        result = cursor.fetchone()
-        
-        if result:
-            user_id = result[0]
-            # Log logout
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (user_id, 'LOGOUT', 'User logged out'))
-        
         # Delete session
         cursor.execute('DELETE FROM user_sessions WHERE session_token = ?', (session_token,))
         conn.commit()
@@ -344,15 +300,6 @@ class AuthManager:
         try:
             cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, user_id))
             
-            # Log the password change
-            cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
-            username = cursor.fetchone()[0]
-            
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (user_id, 'PASSWORD_CHANGE', 'User changed password'))
-            
             conn.commit()
             conn.close()
             return True, "Password changed successfully"
@@ -375,15 +322,6 @@ class AuthManager:
             # Hash and update new password
             new_password_hash = self._hash_password(new_password)
             cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, target_user_id))
-            
-            # Log the action
-            cursor.execute('SELECT username FROM users WHERE id = ?', (target_user_id,))
-            target_username = cursor.fetchone()[0]
-            
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (admin_user_id, 'PASSWORD_RESET', f'Admin reset password for user {target_username}'))
             
             conn.commit()
             conn.close()
@@ -416,15 +354,6 @@ class AuthManager:
         try:
             cursor.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
             
-            # Log the action
-            cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
-            username = cursor.fetchone()[0]
-            
-            cursor.execute('''
-                INSERT INTO audit_log (user_id, action, description)
-                VALUES (?, ?, ?)
-            ''', (admin_id, 'ROLE_CHANGE', f'Changed role for {username} to {new_role}'))
-            
             conn.commit()
             conn.close()
             return True, "User role updated successfully"
@@ -432,21 +361,3 @@ class AuthManager:
         except Exception as e:
             conn.close()
             return False, f"Error updating user role: {str(e)}"
-    
-    def get_audit_log(self, limit: int = 100):
-        """Get audit log entries (admin only)"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT al.timestamp, u.username, al.action, al.description, al.ip_address
-            FROM audit_log al
-            LEFT JOIN users u ON al.user_id = u.id
-            ORDER BY al.timestamp DESC
-            LIMIT ?
-        ''', (limit,))
-        
-        logs = cursor.fetchall()
-        conn.close()
-        
-        return logs

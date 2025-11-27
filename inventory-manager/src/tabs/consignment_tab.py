@@ -27,7 +27,7 @@ class ConsignmentTab:
         
         # Get user info
         user = st.session_state.db_manager.get_user_by_id(user_id)
-        if user is None or user.empty:  # FIX: Check if user is None or empty DataFrame
+        if user is None:
             st.error("User profile not found. Please contact administrator.")
             return
         
@@ -50,10 +50,9 @@ class ConsignmentTab:
         st.header("🤝 Consignment Management")
         
         # Tab layout for admin functions
-        tab1, tab2, tab3 = st.tabs([
+        tab1, tab2 = st.tabs([
             "💰 Payment Processing", 
-            "📦 Pickup & Returns",
-            "👥 User Management"
+            "📦 Pickup & Returns"
         ])
         
         with tab1:
@@ -61,16 +60,13 @@ class ConsignmentTab:
         
         with tab2:
             self._render_admin_pickup_returns()
-        
-        with tab3:
-            self._render_user_management()
     
     def _render_consignor_payment_requests(self, user_id, user):
         """Render payment request section for users"""
         st.subheader("💰 Request Payment")
         
         # Get payment-ready records for this user
-        payment_records = st.session_state.db_manager.get_consignment_records_ready_for_payment(user_id)
+        payment_records = st.session_state.db_manager.get_user_consignment_records_ready_for_payment(user_id)
         
         if len(payment_records) == 0:
             st.info("No records ready for payment at this time.")
@@ -115,7 +111,7 @@ class ConsignmentTab:
         st.subheader("📦 Pickup & Returns")
         
         # Get pickup-ready records for this user
-        pickup_records = st.session_state.db_manager.get_consignment_records_ready_for_pickup(user_id)
+        pickup_records = st.session_state.db_manager.get_user_consignment_records_ready_for_pickup(user_id)
         
         if len(pickup_records) == 0:
             st.info("No records ready for pickup at this time.")
@@ -262,37 +258,6 @@ class ConsignmentTab:
                 else:
                     st.info("No abandoned records found")
     
-    def _render_user_management(self):
-        """Render user management section (admin only)"""
-        st.subheader("👥 User Management")
-        
-        # Add new user
-        with st.expander("➕ Add New User", expanded=False):
-            self._render_add_user_form()
-        
-        # User list
-        st.subheader("Users")
-        users = st.session_state.db_manager.get_all_users()
-        
-        if len(users) == 0:
-            st.info("No users found. Add a new user to get started.")
-            return
-        
-        # Display users with their stats
-        for _, user in users.iterrows():
-            with st.expander(f"👤 {user['username']} ({user['role']})", expanded=False):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.write(f"**Email:** {user['email'] or 'N/A'}")
-                    st.write(f"**Phone:** {user['phone'] or 'N/A'}")
-                with col2:
-                    st.write(f"**Full Name:** {user['full_name'] or 'N/A'}")
-                    st.write(f"**Address:** {user['address'] or 'N/A'}")
-                with col3:
-                    st.write(f"**Created:** {user['created_at'].split(' ')[0] if user['created_at'] else 'N/A'}")
-                    st.write(f"**Last Login:** {user['last_login'].split(' ')[0] if user['last_login'] else 'N/A'}")
-                    st.write(f"**Active:** {'✅ Yes' if user['is_active'] else '❌ No'}")
-    
     def _render_user_selector(self, context):
         """Render user selector dropdown"""
         users = st.session_state.db_manager.get_all_users()
@@ -319,47 +284,6 @@ class ConsignmentTab:
         username = selected_user.split(" (")[0]
         user = users[users['username'] == username].iloc[0]
         return user['id']
-    
-    def _render_add_user_form(self):
-        """Render form to add new user"""
-        with st.form("add_user_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                username = st.text_input("Username *", placeholder="Enter username")
-                email = st.text_input("Email *", placeholder="user@example.com")
-                password = st.text_input("Password *", type="password", placeholder="Enter password")
-                confirm_password = st.text_input("Confirm Password *", type="password", placeholder="Confirm password")
-            with col2:
-                full_name = st.text_input("Full Name", placeholder="Optional full name")
-                phone = st.text_input("Phone", placeholder="Optional phone number")
-                role = st.selectbox("Role", options=['consignor', 'admin'])
-                address = st.text_area("Address", placeholder="Optional address", height=80)
-            
-            if st.form_submit_button("Add User", use_container_width=True):
-                if not all([username, email, password, confirm_password]):
-                    st.error("Please fill all required fields (*)")
-                elif password != confirm_password:
-                    st.error("Passwords do not match")
-                else:
-                    # Use the auth manager to properly create the user with hashed password
-                    from auth.auth_manager import AuthManager
-                    auth_manager = AuthManager()
-                    
-                    success, message = auth_manager.create_user(
-                        username=username,
-                        email=email,
-                        password=password,
-                        role=role,
-                        full_name=full_name or None,
-                        phone=phone or None,
-                        address=address or None
-                    )
-                    
-                    if success:
-                        st.success(f"✅ User '{username}' added successfully!")
-                        st.rerun()
-                    else:
-                        st.error(f"❌ {message}")
     
     def _request_payment(self, payment_records, user_id):
         """Request payment for selected records (user action)"""

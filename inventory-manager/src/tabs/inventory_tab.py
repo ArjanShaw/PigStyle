@@ -84,39 +84,22 @@ class InventoryTab:
         # Disable search input if store is over capacity and trying to add items
         search_disabled = (store_fill_fraction > 1.10 and search_type == "Add item")
         
-        # Search input and button
-        search_input = st.text_input(
-            "Search:",
-            placeholder="Enter barcode, artist, or title...",
-            key="unified_search_input",
-            disabled=search_disabled
-        )
+        # Use a form to handle search submission properly
+        with st.form(key="search_form", clear_on_submit=False):
+            # Search input and button
+            search_input = st.text_input(
+                "Search:",
+                placeholder="Enter barcode, artist, or title...",
+                key="unified_search_input",
+                disabled=search_disabled
+            )
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                search_submitted = st.form_submit_button("🔍 Search", use_container_width=True, disabled=search_disabled)
         
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            search_submitted = st.button("🔍 Search", width='stretch', disabled=search_disabled)
-        
-        # Handle Enter key press in search input
-        if (not search_disabled and 
-            st.session_state.get('unified_search_input') and 
-            st.session_state.unified_search_input.strip()):
-            if st.session_state.unified_search_input != st.session_state.get('last_search', ''):
-                st.session_state.current_search = st.session_state.unified_search_input.strip()
-                st.session_state.selected_record = None
-                st.session_state.record_added = None
-                
-                if search_type == "Add item":
-                    results = self.search_handler.perform_discogs_search(st.session_state.unified_search_input.strip())
-                    st.session_state.search_results[st.session_state.unified_search_input.strip()] = results
-                else:
-                    results = self.search_handler.perform_database_search(st.session_state.unified_search_input.strip())
-                    st.session_state.search_results[st.session_state.unified_search_input.strip()] = results
-                
-                st.session_state.last_search = st.session_state.unified_search_input.strip()
-                st.rerun()
-        
-        # Handle search button click
-        if (not search_disabled and search_submitted and search_input and search_input.strip()):
+        # Handle search submission
+        if search_submitted and search_input and search_input.strip():
             st.session_state.current_search = search_input.strip()
             st.session_state.selected_record = None
             st.session_state.record_added = None
@@ -127,6 +110,9 @@ class InventoryTab:
             else:
                 results = self.search_handler.perform_database_search(search_input.strip())
                 st.session_state.search_results[search_input.strip()] = results
+            
+            st.session_state.last_search = search_input.strip()
+            st.rerun()
         
         # Display search results
         if (st.session_state.current_search and 
@@ -165,34 +151,26 @@ class InventoryTab:
 
     def _get_store_fill_info(self):
         """Calculate store fill fraction based on total inventory and store capacity"""
-        try:
-            # Get store capacity from config
-            store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
-            
-            # Get total inventory count
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM records')
-            total_inventory = cursor.fetchone()[0]
-            conn.close()
-            
-            # Calculate fill fraction and percentage
-            fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
-            fill_percentage = fill_fraction * 100
-            
-            return {
-                'total_inventory': total_inventory,
-                'store_capacity': store_capacity,
-                'fill_fraction': fill_fraction,
-                'fill_percentage': fill_percentage
-            }
-        except Exception as e:
-            return {
-                'total_inventory': 0,
-                'store_capacity': 1000,
-                'fill_fraction': 0,
-                'fill_percentage': 0
-            }
+        # Get store capacity from config
+        store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
+        
+        # Get total inventory count
+        conn = st.session_state.db_manager._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM records')
+        total_inventory = cursor.fetchone()[0]
+        conn.close()
+        
+        # Calculate fill fraction and percentage
+        fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
+        fill_percentage = fill_fraction * 100
+        
+        return {
+            'total_inventory': total_inventory,
+            'store_capacity': store_capacity,
+            'fill_fraction': fill_fraction,
+            'fill_percentage': fill_percentage
+        }
 
     def _calculate_consignment_rate(self, fill_fraction):
         """Calculate consignment rate based on store fill fraction"""
@@ -206,7 +184,6 @@ class InventoryTab:
         else:
             return 0.40  # 40% when above 110%
 
-    # ... rest of the existing methods remain unchanged ...
     def _handle_add_record(self, genre):
         """Handle adding an inventory record to database"""
         record_data = st.session_state.selected_record['data']

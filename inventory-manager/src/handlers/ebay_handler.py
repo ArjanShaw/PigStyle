@@ -23,16 +23,9 @@ class EbayHandler:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"}
 
-        # Log token API call
-        api_title = f"🔑 eBay Token API: {self.EBAY_TOKEN_URL}"
+        # Log token API call to terminal
+        print(f"🔴 DEBUG: Starting eBay Token API call")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': self.EBAY_TOKEN_URL,
-            'request': {
-                'headers': headers,
-                'data': data
-            }
-        })
         
         resp = requests.post(self.EBAY_TOKEN_URL, headers=headers, data=data, auth=(self.client_id, self.client_secret))
         resp.raise_for_status()
@@ -42,8 +35,8 @@ class EbayHandler:
         
         duration = round(time.time() - start_time, 2)
         
-        # Log token response
-        self._log_api_response(api_title, token_data, duration)
+        # Log token response to terminal
+        print(f"🔴 DEBUG: eBay Token API SUCCESS - Duration: {duration}s")
         
         return self.token
 
@@ -63,35 +56,26 @@ class EbayHandler:
             "fieldgroups": "EXTENDED"  # Get more detailed info including shipping
         }
 
-        # Log search API call with unified format
-        api_title = f"🛒 eBay Search API: {self.EBAY_SEARCH_URL}?q={query}"
+        # Log search API call to terminal
+        print(f"🔴 DEBUG: Starting eBay Search API for query: {query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': self.EBAY_SEARCH_URL,
-            'request': {
-                'params': params,
-                'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
-            }
-        })
 
         resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
         
         # Handle API errors gracefully
         if resp.status_code != 200:
             duration = round(time.time() - start_time, 2)
-            error_data = {
-                'error': f'Status {resp.status_code}',
-                'response_text': resp.text
-            }
-            self._log_api_response(api_title, error_data, duration)
+            error_msg = f'Status {resp.status_code}: {resp.text}'
+            print(f"🔴 DEBUG: eBay Search API ERROR: {error_msg}")
             return None
             
         data = resp.json()
 
         duration = round(time.time() - start_time, 2)
 
-        # Log the ACTUAL raw response from eBay - no wrapper, just the raw JSON
-        self._log_api_response(api_title, data, duration)
+        # Log successful response to terminal
+        print(f"🔴 DEBUG: eBay Search API SUCCESS - Duration: {duration}s")
+        print(f"🔴 DEBUG: Found {len(data.get('itemSummaries', []))} items")
 
         items = data.get("itemSummaries", [])
         
@@ -302,15 +286,9 @@ class EbayHandler:
         headers = {"Authorization": f"Bearer {self.token}"}
         url = f"{self.EBAY_ITEM_URL}{item_id}"
 
-        # Log item API call
-        api_title = f"📦 eBay Item API: {url}"
+        # Log item API call to terminal
+        print(f"🔴 DEBUG: Starting eBay Item API for item_id: {item_id}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': url,
-            'request': {
-                'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
-            }
-        })
 
         try:
             resp = requests.get(url, headers=headers, timeout=10)
@@ -319,35 +297,12 @@ class EbayHandler:
             
             duration = round(time.time() - start_time, 2)
             
-            # Log successful response - raw eBay data
-            self._log_api_response(api_title, item_data, duration)
+            # Log successful response to terminal
+            print(f"🔴 DEBUG: eBay Item API SUCCESS - Duration: {duration}s")
             
             return item_data
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            # Log error response
-            self._log_api_response(api_title, {
-                'status_code': resp.status_code if 'resp' in locals() else 'No response',
-                'error': str(e)
-            }, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: eBay Item API ERROR: {error_msg}")
             return None
-
-    def _log_api_call(self, title, request_data):
-        """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
-            
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {
-            'request': request_data,
-            'raw_request': request_data  # Store raw request data
-        }
-
-    def _log_api_response(self, title, response_data, duration):
-        """Log API response in unified format"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
-            st.session_state.api_details[title]['duration'] = duration
-            st.session_state.api_details[title]['raw_response'] = response_data  # Store raw response data

@@ -144,7 +144,7 @@ class PriceTagTab:
                 st.number_input("Columns per Page", min_value=1, max_value=10, value=st.session_state.columns, key="columns")
         
         # Save configuration button
-        if st.button("💾 Save Layout Configuration", use_container_width=True):
+        if st.button("💾 Save Layout Configuration", width='stretch'):
             self._save_current_layout_config()
             st.success("✅ Layout configuration saved!")
         
@@ -156,7 +156,7 @@ class PriceTagTab:
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🗑️ CLEAR ALL BARCODES", type="secondary", use_container_width=True):
+            if st.button("🗑️ CLEAR ALL BARCODES", type="secondary", width='stretch'):
                 self._clear_barcodes()
         
         with col2:
@@ -177,11 +177,11 @@ class PriceTagTab:
         with col1:
             select_all = getattr(st.session_state, 'select_all', False)
             if select_all:
-                if st.button("❌ Deselect All", use_container_width=True):
+                if st.button("❌ Deselect All", width='stretch'):
                     st.session_state.select_all = False
                     st.rerun()
             else:
-                if st.button("✅ Select All", use_container_width=True):
+                if st.button("✅ Select All", width='stretch'):
                     st.session_state.select_all = True
                     st.rerun()
         
@@ -219,7 +219,7 @@ class PriceTagTab:
                 "File Location": st.column_config.TextColumn("File Location", disabled=True),
             },
             hide_index=True,
-            use_container_width=True,
+            width='stretch',
             key="price_tag_editor"
         )
         
@@ -231,10 +231,10 @@ class PriceTagTab:
             
             col1, col2 = st.columns([1, 1])
             with col1:
-                if st.button("🖨️ Print Price Tags", type="primary", use_container_width=True):
+                if st.button("🖨️ Print Price Tags", type="primary", width='stretch'):
                     self._print_tags(selected_records['ID'].tolist())
             with col2:
-                if st.button("⚡ Quick Assign Barcodes Only", use_container_width=True):
+                if st.button("⚡ Quick Assign Barcodes Only", width='stretch'):
                     self._quick_assign_barcodes(selected_records['ID'].tolist())
     
     def _print_tags(self, record_ids):
@@ -346,7 +346,7 @@ class PriceTagTab:
                 data=st.session_state.pdf_data,
                 file_name=st.session_state.pdf_filename,
                 mime="application/pdf",
-                use_container_width=True,
+                width='stretch',
                 key=f"download_pdf_{datetime.now().strftime('%H%M%S')}"
             )
         

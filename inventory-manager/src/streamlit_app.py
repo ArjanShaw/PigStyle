@@ -34,19 +34,6 @@ IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
 
-def display_persistent_errors():
-    """Display persistent API errors at the top of the app"""
-    if hasattr(st.session_state, 'api_error') and st.session_state.api_error:
-        error = st.session_state.api_error
-        st.error(f"🚨 API Error: {error['message']}")
-        
-        # Optionally add a button to clear the error
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            if st.button("Dismiss", key="clear_error"):
-                del st.session_state.api_error
-                st.rerun()
-
 def render_login_page(auth_manager, session_manager):
     """Render login page"""
     st.set_page_config(page_title="PigStyle Login", page_icon="🎵", layout="centered")
@@ -63,9 +50,9 @@ def render_login_page(auth_manager, session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                login_button = st.form_submit_button("🚀 Login", use_container_width=True)
+                login_button = st.form_submit_button("🚀 Login", width='stretch')
             with col2:
-                demo_button = st.form_submit_button("👀 Demo Mode", use_container_width=True)
+                demo_button = st.form_submit_button("👀 Demo Mode", width='stretch')
         
         if login_button:
             if username and password:
@@ -112,9 +99,6 @@ def render_main_app():
         page_icon="🎵",
         layout="wide"
     )
-    
-    # Display persistent errors at the top
-    display_persistent_errors()
     
     # Initialize configuration
     config = AppConfig()
@@ -212,11 +196,11 @@ def render_header(user, session_manager):
         st.caption(role_display)
     
     with col3:
-        if st.button("🔐 PW", help="Change Password", use_container_width=True):
+        if st.button("🔐 PW", help="Change Password", width='stretch'):
             st.session_state.show_change_password = True
     
     with col4:
-        if st.button("🚪", help="Logout", use_container_width=True):
+        if st.button("🚪", help="Logout", width='stretch'):
             session_manager.logout()
     
     # Show change password form if triggered
@@ -238,9 +222,9 @@ def render_change_password_form(session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                submit = st.form_submit_button("💾 Update Password", use_container_width=True)
+                submit = st.form_submit_button("💾 Update Password", width='stretch')
             with col2:
-                cancel = st.form_submit_button("❌ Cancel", use_container_width=True)
+                cancel = st.form_submit_button("❌ Cancel", width='stretch')
             
             if cancel:
                 st.session_state.show_change_password = False

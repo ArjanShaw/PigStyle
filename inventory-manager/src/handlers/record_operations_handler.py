@@ -32,13 +32,13 @@ class RecordOperationsHandler:
         # Get Discogs pricing information - USE PRICE SUGGESTIONS
         pricing_data = None
         
-        print(f"🔴 DEBUG calling get_release_statistics_pricing")
+        print(f"🔴 DEBUG: BEFORE Discogs pricing API call for release_id: {release_id}")
         
         if self.discogs_handler:
             with st.spinner("Fetching Discogs price suggestions..."):
                 pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
             
-            print(f"🔴 DEBUG pricing_data result: {pricing_data}")
+            print(f"🔴 DEBUG: AFTER Discogs pricing API call - pricing_data: {pricing_data}")
         else:
             st.error("Discogs handler not available")
             return False, None
@@ -112,10 +112,12 @@ class RecordOperationsHandler:
             'compilation': compilation  # Include compilation status
         }
         
-        # Log the record data before saving
-        st.info(f"📝 Saving record to database with data: {result_data}")
+        print(f"🔴 DEBUG: BEFORE database save_record call")
+        print(f"🔴 DEBUG: Saving record data: {result_data}")
         
         record_id = st.session_state.db_manager.save_record(result_data)
+        
+        print(f"🔴 DEBUG: AFTER database save_record call - record_id: {record_id}")
         
         # Trigger GitHub sync after successful addition
         if record_id:

@@ -30,19 +30,9 @@ class YouTubeHandler:
         artist = record_data.get('artist', '')
         album_title = record_data.get('title', '')
         
-        # Log the API call
-        api_title = f"🎵 YouTube Album Search API: {search_query}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting YouTube Album Search for: {search_query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': 'https://www.googleapis.com/youtube/v3/search',
-            'request': {
-                'search_query': search_query,
-                'artist': artist,
-                'album_title': album_title,
-                'track_titles_count': len(track_titles) if track_titles else 0,
-                'maxResults': 20  # Get more results to filter through
-            }
-        })
         
         try:
             youtube = build('youtube', 'v3', developerKey=self.api_key)
@@ -50,8 +40,10 @@ class YouTubeHandler:
                 q=search_query,
                 part='snippet',
                 type='video',
-                maxResults=20,  # Get more results to find matching tracks
-                videoEmbeddable='true'
+                maxResults=20,  # Get more results to filter through
+                videoEmbeddable='true',
+                videoDuration='short',
+                order='relevance'
             )
             
             response = request.execute()
@@ -61,13 +53,11 @@ class YouTubeHandler:
             
             duration = round(time.time() - start_time, 2)
             
-            # Log the response
-            self._log_api_response(api_title, {
-                'status_code': 200,
-                'results_count': len(all_results),
-                'track_matches': len([r for r in all_results if r.get('type') == 'track']),
-                'album_matches': len([r for r in all_results if r.get('type') == 'album'])
-            }, duration)
+            # Log to terminal
+            print(f"🔴 DEBUG: YouTube Search SUCCESS - Duration: {duration}s")
+            print(f"🔴 DEBUG: Found {len(all_results)} total results")
+            print(f"🔴 DEBUG: Track matches: {len([r for r in all_results if r.get('type') == 'track'])}")
+            print(f"🔴 DEBUG: Album matches: {len([r for r in all_results if r.get('type') == 'album'])}")
             
             return all_results
             
@@ -75,25 +65,18 @@ class YouTubeHandler:
             duration = round(time.time() - start_time, 2)
             if e.resp.status == 403 and 'quotaExceeded' in str(e):
                 self.quota_exceeded = True
-                self._log_api_response(api_title, {
-                    'status_code': 403,
-                    'error': 'YouTube API quota exceeded'
-                }, duration)
+                print(f"🔴 DEBUG: YouTube API quota exceeded")
                 st.error("🎵 YouTube API quota exceeded. Please try again tomorrow.")
                 return []
             else:
-                self._log_api_response(api_title, {
-                    'status_code': e.resp.status,
-                    'error': str(e)
-                }, duration)
+                error_msg = f"HTTP Error {e.resp.status}: {str(e)}"
+                print(f"🔴 DEBUG: YouTube API ERROR: {error_msg}")
                 st.error(f"🎵 YouTube API error: {e}")
                 return []
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            self._log_api_response(api_title, {
-                'status_code': 'Error',
-                'error': str(e)
-            }, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: YouTube Search EXCEPTION: {error_msg}")
             st.error(f"🎵 YouTube search error: {e}")
             return []
 
@@ -259,22 +242,6 @@ class YouTubeHandler:
             if match:
                 return match.group(1)
         return None
-
-    def _log_api_call(self, title, request_data):
-        """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
-            
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {'request': request_data}
-
-    def _log_api_response(self, title, response_data, duration):
-        """Log API response in unified format"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
-            st.session_state.api_details[title]['duration'] = duration
 
     def is_enabled(self):
         """Check if YouTube handler is enabled"""

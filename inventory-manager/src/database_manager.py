@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 import requests
-import time
+import numpy as np
 
 class DatabaseManager:
     """Unified API-based database manager that replaces all direct SQLite access"""
@@ -19,73 +19,52 @@ class DatabaseManager:
         self.session = requests.Session()
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
-        """Make API request with error handling and comprehensive logging"""
+        """Make API request with error handling"""
         url = f"{self.api_base_url}{endpoint}"
         
-        # Log the API call
-        api_title = f"🗃️ Database API {method}: {endpoint}"
-        start_time = time.time()
-        
-        # Prepare request data for logging
-        request_data = {
-            'endpoint': url,
-            'method': method,
-            'params': kwargs.get('params', {}),
-            'json': kwargs.get('json', {}),
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in kwargs.get('headers', {}).items()}
-        }
-        
-        self._log_api_call(api_title, request_data)
-    
+        print(f"🔴 DEBUG: Making API request: {method} {url}")
+        if kwargs.get('json'):
+            print(f"🔴 DEBUG: Request JSON data: {kwargs['json']}")
+
         try:
             response = self.session.request(method, url, **kwargs)
-            duration = round(time.time() - start_time, 2)
+            
+            print(f"🔴 DEBUG: API Response status: {response.status_code}")
+            print(f"🔴 DEBUG: API Response text: {response.text}")
         
             # Check for any successful status code (200-299)
             if 200 <= response.status_code < 300:
-                response_data = response.json()
-                # Log successful response
-                self._log_api_response(api_title, response_data, duration)
-                return response_data
+                try:
+                    result = response.json()
+                    print(f"🔴 DEBUG: API Response JSON: {result}")
+                    return result
+                except Exception as e:
+                    print(f"🔴 DEBUG: JSON parse error: {e}")
+                    return None
             else:
-                error_data = {
-                    'status_code': response.status_code,
-                    'error': response.text,
-                    'url': url
-                }
-                self._log_api_response(api_title, error_data, duration)
-                st.error(f"API Error {response.status_code}: {response.text}")
+                print(f"🔴 DEBUG: API Error {response.status_code}: {response.text}")
                 return None
             
         except Exception as e:
-            duration = round(time.time() - start_time, 2)
-            error_data = {
-                'error': f"Network error: {str(e)}",
-                'url': url
-            }
-            self._log_api_response(api_title, error_data, duration)
-            st.error(f"Network error: {str(e)}")
+            print(f"🔴 DEBUG: Network error: {str(e)}")
             return None
 
-    def _log_api_call(self, title, request_data):
-        """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
-            
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {
-            'request': request_data,
-            'raw_request': request_data  # Store raw request data
-        }
-
-    def _log_api_response(self, title, response_data, duration):
-        """Log API response in unified format"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
-            st.session_state.api_details[title]['duration'] = duration
-            st.session_state.api_details[title]['raw_response'] = response_data  # Store raw response data
+    def _convert_numpy_types(self, obj):
+        """Convert numpy types to Python native types for JSON serialization"""
+        if isinstance(obj, (np.integer, np.int64, np.int32)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64, np.float32)):
+            return float(obj)
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {key: self._convert_numpy_types(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_numpy_types(item) for item in obj]
+        else:
+            return obj
 
     # ==================== CORE RECORD OPERATIONS ====================
 
@@ -104,19 +83,38 @@ class DatabaseManager:
         return None
     
     def save_record(self, result_data: Dict) -> int:
-        """Save record to database via API - THIS WILL NOW BE LOGGED"""
+        """Save record to database via API"""
+        print(f"🔴 DEBUG: DatabaseManager.save_record called with data: {result_data}")
+        
+        # Convert numpy types to Python native types
+        result_data = self._convert_numpy_types(result_data)
+        
+        # Check for problematic data types that can't be JSON serialized
+        for key, value in result_data.items():
+            if value is not None and not isinstance(value, (str, int, float, bool, list, dict)):
+                print(f"🔴 DEBUG: Problematic data type for key '{key}': {type(value)} = {value}")
+        
         result = self._make_request('POST', '/records', json=result_data)
+        
+        print(f"🔴 DEBUG: DatabaseManager.save_record API response: {result}")
+        
         if result and 'record_id' in result:
+            print(f"🔴 DEBUG: DatabaseManager.save_record SUCCESS - record_id: {result['record_id']}")
             return result['record_id']
+        
+        print(f"🔴 DEBUG: DatabaseManager.save_record FAILED - no record_id in response")
         return None
     
     def update_record(self, record_id: int, updates: Dict) -> bool:
-        """Update record via API - THIS WILL NOW BE LOGGED"""
+        """Update record via API"""
+        # Convert numpy types to Python native types
+        updates = self._convert_numpy_types(updates)
+        
         result = self._make_request('PUT', f'/records/{record_id}', json=updates)
         return result is not None and result.get('status') == 'success'
     
     def delete_record(self, record_id: int) -> bool:
-        """Delete record via API - THIS WILL NOW BE LOGGED"""
+        """Delete record via API"""
         result = self._make_request('DELETE', f'/records/{record_id}')
         return result is not None and result.get('status') == 'success'
     

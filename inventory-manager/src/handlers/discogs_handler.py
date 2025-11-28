@@ -21,15 +21,10 @@ class DiscogsHandler:
         """Get all price suggestions for a release using marketplace price_suggestions endpoint"""
         endpoint_url = f"{self.base_url}/marketplace/price_suggestions/{release_id}"
         
-        # Log the API call
-        api_title = f"💰 Discogs Price Suggestions API (GET): {endpoint_url}"
+        # Log the API call to terminal
+        print(f"🔴 DEBUG: Starting Discogs Price Suggestions API call for release_id: {release_id}")
+        print(f"🔴 DEBUG: Endpoint: {endpoint_url}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'method': 'GET',
-            'params': {},
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         try:
             response = requests.get(
@@ -41,16 +36,15 @@ class DiscogsHandler:
             duration = round(time.time() - start_time, 2)
             
             if response.status_code != 200:
-                error_data = {'error': f'Status {response.status_code}', 'response_text': response.text}
-                self._log_api_response(api_title, error_data, duration)
+                error_msg = f'Status {response.status_code}: {response.text}'
+                print(f"🔴 DEBUG: Discogs API ERROR: {error_msg}")
                 return None
             
             data = response.json()
             
-            # Log RAW DISCOGS PRICE SUGGESTIONS PAYLOAD
-            self._log_api_response(api_title, data, duration)
-            
-            print(f"🔴 DEBUG price_suggestions response: {data}")
+            # Log successful response to terminal
+            print(f"🔴 DEBUG: Discogs API SUCCESS - Duration: {duration}s")
+            print(f"🔴 DEBUG: Price suggestions keys: {list(data.keys()) if data else 'No data'}")
             
             # Return all conditions and their prices
             price_suggestions = {}
@@ -58,6 +52,8 @@ class DiscogsHandler:
                 price_value = self._parse_price_from_suggestion(price_data)
                 if price_value:
                     price_suggestions[condition] = price_value
+            
+            print(f"🔴 DEBUG: Parsed price suggestions: {price_suggestions}")
             
             return {
                 'price_suggestions': price_suggestions,
@@ -67,8 +63,8 @@ class DiscogsHandler:
             
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            error_data = {'error': str(e)}
-            self._log_api_response(api_title, error_data, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: Discogs API EXCEPTION: {error_msg} - Duration: {duration}s")
             return None
 
     def _parse_price_from_suggestion(self, price_data):
@@ -96,14 +92,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Log the API call with unified format
-        api_title = f"🔍 Discogs Search API: {endpoint_url}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Search API for query: {query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': params,
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
         
         response = requests.get(
             endpoint_url,
@@ -116,12 +107,14 @@ class DiscogsHandler:
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
+            print(f"🔴 DEBUG: Discogs Search API ERROR: {error_msg}")
             raise Exception(error_msg)
         
         data = response.json()
         
-        # Log successful response - RAW DISCOGS PAYLOAD
-        self._log_api_response(api_title, data, duration)
+        # Log successful search
+        print(f"🔴 DEBUG: Discogs Search API SUCCESS - Duration: {duration}s")
+        print(f"🔴 DEBUG: Found {len(data.get('results', []))} results")
         
         return data
 
@@ -156,14 +149,9 @@ class DiscogsHandler:
         """Get basic release info for images and metadata"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
         
-        # Log the API call
-        api_title = f"📀 Discogs Release API: {endpoint_url}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Release API for release_id: {release_id}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': {},
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         response = requests.get(
             endpoint_url,
@@ -175,8 +163,7 @@ class DiscogsHandler:
         
         if response.status_code == 200:
             release_data = response.json()
-            # Log the response
-            self._log_api_response(api_title, release_data, duration)
+            print(f"🔴 DEBUG: Discogs Release API SUCCESS - Duration: {duration}s")
             
             image_url = self._extract_image_from_release(release_data)
             return {
@@ -184,22 +171,17 @@ class DiscogsHandler:
                 'release_data': release_data
             }
         else:
-            # Log error response
-            self._log_api_response(api_title, {'error': f'Status {response.status_code}', 'response_text': response.text}, duration)
+            error_msg = f'Status {response.status_code}: {response.text}'
+            print(f"🔴 DEBUG: Discogs Release API ERROR: {error_msg}")
             return {'image_url': '', 'release_data': {}}
 
     def get_release_tracklist(self, release_id: str):
         """Get tracklist from Discogs release data"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
         
-        # Log the API call
-        api_title = f"🎵 Discogs Tracklist API: {endpoint_url}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Tracklist API for release_id: {release_id}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': {},
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         try:
             response = requests.get(
@@ -212,8 +194,7 @@ class DiscogsHandler:
             
             if response.status_code == 200:
                 release_data = response.json()
-                # Log the response
-                self._log_api_response(api_title, release_data, duration)
+                print(f"🔴 DEBUG: Discogs Tracklist API SUCCESS - Duration: {duration}s")
                 
                 # Extract tracklist
                 tracklist = release_data.get('tracklist', [])
@@ -225,16 +206,17 @@ class DiscogsHandler:
                         if title and title not in track_titles:
                             track_titles.append(title)
                 
+                print(f"🔴 DEBUG: Found {len(track_titles)} tracks")
                 return track_titles
             else:
-                # Log error response
-                self._log_api_response(api_title, {'error': f'Status {response.status_code}', 'response_text': response.text}, duration)
+                error_msg = f'Status {response.status_code}: {response.text}'
+                print(f"🔴 DEBUG: Discogs Tracklist API ERROR: {error_msg}")
                 return []
                 
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            error_data = {'error': str(e)}
-            self._log_api_response(api_title, error_data, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: Discogs Tracklist API EXCEPTION: {error_msg}")
             return []
 
     def get_simple_search_results(self, query: str, filename_base: str = None):
@@ -247,14 +229,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Log the API call with unified format
-        api_title = f"🔍 Discogs Simple Search API: {endpoint_url}?q={query}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Simple Search API for query: {query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': params,
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         response = requests.get(
             endpoint_url,
@@ -267,12 +244,14 @@ class DiscogsHandler:
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
+            print(f"🔴 DEBUG: Discogs Simple Search API ERROR: {error_msg}")
             raise Exception(error_msg)
         
         search_data = response.json()
         
-        # Log RAW DISCOGS SEARCH PAYLOAD
-        self._log_api_response(api_title, search_data, duration)
+        # Log successful search
+        print(f"🔴 DEBUG: Discogs Simple Search API SUCCESS - Duration: {duration}s")
+        print(f"🔴 DEBUG: Found {len(search_data.get('results', []))} results")
         
         # Process results - just basic info, no pricing calls
         formatted_results = []
@@ -531,23 +510,3 @@ class DiscogsHandler:
         file_path = payloads_folder / filename
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-
-    def _log_api_call(self, title, request_data):
-        """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
-            
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {
-            'request': request_data,
-            'raw_request': request_data  # Store raw request data
-        }
-
-    def _log_api_response(self, title, response_data, duration):
-        """Log API response in unified format - RAW PAYLOADS ONLY"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
-            st.session_state.api_details[title]['duration'] = duration
-            st.session_state.api_details[title]['raw_response'] = response_data  # Store raw response data

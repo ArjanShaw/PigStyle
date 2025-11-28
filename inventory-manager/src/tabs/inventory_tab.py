@@ -51,9 +51,6 @@ class InventoryTab:
         
         # Inventory Controls (NO EXPANDER)
         self._render_unified_operations(store_fill_info['fill_fraction'])
-        
-        # API Requests & Responses - Show immediately when available
-        self._render_api_logs_section()
 
     def _render_unified_operations(self, store_fill_fraction):
         """Render the unified search/add/checkout operations"""
@@ -96,7 +93,7 @@ class InventoryTab:
             
             col1, col2 = st.columns([3, 1])
             with col1:
-                search_submitted = st.form_submit_button("🔍 Search", use_container_width=True, disabled=search_disabled)
+                search_submitted = st.form_submit_button("🔍 Search", width='stretch', disabled=search_disabled)
         
         # Handle search submission
         if search_submitted and search_input and search_input.strip():
@@ -192,12 +189,6 @@ class InventoryTab:
         )
         
         if success:
-            # Clear API logs after successful addition
-            if 'api_logs' in st.session_state:
-                st.session_state.api_logs = []
-            if 'api_details' in st.session_state:
-                st.session_state.api_details = {}
-            
             # Get the full record data using the row ID
             import time
             time.sleep(0.5)  # Small delay to ensure triggers complete
@@ -245,27 +236,6 @@ class InventoryTab:
         # Since we removed the status column, checkout is not functional anymore
         st.warning("Checkout functionality is not available. The status column has been removed from the database.")
         return 0
-
-    def _render_api_logs_section(self):
-        """Render API logs section immediately when available"""
-        if 'api_logs' in st.session_state and st.session_state.api_logs:
-            with st.expander("📡 API Requests & Responses", expanded=True):  # Changed to expanded=True
-                for api_title in st.session_state.api_logs:
-                    if api_title in st.session_state.api_details:
-                        details = st.session_state.api_details[api_title]
-                        duration = details.get('duration', 'N/A')
-                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
-                        with st.expander(display_title, expanded=True):  # Changed to expanded=True
-                            # FIX: Check if raw_request exists before accessing it
-                            request_data = details.get('raw_request', details.get('request', {}))
-                            st.write("**Request:**")
-                            st.json(request_data)
-                            
-                            # FIX: Check if raw_response exists before accessing it
-                            response_data = details.get('raw_response', details.get('response', {}))
-                            if response_data:
-                                st.write("**Response:**")
-                                st.json(response_data)
 
     def _get_user_database_stats(self) -> dict:
         """Get database statistics filtered by user for consignors"""

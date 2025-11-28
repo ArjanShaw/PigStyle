@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 import requests
+import time
 
 class DatabaseManager:
     """Unified API-based database manager that replaces all direct SQLite access"""
@@ -17,47 +18,47 @@ class DatabaseManager:
         self.api_base_url = api_base_url
         self.session = requests.Session()
         
-        # Debug: Print the API URL being used
-        print(f"🔴 DEBUG: Using API base URL: {self.api_base_url}")
+        # Debug: Print API base URL
+        print(f"🔴 DEBUG: API Base URL: {self.api_base_url}")
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
         """Make API request with error handling"""
         url = f"{self.api_base_url}{endpoint}"
-    
+        
+        print(f"🔴 DEBUG: Making {method} request to: {url}")
+        print(f"🔴 DEBUG: Request data: {kwargs.get('json', {})}")
+        
         try:
             response = self.session.request(method, url, **kwargs)
-        
+            
+            print(f"🔴 DEBUG: Response status: {response.status_code}")
+            print(f"🔴 DEBUG: Response text: {response.text}")
+            
             # Check for any successful status code (200-299)
             if 200 <= response.status_code < 300:
+                # Clear any previous errors on success
+                if hasattr(st.session_state, 'api_error'):
+                    del st.session_state.api_error
                 return response.json()
             else:
-                # Store the error in session state for persistent display
+                # Store error in session state to persist across reruns
                 error_msg = f"API Error {response.status_code}: {response.text}"
-                if 'api_errors' not in st.session_state:
-                    st.session_state.api_errors = []
-                st.session_state.api_errors.append({
-                    'timestamp': datetime.now().strftime("%H:%M:%S"),
+                st.session_state.api_error = {
+                    'message': error_msg,
                     'url': url,
                     'method': method,
-                    'status_code': response.status_code,
-                    'message': response.text
-                })
-                st.error(f"API Error {response.status_code}: {response.text}")
+                    'timestamp': time.time()
+                }
                 return None
-            
+                
         except Exception as e:
-            # Store network errors too
             error_msg = f"Network error: {str(e)}"
-            if 'api_errors' not in st.session_state:
-                st.session_state.api_errors = []
-            st.session_state.api_errors.append({
-                'timestamp': datetime.now().strftime("%H:%M:%S"),
-                'url': url,
+            st.session_state.api_error = {
+                'message': error_msg,
+                'url': url, 
                 'method': method,
-                'status_code': 'NETWORK_ERROR',
-                'message': str(e)
-            })
-            st.error(f"Network error: {str(e)}")
+                'timestamp': time.time()
+            }
             return None
 
     # ==================== CORE RECORD OPERATIONS ====================
@@ -78,40 +79,14 @@ class DatabaseManager:
     
     def save_record(self, result_data: Dict) -> int:
         """Save record to database via API"""
-        # Convert numpy/pandas types to native Python types for JSON serialization
-        cleaned_data = {}
-        for key, value in result_data.items():
-            if value is not None:
-                if hasattr(value, 'item'):  # numpy types
-                    cleaned_data[key] = value.item()
-                elif isinstance(value, (int, float, bool, str)):
-                    cleaned_data[key] = value
-                else:
-                    cleaned_data[key] = str(value)
-            else:
-                cleaned_data[key] = None
-        
-        result = self._make_request('POST', '/records', json=cleaned_data)
+        result = self._make_request('POST', '/records', json=result_data)
         if result and 'record_id' in result:
             return result['record_id']
         return None
     
     def update_record(self, record_id: int, updates: Dict) -> bool:
         """Update record via API"""
-        # Convert numpy/pandas types to native Python types for JSON serialization
-        cleaned_updates = {}
-        for key, value in updates.items():
-            if value is not None:
-                if hasattr(value, 'item'):  # numpy types
-                    cleaned_updates[key] = value.item()
-                elif isinstance(value, (int, float, bool, str)):
-                    cleaned_updates[key] = value
-                else:
-                    cleaned_updates[key] = str(value)
-            else:
-                cleaned_updates[key] = None
-        
-        result = self._make_request('PUT', f'/records/{record_id}', json=cleaned_updates)
+        result = self._make_request('PUT', f'/records/{record_id}', json=updates)
         return result is not None and result.get('status') == 'success'
     
     def delete_record(self, record_id: int) -> bool:
@@ -178,7 +153,7 @@ class DatabaseManager:
         """Assign genre to artist"""
         result = self._make_request('POST', '/genre-assignments', json={
             'artist_name': artist_name,
-            'genre_id': int(genre_id)  # Ensure native int
+            'genre_id': genre_id
         })
         return result is not None and result.get('status') == 'success'
     

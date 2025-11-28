@@ -21,7 +21,6 @@ from tabs.tools_sync_tab import ToolsSyncTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
-from tabs.debug_tab import DebugTab  # Add this import
 from handlers.ebay_handler import EbayHandler
 from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
@@ -34,6 +33,19 @@ IMAGE_FOLDER = Path("images")
 IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
+
+def display_persistent_errors():
+    """Display persistent API errors at the top of the app"""
+    if hasattr(st.session_state, 'api_error') and st.session_state.api_error:
+        error = st.session_state.api_error
+        st.error(f"🚨 API Error: {error['message']}")
+        
+        # Optionally add a button to clear the error
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("Dismiss", key="clear_error"):
+                del st.session_state.api_error
+                st.rerun()
 
 def render_login_page(auth_manager, session_manager):
     """Render login page"""
@@ -100,6 +112,9 @@ def render_main_app():
         page_icon="🎵",
         layout="wide"
     )
+    
+    # Display persistent errors at the top
+    display_persistent_errors()
     
     # Initialize configuration
     config = AppConfig()
@@ -174,15 +189,13 @@ def render_main_app():
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
     admin_config_tab = AdminConfigTab()
-    debug_tab = DebugTab()  # Add debug tab
 
     # Render header with user info
     render_header(user, session_manager)
     
     # Create tabs based on user permissions
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, 
-                                   admin_config_tab, debug_tab)  # Add debug_tab
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab)
 
 def render_header(user, session_manager):
     """Render application header with user information"""
@@ -248,8 +261,7 @@ def render_change_password_form(session_manager):
                         st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, 
-                                   admin_config_tab, debug_tab):  # Add debug_tab parameter
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
     
@@ -283,7 +295,6 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
     # Admin-only tabs
     if user_role == 'admin':
         tab_configs.append(("⚙️ Admin Config", admin_config_tab.render))
-        tab_configs.append(("🐛 Debug", debug_tab.render))  # Add debug tab for admin only
     
     # Create tabs
     if tab_configs:

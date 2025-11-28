@@ -12,7 +12,7 @@ class StatisticsTab:
         st.header("📊 Statistics")
         
         try:
-            # Get database statistics
+            # Get database statistics using API
             stats = st.session_state.db_manager.get_database_stats()
             
             # Display basic stats
@@ -36,28 +36,22 @@ class StatisticsTab:
             st.error(f"Error loading statistics: {e}")
 
     def _render_genre_chart(self):
-        """Render vertical bar chart for top 10 genres"""
+        """Render vertical bar chart for top 10 genres using API data"""
         try:
-            # Get genre statistics from records
-            conn = st.session_state.db_manager._get_connection()
+            # Get genre statistics from records using API
+            records_df = st.session_state.db_manager.get_all_records()
+            
+            if records_df.empty:
+                st.info("No records available for genre chart.")
+                return
             
             # Count records by genre
-            df = pd.read_sql('''
-                SELECT 
-                    g.genre_name as genre,
-                    COUNT(*) as record_count
-                FROM records r
-                LEFT JOIN genres g ON r.genre_id = g.id
-                WHERE g.genre_name IS NOT NULL AND g.genre_name != ''
-                GROUP BY g.genre_name
-                ORDER BY record_count DESC
-                LIMIT 10
-            ''', conn)
-            conn.close()
+            genre_counts = records_df['genre'].value_counts().head(10).reset_index()
+            genre_counts.columns = ['genre', 'record_count']
             
-            if len(df) > 0:
+            if len(genre_counts) > 0:
                 fig = px.bar(
-                    df,
+                    genre_counts,
                     x='genre',
                     y='record_count',
                     title='Top 10 Genres',
@@ -79,30 +73,29 @@ class StatisticsTab:
             st.error(f"Error rendering genre chart: {e}")
 
     def _render_price_comparison_chart(self):
-        """Render price comparison chart between eBay, Discogs, and Store prices"""
+        """Render price comparison chart between eBay, Discogs, and Store prices using API data"""
         try:
-            # Get price data from records - using available price columns
-            conn = st.session_state.db_manager._get_connection()
+            # Get price data from records using API
+            records_df = st.session_state.db_manager.get_all_records()
             
-            # Get records with valid prices
-            df = pd.read_sql('''
-                SELECT 
-                    ebay_sell_at,
-                    store_price,
-                    discogs_suggested_price
-                FROM records 
-                WHERE (ebay_sell_at IS NOT NULL AND ebay_sell_at > 0)
-                   OR (store_price IS NOT NULL AND store_price > 0)
-                   OR (discogs_suggested_price IS NOT NULL AND discogs_suggested_price > 0)
-            ''', conn)
-            conn.close()
+            if records_df.empty:
+                st.info("No price data available for comparison charts. Update prices using the Pricing section.")
+                return
             
-            if len(df) > 0:
+            # Filter records with valid prices
+            price_columns = ['ebay_sell_at', 'store_price', 'discogs_suggested_price']
+            valid_price_records = records_df[
+                (records_df['ebay_sell_at'].notna() & (records_df['ebay_sell_at'] > 0)) |
+                (records_df['store_price'].notna() & (records_df['store_price'] > 0)) |
+                (records_df['discogs_suggested_price'].notna() & (records_df['discogs_suggested_price'] > 0))
+            ]
+            
+            if len(valid_price_records) > 0:
                 # Calculate average prices
                 avg_prices = {
-                    'eBay': df['ebay_sell_at'].mean() if 'ebay_sell_at' in df.columns and df['ebay_sell_at'].notna().any() else 0,
-                    'Store': df['store_price'].mean() if 'store_price' in df.columns and df['store_price'].notna().any() else 0,
-                    'Discogs': df['discogs_suggested_price'].mean() if 'discogs_suggested_price' in df.columns and df['discogs_suggested_price'].notna().any() else 0
+                    'eBay': valid_price_records['ebay_sell_at'].mean() if 'ebay_sell_at' in valid_price_records.columns and valid_price_records['ebay_sell_at'].notna().any() else 0,
+                    'Store': valid_price_records['store_price'].mean() if 'store_price' in valid_price_records.columns and valid_price_records['store_price'].notna().any() else 0,
+                    'Discogs': valid_price_records['discogs_suggested_price'].mean() if 'discogs_suggested_price' in valid_price_records.columns and valid_price_records['discogs_suggested_price'].notna().any() else 0
                 }
                 
                 # Remove zero values

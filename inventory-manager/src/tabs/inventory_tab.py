@@ -154,12 +154,9 @@ class InventoryTab:
         # Get store capacity from config
         store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
         
-        # Get total inventory count
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM records')
-        total_inventory = cursor.fetchone()[0]
-        conn.close()
+        # Get total inventory count using API
+        records_df = st.session_state.db_manager.get_all_records()
+        total_inventory = len(records_df)
         
         # Calculate fill fraction and percentage
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
@@ -276,24 +273,9 @@ class InventoryTab:
         user_role = user.get('role', 'consignor')
         user_id = user.get('id')
         
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        
-        if user_role == 'consignor' and user_id:
-            # For consignors, only count their own records
-            cursor.execute('''
-                SELECT COUNT(*) FROM records r
-                WHERE r.consignor_id = ?
-            ''', (user_id,))
-        else:
-            # For admins, count all records
-            cursor.execute('SELECT COUNT(*) FROM records')
-        
-        records_count_result = cursor.fetchone()
-        records_count = records_count_result[0] if records_count_result else 0
-        
-        conn.close()
+        # Use API-based approach instead of SQL connection
+        stats = st.session_state.db_manager.get_user_database_stats(user_id) if user_role == 'consignor' and user_id else st.session_state.db_manager.get_database_stats()
         
         return {
-            'records_count': int(records_count) if records_count is not None else 0
+            'records_count': stats.get('records_count', 0)
         }

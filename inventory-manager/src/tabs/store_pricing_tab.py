@@ -100,15 +100,9 @@ class StorePricingTab:
             duration = time.time() - start_time
 
     def _update_all_store_prices(self):
-        """Update store prices for all inventory records using current configuration - FIXED QUERY"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
-        ''', conn)
-        conn.close()
+        """Update store prices for all inventory records using current configuration"""
+        # Get all records using API
+        records_df = st.session_state.db_manager.get_all_records()
         
         # Get current configuration
         estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
@@ -126,13 +120,13 @@ class StorePricingTab:
         
         results = []
         
-        for i, (_, record) in enumerate(df.iterrows()):
+        for i, (_, record) in enumerate(records_df.iterrows()):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
             discogs_suggested_price = record.get('discogs_suggested_price')
             
-            status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
+            status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
             # Calculate store price using current configuration
             store_price = self._calculate_store_price(
@@ -155,10 +149,10 @@ class StorePricingTab:
                 results.append(f"❌ {artist} - {title}: Database update failed")
             
             # Update progress
-            progress_bar.progress((i + 1) / len(df))
+            progress_bar.progress((i + 1) / len(records_df))
             
             # Update results display every 5 records or at the end
-            if (i + 1) % 5 == 0 or (i + 1) == len(df):
+            if (i + 1) % 5 == 0 or (i + 1) == len(records_df):
                 with results_placeholder:
                     # Show last 10 results
                     display_results = results[-10:] if len(results) > 10 else results
@@ -176,18 +170,10 @@ class StorePricingTab:
         return updated_count
 
     def _update_single_store_price(self, record_id):
-        """Update store price for a single record using current configuration - FIXED QUERY"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
-            WHERE r.id = ?
-        ''', conn, params=(record_id,))
-        conn.close()
-        
-        if len(df) == 0:
+        """Update store price for a single record using current configuration"""
+        # Get single record using API
+        record = st.session_state.db_manager.get_record_by_id(record_id)
+        if record is None:
             st.error(f"Record ID {record_id} not found")
             return 0
         
@@ -195,7 +181,6 @@ class StorePricingTab:
         estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
         minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
         
-        record = df.iloc[0]
         artist = record.get('artist', '')
         title = record.get('title', '')
         discogs_suggested_price = record.get('discogs_suggested_price')

@@ -1,8 +1,9 @@
+# FILE: inventory-manager/src/auth/session_manager.py
 import streamlit as st
 from typing import Optional, Dict, Any
 
 class SessionManager:
-    """Manage user sessions in Streamlit"""
+    """Manage user sessions in Streamlit with API-based authentication"""
     
     def __init__(self, auth_manager):
         self.auth_manager = auth_manager
@@ -30,42 +31,16 @@ class SessionManager:
                 # Session expired or invalid
                 self.logout()
         
-        # Check for session token in query params (for remember me functionality)
-        query_params = st.query_params
-        if 'token' in query_params:
-            token = query_params['token'][0]
-            is_valid, user_info = self.auth_manager.validate_session(token)
-            if is_valid:
-                st.session_state.session_token = token
-                st.session_state.user = user_info
-                st.session_state.authenticated = True
-                return True
-        
         return False
     
     def login(self, username: str, password: str, remember_me: bool = False) -> tuple[bool, str]:
-        """Authenticate user and create session"""
-        # Get client info for logging
-        try:
-            import requests
-            ip_address = requests.get('https://api.ipify.org').text
-        except:
-            ip_address = "unknown"
-        
-        user_agent = "Streamlit App"  # Simplified for Streamlit Cloud
-        
-        success, message, user_info = self.auth_manager.authenticate_user(
-            username, password, ip_address, user_agent
-        )
+        """Authenticate user and create session using API"""
+        success, message, user_info = self.auth_manager.authenticate_user(username, password)
         
         if success and user_info:
             st.session_state.authenticated = True
             st.session_state.user = user_info
             st.session_state.session_token = user_info['session_token']
-            
-            # Set query param for "remember me" functionality
-            if remember_me:
-                st.query_params = {"token": user_info['session_token']}
             
             return True, message
         else:
@@ -73,7 +48,7 @@ class SessionManager:
     
     def logout(self):
         """Logout user and clear session"""
-        if st.session_state.session_token:
+        if hasattr(st.session_state, 'session_token') and st.session_state.session_token:
             self.auth_manager.logout_user(st.session_state.session_token)
         
         # Clear session state
@@ -81,19 +56,16 @@ class SessionManager:
         st.session_state.user = None
         st.session_state.session_token = None
         
-        # Clear query params
-        st.query_params = {}
-        
         # Force rerun to show login page
         st.rerun()
     
     def get_current_user(self) -> Optional[Dict]:
         """Get current user information"""
-        return st.session_state.user if st.session_state.authenticated else None
+        return st.session_state.user if hasattr(st.session_state, 'authenticated') and st.session_state.authenticated else None
     
     def change_password(self, current_password: str, new_password: str) -> tuple[bool, str]:
-        """Change current user's password"""
-        if not st.session_state.authenticated or not st.session_state.user:
+        """Change current user's password via API"""
+        if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated or not st.session_state.user:
             return False, "Not authenticated"
         
         user_id = st.session_state.user['id']
@@ -103,7 +75,7 @@ class SessionManager:
         """Decorator to require authentication for functions"""
         def decorator(func):
             def wrapper(*args, **kwargs):
-                if not st.session_state.authenticated:
+                if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
                     st.error("Please log in to access this feature")
                     return None
                 return func(*args, **kwargs)
@@ -114,7 +86,7 @@ class SessionManager:
         """Decorator to require specific roles"""
         def decorator(func):
             def wrapper(*args, **kwargs):
-                if not st.session_state.authenticated:
+                if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
                     st.error("Please log in to access this feature")
                     return None
                 

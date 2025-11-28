@@ -48,20 +48,8 @@ class SearchHandler:
     def perform_database_search(self, search_term):
         """Perform database search - NOW INCLUDES CATALOG NUMBER SEARCH"""
         try:
-            conn = st.session_state.db_manager._get_connection()
-            
-            # Updated query to include catalog_number search
-            df = pd.read_sql(
-                '''SELECT r.*, g.genre_name as genre, u.username as consignor_name
-                   FROM records r 
-                   LEFT JOIN genres g ON r.genre_id = g.id 
-                   LEFT JOIN users u ON r.consignor_id = u.id
-                   WHERE (r.artist LIKE ? OR r.title LIKE ? OR r.barcode LIKE ? OR r.catalog_number LIKE ?) 
-                   ORDER BY r.artist, r.title''',
-                conn,
-                params=(f'%{search_term}%', f'%{search_term}%', f'%{search_term}%', f'%{search_term}%')
-            )
-            conn.close()
+            # Use API-based search instead of SQL connection
+            df = st.session_state.db_manager.search_records(search_term)
             
             # Convert database results to same format
             formatted_results = []

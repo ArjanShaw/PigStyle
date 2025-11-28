@@ -16,21 +16,15 @@ class ExportHandler:
             st.warning("Please select records first using the checkboxes in the table.")
             return
         
-        # Get selected records data - FIXED QUERY
+        # Get selected records data using API
         selected_ids = st.session_state.selected_records
-        placeholders = ','.join(['?'] * len(selected_ids))
+        records_df = st.session_state.db_manager.get_records_by_ids(selected_ids)
         
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql(f'''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
-            WHERE r.id IN ({placeholders})
-        ''', conn, params=selected_ids)
-        conn.close()
+        if records_df.empty:
+            st.warning("No records found for the selected IDs")
+            return
         
-        records_list = df.to_dict('records')
+        records_list = records_df.to_dict('records')
         
         # Generate eBay formatted TXT
         draft_handler = DraftCSVHandler()
@@ -119,19 +113,17 @@ class ExportHandler:
         return max(ebay_sell_at, 0.00)
 
     def update_all_ebay_prices(self, ebay_handler):
-        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here - FIXED QUERY"""
+        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here"""
         if not ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
-        ''', conn)
-        conn.close()
+        # Get all records using API
+        records_df = st.session_state.db_manager.get_all_records()
+        
+        if records_df.empty:
+            st.info("No records found to update")
+            return 0
         
         updated_count = 0
         failed_count = 0
@@ -145,12 +137,12 @@ class ExportHandler:
         
         results = []
         
-        for i, (_, record) in enumerate(df.iterrows()):
+        for i, (_, record) in enumerate(records_df.iterrows()):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
             
-            status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
+            status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
             try:
                 ebay_pricing = ebay_handler.get_ebay_pricing(artist, title)
@@ -198,10 +190,10 @@ class ExportHandler:
                 results.append(f"❌ {artist} - {title}: {str(e)}")
             
             # Update progress
-            progress_bar.progress((i + 1) / len(df))
+            progress_bar.progress((i + 1) / len(records_df))
             
             # Update results display every 5 records or at the end
-            if (i + 1) % 5 == 0 or (i + 1) == len(df):
+            if (i + 1) % 5 == 0 or (i + 1) == len(records_df):
                 with results_placeholder:
                     # Show last 10 results
                     display_results = results[-10:] if len(results) > 10 else results
@@ -219,26 +211,17 @@ class ExportHandler:
         return updated_count
 
     def update_single_ebay_prices(self, ebay_handler, record_id):
-        """Update eBay prices for a single record - DO NOT update ebay_sell_at here - FIXED QUERY"""
+        """Update eBay prices for a single record - DO NOT update ebay_sell_at here"""
         if not ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
-            WHERE r.id = ?
-        ''', conn, params=(record_id,))
-        conn.close()
-        
-        if len(df) == 0:
+        # Get single record using API
+        record = st.session_state.db_manager.get_record_by_id(record_id)
+        if record is None:
             st.error(f"Record ID {record_id} not found")
             return 0
         
-        record = df.iloc[0]
         artist = record.get('artist', '')
         title = record.get('title', '')
         
@@ -288,15 +271,13 @@ class ExportHandler:
             return 0
 
     def update_all_ebay_sell_at(self):
-        """Update eBay sell prices for all inventory records using existing lowest prices - FIXED QUERY"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
-        ''', conn)
-        conn.close()
+        """Update eBay sell prices for all inventory records using existing lowest prices"""
+        # Get all records using API
+        records_df = st.session_state.db_manager.get_all_records()
+        
+        if records_df.empty:
+            st.info("No records found to update")
+            return 0
         
         updated_count = 0
         failed_count = 0
@@ -310,7 +291,7 @@ class ExportHandler:
         
         results = []
         
-        for i, (_, record) in enumerate(df.iterrows()):
+        for i, (_, record) in enumerate(records_df.iterrows()):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
@@ -318,7 +299,7 @@ class ExportHandler:
             ebay_low_shipping = record.get('ebay_low_shipping')
             discogs_median_price = record.get('discogs_median_price')
             
-            status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
+            status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
             try:
                 # Use the unified calculation function
@@ -338,10 +319,10 @@ class ExportHandler:
                 results.append(f"❌ {artist} - {title}: {str(e)}")
             
             # Update progress
-            progress_bar.progress((i + 1) / len(df))
+            progress_bar.progress((i + 1) / len(records_df))
             
             # Update results display every 5 records or at the end
-            if (i + 1) % 5 == 0 or (i + 1) == len(df):
+            if (i + 1) % 5 == 0 or (i + 1) == len(records_df):
                 with results_placeholder:
                     # Show last 10 results
                     display_results = results[-10:] if len(results) > 10 else results
@@ -359,22 +340,13 @@ class ExportHandler:
         return updated_count
 
     def update_single_ebay_sell_at(self, record_id):
-        """Update eBay sell price for a single record using existing lowest price - FIXED QUERY"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, c.name as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN consignors c ON r.consignor_id = c.id
-            WHERE r.id = ?
-        ''', conn, params=(record_id,))
-        conn.close()
-        
-        if len(df) == 0:
+        """Update eBay sell price for a single record using existing lowest price"""
+        # Get single record using API
+        record = st.session_state.db_manager.get_record_by_id(record_id)
+        if record is None:
             st.error(f"Record ID {record_id} not found")
             return 0
         
-        record = df.iloc[0]
         artist = record.get('artist', '')
         title = record.get('title', '')
         ebay_lowest_price = record.get('ebay_lowest_price')

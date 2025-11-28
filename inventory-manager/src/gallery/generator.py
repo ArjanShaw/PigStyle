@@ -78,7 +78,7 @@ class GalleryJSONManager:
             if not os.access(self.web_base_path, os.W_OK):
                 raise Exception(f"Directory not writable: {self.web_base_path}")
             
-            # Get all records from database
+            # Get all records from database using API
             records = self._fetch_all_records()
             print(f"📊 Fetched {len(records)} records from database")
             
@@ -122,22 +122,39 @@ class GalleryJSONManager:
             self._rebuild_lock.release()
     
     def _fetch_all_records(self):
-        conn = self.db_manager._get_connection()
-        
-        query = """
-        SELECT 
-            r.id, r.artist, r.title, r.image_url, g.genre_name as genre, r.barcode,
-            r.store_price, r.file_at, r.youtube_url, r.catalog_number,
-            r.format, r.condition
-        FROM records r
-        LEFT JOIN genres g ON r.genre_id = g.id
-        ORDER BY r.id
-        """
-        
-        df = pd.read_sql(query, conn)
-        conn.close()
-        
-        return df.to_dict('records')
+        """Fetch all records using API instead of direct SQL connection"""
+        try:
+            # Use the API-based database manager
+            records_df = self.db_manager.get_all_records()
+            
+            if records_df.empty:
+                print("⚠️  No records found in database")
+                return []
+            
+            # Convert DataFrame to list of dicts with proper field mapping
+            records = []
+            for _, record in records_df.iterrows():
+                record_dict = {
+                    'id': record.get('id'),
+                    'artist': record.get('artist', ''),
+                    'title': record.get('title', ''),
+                    'image_url': record.get('image_url', ''),
+                    'genre': record.get('genre', ''),
+                    'barcode': record.get('barcode', ''),
+                    'store_price': record.get('store_price'),
+                    'file_at': record.get('file_at', ''),
+                    'youtube_url': record.get('youtube_url', ''),
+                    'catalog_number': record.get('catalog_number', ''),
+                    'format': record.get('format', ''),
+                    'condition': record.get('condition', '')
+                }
+                records.append(record_dict)
+            
+            return records
+            
+        except Exception as e:
+            print(f"❌ Error fetching records via API: {e}")
+            return []
     
     def _build_json_structure(self, records):
         # Clean the records data to replace NaN with null

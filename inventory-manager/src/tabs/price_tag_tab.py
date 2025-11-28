@@ -53,24 +53,18 @@ class PriceTagTab:
         if not config_file.exists():
             raise Exception(f"Configuration file not found: {config_file}")
         
-        try:
-            with open(config_file, 'r') as f:
-                content = f.read().strip()
-                if not content:
-                    raise Exception("Configuration file is empty")
-                saved_config = json.loads(content)
-            return saved_config
-        except (json.JSONDecodeError, Exception) as e:
-            raise Exception(f"Error loading layout config: {e}")
+        with open(config_file, 'r') as f:
+            content = f.read().strip()
+            if not content:
+                raise Exception("Configuration file is empty")
+            saved_config = json.loads(content)
+        return saved_config
     
     def _save_layout_config(self, config):
         """Save layout configuration to file"""
-        try:
-            config_file = self._get_config_path()
-            with open(config_file, 'w') as f:
-                json.dump(config, f, indent=2)
-        except Exception as e:
-            raise Exception(f"Error saving layout config: {e}")
+        config_file = self._get_config_path()
+        with open(config_file, 'w') as f:
+            json.dump(config, f, indent=2)
     
     def _save_current_layout_config(self):
         """Save current layout configuration to file"""
@@ -109,14 +103,9 @@ class PriceTagTab:
                 st.error(st.session_state.print_message)
         
         # Check dependencies
-        try:
-            import barcode
-            import reportlab
-            st.success("✅ Printing dependencies available")
-        except ImportError as e:
-            st.error(f"❌ Missing: {e}")
-            st.info("Install: pip install python-barcode reportlab")
-            return
+        import barcode
+        import reportlab
+        st.success("✅ Printing dependencies available")
         
         # Configuration Sections
         with st.expander("📐 Label Layout Configuration", expanded=True):
@@ -159,7 +148,7 @@ class PriceTagTab:
             self._save_current_layout_config()
             st.success("✅ Layout configuration saved!")
         
-        # Get records without barcodes - FIXED QUERY (removed consignors reference)
+        # Get records without barcodes
         records = self.price_tag_handler.get_records_without_barcodes()
         
         # MANAGEMENT SECTION
@@ -171,13 +160,10 @@ class PriceTagTab:
                 self._clear_barcodes()
         
         with col2:
-            conn = self.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM records WHERE barcode IS NOT NULL AND barcode != ""')
-            printed_count = cursor.fetchone()[0]
-            cursor.execute('SELECT COUNT(*) FROM records')
-            total_count = cursor.fetchone()[0]
-            conn.close()
+            # Get printed count using API
+            all_records = self.db_manager.get_all_records()
+            printed_count = len(all_records[all_records['barcode'].notna() & (all_records['barcode'] != '')])
+            total_count = len(all_records)
             st.metric("Printed", f"{printed_count}/{total_count}")
         
         if not records:
@@ -260,127 +246,99 @@ class PriceTagTab:
             st.rerun()
             return
         
-        try:
-            st.session_state.print_status = "processing"
-            st.session_state.print_message = f"🔄 Starting price tag generation for {len(record_ids)} records..."
-            st.session_state.print_success = False
+        st.session_state.print_status = "processing"
+        st.session_state.print_message = f"🔄 Starting price tag generation for {len(record_ids)} records..."
+        st.session_state.print_success = False
 
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            # Step 1: Assign barcodes
-            status_text.text("Step 1/3: Assigning barcodes...")
-            barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
-            progress_bar.progress(33)
-            
-            if not barcode_mapping:
-                st.session_state.print_status = "error"
-                st.session_state.print_message = "❌ Failed to assign barcodes"
-                st.session_state.print_success = False
-                progress_bar.empty()
-                status_text.empty()
-                st.rerun()
-                return
-            
-            # Step 2: Get record data - FIXED QUERY (removed consignors reference)
-            status_text.text("Step 2/3: Loading record data...")
-            conn = self.db_manager._get_connection()
-            placeholders = ','.join(['?'] * len(record_ids))
-            query = f'''
-                SELECT r.*, g.genre_name as genre, u.username as consignor_name, u.full_name
-                FROM records r
-                LEFT JOIN genres g ON r.genre_id = g.id
-                LEFT JOIN users u ON r.consignor_id = u.id
-                WHERE r.id IN ({placeholders})
-            '''
-            df = pd.read_sql(query, conn, params=record_ids)
-            conn.close()
-            progress_bar.progress(66)
-            
-            # Step 3: Generate PDF with timeout protection
-            status_text.text("Step 3/3: Generating PDF...")
-            result_queue = queue.Queue()
-            
-            # Capture all layout parameters BEFORE creating the thread
-            layout_params = {
-                # Label Layout Configuration
-                'price_font_size': st.session_state.price_font_size,
-                'price_y_pos': st.session_state.price_y_pos,
-                'text_font_size': st.session_state.text_font_size,
-                'artist_y_pos': st.session_state.artist_y_pos,
-                'file_y_pos': st.session_state.file_y_pos,
-                'date_font_size': st.session_state.date_font_size,
-                'date_y_pos': st.session_state.date_y_pos,
-                'barcode_y_pos': st.session_state.barcode_y_pos,
-                'barcode_height': st.session_state.barcode_height,
-                # Page Layout Configuration
-                'label_width_mm': st.session_state.label_width_mm,
-                'label_height_mm': st.session_state.label_height_mm,
-                'left_margin_mm': st.session_state.left_margin_mm,
-                'gutter_spacing_mm': st.session_state.gutter_spacing_mm,
-                'top_margin_mm': st.session_state.top_margin_mm,
-                'rows': st.session_state.rows,
-                'columns': st.session_state.columns,
-                # Border Configuration
-                'print_borders': st.session_state.print_borders
-            }
-            
-            def generate_pdf_thread():
-                try:
-                    # Use the captured layout_params instead of st.session_state
-                    pdf_path = self.price_tag_handler.generate_pdf(df, barcode_mapping, layout_params)
-                    result_queue.put(('success', pdf_path))
-                except Exception as e:
-                    result_queue.put(('error', str(e)))
-            
-            # Start PDF generation in thread
-            pdf_thread = threading.Thread(target=generate_pdf_thread)
-            pdf_thread.daemon = True
-            pdf_thread.start()
-            
-            # Wait for PDF generation with timeout
-            pdf_thread.join(timeout=20)
-            
-            progress_bar.progress(100)
-            
-            if pdf_thread.is_alive():
-                st.session_state.print_status = "error"
-                st.session_state.print_message = "❌ PDF generation timed out after 20 seconds"
-                st.session_state.print_success = False
-            else:
-                try:
-                    result_type, result_data = result_queue.get_nowait()
-                    
-                    if result_type == 'success' and result_data and os.path.exists(result_data):
-                        with open(result_data, "rb") as f:
-                            st.session_state.pdf_data = f.read()
-                        st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                        
-                        try:
-                            os.unlink(result_data)
-                        except:
-                            pass
-                        
-                        st.session_state.print_status = "completed"
-                        st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
-                        st.session_state.print_success = True
-                    else:
-                        st.session_state.print_status = "error"
-                        st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
-                        st.session_state.print_success = False
-                        
-                except queue.Empty:
-                    st.session_state.print_status = "error"
-                    st.session_state.print_message = "❌ PDF generation failed - no result received"
-                    st.session_state.print_success = False
-            
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # Step 1: Assign barcodes
+        status_text.text("Step 1/3: Assigning barcodes...")
+        barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
+        progress_bar.progress(33)
+        
+        if not barcode_mapping:
+            st.session_state.print_status = "error"
+            st.session_state.print_message = "❌ Failed to assign barcodes"
+            st.session_state.print_success = False
             progress_bar.empty()
             status_text.empty()
-            
-        except Exception as e:
+            st.rerun()
+            return
+        
+        # Step 2: Get record data using API
+        status_text.text("Step 2/3: Loading record data...")
+        all_records = self.db_manager.get_all_records()
+        records_to_print = all_records[all_records['id'].isin(record_ids)]
+        progress_bar.progress(66)
+        
+        # Step 3: Generate PDF with timeout protection
+        status_text.text("Step 3/3: Generating PDF...")
+        result_queue = queue.Queue()
+        
+        # Capture all layout parameters BEFORE creating the thread
+        layout_params = {
+            # Label Layout Configuration
+            'price_font_size': st.session_state.price_font_size,
+            'price_y_pos': st.session_state.price_y_pos,
+            'text_font_size': st.session_state.text_font_size,
+            'artist_y_pos': st.session_state.artist_y_pos,
+            'file_y_pos': st.session_state.file_y_pos,
+            'date_font_size': st.session_state.date_font_size,
+            'date_y_pos': st.session_state.date_y_pos,
+            'barcode_y_pos': st.session_state.barcode_y_pos,
+            'barcode_height': st.session_state.barcode_height,
+            # Page Layout Configuration
+            'label_width_mm': st.session_state.label_width_mm,
+            'label_height_mm': st.session_state.label_height_mm,
+            'left_margin_mm': st.session_state.left_margin_mm,
+            'gutter_spacing_mm': st.session_state.gutter_spacing_mm,
+            'top_margin_mm': st.session_state.top_margin_mm,
+            'rows': st.session_state.rows,
+            'columns': st.session_state.columns,
+            # Border Configuration
+            'print_borders': st.session_state.print_borders
+        }
+        
+        def generate_pdf_thread():
+            pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params)
+            result_queue.put(('success', pdf_path))
+        
+        # Start PDF generation in thread
+        pdf_thread = threading.Thread(target=generate_pdf_thread)
+        pdf_thread.daemon = True
+        pdf_thread.start()
+        
+        # Wait for PDF generation with timeout
+        pdf_thread.join(timeout=20)
+        
+        progress_bar.progress(100)
+        
+        if pdf_thread.is_alive():
             st.session_state.print_status = "error"
-            st.session_state.print_message = f"❌ Unexpected error: {str(e)}"
+            st.session_state.print_message = "❌ PDF generation timed out after 20 seconds"
             st.session_state.print_success = False
+        else:
+            result_type, result_data = result_queue.get_nowait()
+            
+            if result_type == 'success' and result_data and os.path.exists(result_data):
+                with open(result_data, "rb") as f:
+                    st.session_state.pdf_data = f.read()
+                st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                
+                os.unlink(result_data)
+                
+                st.session_state.print_status = "completed"
+                st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
+                st.session_state.print_success = True
+            else:
+                st.session_state.print_status = "error"
+                st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
+                st.session_state.print_success = False
+        
+        progress_bar.empty()
+        status_text.empty()
         
         if hasattr(st.session_state, 'print_success') and st.session_state.print_success and 'pdf_data' in st.session_state:
             st.download_button(
@@ -404,45 +362,38 @@ class PriceTagTab:
             st.rerun()
             return
         
-        try:
-            st.session_state.print_status = "processing"
-            st.session_state.print_message = f"🔄 Assigning barcodes to {len(record_ids)} records..."
-            st.session_state.print_success = False
-            st.rerun()
-            
-            barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
-            
-            if barcode_mapping:
-                st.session_state.print_status = "completed"
-                st.session_state.print_message = f"✅ Successfully assigned barcodes to {len(record_ids)} records. You can print labels later."
-                st.session_state.print_success = True
-            else:
-                st.session_state.print_status = "error"
-                st.session_state.print_message = "❌ Failed to assign barcodes"
-                st.session_state.print_success = False
-                
-        except Exception as e:
+        st.session_state.print_status = "processing"
+        st.session_state.print_message = f"🔄 Assigning barcodes to {len(record_ids)} records..."
+        st.session_state.print_success = False
+        st.rerun()
+        
+        barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
+        
+        if barcode_mapping:
+            st.session_state.print_status = "completed"
+            st.session_state.print_message = f"✅ Successfully assigned barcodes to {len(record_ids)} records. You can print labels later."
+            st.session_state.print_success = True
+        else:
             st.session_state.print_status = "error"
-            st.session_state.print_message = f"❌ Error assigning barcodes: {str(e)}"
+            st.session_state.print_message = "❌ Failed to assign barcodes"
             st.session_state.print_success = False
         
         st.rerun()
     
     def _clear_barcodes(self):
-        """Clear all barcodes"""
-        try:
-            conn = self.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('UPDATE records SET barcode = NULL')
-            conn.commit()
-            conn.close()
-            
-            st.session_state.print_status = "completed"
-            st.session_state.print_message = "✅ All barcodes cleared successfully!"
-            st.session_state.print_success = True
-        except Exception as e:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = f"❌ Error clearing barcodes: {e}"
-            st.session_state.print_success = False
+        """Clear all barcodes using API"""
+        # This would require a new API endpoint to clear all barcodes
+        # For now, update each record individually
+        all_records = self.db_manager.get_all_records()
+        updated_count = 0
+        
+        for _, record in all_records.iterrows():
+            success = self.db_manager.update_record(record['id'], {'barcode': None})
+            if success:
+                updated_count += 1
+        
+        st.session_state.print_status = "completed"
+        st.session_state.print_message = f"✅ Cleared barcodes from {updated_count} records!"
+        st.session_state.print_success = True
         
         st.rerun()

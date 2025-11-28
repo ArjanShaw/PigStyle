@@ -338,41 +338,36 @@ class EBayTab:
             self.gallery_json_manager.trigger_rebuild(async_mode=True)
 
     def _find_record_by_artist_title(self, artist, title):
-        """Find a record by artist and title - FIXED QUERY"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql(
-            '''SELECT r.*, g.genre_name as genre, u.username as consignor_name
-               FROM records r
-               LEFT JOIN genres g ON r.genre_id = g.id
-               LEFT JOIN users u ON r.consignor_id = u.id
-               WHERE r.artist LIKE ? AND r.title LIKE ?''',
-            conn,
-            params=(f'%{artist}%', f'%{title}%')
-        )
-        conn.close()
+        """Find a record by artist and title using API"""
+        # Search records using API
+        search_results = st.session_state.db_manager.search_records(f"{artist} {title}")
         
-        if len(df) > 0:
-            return df.iloc[0].to_dict()
+        if not search_results.empty:
+            # Return the first matching record
+            return search_results.iloc[0].to_dict()
         return None
 
     def _export_ebay_draft_csv(self, num_listings):
-        """Export eBay draft listings CSV - FIXED QUERY"""
+        """Export eBay draft listings CSV"""
         st.subheader("Generating eBay Draft Listings")
         
-        # Get records sorted by eBay sell price descending, without eBay item numbers - FIXED QUERY
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql(f'''
-            SELECT r.*, g.genre_name as genre, u.username as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN users u ON r.consignor_id = u.id
-            WHERE r.ebay_item_number IS NULL OR r.ebay_item_number = ''
-            ORDER BY r.ebay_sell_at DESC 
-            LIMIT {num_listings}
-        ''', conn)
-        conn.close()
+        # Get records sorted by eBay sell price descending, without eBay item numbers using API
+        all_records = st.session_state.db_manager.get_all_records()
         
-        if len(df) == 0:
+        if all_records.empty:
+            st.warning("No records found")
+            return
+        
+        # Filter records without eBay item numbers
+        records_without_ebay = all_records[
+            (all_records['ebay_item_number'].isna()) | 
+            (all_records['ebay_item_number'] == '')
+        ]
+        
+        # Sort by eBay sell price descending and take top N
+        records_to_export = records_without_ebay.sort_values('ebay_sell_at', ascending=False).head(num_listings)
+        
+        if len(records_to_export) == 0:
             st.warning("No records found without eBay item numbers")
             return
         
@@ -399,7 +394,7 @@ class EBayTab:
         output.write(",".join(headers) + "\n")
         
         # Write data rows
-        for _, record in df.iterrows():
+        for _, record in records_to_export.iterrows():
             row_data = self._format_record_for_ebay_draft(record)
             if row_data:
                 row_values = [str(row_data.get(header, "")) for header in headers]
@@ -412,7 +407,7 @@ class EBayTab:
         filename = f"ebay_draft_listings_{timestamp}.csv"
         
         st.download_button(
-            label=f"⬇️ Download eBay Draft CSV ({len(df)} listings)",
+            label=f"⬇️ Download eBay Draft CSV ({len(records_to_export)} listings)",
             data=csv_content,
             file_name=filename,
             mime="text/csv",
@@ -420,7 +415,7 @@ class EBayTab:
             key=f"download_ebay_draft_{timestamp}"
         )
         
-        st.success(f"✅ eBay draft CSV ready! {len(df)} records formatted for eBay import.")
+        st.success(f"✅ eBay draft CSV ready! {len(records_to_export)} records formatted for eBay import.")
 
     def _format_record_for_ebay_draft(self, record):
         """Format a single record for eBay draft import"""
@@ -619,19 +614,17 @@ class EBayTab:
             return {'type': 'FREE', 'cost': 0}
 
     def _update_all_ebay_prices_internal(self):
-        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here - FIXED QUERY"""
+        """Update eBay prices for all inventory records - DO NOT update ebay_sell_at here"""
         if not self.ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, u.username as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN users u ON r.consignor_id = u.id
-        ''', conn)
-        conn.close()
+        # Get all records using API
+        records_df = st.session_state.db_manager.get_all_records()
+        
+        if records_df.empty:
+            st.info("No records found to update")
+            return 0
         
         updated_count = 0
         failed_count = 0
@@ -645,12 +638,12 @@ class EBayTab:
         
         results = []
         
-        for i, (_, record) in enumerate(df.iterrows()):
+        for i, (_, record) in enumerate(records_df.iterrows()):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
             
-            status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
+            status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
             try:
                 ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
@@ -698,10 +691,10 @@ class EBayTab:
                 results.append(f"❌ {artist} - {title}: {str(e)}")
             
             # Update progress
-            progress_bar.progress((i + 1) / len(df))
+            progress_bar.progress((i + 1) / len(records_df))
             
             # Update results display every 5 records or at the end
-            if (i + 1) % 5 == 0 or (i + 1) == len(df):
+            if (i + 1) % 5 == 0 or (i + 1) == len(records_df):
                 with results_placeholder:
                     # Show last 10 results
                     display_results = results[-10:] if len(results) > 10 else results
@@ -719,26 +712,17 @@ class EBayTab:
         return updated_count
 
     def _update_single_ebay_prices_internal(self, record_id):
-        """Update eBay prices for a single record - DO NOT update ebay_sell_at here - FIXED QUERY"""
+        """Update eBay prices for a single record - DO NOT update ebay_sell_at here"""
         if not self.ebay_handler:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, u.username as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN users u ON r.consignor_id = u.id
-            WHERE r.id = ?
-        ''', conn, params=(record_id,))
-        conn.close()
-        
-        if len(df) == 0:
+        # Get single record using API
+        record = st.session_state.db_manager.get_record_by_id(record_id)
+        if record is None:
             st.error(f"Record ID {record_id} not found")
             return 0
         
-        record = df.iloc[0]
         artist = record.get('artist', '')
         title = record.get('title', '')
         
@@ -788,15 +772,13 @@ class EBayTab:
             return 0
 
     def _update_all_ebay_sell_at_internal(self):
-        """Update eBay sell prices for all inventory records using existing lowest prices - FIXED QUERY"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, u.username as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN users u ON r.consignor_id = u.id
-        ''', conn)
-        conn.close()
+        """Update eBay sell prices for all inventory records using existing lowest prices"""
+        # Get all records using API
+        records_df = st.session_state.db_manager.get_all_records()
+        
+        if records_df.empty:
+            st.info("No records found to update")
+            return 0
         
         updated_count = 0
         failed_count = 0
@@ -810,7 +792,7 @@ class EBayTab:
         
         results = []
         
-        for i, (_, record) in enumerate(df.iterrows()):
+        for i, (_, record) in enumerate(records_df.iterrows()):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
@@ -818,7 +800,7 @@ class EBayTab:
             ebay_low_shipping = record.get('ebay_low_shipping')
             discogs_median_price = record.get('discogs_median_price')
             
-            status_text.text(f"Updating {i+1}/{len(df)}: {artist} - {title}")
+            status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
             try:
                 # Use the unified calculation function
@@ -838,10 +820,10 @@ class EBayTab:
                 results.append(f"❌ {artist} - {title}: {str(e)}")
             
             # Update progress
-            progress_bar.progress((i + 1) / len(df))
+            progress_bar.progress((i + 1) / len(records_df))
             
             # Update results display every 5 records or at the end
-            if (i + 1) % 5 == 0 or (i + 1) == len(df):
+            if (i + 1) % 5 == 0 or (i + 1) == len(records_df):
                 with results_placeholder:
                     # Show last 10 results
                     display_results = results[-10:] if len(results) > 10 else results
@@ -859,22 +841,13 @@ class EBayTab:
         return updated_count
 
     def _update_single_ebay_sell_at_internal(self, record_id):
-        """Update eBay sell price for a single record using existing lowest price - FIXED QUERY"""
-        conn = st.session_state.db_manager._get_connection()
-        df = pd.read_sql('''
-            SELECT r.*, g.genre_name as genre, u.username as consignor_name
-            FROM records r
-            LEFT JOIN genres g ON r.genre_id = g.id
-            LEFT JOIN users u ON r.consignor_id = u.id
-            WHERE r.id = ?
-        ''', conn, params=(record_id,))
-        conn.close()
-        
-        if len(df) == 0:
+        """Update eBay sell price for a single record using existing lowest price"""
+        # Get single record using API
+        record = st.session_state.db_manager.get_record_by_id(record_id)
+        if record is None:
             st.error(f"Record ID {record_id} not found")
             return 0
         
-        record = df.iloc[0]
         artist = record.get('artist', '')
         title = record.get('title', '')
         ebay_lowest_price = record.get('ebay_lowest_price')

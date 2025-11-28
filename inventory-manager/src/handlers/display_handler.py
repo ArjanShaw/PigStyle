@@ -5,7 +5,9 @@ from datetime import datetime
 import re
 import math
 import threading
-import time
+import subprocess
+from pathlib import Path
+import math
 
 class DisplayHandler:
     def __init__(self, youtube_handler=None):
@@ -360,84 +362,79 @@ class DisplayHandler:
 
     def _render_consignment_section(self, record_data=None, current_consignment_rate=0.10):
         """Render consignment section with direct user selection and individual rates"""
-        try:
-            # Get all users for dropdown
-            users_df = st.session_state.db_manager.get_all_users()
-            
-            if len(users_df) == 0:
-                st.info("No users available. Add users in the Consignment tab first.")
-                return None, None, None
-            
-            # Create options for dropdown
-            options = ["Store Owned"]  # Default option
-            
-            # Create mapping for user selection
-            user_mapping = {}
-            for _, user in users_df.iterrows():
-                option_text = f"{user['username']} ({user['full_name'] or 'No name'})"
-                options.append(option_text)
-                user_mapping[option_text] = user['id']
-            
-            # Determine default selection
-            default_index = 0  # Default to "Store Owned"
-            
-            # If editing existing record with consignment, find the matching user
-            current_consignor_name = record_data.get('consignor_name', '')
-            if current_consignor_name:
-                for option_text in user_mapping.keys():
-                    if current_consignor_name in option_text:
-                        default_index = options.index(option_text)
-                        break
-            
-            # Render user dropdown
-            selected_option = st.selectbox(
-                "Consignor:",
-                options=options,
-                index=default_index,
-                key="consignor_select"
-            )
-            
-            # If Store Owned selected, return None for all values
-            if selected_option == "Store Owned":
-                return None, None, None
-            
-            # Get the selected user ID
-            user_id = user_mapping.get(selected_option)
-            
-            # Use current calculated consignment rate as default
-            current_commission_rate = record_data.get('commission_rate')
-            if current_commission_rate is None:
-                current_commission_rate = current_consignment_rate
-            
-            commission_rate = st.number_input(
-                "Commission Rate:",
-                min_value=0.0,
-                max_value=1.0,
-                value=current_commission_rate,
-                step=0.05,
-                format="%.2f",
-                key="commission_rate_input"
-            )
-            
-            # Show store return days input
-            current_store_return_days = record_data.get('store_return_days')
-            if current_store_return_days is None:
-                current_store_return_days = int(st.session_state.db_manager.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
-            
-            store_return_days = st.number_input(
-                "Store Return Days:",
-                min_value=1,
-                max_value=365,
-                value=current_store_return_days,
-                step=1,
-                key="store_return_days_input"
-            )
-            
-            return user_id, commission_rate, store_return_days
-            
-        except Exception as e:
-            st.error(f"Error loading consignment section: {e}")
+        # Get all users for dropdown - using API approach
+        users_df = st.session_state.db_manager.get_all_users()
+        
+        if len(users_df) == 0:
+            st.info("No users available. Add users in the Consignment tab first.")
             return None, None, None
+        
+        # Create options for dropdown
+        options = ["Store Owned"]  # Default option
+        
+        # Create mapping for user selection
+        user_mapping = {}
+        for _, user in users_df.iterrows():
+            option_text = f"{user['username']} ({user['full_name'] or 'No name'})"
+            options.append(option_text)
+            user_mapping[option_text] = user['id']
+        
+        # Determine default selection
+        default_index = 0  # Default to "Store Owned"
+        
+        # If editing existing record with consignment, find the matching user
+        current_consignor_name = record_data.get('consignor_name', '')
+        if current_consignor_name:
+            for option_text in user_mapping.keys():
+                if current_consignor_name in option_text:
+                    default_index = options.index(option_text)
+                    break
+        
+        # Render user dropdown
+        selected_option = st.selectbox(
+            "Consignor:",
+            options=options,
+            index=default_index,
+            key="consignor_select"
+        )
+        
+        # If Store Owned selected, return None for all values
+        if selected_option == "Store Owned":
+            return None, None, None
+        
+        # Get the selected user ID
+        user_id = user_mapping.get(selected_option)
+        
+        # Use current calculated consignment rate as default
+        current_commission_rate = record_data.get('commission_rate')
+        if current_commission_rate is None:
+            current_commission_rate = current_consignment_rate
+        
+        commission_rate = st.number_input(
+            "Commission Rate:",
+            min_value=0.0,
+            max_value=1.0,
+            value=current_commission_rate,
+            step=0.05,
+            format="%.2f",
+            key="commission_rate_input"
+        )
+        
+        # Show store return days input
+        current_store_return_days = record_data.get('store_return_days')
+        if current_store_return_days is None:
+            current_store_return_days = int(st.session_state.db_manager.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
+        
+        store_return_days = st.number_input(
+            "Store Return Days:",
+            min_value=1,
+            max_value=365,
+            value=current_store_return_days,
+            step=1,
+            key="store_return_days_input"
+        )
+        
+        return user_id, commission_rate, store_return_days
 
     def _should_be_compilation(self, artist, record_data):
         """Determine if record should be marked as compilation based on artist name and artist history"""
@@ -460,7 +457,7 @@ class DisplayHandler:
             if indicator in artist_lower:
                 return True
         
-        # Check artist history in database
+        # Check artist history in database - using API approach
         if self._is_artist_mostly_compilation(artist):
             return True
         
@@ -471,35 +468,26 @@ class DisplayHandler:
         return False
 
     def _is_artist_mostly_compilation(self, artist):
-        """Check if this artist's records are mostly marked as compilations in the database"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            
-            # Count how many records by this artist are marked as compilations
-            df = pd.read_sql('''
-                SELECT compilation, COUNT(*) as count 
-                FROM records 
-                WHERE artist = ? 
-                GROUP BY compilation
-            ''', conn, params=(artist,))
-            conn.close()
-            
-            if len(df) == 0:
-                return False
-            
-            # Calculate compilation ratio
-            total_records = df['count'].sum()
-            compilation_count = df[df['compilation'] == True]['count'].sum() if True in df['compilation'].values else 0
-            
-            # If more than 50% of this artist's records are compilations, suggest compilation
-            if total_records > 0 and (compilation_count / total_records) > 0.5:
-                return True
-                
+        """Check if this artist's records are mostly marked as compilations in the database using API"""
+        # Use API approach instead of SQL connection
+        all_records = st.session_state.db_manager.get_all_records()
+        if all_records.empty:
             return False
-            
-        except Exception as e:
-            print(f"Error checking artist compilation history: {e}")
+        
+        # Filter records by this artist
+        artist_records = all_records[all_records['artist'] == artist]
+        if artist_records.empty:
             return False
+        
+        # Calculate compilation ratio
+        total_records = len(artist_records)
+        compilation_count = len(artist_records[artist_records['compilation'] == True])
+        
+        # If more than 50% of this artist's records are compilations, suggest compilation
+        if total_records > 0 and (compilation_count / total_records) > 0.5:
+            return True
+            
+        return False
 
     def _calculate_file_at(self, artist, genre, compilation):
         """Calculate file_at value for display in confirmation message"""
@@ -557,53 +545,35 @@ class DisplayHandler:
 
     def _get_suggested_genre(self, record_data):
         """Get suggested genre for a record based on artist history - ONLY suggest if artist exists in database"""
-        try:
-            # Priority 1: Check artist history in database - ONLY if artist has existing records
-            artist = record_data.get('artist', '')
-            if artist:
-                artist_genre = self._get_genre_from_artist_history(artist)
-                if artist_genre:
-                    return artist_genre
-            
-            # No suggestion available if artist doesn't exist in database
-            return ""
-            
-        except Exception as e:
-            print(f"Error getting suggested genre: {e}")
-            return ""
+        # Priority 1: Check artist history in database - ONLY if artist has existing records
+        artist = record_data.get('artist', '')
+        if artist:
+            artist_genre = self._get_genre_from_artist_history(artist)
+            if artist_genre:
+                return artist_genre
+        
+        # No suggestion available if artist doesn't exist in database
+        return ""
 
     def _get_genre_from_artist_history(self, artist):
-        """Get the most common genre for this artist from existing records - ONLY if artist exists"""
-        try:
-            conn = st.session_state.db_manager._get_connection()
-            
-            # First check if artist exists in database
-            artist_exists = pd.read_sql('''
-                SELECT COUNT(*) as count FROM records WHERE artist = ?
-            ''', conn, params=(artist,)).iloc[0]['count'] > 0
-            
-            if not artist_exists:
-                return ""
-            
-            # Find the most common genre for this artist
-            df = pd.read_sql('''
-                SELECT g.genre_name, COUNT(*) as count
-                FROM records r
-                JOIN genres g ON r.genre_id = g.id
-                WHERE r.artist = ? AND g.genre_name IS NOT NULL
-                GROUP BY g.genre_name
-                ORDER BY count DESC
-                LIMIT 1
-            ''', conn, params=(artist,))
-            conn.close()
-            
-            if len(df) > 0:
-                return df.iloc[0]['genre_name']
+        """Get the most common genre for this artist from existing records - ONLY if artist exists using API"""
+        # Use API approach instead of SQL connection
+        all_records = st.session_state.db_manager.get_all_records()
+        if all_records.empty:
             return ""
-            
-        except Exception as e:
-            print(f"Error getting genre from artist history: {e}")
+        
+        # Check if artist exists in database
+        artist_exists = len(all_records[all_records['artist'] == artist]) > 0
+        if not artist_exists:
             return ""
+        
+        # Find the most common genre for this artist
+        artist_records = all_records[all_records['artist'] == artist]
+        if not artist_records.empty and 'genre' in artist_records.columns:
+            genre_counts = artist_records['genre'].value_counts()
+            if not genre_counts.empty:
+                return genre_counts.index[0]
+        return ""
 
     def _get_suggestion_source(self, record_data, suggested_genre):
         """Explain where the genre suggestion came from"""
@@ -614,13 +584,9 @@ class DisplayHandler:
         return "Unknown"
 
     def _get_all_genres(self):
-        """Get all available genres from database"""
-        try:
-            genres_df = st.session_state.db_manager.get_all_genres()
-            return genres_df['genre_name'].tolist()
-        except Exception as e:
-            print(f"Error getting genres: {e}")
-            return []
+        """Get all available genres from database using API"""
+        genres_df = st.session_state.db_manager.get_all_genres()
+        return genres_df['genre_name'].tolist()
 
     def _get_condition_description(self, condition):
         """Map condition codes to readable descriptions"""
@@ -766,15 +732,11 @@ class DisplayHandler:
             st.info("Discogs pricing data loading...")
 
     def _delete_record(self, record_id):
-        """Delete a record from the database"""
-        try:
-            success = st.session_state.db_manager.delete_record(record_id)
-            if success:
-                st.success("Record deleted successfully!")
-                return True
-            else:
-                st.error("Failed to delete record")
-                return False
-        except Exception as e:
-            st.error(f"Error deleting record: {e}")
+        """Delete a record from the database using API"""
+        success = st.session_state.db_manager.delete_record(record_id)
+        if success:
+            st.success("Record deleted successfully!")
+            return True
+        else:
+            st.error("Failed to delete record")
             return False

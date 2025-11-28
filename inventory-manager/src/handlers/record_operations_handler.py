@@ -62,21 +62,21 @@ class RecordOperationsHandler:
         commission_rate = record_data.get('commission_rate')
         store_return_days = record_data.get('store_return_days')
         
-        # Get genre_id for the genre
+        # Get genre_id for the genre using API
         genre_id = None
         if genre:
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre,))
-            genre_result = cursor.fetchone()
-            if genre_result:
-                genre_id = genre_result[0]
+            genres_df = st.session_state.db_manager.get_all_genres()
+            genre_row = genres_df[genres_df['genre_name'] == genre]
+            if not genre_row.empty:
+                genre_id = genre_row.iloc[0]['id']
             else:
-                # Create new genre
-                cursor.execute('INSERT INTO genres (genre_name) VALUES (?)', (genre,))
-                genre_id = cursor.lastrowid
-                conn.commit()
-            conn.close()
+                # Create new genre using API
+                success, new_genre_id = st.session_state.db_manager.add_genre(genre)
+                if success:
+                    genre_id = new_genre_id
+                else:
+                    st.error(f"Failed to create new genre: {genre}")
+                    return False, None
         
         # Calculate file_at for confirmation message
         file_at_value = self._calculate_file_at(artist, genre, compilation)
@@ -206,16 +206,13 @@ class RecordOperationsHandler:
         commission_rate = record_data.get('commission_rate')
         store_return_days = record_data.get('store_return_days')
         
-        # Get genre_id for the genre
+        # Get genre_id for the genre using API
         genre_id = None
         if genre:
-            conn = st.session_state.db_manager._get_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT id FROM genres WHERE genre_name = ?', (genre,))
-            genre_result = cursor.fetchone()
-            if genre_result:
-                genre_id = genre_result[0]
-            conn.close()
+            genres_df = st.session_state.db_manager.get_all_genres()
+            genre_row = genres_df[genres_df['genre_name'] == genre]
+            if not genre_row.empty:
+                genre_id = genre_row.iloc[0]['id']
         
         updates = {
             'genre_id': genre_id,
@@ -236,24 +233,21 @@ class RecordOperationsHandler:
     def _trigger_github_sync(self):
         """Trigger GitHub sync in background thread"""
         def sync_background():
-            try:
-                # Import here to avoid circular imports
-                from handlers.github_sync_handler import GitHubSyncHandler
+            # Import here to avoid circular imports
+            from handlers.github_sync_handler import GitHubSyncHandler
+            
+            # Get the gallery JSON manager from session state
+            gallery_json_manager = st.session_state.get('gallery_json_manager')
+            if gallery_json_manager:
+                # Rebuild JSON first
+                gallery_json_manager.trigger_rebuild(async_mode=False)
                 
-                # Get the gallery JSON manager from session state
-                gallery_json_manager = st.session_state.get('gallery_json_manager')
-                if gallery_json_manager:
-                    # Rebuild JSON first
-                    gallery_json_manager.trigger_rebuild(async_mode=False)
-                    
-                    # Then trigger GitHub sync
-                    github_handler = GitHubSyncHandler(
-                        repo_path="/home/arjan-ubuntu/Documents/PigStyle",
-                        gallery_json_manager=gallery_json_manager
-                    )
-                    github_handler.trigger_sync()
-            except Exception as e:
-                print(f"Background sync failed: {e}")
+                # Then trigger GitHub sync
+                github_handler = GitHubSyncHandler(
+                    repo_path="/home/arjan-ubuntu/Documents/PigStyle",
+                    gallery_json_manager=gallery_json_manager
+                )
+                github_handler.trigger_sync()
         
         # Start sync in background thread
         sync_thread = threading.Thread(target=sync_background, daemon=True)

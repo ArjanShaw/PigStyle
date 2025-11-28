@@ -3,15 +3,15 @@ import os
 import sys
 from pathlib import Path
 
-# Add auth module to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+# Add the current directory to the path to find local modules
+sys.path.insert(0, os.path.dirname(__file__))
 
 from auth.auth_manager import AuthManager
 from auth.session_manager import SessionManager
 from auth.permissions import PermissionManager
 
 # Import existing modules
-from database_manager import DatabaseManager
+from database_manager import DatabaseManager  # Changed from database_manager_api
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
@@ -115,10 +115,10 @@ def render_main_app():
     EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
     YOUTUBE_API_KEY = env_vars.get("YOUTUBE_API_KEY")
 
-    # Initialize session state defaults
+    # Initialize session state defaults with API-based database manager
     if "db_manager" not in st.session_state:
-        db_path = config.get_database_path()
-        st.session_state.db_manager = DatabaseManager(db_path)
+        api_base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        st.session_state.db_manager = DatabaseManager(api_base_url)
         st.session_state.config = config
 
     # Initialize Gallery JSON Manager AFTER db_manager is set

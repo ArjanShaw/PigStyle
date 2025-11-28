@@ -135,7 +135,7 @@ class ToolsSyncTab:
                 st.metric("Database Path", stats['db_path'])
 
     def _get_store_fill_info(self):
-        """Calculate store fill percentage based on total inventory and store capacity"""
+        """Calculate store fill percentage based on total inventory and store capacity using API"""
         # Use cached value if available and store capacity hasn't changed
         if 'store_fill_info' in st.session_state and 'store_capacity_cache' in st.session_state:
             current_capacity = st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000')
@@ -145,12 +145,9 @@ class ToolsSyncTab:
         # Get store capacity from config
         store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
         
-        # Get total inventory count
-        conn = st.session_state.db_manager._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM records')
-        total_inventory = cursor.fetchone()[0]
-        conn.close()
+        # Get total inventory count using API
+        records_df = st.session_state.db_manager.get_all_records()
+        total_inventory = len(records_df)
         
         # Calculate fill percentage
         fill_percentage = (total_inventory / store_capacity) * 100 if store_capacity > 0 else 0

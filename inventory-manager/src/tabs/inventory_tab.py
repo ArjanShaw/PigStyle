@@ -249,13 +249,13 @@ class InventoryTab:
     def _render_api_logs_section(self):
         """Render API logs section immediately when available"""
         if 'api_logs' in st.session_state and st.session_state.api_logs:
-            with st.expander("📡 API Requests & Responses", expanded=False):
+            with st.expander("📡 API Requests & Responses", expanded=True):  # Changed to expanded=True
                 for api_title in st.session_state.api_logs:
                     if api_title in st.session_state.api_details:
                         details = st.session_state.api_details[api_title]
                         duration = details.get('duration', 'N/A')
                         display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
-                        with st.expander(display_title, expanded=False):
+                        with st.expander(display_title, expanded=True):  # Changed to expanded=True
                             # FIX: Check if raw_request exists before accessing it
                             request_data = details.get('raw_request', details.get('request', {}))
                             st.write("**Request:**")

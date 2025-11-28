@@ -17,49 +17,75 @@ class DatabaseManager:
         
         self.api_base_url = api_base_url
         self.session = requests.Session()
-        
-        # Debug: Print API base URL
-        print(f"🔴 DEBUG: API Base URL: {self.api_base_url}")
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
-        """Make API request with error handling"""
+        """Make API request with error handling and comprehensive logging"""
         url = f"{self.api_base_url}{endpoint}"
         
-        print(f"🔴 DEBUG: Making {method} request to: {url}")
-        print(f"🔴 DEBUG: Request data: {kwargs.get('json', {})}")
+        # Log the API call
+        api_title = f"🗃️ Database API {method}: {endpoint}"
+        start_time = time.time()
         
+        # Prepare request data for logging
+        request_data = {
+            'endpoint': url,
+            'method': method,
+            'params': kwargs.get('params', {}),
+            'json': kwargs.get('json', {}),
+            'headers': {k: '***' if 'Authorization' in k else v for k, v in kwargs.get('headers', {}).items()}
+        }
+        
+        self._log_api_call(api_title, request_data)
+    
         try:
             response = self.session.request(method, url, **kwargs)
-            
-            print(f"🔴 DEBUG: Response status: {response.status_code}")
-            print(f"🔴 DEBUG: Response text: {response.text}")
-            
+            duration = round(time.time() - start_time, 2)
+        
             # Check for any successful status code (200-299)
             if 200 <= response.status_code < 300:
-                # Clear any previous errors on success
-                if hasattr(st.session_state, 'api_error'):
-                    del st.session_state.api_error
-                return response.json()
+                response_data = response.json()
+                # Log successful response
+                self._log_api_response(api_title, response_data, duration)
+                return response_data
             else:
-                # Store error in session state to persist across reruns
-                error_msg = f"API Error {response.status_code}: {response.text}"
-                st.session_state.api_error = {
-                    'message': error_msg,
-                    'url': url,
-                    'method': method,
-                    'timestamp': time.time()
+                error_data = {
+                    'status_code': response.status_code,
+                    'error': response.text,
+                    'url': url
                 }
+                self._log_api_response(api_title, error_data, duration)
+                st.error(f"API Error {response.status_code}: {response.text}")
                 return None
-                
+            
         except Exception as e:
-            error_msg = f"Network error: {str(e)}"
-            st.session_state.api_error = {
-                'message': error_msg,
-                'url': url, 
-                'method': method,
-                'timestamp': time.time()
+            duration = round(time.time() - start_time, 2)
+            error_data = {
+                'error': f"Network error: {str(e)}",
+                'url': url
             }
+            self._log_api_response(api_title, error_data, duration)
+            st.error(f"Network error: {str(e)}")
             return None
+
+    def _log_api_call(self, title, request_data):
+        """Log API call in unified format"""
+        if 'api_logs' not in st.session_state:
+            st.session_state.api_logs = []
+        if 'api_details' not in st.session_state:
+            st.session_state.api_details = {}
+            
+        st.session_state.api_logs.append(title)
+        st.session_state.api_details[title] = {
+            'request': request_data,
+            'raw_request': request_data  # Store raw request data
+        }
+
+    def _log_api_response(self, title, response_data, duration):
+        """Log API response in unified format"""
+        if 'api_details' in st.session_state and title in st.session_state.api_details:
+            st.session_state.api_details[title]['response'] = response_data
+            st.session_state.api_details[title]['duration'] = duration
+            st.session_state.api_details[title]['raw_response'] = response_data  # Store raw response data
 
     # ==================== CORE RECORD OPERATIONS ====================
 
@@ -78,19 +104,19 @@ class DatabaseManager:
         return None
     
     def save_record(self, result_data: Dict) -> int:
-        """Save record to database via API"""
+        """Save record to database via API - THIS WILL NOW BE LOGGED"""
         result = self._make_request('POST', '/records', json=result_data)
         if result and 'record_id' in result:
             return result['record_id']
         return None
     
     def update_record(self, record_id: int, updates: Dict) -> bool:
-        """Update record via API"""
+        """Update record via API - THIS WILL NOW BE LOGGED"""
         result = self._make_request('PUT', f'/records/{record_id}', json=updates)
         return result is not None and result.get('status') == 'success'
     
     def delete_record(self, record_id: int) -> bool:
-        """Delete record via API"""
+        """Delete record via API - THIS WILL NOW BE LOGGED"""
         result = self._make_request('DELETE', f'/records/{record_id}')
         return result is not None and result.get('status') == 'success'
     

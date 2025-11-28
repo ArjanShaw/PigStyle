@@ -51,9 +51,7 @@ class YouTubeHandler:
                 part='snippet',
                 type='video',
                 maxResults=20,  # Get more results to find matching tracks
-                videoEmbeddable='true',
-                videoDuration='short',
-                order='relevance'
+                videoEmbeddable='true'
             )
             
             response = request.execute()

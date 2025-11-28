@@ -253,7 +253,7 @@ class DisplayHandler:
         if add_disabled:
             st.error("❌ Cannot add new items - store is over capacity!")
         
-        # Add consignment dropdown for both new and existing records - NOW DIRECT USER SELECTION
+        # Add consignment dropdown for both new and existing records - NOW WITH USER ROLE CHECK
         user_id, commission_rate, store_return_days = self._render_consignment_section(record_data, current_consignment_rate)
         if user_id:
             record_data['consignor_id'] = user_id
@@ -361,7 +361,51 @@ class DisplayHandler:
             return 0.40  # 40% when above 110%
 
     def _render_consignment_section(self, record_data=None, current_consignment_rate=0.10):
-        """Render consignment section with direct user selection and individual rates"""
+        """Render consignment section with direct user selection and individual rates - NOW WITH USER ROLE CHECK"""
+        # Get current user info
+        current_user = st.session_state.get('user', {})
+        user_role = current_user.get('role', 'consignor')
+        current_user_id = current_user.get('id')
+        
+        # If user is consignor, automatically set to themselves and make it unchangeable
+        if user_role == 'consignor' and current_user_id:
+            # Auto-select current user as consignor
+            user_id = current_user_id
+            
+            # Use current calculated consignment rate as default
+            current_commission_rate = record_data.get('commission_rate')
+            if current_commission_rate is None:
+                current_commission_rate = current_consignment_rate
+            
+            commission_rate = st.number_input(
+                "Commission Rate:",
+                min_value=0.0,
+                max_value=1.0,
+                value=current_commission_rate,
+                step=0.05,
+                format="%.2f",
+                key="commission_rate_input"
+            )
+            
+            # Show store return days input
+            current_store_return_days = record_data.get('store_return_days')
+            if current_store_return_days is None:
+                current_store_return_days = int(st.session_state.db_manager.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
+            
+            store_return_days = st.number_input(
+                "Store Return Days:",
+                min_value=1,
+                max_value=365,
+                value=current_store_return_days,
+                step=1,
+                key="store_return_days_input"
+            )
+            
+            st.info(f"🔒 Consignor automatically set to: {current_user.get('username', 'You')} (Consignor account)")
+            
+            return user_id, commission_rate, store_return_days
+        
+        # For admin users, show the full dropdown selection
         # Get all users for dropdown - using API approach
         users_df = st.session_state.db_manager.get_all_users()
         
@@ -612,6 +656,9 @@ class DisplayHandler:
         if current_youtube_url:
             st.success(f"✅ Currently linked: {current_youtube_url}")
             
+            # Add clickable link to view the video
+            st.markdown(f"[📺 Click here to view the video]({current_youtube_url})", unsafe_allow_html=True)
+            
             # Show option to remove link
             if st.button("❌ Remove YouTube Link", key="remove_youtube", width='stretch'):
                 record_data['youtube_url'] = ''
@@ -643,6 +690,7 @@ class DisplayHandler:
             # Group by track if available
             track_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'track']
             album_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'album']
+            other_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'other']
             
             if track_results:
                 st.write("**🎵 Individual Track Recordings:**")
@@ -653,25 +701,48 @@ class DisplayHandler:
                 st.write("**📀 Album Content:**")
                 for i, video in enumerate(album_results, start=len(track_results)):
                     self._render_youtube_video_option(video, i, record_data)
+                    
+            if other_results:
+                st.write("**🎥 Other Related Videos:**")
+                for i, video in enumerate(other_results, start=len(track_results) + len(album_results)):
+                    self._render_youtube_video_option(video, i, record_data)
+                    
+            # If no results were categorized, show all results
+            if not track_results and not album_results and not other_results and st.session_state.youtube_search_results:
+                st.write("**🎥 All Search Results:**")
+                for i, video in enumerate(st.session_state.youtube_search_results):
+                    self._render_youtube_video_option(video, i, record_data)
         else:
             st.info("No YouTube search results available")
 
     def _render_youtube_video_option(self, video, index, record_data):
-        """Display a YouTube video option with link button"""
-        col1, col2, col3 = st.columns([1, 3, 1])
+        """Display a YouTube video option with link button and clickable link"""
+        col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
         with col1:
             if video.get('thumbnail'):
                 st.image(video['thumbnail'], width=80)
+            else:
+                st.write("No thumbnail")
         with col2:
             st.write(f"**{video['title']}**")
             st.write(f"Channel: {video['channel']}")
             if video.get('track_title'):
                 st.write(f"Track: {video['track_title']}")
+            if video.get('type'):
+                st.write(f"Type: {video['type']}")
+            
+            # Add clickable link to view the video
+            st.markdown(f"[📺 Watch this video]({video['url']})", unsafe_allow_html=True)
+            
         with col3:
             if st.button("🔗 Link", key=f"youtube_link_{index}", width='stretch'):
                 record_data['youtube_url'] = video['url']
                 st.success(f"✅ Linked to: {video['title']}")
                 st.rerun()
+        
+        with col4:
+            # Add a direct view button
+            st.markdown(f'<a href="{video["url"]}" target="_blank"><button style="width: 100%;">👀 View</button></a>', unsafe_allow_html=True)
 
     def _render_pricing_information(self, record_data):
         """Render ALL pricing information - ONLY called after ALL API calls complete"""

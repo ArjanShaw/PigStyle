@@ -16,6 +16,9 @@ class DatabaseManager:
         
         self.api_base_url = api_base_url
         self.session = requests.Session()
+        
+        # Debug: Print the API URL being used
+        print(f"🔴 DEBUG: Using API base URL: {self.api_base_url}")
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
         """Make API request with error handling"""
@@ -28,12 +31,35 @@ class DatabaseManager:
             if 200 <= response.status_code < 300:
                 return response.json()
             else:
+                # Store the error in session state for persistent display
+                error_msg = f"API Error {response.status_code}: {response.text}"
+                if 'api_errors' not in st.session_state:
+                    st.session_state.api_errors = []
+                st.session_state.api_errors.append({
+                    'timestamp': datetime.now().strftime("%H:%M:%S"),
+                    'url': url,
+                    'method': method,
+                    'status_code': response.status_code,
+                    'message': response.text
+                })
                 st.error(f"API Error {response.status_code}: {response.text}")
-            return None
+                return None
             
         except Exception as e:
+            # Store network errors too
+            error_msg = f"Network error: {str(e)}"
+            if 'api_errors' not in st.session_state:
+                st.session_state.api_errors = []
+            st.session_state.api_errors.append({
+                'timestamp': datetime.now().strftime("%H:%M:%S"),
+                'url': url,
+                'method': method,
+                'status_code': 'NETWORK_ERROR',
+                'message': str(e)
+            })
             st.error(f"Network error: {str(e)}")
             return None
+
     # ==================== CORE RECORD OPERATIONS ====================
 
     def get_all_records(self) -> pd.DataFrame:
@@ -52,14 +78,40 @@ class DatabaseManager:
     
     def save_record(self, result_data: Dict) -> int:
         """Save record to database via API"""
-        result = self._make_request('POST', '/records', json=result_data)
+        # Convert numpy/pandas types to native Python types for JSON serialization
+        cleaned_data = {}
+        for key, value in result_data.items():
+            if value is not None:
+                if hasattr(value, 'item'):  # numpy types
+                    cleaned_data[key] = value.item()
+                elif isinstance(value, (int, float, bool, str)):
+                    cleaned_data[key] = value
+                else:
+                    cleaned_data[key] = str(value)
+            else:
+                cleaned_data[key] = None
+        
+        result = self._make_request('POST', '/records', json=cleaned_data)
         if result and 'record_id' in result:
             return result['record_id']
         return None
     
     def update_record(self, record_id: int, updates: Dict) -> bool:
         """Update record via API"""
-        result = self._make_request('PUT', f'/records/{record_id}', json=updates)
+        # Convert numpy/pandas types to native Python types for JSON serialization
+        cleaned_updates = {}
+        for key, value in updates.items():
+            if value is not None:
+                if hasattr(value, 'item'):  # numpy types
+                    cleaned_updates[key] = value.item()
+                elif isinstance(value, (int, float, bool, str)):
+                    cleaned_updates[key] = value
+                else:
+                    cleaned_updates[key] = str(value)
+            else:
+                cleaned_updates[key] = None
+        
+        result = self._make_request('PUT', f'/records/{record_id}', json=cleaned_updates)
         return result is not None and result.get('status') == 'success'
     
     def delete_record(self, record_id: int) -> bool:
@@ -126,7 +178,7 @@ class DatabaseManager:
         """Assign genre to artist"""
         result = self._make_request('POST', '/genre-assignments', json={
             'artist_name': artist_name,
-            'genre_id': genre_id
+            'genre_id': int(genre_id)  # Ensure native int
         })
         return result is not None and result.get('status') == 'success'
     

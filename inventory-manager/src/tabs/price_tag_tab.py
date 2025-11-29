@@ -144,30 +144,24 @@ class PriceTagTab:
                 st.number_input("Columns per Page", min_value=1, max_value=10, value=st.session_state.columns, key="columns")
         
         # Save configuration button
-        if st.button("💾 Save Layout Configuration", width='stretch'):
+        if st.button("💾 Save Layout Configuration", use_container_width=True):
             self._save_current_layout_config()
             st.success("✅ Layout configuration saved!")
         
         # Get records without barcodes
         records = self.price_tag_handler.get_records_without_barcodes()
         
-        # MANAGEMENT SECTION
+        # MANAGEMENT SECTION - REMOVED CLEAR ALL BARCODES BUTTON
         st.subheader("Manage Printed Tags")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🗑️ CLEAR ALL BARCODES", type="secondary", width='stretch'):
-                self._clear_barcodes()
-        
-        with col2:
-            # Get printed count using API
-            all_records = self.db_manager.get_all_records()
-            printed_count = len(all_records[all_records['barcode'].notna() & (all_records['barcode'] != '')])
-            total_count = len(all_records)
-            st.metric("Printed", f"{printed_count}/{total_count}")
+        # Show printed count using API
+        all_records = self.db_manager.get_all_records()
+        printed_count = len(all_records[all_records['barcode'].notna() & (all_records['barcode'] != '')])
+        total_count = len(all_records)
+        st.metric("Printed", f"{printed_count}/{total_count}")
         
         if not records:
-            st.info("All records have price tags printed. Use the 'Clear All Barcodes' button above to reset them.")
+            st.info("All records have price tags printed.")
             return
         
         st.subheader(f"Records Needing Price Tags ({len(records)} found)")
@@ -177,11 +171,11 @@ class PriceTagTab:
         with col1:
             select_all = getattr(st.session_state, 'select_all', False)
             if select_all:
-                if st.button("❌ Deselect All", width='stretch'):
+                if st.button("❌ Deselect All", use_container_width=True):
                     st.session_state.select_all = False
                     st.rerun()
             else:
-                if st.button("✅ Select All", width='stretch'):
+                if st.button("✅ Select All", use_container_width=True):
                     st.session_state.select_all = True
                     st.rerun()
         
@@ -219,7 +213,7 @@ class PriceTagTab:
                 "File Location": st.column_config.TextColumn("File Location", disabled=True),
             },
             hide_index=True,
-            width='stretch',
+            use_container_width=True,
             key="price_tag_editor"
         )
         
@@ -229,13 +223,9 @@ class PriceTagTab:
             st.subheader(f"Selected for Printing ({len(selected_records)} records)")
             st.dataframe(selected_records[['ID', 'Artist', 'Title', 'Price']], hide_index=True)
             
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("🖨️ Print Price Tags", type="primary", width='stretch'):
-                    self._print_tags(selected_records['ID'].tolist())
-            with col2:
-                if st.button("⚡ Quick Assign Barcodes Only", width='stretch'):
-                    self._quick_assign_barcodes(selected_records['ID'].tolist())
+            # REMOVED QUICK ASSIGN BARCODES BUTTON - ONLY PRINT BUTTON REMAINS
+            if st.button("🖨️ Print Price Tags", type="primary", use_container_width=True):
+                self._print_tags(selected_records['ID'].tolist())
     
     def _print_tags(self, record_ids):
         """Print price tags with robust error handling and progress tracking"""
@@ -255,7 +245,9 @@ class PriceTagTab:
         
         # Step 1: Assign barcodes
         status_text.text("Step 1/3: Assigning barcodes...")
+        print(f"🔴 DEBUG: Calling assign_barcodes with record_ids: {record_ids}")
         barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
+        print(f"🔴 DEBUG: assign_barcodes returned: {barcode_mapping}")
         progress_bar.progress(33)
         
         if not barcode_mapping:
@@ -270,7 +262,9 @@ class PriceTagTab:
         # Step 2: Get record data using API
         status_text.text("Step 2/3: Loading record data...")
         all_records = self.db_manager.get_all_records()
+        print(f"🔴 DEBUG: all_records: {all_records}")
         records_to_print = all_records[all_records['id'].isin(record_ids)]
+        print(f"🔴 DEBUG: records_to_print: {records_to_print}")
         progress_bar.progress(66)
         
         # Step 3: Generate PDF with timeout protection
@@ -302,8 +296,13 @@ class PriceTagTab:
         }
         
         def generate_pdf_thread():
-            pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params)
-            result_queue.put(('success', pdf_path))
+            try:
+                print(f"🔴 DEBUG: generate_pdf called with {len(records_to_print)} records and barcode_mapping: {barcode_mapping}")
+                pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params)
+                result_queue.put(('success', pdf_path))
+            except Exception as e:
+                print(f"🔴 DEBUG: PDF generation error: {str(e)}")
+                result_queue.put(('error', str(e)))
         
         # Start PDF generation in thread
         pdf_thread = threading.Thread(target=generate_pdf_thread)
@@ -320,21 +319,26 @@ class PriceTagTab:
             st.session_state.print_message = "❌ PDF generation timed out after 20 seconds"
             st.session_state.print_success = False
         else:
-            result_type, result_data = result_queue.get_nowait()
-            
-            if result_type == 'success' and result_data and os.path.exists(result_data):
-                with open(result_data, "rb") as f:
-                    st.session_state.pdf_data = f.read()
-                st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            try:
+                result_type, result_data = result_queue.get_nowait()
                 
-                os.unlink(result_data)
-                
-                st.session_state.print_status = "completed"
-                st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
-                st.session_state.print_success = True
-            else:
+                if result_type == 'success' and result_data and os.path.exists(result_data):
+                    with open(result_data, "rb") as f:
+                        st.session_state.pdf_data = f.read()
+                    st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                    
+                    os.unlink(result_data)
+                    
+                    st.session_state.print_status = "completed"
+                    st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
+                    st.session_state.print_success = True
+                else:
+                    st.session_state.print_status = "error"
+                    st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
+                    st.session_state.print_success = False
+            except queue.Empty:
                 st.session_state.print_status = "error"
-                st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
+                st.session_state.print_message = "❌ PDF generation failed - no result returned"
                 st.session_state.print_success = False
         
         progress_bar.empty()
@@ -346,54 +350,9 @@ class PriceTagTab:
                 data=st.session_state.pdf_data,
                 file_name=st.session_state.pdf_filename,
                 mime="application/pdf",
-                width='stretch',
+                use_container_width=True,
                 key=f"download_pdf_{datetime.now().strftime('%H%M%S')}"
             )
         
         if hasattr(st.session_state, 'print_success') and not st.session_state.print_success:
             st.rerun()
-     
-    def _quick_assign_barcodes(self, record_ids):
-        """Quickly assign barcodes without PDF generation"""
-        if not record_ids:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ No records selected"
-            st.session_state.print_success = False
-            st.rerun()
-            return
-        
-        st.session_state.print_status = "processing"
-        st.session_state.print_message = f"🔄 Assigning barcodes to {len(record_ids)} records..."
-        st.session_state.print_success = False
-        st.rerun()
-        
-        barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
-        
-        if barcode_mapping:
-            st.session_state.print_status = "completed"
-            st.session_state.print_message = f"✅ Successfully assigned barcodes to {len(record_ids)} records. You can print labels later."
-            st.session_state.print_success = True
-        else:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ Failed to assign barcodes"
-            st.session_state.print_success = False
-        
-        st.rerun()
-    
-    def _clear_barcodes(self):
-        """Clear all barcodes using API"""
-        # This would require a new API endpoint to clear all barcodes
-        # For now, update each record individually
-        all_records = self.db_manager.get_all_records()
-        updated_count = 0
-        
-        for _, record in all_records.iterrows():
-            success = self.db_manager.update_record(record['id'], {'barcode': None})
-            if success:
-                updated_count += 1
-        
-        st.session_state.print_status = "completed"
-        st.session_state.print_message = f"✅ Cleared barcodes from {updated_count} records!"
-        st.session_state.print_success = True
-        
-        st.rerun()

@@ -1,12 +1,12 @@
 {
   "price_font_size": 10,
-  "price_y_pos": 1.0,
+  "price_y_pos": 2.0,
   "text_font_size": 6,
   "artist_y_pos": 8.0,
   "file_y_pos": 5.0,
   "date_font_size": 5,
-  "date_y_pos": 12.0,
-  "barcode_y_pos": 2.0,
+  "date_y_pos": 2.0,
+  "barcode_y_pos": 1.0,
   "barcode_height": 4.0,
   "label_width_mm": 45.0,
   "label_height_mm": 16.8,
@@ -15,5 +15,5 @@
   "top_margin_mm": 14.0,
   "rows": 15,
   "columns": 4,
-  "print_borders": false
+  "print_borders": true
 }

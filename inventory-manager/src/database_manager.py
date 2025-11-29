@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 import requests
-import numpy as np
 
 class DatabaseManager:
     """Unified API-based database manager that replaces all direct SQLite access"""
@@ -21,51 +20,20 @@ class DatabaseManager:
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
         """Make API request with error handling"""
         url = f"{self.api_base_url}{endpoint}"
-        
-        print(f"🔴 DEBUG: Making API request: {method} {url}")
-        if kwargs.get('json'):
-            print(f"🔴 DEBUG: Request JSON data: {kwargs['json']}")
-
+    
         try:
             response = self.session.request(method, url, **kwargs)
-            
-            print(f"🔴 DEBUG: API Response status: {response.status_code}")
-            print(f"🔴 DEBUG: API Response text: {response.text}")
         
             # Check for any successful status code (200-299)
             if 200 <= response.status_code < 300:
-                try:
-                    result = response.json()
-                    print(f"🔴 DEBUG: API Response JSON: {result}")
-                    return result
-                except Exception as e:
-                    print(f"🔴 DEBUG: JSON parse error: {e}")
-                    return None
+                return response.json()
             else:
-                print(f"🔴 DEBUG: API Error {response.status_code}: {response.text}")
-                return None
+                st.error(f"API Error {response.status_code}: {response.text}")
+            return None
             
         except Exception as e:
-            print(f"🔴 DEBUG: Network error: {str(e)}")
+            st.error(f"Network error: {str(e)}")
             return None
-
-    def _convert_numpy_types(self, obj):
-        """Convert numpy types to Python native types for JSON serialization"""
-        if isinstance(obj, (np.integer, np.int64, np.int32)):
-            return int(obj)
-        elif isinstance(obj, (np.floating, np.float64, np.float32)):
-            return float(obj)
-        elif isinstance(obj, np.bool_):
-            return bool(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, dict):
-            return {key: self._convert_numpy_types(value) for key, value in obj.items()}
-        elif isinstance(obj, list):
-            return [self._convert_numpy_types(item) for item in obj]
-        else:
-            return obj
-
     # ==================== CORE RECORD OPERATIONS ====================
 
     def get_all_records(self) -> pd.DataFrame:
@@ -84,32 +52,13 @@ class DatabaseManager:
     
     def save_record(self, result_data: Dict) -> int:
         """Save record to database via API"""
-        print(f"🔴 DEBUG: DatabaseManager.save_record called with data: {result_data}")
-        
-        # Convert numpy types to Python native types
-        result_data = self._convert_numpy_types(result_data)
-        
-        # Check for problematic data types that can't be JSON serialized
-        for key, value in result_data.items():
-            if value is not None and not isinstance(value, (str, int, float, bool, list, dict)):
-                print(f"🔴 DEBUG: Problematic data type for key '{key}': {type(value)} = {value}")
-        
         result = self._make_request('POST', '/records', json=result_data)
-        
-        print(f"🔴 DEBUG: DatabaseManager.save_record API response: {result}")
-        
         if result and 'record_id' in result:
-            print(f"🔴 DEBUG: DatabaseManager.save_record SUCCESS - record_id: {result['record_id']}")
             return result['record_id']
-        
-        print(f"🔴 DEBUG: DatabaseManager.save_record FAILED - no record_id in response")
         return None
     
     def update_record(self, record_id: int, updates: Dict) -> bool:
         """Update record via API"""
-        # Convert numpy types to Python native types
-        updates = self._convert_numpy_types(updates)
-        
         result = self._make_request('PUT', f'/records/{record_id}', json=updates)
         return result is not None and result.get('status') == 'success'
     
@@ -322,7 +271,9 @@ class DatabaseManager:
     
     def assign_barcodes(self, record_ids: List[int]) -> Dict:
         """Assign barcodes to records"""
+        print(f"🔴 DEBUG: DatabaseManager.assign_barcodes called with record_ids: {record_ids}")
         result = self._make_request('POST', '/barcodes/assign', json={'record_ids': record_ids})
+        print(f"🔴 DEBUG: DatabaseManager.assign_barcodes API response: {result}")
         if result and 'barcode_mapping' in result:
             return result['barcode_mapping']
         return {}

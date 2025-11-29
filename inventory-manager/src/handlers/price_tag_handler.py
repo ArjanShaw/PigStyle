@@ -43,39 +43,34 @@ class PriceTagHandler:
         return records_without_barcodes.to_dict('records')
     
     def assign_barcodes(self, record_ids):
-        """Assign sequential barcodes to records using API"""
+        """Assign sequential barcodes to records using the bulk API endpoint"""
         if not record_ids:
             return {}
         
-        # Get current max barcode using API
-        all_records = self.db_manager.get_all_records()
+        print(f"🔴 DEBUG: Calling assign_barcodes with record_ids: {record_ids}")
         
-        if all_records.empty:
-            start_barcode = 100000
-        else:
-            # Find the maximum numeric barcode
-            numeric_barcodes = []
-            for barcode_val in all_records['barcode']:
-                if barcode_val and barcode_val.isdigit():
-                    numeric_barcodes.append(int(barcode_val))
+        try:
+            # Use the bulk barcode assignment endpoint
+            result = self.db_manager._make_request(
+                'POST', 
+                '/barcodes/assign',
+                json={'record_ids': record_ids}
+            )
             
-            if numeric_barcodes:
-                start_barcode = max(numeric_barcodes) + 1
+            print(f"🔴 DEBUG: API response: {result}")
+            
+            if result and 'barcode_mapping' in result:
+                print(f"🔴 DEBUG: Barcode assignment successful: {result['barcode_mapping']}")
+                return result['barcode_mapping']
             else:
-                start_barcode = 100000
-        
-        barcode_mapping = {}
-        current_barcode = start_barcode
-        
-        # Update each record with new barcode using API
-        for record_id in record_ids:
-            barcode_str = str(current_barcode)
-            success = self.db_manager.update_record(record_id, {'barcode': barcode_str})
-            if success:
-                barcode_mapping[record_id] = barcode_str
-                current_barcode += 1
-        
-        return barcode_mapping
+                print(f"🔴 DEBUG: Barcode assignment failed: {result}")
+                return {}
+                
+        except Exception as e:
+            print(f"🔴 DEBUG: Exception in assign_barcodes: {str(e)}")
+            import traceback
+            print(f"🔴 DEBUG: Traceback: {traceback.format_exc()}")
+            return {}
     
     def generate_barcode(self, barcode_number):
         """Generate barcode image"""
@@ -129,7 +124,8 @@ class PriceTagHandler:
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         output_path = temp_file.name
         temp_file.close()
-        
+        print(f"🔴 DEBUG:generate_pdf temp_file: {temp_file}")
+
         c = canvas.Canvas(output_path, pagesize=letter)
         
         # Use provided layout parameters or defaults
@@ -144,10 +140,13 @@ class PriceTagHandler:
         rows = params['rows']
         columns = params['columns']
         
+        print(f"🔴 DEBUG:generate_pdf columns: {columns}")
+
         labels_per_page = rows * columns
         current_label = 0
         
         for _, record in df.iterrows():
+             
             if current_label % labels_per_page == 0 and current_label > 0:
                 c.showPage()
             
@@ -157,10 +156,17 @@ class PriceTagHandler:
             
             x = left_margin + col * (label_width + gutter_spacing)
             y = letter[1] - top_margin - (row + 1) * label_height
+             
+            barcode_number = barcode_mapping.get(str(record['id']))
+
             
-            self.draw_tag(c, x, y, label_width, label_height, record, barcode_mapping.get(record['id']), params)
+            self.draw_tag(c, x, y, label_width, label_height, record, barcode_number, params)
+
+            
+
+
             current_label += 1
-        
+ 
         c.save()
         return output_path
     
@@ -180,11 +186,15 @@ class PriceTagHandler:
     def draw_tag(self, c, x, y, label_width, label_height, record, barcode_number, params):
         """Draw a single price tag with configurable layout"""
         # Draw border only if enabled
+        print(f"🔴 DEBUG:barcode_mapping 1: barcode_number: {barcode_number}")
+ 
         if params.get('print_borders', True):
             c.setStrokeColorRGB(0, 0, 0)
             c.setLineWidth(0.5)
             c.rect(x, y, label_width, label_height, stroke=1, fill=0)
         
+        
+
         # Calculate positions with proper spacing
         left_margin = x + 2 * mm
         right_margin = x + label_width - 2 * mm
@@ -198,7 +208,7 @@ class PriceTagHandler:
         c.setFont("Helvetica-Bold", params['price_font_size'])
         price_y = top_start - (params['price_y_pos'] * mm)
         c.drawString(left_margin, price_y, price_text)
-        
+         
         # ARTIST - TITLE
         c.setFont("Helvetica", params['text_font_size'])
         artist = record.get('artist', '')[:15]
@@ -230,6 +240,8 @@ class PriceTagHandler:
                 c.drawImage(temp_path, barcode_x, barcode_y, width=barcode_width, height=barcode_height)
                 os.unlink(temp_path)
         
+        
+
         # RIGHT SIDE INFO - date and consignor
         print_date = datetime.now().strftime("%m/%d/%y")
         c.setFont("Helvetica", params['date_font_size'])
@@ -239,7 +251,9 @@ class PriceTagHandler:
         c.drawRightString(right_margin, date_y, print_date)
         
         # Consignor below date
-        consignor = record.get('consignor_name', '')[:10]
+        consignor = record.get('consignor_name', '')
         if consignor:
             consignor_y = date_y - (3.5 * mm)  # Fixed spacing below date
-            c.drawRightString(right_margin, consignor_y, consignor)
+            c.drawRightString(right_margin, consignor_y, consignor[:10])
+
+        

@@ -4,8 +4,8 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
-    <title>Consignment - PigStyle Records</title>
-    <link rel="stylesheet" href="consignment.css">
+    <title>Record Gallery - PigStyle Records</title>
+    <link rel="stylesheet" href="catalog.css">
 </head>
 <body>
     <!-- Background Image -->
@@ -15,103 +15,241 @@
     </div>
 
     <header>
-        <div class="header-content">
-            <div class="logo-container">
-                <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
-            </div>
-        </div>
+        <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle' style='height:60px; vertical-align:middle;'></a>
     </header>
-     
-    <div class="content-container">
-        <div class="page-title">
-            <h1>Sell Your Records With Me</h1>
+    
+    <div class="header-section">
+        <div class='search-container'>
+            <input type='text' id='searchBox' placeholder='Search artist or record...'>
         </div>
-
-        <div class="consignment-content">
-            <div class="special-offer">
-                <h2>Opening Special: 90% to You</h2>
-                <p>For a limited time, keep 90% of your record sales - I only take 10%</p>
-            </div>
-
-            <div class="info-card">
-                <h2>How It Works</h2>
-                <div class="process-steps">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <h3>Bring Your Records</h3>
-                            <p>Call or email me to set up a time to bring in your vinyl. We'll look through your collection together and I'll help with price suggestions.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <h3>I Handle the Sales</h3>
-                            <p>I take care of everything in the store - customers, sales, and keeping track of what sells. Your sales and inventory are tracked through automated software.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <h3>You Get Paid</h3>
-                            <p>When your records sell, you get paid. Pick up your payment in the store whenever it's convenient for you.</p>
-                        </div>
+        
+        <div class="filters-container">
+            <div class="filter-group">
+                <select id="artistFilter" class="filter-select">
+                    <option value="">All Artists</option>
+                </select>
+                
+                <div class="price-filter-group">
+                    <div class="price-inputs">
+                        <input type="number" id="minPrice" class="price-input" placeholder="Min Price" min="0">
+                        <span class="price-separator">-</span>
+                        <input type="number" id="maxPrice" class="price-input" placeholder="Max Price" min="0">
                     </div>
                 </div>
             </div>
-
-            <div class="details-grid">
-                <div class="detail-card">
-                    <h3>The Deal</h3>
-                    <ul>
-                        <li>You keep 90% of sales</li>
-                        <li>I handle store operations</li>
-                        <li>Automated inventory tracking</li>
-                        <li>Pick up payment in store</li>
-                    </ul>
-                </div>
-                
-                <div class="detail-card">
-                    <h3>Simple & Secure</h3>
-                    <ul>
-                        <li>Clear contract protects your records</li>
-                        <li>Barcode tracking on every item</li>
-                        <li>Digital records of all sales</li>
-                        <li>Unsold records returned to you</li>
-                    </ul>
-                </div>
-                
-                <div class="detail-card">
-                    <h3>Get Started</h3>
-                    <ul>
-                        <li>Phone: <a href="tel:970-492-5630">970-492-5630</a></li>
-                        <li>Email: pigstyle.loveland@gmail.com</li>
-                        <li>Call or email to set up a time</li>
-                        <li>Building inventory for opening</li>
-                    </ul>
-                </div>
+        </div>
+    </div>
+    
+    <div class='gallery-popup' id='gallery'>
+        <div id='loading'>
+            <div class="loading-dots">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
             </div>
-
-            <div class="simple-pitch">
-                <p>I'm setting up a straightforward consignment system where you control the prices and I handle the store. The software tracks everything automatically, and the contract makes sure your records are protected. It's a simple way to sell your vinyl without the hassle of doing it yourself.</p>
-                
-                <p>Right now I'm offering a special 90/10 split to help build up the store's selection. If you've got records you're ready to move, give me a call and let's work together.</p>
-            </div>
+            <p>Loading records...</p>
         </div>
     </div>
 
     <script>
-        // Simple animation for step numbers
-        document.addEventListener('DOMContentLoaded', function() {
-            const steps = document.querySelectorAll('.step');
-            steps.forEach((step, index) => {
-                setTimeout(() => {
-                    step.style.opacity = '1';
-                    step.style.transform = 'translateY(0)';
-                }, index * 200);
+        // Store all records globally for search functionality
+        let allRecords = [];
+
+        // Load data from gallery-data.json
+        async function loadGalleryData() {
+            try {
+                console.log('Loading gallery data...');
+                const response = await fetch('gallery-data.json');
+                const data = await response.json();
+                console.log('Raw data loaded:', data);
+                
+                // Handle both data structures:
+                // 1. {meta: {...}, records: [...]} - new structure
+                // 2. [...] - old structure (direct array)
+                if (data && data.records && Array.isArray(data.records)) {
+                    console.log('Using records array from meta structure');
+                    allRecords = data.records;
+                } else if (Array.isArray(data)) {
+                    console.log('Using direct array structure');
+                    allRecords = data;
+                } else {
+                    console.error('Unexpected data structure:', data);
+                    allRecords = [];
+                }
+                
+                console.log(`Loaded ${allRecords.length} records`);
+                displayRecords(allRecords);
+                populateArtistFilter();
+            } catch (error) {
+                console.error('Error loading gallery data:', error);
+                document.getElementById('gallery').innerHTML = '<div class="error-message">Error loading records. Please try again later.</div>';
+            }
+        }
+
+        // Populate artist filter dropdown
+        function populateArtistFilter() {
+            const artistFilter = document.getElementById('artistFilter');
+            const artists = [...new Set(allRecords.map(record => record.artist))].sort();
+            
+            artists.forEach(artist => {
+                const option = document.createElement('option');
+                option.value = artist;
+                option.textContent = artist;
+                artistFilter.appendChild(option);
             });
+        }
+
+        // Display records in the gallery
+        function displayRecords(records) {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = ''; // Clear loading message
+
+            console.log(`Displaying ${records.length} records`);
+
+            if (records.length === 0) {
+                gallery.innerHTML = '<div class="no-records">No records found in the database.</div>';
+                return;
+            }
+
+            records.forEach(record => {
+                const card = createCardElement(record, true);
+                gallery.appendChild(card);
+            });
+
+            // Initialize search and filter functionality
+            initializeSearch();
+            initializeFilters();
+        }
+
+        // Create a card element
+        function createCardElement(record, isHighlighted) {
+            const card = document.createElement('div');
+            card.className = isHighlighted ? 'card highlight' : 'card not-highlight';
+            
+            // Use the actual field names from your JSON structure
+            const artist = record.artist || 'Unknown Artist';
+            const title = record.title || 'Unknown Title';
+            const imageUrl = record.image_url || 'images/default-record.jpg';
+            const genre = record.genre || 'Unknown Genre';
+            const price = record.store_price ? `$${parseFloat(record.store_price).toFixed(2)}` : 'Price N/A';
+            const youtubeUrl = record.youtube_url;
+            
+            card.setAttribute('data-artist', artist.toLowerCase());
+            card.setAttribute('data-title', title.toLowerCase());
+            card.setAttribute('data-price', parseFloat(record.store_price) || 0);
+            
+            const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
+            
+            card.innerHTML = `
+                <div class="card-image">
+                    <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
+                </div>
+                <div class="card-info">
+                    <h3>${escapeHtml(title)}</h3>
+                    <p class="artist">${escapeHtml(artist)}</p>
+                    <p class="price">${price}</p>
+                    <p class="genre">${escapeHtml(genre)}</p>
+                    ${hasYouTube ? '<div class="youtube-badge">🎵 Video Available</div>' : ''}
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Initialize search functionality
+        function initializeSearch() {
+            const searchBox = document.getElementById('searchBox');
+            
+            searchBox.addEventListener('input', () => {
+                applyAllFilters();
+            });
+        }
+
+        // Initialize filter functionality
+        function initializeFilters() {
+            const artistFilter = document.getElementById('artistFilter');
+            const minPrice = document.getElementById('minPrice');
+            const maxPrice = document.getElementById('maxPrice');
+            
+            artistFilter.addEventListener('change', applyAllFilters);
+            minPrice.addEventListener('input', applyAllFilters);
+            maxPrice.addEventListener('input', applyAllFilters);
+        }
+
+        // Apply all filters (search, artist, price)
+        function applyAllFilters() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase().trim();
+            const selectedArtist = document.getElementById('artistFilter').value;
+            const minPriceValue = parseFloat(document.getElementById('minPrice').value) || 0;
+            const maxPriceValue = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+            
+            const gallery = document.getElementById('gallery');
+            const cards = Array.from(gallery.querySelectorAll('.card'));
+            
+            let firstMatch = null;
+            let visibleCount = 0;
+            
+            cards.forEach(card => {
+                const artist = card.getAttribute('data-artist');
+                const title = card.getAttribute('data-title');
+                const price = parseFloat(card.getAttribute('data-price'));
+                
+                // Check search term match
+                const searchMatch = !searchTerm || 
+                    artist.includes(searchTerm) || 
+                    title.includes(searchTerm);
+                
+                // Check artist filter match
+                const artistMatch = !selectedArtist || 
+                    artist === selectedArtist.toLowerCase();
+                
+                // Check price range match
+                const priceMatch = price >= minPriceValue && price <= maxPriceValue;
+                
+                // Show card only if it matches all active filters
+                const shouldShow = searchMatch && artistMatch && priceMatch;
+                
+                if (shouldShow) {
+                    card.style.display = 'block';
+                    card.classList.remove('not-highlight');
+                    card.classList.add('highlight');
+                    if (!firstMatch) {
+                        firstMatch = card;
+                    }
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                    card.classList.remove('highlight');
+                    card.classList.add('not-highlight');
+                }
+            });
+            
+            // Show message if no records match filters
+            if (visibleCount === 0) {
+                gallery.innerHTML = '<div class="no-records">No records match your search criteria.</div>';
+            }
+            
+            // Scroll to first matching card if found
+            if (firstMatch) {
+                firstMatch.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (typeof text !== 'string') return text;
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load the gallery data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGalleryData();
         });
     </script>
 </body>

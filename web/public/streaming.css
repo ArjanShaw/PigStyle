@@ -6,12 +6,11 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: url('images/background.png') no-repeat center center fixed;
-    background-size: cover;
-    color: white;
     margin: 0;
     padding: 0;
-    min-height: 100vh;
+    color: white;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Background Image */
@@ -40,7 +39,7 @@ body {
 }
 
 header {
-    padding: 20px;
+    padding: 15px 20px;
     position: relative;
     z-index: 10;
 }
@@ -51,336 +50,427 @@ header {
     gap: 20px;
 }
 
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+
 .logo-container img {
     height: 60px;
-    transition: transform 0.3s ease;
 }
 
-.logo-container img:hover {
-    transform: scale(1.05);
-}
-
-/* Banner */
-.banner {
-    background: linear-gradient(135deg, #ffcc00, #ff9900);
-    color: #333;
+.station-title {
     text-align: center;
-    padding: 15px;
-    font-weight: bold;
-    font-size: clamp(16px, 4vw, 18px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    z-index: 100;
-    position: relative;
-    margin: 0 20px 20px 20px;
-    border-radius: 8px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.5);
 }
 
-/* Main content container */
-.content-container {
-    max-width: 1200px;
-    margin: 0 auto;
+.station-title h1 {
+    margin: 0;
+    font-size: 2.5rem;
+    color: #e74c3c;
+}
+
+.station-title p {
+    margin: 5px 0 0 0;
+    opacity: 0.8;
+}
+
+/* Main player container */
+.player-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: calc(100vh - 200px);
     padding: 20px;
     position: relative;
-    z-index: 2;
 }
 
-.page-title {
+.current-track {
     text-align: center;
     margin-bottom: 30px;
-    padding: 0 20px;
+    max-width: 800px;
 }
 
-.page-title h1 {
+.current-track h2 {
     font-size: 2.5rem;
-    margin-bottom: 10px;
+    margin: 0 0 10px 0;
     color: white;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
-/* Tabs */
-.tabs-container {
-    background: rgba(0, 0, 0, 0.8);
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+.current-track .artist {
+    font-size: 1.8rem;
+    color: #e74c3c;
+    margin: 0 0 10px 0;
+    font-weight: bold;
 }
 
-.tabs {
+/* Price container with badges */
+.price-container {
     display: flex;
-    background: #111;
-    border-bottom: 2px solid #333;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 15px 0;
+    position: relative;
 }
 
-.tab-button {
-    flex: 1;
-    padding: 15px 20px;
-    background: transparent;
+.price-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+}
+
+.info-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.detail-item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 1rem;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.detail-item.format {
+    background: rgba(52, 152, 219, 0.3);
+    border: 1px solid #3498db;
+}
+
+.detail-item.condition {
+    background: rgba(231, 76, 60, 0.3);
+    border: 1px solid #e74c3c;
+}
+
+/* Format icons - vinyl as black circle */
+.format-icon {
+    font-size: 1.2rem;
+    width: 20px;
+    text-align: center;
+    color: #000000;
+}
+
+/* Condition stars */
+.condition-stars {
+    display: flex;
+    gap: 2px;
+}
+
+.condition-star {
+    color: #f1c40f;
+    font-size: 1rem;
+}
+
+.condition-star.empty {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Video player with record image overlay */
+.video-container {
+    width: 90%;
+    max-width: 1000px;
+    height: 500px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    background: #000;
+    position: relative;
+}
+
+.video-container iframe {
+    width: 100%;
+    height: 100%;
     border: none;
-    color: #ccc;
-    font-size: 1.1rem;
-    font-weight: 600;
+}
+
+.record-image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.video-playing .record-image-overlay {
+    display: none;
+}
+
+/* Navigation controls */
+.nav-controls {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 30px;
+}
+
+.nav-btn {
+    background: rgba(231, 76, 60, 0.8);
+    border: none;
+    color: white;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    font-size: 1.5rem;
     cursor: pointer;
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
-.tab-button:hover {
-    background: rgba(255, 204, 0, 0.1);
-    color: #ffcc00;
+.nav-btn:hover {
+    background: #e74c3c;
+    transform: scale(1.1);
 }
 
-.tab-button.active {
-    background: #ffcc00;
-    color: #333;
-    font-weight: bold;
+.nav-btn:active {
+    transform: scale(0.95);
 }
 
-.tab-content {
-    padding: 0;
+/* Updated Vote controls - now inline with badges */
+.vote-controls {
+    display: flex;
+    gap: 8px;
 }
 
-.tab-pane {
-    display: none;
-    padding: 0;
-}
-
-.tab-pane.active {
-    display: block;
-}
-
-/* Policy Table - Black background like other pages */
-.policy-table {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: #000;
-    color: #fff;
-    margin: 0;
-}
-
-.policy-table th, .policy-table td {
-    padding: 15px;
-    text-align: left;
-    vertical-align: top;
-    background-color: #000;
-}
-
-.policy-table th {
-    background-color: #111;
-    font-weight: bold;
-    color: #fff;
-    font-size: 1.1rem;
-}
-
-.policy-table tr:nth-child(even) td {
-    background-color: #111;
-}
-
-.category-header {
-    background-color: #222 !important;
-    font-weight: bold;
-    color: #fff;
-}
-
-.category-header td {
-    font-size: 1.2rem;
-    padding: 20px 15px;
-    border-top: 2px solid #333;
-}
-
-.sub-item td:first-child {
-    padding-left: 40px;
-    font-weight: 600;
-    color: #ffcc00;
-}
-
-.sub-item td:last-child {
-    padding-left: 40px;
-}
-
-.conditions-list {
-    margin: 0;
-    padding-left: 20px;
-    color: #fff;
-}
-
-.conditions-list li {
-    margin-bottom: 8px;
-    line-height: 1.4;
-}
-
-.conditions-list strong {
-    color: #ffcc00;
-}
-
-/* Contract PDF Styles */
-.pdf-container {
-    background: white;
-    color: #333;
-    min-height: 800px;
-    padding: 40px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+.vote-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
 }
 
-/* Draft Watermark */
-.draft-watermark {
+.vote-btn:hover {
+    transform: scale(1.1);
+}
+
+.vote-btn.upvote:hover {
+    background: rgba(46, 204, 113, 0.3);
+    border-color: #2ecc71;
+}
+
+.vote-btn.downvote:hover {
+    background: rgba(231, 76, 60, 0.3);
+    border-color: #e74c3c;
+}
+
+.vote-btn.voted {
+    transform: scale(1.1);
+}
+
+.vote-btn.upvote.voted {
+    background: rgba(46, 204, 113, 0.6);
+    border-color: #2ecc71;
+    color: #2ecc71;
+}
+
+.vote-btn.downvote.voted {
+    background: rgba(231, 76, 60, 0.6);
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+/* Vote count badge */
+.vote-count-badge {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-45deg);
-    font-size: 4rem;
-    color: rgba(255, 0, 0, 0.1);
+    top: -5px;
+    right: -5px;
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
     font-weight: bold;
-    pointer-events: none;
-    z-index: 1;
-    white-space: nowrap;
-}
-
-/* Contract Banner */
-.contract-banner {
-    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-    border: 2px solid #ffc107;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 30px;
     display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
-    position: relative;
-    z-index: 2;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(0, 0, 0, 0.7);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
-.banner-icon {
-    font-size: 2rem;
-    flex-shrink: 0;
+.vote-btn.upvote .vote-count-badge {
+    background: #2ecc71;
 }
 
-.banner-content h3 {
-    color: #856404;
-    margin: 0 0 10px 0;
-    font-size: 1.3rem;
+.vote-btn.downvote .vote-count-badge {
+    background: #e74c3c;
 }
 
-.banner-content p {
-    color: #856404;
-    margin: 0;
-    line-height: 1.5;
+/* Genre selector */
+.genre-selector {
+    display: flex;
+    align-items: center;
 }
 
-.pdf-header {
-    text-align: center;
-    margin-bottom: 40px;
-    border-bottom: 3px solid #ffcc00;
-    padding-bottom: 20px;
-    position: relative;
-    z-index: 2;
+.genre-select {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #2c3e50;
+    font-size: 1rem;
+    cursor: pointer;
+    min-width: 150px;
 }
 
-.pdf-header h2 {
-    color: #333;
-    font-size: 2rem;
-    margin-bottom: 10px;
+/* Loading animation */
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
 }
 
-.contract-date {
-    color: #666;
-    font-size: 1.1rem;
-}
-
-.contract-content {
-    max-width: 800px;
-    margin: 0 auto;
-    line-height: 1.6;
-    position: relative;
-    z-index: 2;
-}
-
-.contract-section {
-    margin-bottom: 30px;
-    page-break-inside: avoid;
-}
-
-.contract-section h3 {
-    color: #ff9900;
+.loading-dots {
+    display: flex;
+    gap: 8px;
     margin-bottom: 15px;
-    font-size: 1.3rem;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 5px;
 }
 
-.contract-section p {
-    margin-bottom: 10px;
+.loading-dots div {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #e74c3c;
+    animation: loading-bounce 1.4s infinite ease-in-out both;
 }
 
-.contract-section ul {
-    margin: 10px 0 10px 30px;
+.loading-dots div:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots div:nth-child(2) { animation-delay: -0.16s; }
+.loading-dots div:nth-child(3) { animation-delay: 0s; }
+.loading-dots div:nth-child(4) { animation-delay: 0.16s; }
+
+@keyframes loading-bounce {
+    0%, 80%, 100% { 
+        transform: scale(0);
+    } 40% { 
+        transform: scale(1.0);
+    }
 }
 
-.contract-section li {
-    margin-bottom: 8px;
-}
-
-.contract-section strong {
-    color: #333;
-}
-
-.signature-section {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 60px;
-    padding-top: 40px;
-    border-top: 2px solid #ccc;
-}
-
-.signature-block {
-    flex: 1;
-    margin: 0 20px;
-}
-
-.signature-line {
-    border-bottom: 1px solid #333;
-    padding-top: 30px;
-    margin-bottom: 10px;
-}
-
-/* Draft Footer */
-.draft-footer {
-    background: #f8f9fa;
-    border: 2px dashed #dc3545;
-    border-radius: 8px;
-    padding: 20px;
+/* Error message */
+.error-message {
     text-align: center;
-    margin-top: 40px;
+    padding: 40px;
+    color: #e74c3c;
+    font-size: 1.2rem;
 }
 
-.draft-footer p {
-    margin: 5px 0;
-    color: #dc3545;
-    font-weight: bold;
+/* Back to catalog link */
+.back-link {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: white;
+    text-decoration: none;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 8px 15px;
+    border-radius: 4px;
+    transition: background 0.3s;
 }
 
-.draft-footer p:last-child {
-    font-weight: normal;
-    font-size: 0.9rem;
+.back-link:hover {
+    background: rgba(0, 0, 0, 0.7);
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .policy-table {
+    .header-content {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .genre-selector {
+        flex-shrink: 0;
+    }
+    
+    .genre-select {
+        min-width: 120px;
+        padding: 8px 12px;
         font-size: 0.9rem;
     }
     
-    .policy-table th, .policy-table td {
-        padding: 10px;
+    .current-track h2 {
+        font-size: 1.8rem;
     }
     
-    .sub-item td:first-child,
-    .sub-item td:last-child {
-        padding-left: 20px;
+    .current-track .artist {
+        font-size: 1.4rem;
     }
     
-    .page-title h1 {
-        font-size: 2rem;
+    .price-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .info-badges {
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .detail-item {
+        font-size: 0.9rem;
+        padding: 6px 10px;
+    }
+    
+    .video-container {
+        height: 300px;
+    }
+    
+    .nav-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+    
+    .vote-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 0.9rem;
+    }
+    
+    .vote-count-badge {
+        width: 16px;
+        height: 16px;
+        font-size: 0.6rem;
+        top: -3px;
+        right: -3px;
+    }
+    
+    .price-badge {
+        font-size: 1.1rem;
+        padding: 6px 12px;
     }
     
     header {
@@ -391,95 +481,49 @@ header {
         height: 50px;
     }
     
-    .banner {
-        margin: 0 10px 15px 10px;
-        padding: 12px;
+    .format-icon {
+        font-size: 1rem;
     }
     
-    .tabs {
-        flex-direction: column;
-    }
-    
-    .pdf-container {
-        padding: 20px;
-    }
-    
-    .pdf-header h2 {
-        font-size: 1.5rem;
-    }
-    
-    .signature-section {
-        flex-direction: column;
-    }
-    
-    .signature-block {
-        margin: 20px 0;
-    }
-    
-    .contract-banner {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .banner-icon {
-        align-self: center;
-    }
-    
-    .draft-watermark {
-        font-size: 2.5rem;
+    .condition-star {
+        font-size: 0.9rem;
     }
 }
 
 @media (max-width: 480px) {
-    .content-container {
-        padding: 10px;
+    .header-content {
+        flex-direction: row;
+        justify-content: space-between;
     }
     
-    .page-title h1 {
-        font-size: 1.8rem;
+    .logo-container img {
+        height: 40px;
     }
     
-    .policy-table {
+    .genre-select {
+        min-width: 100px;
+        padding: 6px 10px;
         font-size: 0.8rem;
     }
     
-    .policy-table th, .policy-table td {
-        padding: 8px;
-        display: block;
-        width: 100%;
+    .info-badges {
+        gap: 4px;
     }
     
-    .sub-item td:first-child,
-    .sub-item td:last-child {
-        padding-left: 15px;
+    .detail-item {
+        padding: 4px 8px;
+        font-size: 0.8rem;
     }
     
-    .policy-table tr {
-        display: block;
-        margin-bottom: 10px;
+    .vote-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 0.8rem;
     }
     
-    .pdf-container {
-        padding: 15px;
-    }
-    
-    .pdf-header h2 {
-        font-size: 1.3rem;
-    }
-    
-    .contract-section h3 {
-        font-size: 1.1rem;
-    }
-    
-    .draft-watermark {
-        font-size: 2rem;
-    }
-    
-    .contract-banner {
-        padding: 15px;
-    }
-    
-    .banner-content h3 {
-        font-size: 1.1rem;
+    .vote-count-badge {
+        width: 14px;
+        height: 14px;
+        font-size: 0.5rem;
     }
 }

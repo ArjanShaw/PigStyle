@@ -6,6 +6,7 @@
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
     <title>Streaming Station - PigStyle Records</title>
     <link rel="stylesheet" href="streaming.css">
+    <script src="js/api-utils.js"></script>
 </head>
 <body>
     <!-- Background Image -->
@@ -88,13 +89,10 @@
         let userIP = null;
         let currentTrackId = null;
 
-        // API configuration
-        const API_BASE_URL = 'https://arjanshaw.pythonanywhere.com';
-
         // Voting system using your PythonAnywhere API
         class VotingSystem {
             constructor() {
-                this.apiBaseUrl = API_BASE_URL;
+                this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
                 this.voteCounts = {};
                 this.userIP = null;
             }
@@ -320,26 +318,11 @@
                 // Initialize voting system
                 await votingSystem.initialize();
                 
-                const response = await fetch(`${API_BASE_URL}/records?limit=1000`);
+                // Use shared API utility to load records
+                allRecords = await pigstyleAPI.loadAllRecords();
                 
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Extract records from API response
-                if (data && data.records && Array.isArray(data.records)) {
-                    allRecords = data.records;
-                } else {
-                    console.error('Unexpected API response structure:', data);
-                    allRecords = [];
-                }
-                
-                // Filter records to only those with YouTube videos
-                filteredRecords = allRecords.filter(record => {
-                    return extractYouTubeId(record.youtube_url) !== null;
-                });
+                // Filter records to only those with YouTube videos using shared utility
+                filteredRecords = pigstyleAPI.filterStreamableRecords(allRecords);
                 
                 console.log(`Loaded ${filteredRecords.length} streamable records from API`);
                 
@@ -433,11 +416,8 @@
         // Populate genre filter dropdown
         function populateGenreFilter() {
             const genreFilter = document.getElementById('genreFilter');
-            // Get unique genres from original records (before weighting)
-            const uniqueRecords = allRecords.filter(record => 
-                extractYouTubeId(record.youtube_url) !== null
-            );
-            const genres = [...new Set(uniqueRecords.map(record => record.genre))].sort();
+            // Get unique genres from streamable records
+            const genres = pigstyleAPI.getUniqueGenres(filteredRecords);
             
             genres.forEach(genre => {
                 const option = document.createElement('option');
@@ -454,7 +434,7 @@
 
         // Apply genre filter
         function applyGenreFilter(genre) {
-            let filteredByYouTube = allRecords.filter(record => extractYouTubeId(record.youtube_url) !== null);
+            let filteredByYouTube = pigstyleAPI.filterStreamableRecords(allRecords);
             
             if (!genre) {
                 // Use all streamable records
@@ -512,7 +492,7 @@
             if (filteredRecords.length === 0) return;
             
             const currentRecord = filteredRecords[currentTrackIndex];
-            const youtubeId = extractYouTubeId(currentRecord.youtube_url);
+            const youtubeId = pigstyleAPI.extractYouTubeId(currentRecord.youtube_url);
             currentTrackId = `${currentRecord.artist} - ${currentRecord.title}`;
             
             // Update track info
@@ -613,25 +593,6 @@
         function playNextTrack() {
             currentTrackIndex = (currentTrackIndex + 1) % filteredRecords.length;
             loadCurrentTrack();
-        }
-
-        // Extract YouTube video ID from URL
-        function extractYouTubeId(url) {
-            if (!url) return null;
-            
-            const patterns = [
-                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)/,
-                /youtube\.com\/embed\/([^&\n?]+)/,
-                /youtube\.com\/v\/([^&\n?]+)/
-            ];
-            
-            for (const pattern of patterns) {
-                const match = url.match(pattern);
-                if (match) {
-                    return match[1];
-                }
-            }
-            return null;
         }
 
         // Load the streaming data when page loads

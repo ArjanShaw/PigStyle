@@ -88,10 +88,13 @@
         let userIP = null;
         let currentTrackId = null;
 
+        // API configuration
+        const API_BASE_URL = 'https://arjanshaw.pythonanywhere.com';
+
         // Voting system using your PythonAnywhere API
         class VotingSystem {
             constructor() {
-                this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com/api';
+                this.apiBaseUrl = API_BASE_URL;
                 this.voteCounts = {};
                 this.userIP = null;
             }
@@ -117,38 +120,50 @@
 
             async loadAllVoteCounts() {
                 try {
-                    const response = await fetch(`${this.apiBaseUrl}/votes`);
+                    // Get all records with vote counts from API
+                    const response = await fetch(`${this.apiBaseUrl}/records?limit=1000`);
                     const data = await response.json();
                     
-                    if (data.success) {
-                        this.voteCounts = data.vote_counts || {};
-                        console.log('Loaded vote counts:', this.voteCounts);
+                    if (data && data.records) {
+                        // Extract vote counts from records
+                        data.records.forEach(record => {
+                            const trackId = `${record.artist} - ${record.title}`;
+                            this.voteCounts[trackId] = {
+                                upvotes: record.upvotes || 0,
+                                downvotes: record.downvotes || 0
+                            };
+                        });
+                        console.log('Loaded vote counts from API:', this.voteCounts);
                         this.updateAllVoteDisplays();
                     } else {
-                        console.error('Failed to load vote counts:', data.error);
+                        console.error('Failed to load vote counts from API');
                     }
                 } catch (error) {
-                    console.error('Error loading vote counts:', error);
+                    console.error('Error loading vote counts from API:', error);
                 }
             }
 
             async loadVoteCountsForRecord(artistTitle) {
                 try {
-                    const encodedArtistTitle = encodeURIComponent(artistTitle);
-                    const response = await fetch(`${this.apiBaseUrl}/votes/${encodedArtistTitle}`);
-                    const data = await response.json();
+                    // Get specific record data from API
+                    const allRecordsResponse = await fetch(`${this.apiBaseUrl}/records?limit=1000`);
+                    const allRecordsData = await allRecordsResponse.json();
                     
-                    if (data.success) {
-                        this.voteCounts[artistTitle] = {
-                            upvotes: data.upvotes,
-                            downvotes: data.downvotes
-                        };
-                        this.updateVoteDisplay(artistTitle);
-                        return this.voteCounts[artistTitle];
-                    } else {
-                        console.error('Failed to load vote counts for:', artistTitle, data.error);
-                        return { upvotes: 0, downvotes: 0 };
+                    if (allRecordsData && allRecordsData.records) {
+                        const record = allRecordsData.records.find(r => 
+                            `${r.artist} - ${r.title}` === artistTitle
+                        );
+                        
+                        if (record) {
+                            this.voteCounts[artistTitle] = {
+                                upvotes: record.upvotes || 0,
+                                downvotes: record.downvotes || 0
+                            };
+                            this.updateVoteDisplay(artistTitle);
+                            return this.voteCounts[artistTitle];
+                        }
                     }
+                    return { upvotes: 0, downvotes: 0 };
                 } catch (error) {
                     console.error('Error loading vote counts for', artistTitle, error);
                     return { upvotes: 0, downvotes: 0 };
@@ -157,28 +172,42 @@
 
             async vote(artistTitle, voteType) {
                 try {
-                    const response = await fetch(`${this.apiBaseUrl}/vote`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            artist_title: artistTitle,
-                            voter_hash: this.userIP,
-                            vote_type: voteType
-                        })
+                    // Extract artist and title from the combined string
+                    const [artist, ...titleParts] = artistTitle.split(' - ');
+                    const title = titleParts.join(' - ');
+                    
+                    // Find the record ID
+                    const recordsResponse = await fetch(`${this.apiBaseUrl}/records?limit=1000`);
+                    const recordsData = await recordsResponse.json();
+                    
+                    let recordId = null;
+                    if (recordsData && recordsData.records) {
+                        const record = recordsData.records.find(r => 
+                            r.artist === artist && r.title === title
+                        );
+                        if (record) {
+                            recordId = record.id;
+                        }
+                    }
+                    
+                    if (!recordId) {
+                        console.error('Record not found for voting:', artistTitle);
+                        return false;
+                    }
+
+                    const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}/${this.userIP}/${voteType}`, {
+                        method: 'POST'
                     });
 
                     const data = await response.json();
                     
-                    if (data.success) {
-                        // Update local vote counts
-                        this.voteCounts = { ...this.voteCounts, ...data.vote_counts };
-                        this.updateVoteDisplay(artistTitle);
+                    if (data && data.status === 'success') {
+                        // Reload vote counts after voting
+                        await this.loadAllVoteCounts();
                         this.showVoteFeedback(artistTitle, voteType, true);
                         return true;
                     } else {
-                        this.showVoteFeedback(artistTitle, voteType, false, data.error);
+                        this.showVoteFeedback(artistTitle, voteType, false, data?.error || 'Vote failed');
                         return false;
                     }
                 } catch (error) {
@@ -283,24 +312,27 @@
             'stream': '🔊'
         };
 
-        // Load data from gallery-data.json
+        // Load data from Flask API
         async function loadStreamingData() {
             try {
-                console.log('Loading streaming data...');
+                console.log('Loading streaming data from API...');
                 
                 // Initialize voting system
                 await votingSystem.initialize();
                 
-                const response = await fetch('gallery-data.json');
+                const response = await fetch(`${API_BASE_URL}/records?limit=1000`);
+                
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 
-                // Handle both data structures:
+                // Extract records from API response
                 if (data && data.records && Array.isArray(data.records)) {
                     allRecords = data.records;
-                } else if (Array.isArray(data)) {
-                    allRecords = data;
                 } else {
-                    console.error('Unexpected data structure:', data);
+                    console.error('Unexpected API response structure:', data);
                     allRecords = [];
                 }
                 
@@ -309,7 +341,7 @@
                     return extractYouTubeId(record.youtube_url) !== null;
                 });
                 
-                console.log(`Loaded ${filteredRecords.length} streamable records`);
+                console.log(`Loaded ${filteredRecords.length} streamable records from API`);
                 
                 if (filteredRecords.length === 0) {
                     document.getElementById('loading').innerHTML = '<div class="error-message">No streamable records found in the database.</div>';
@@ -323,7 +355,7 @@
                 initializePlayer();
                 
             } catch (error) {
-                console.error('Error loading streaming data:', error);
+                console.error('Error loading streaming data from API:', error);
                 document.getElementById('loading').innerHTML = '<div class="error-message">Error loading streaming station. Please try again later.</div>';
             }
         }

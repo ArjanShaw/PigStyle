@@ -6,7 +6,8 @@
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
     <title>Streaming Station - PigStyle Records</title>
     <link rel="stylesheet" href="streaming.css">
-    <script src="js/api-utils.js"></script>
+    <!-- External JavaScript -->
+    <script src="streaming.js"></script>
 </head>
 <body>
     <!-- Background Image -->
@@ -19,6 +20,12 @@
         <div class="header-content">
             <div class="logo-container">
                 <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
+            </div>
+            <div class="streaming-selector">
+                <select id="streamingService" class="service-select">
+                    <option value="youtube">YouTube</option>
+                    <option value="spotify">Spotify</option>
+                </select>
             </div>
             <div class="genre-selector">
                 <select id="genreFilter" class="genre-select">
@@ -36,19 +43,16 @@
                 <div></div>
                 <div></div>
             </div>
-            <p>Loading streaming station...</p>
+            <p id="loadingMessage">Loading streaming station...</p>
         </div>
         
         <div id="playerContent" style="display: none;">
             <div class="current-track">
-                <h2 id="trackTitle">Track Title</h2>
-                <p class="artist" id="trackArtist">Artist Name</p>
+                <h2 id="trackTitle">PigStyle Records Collection</h2>
+                <p class="artist" id="trackArtist">Various Artists</p>
                 <div class="price-container">
-                    <div class="price-badge" id="trackPrice">$0.00</div>
+                    <div class="price-badge" id="trackPrice">Stream Now</div>
                     <div class="info-badges">
-                        <div class="detail-item format" id="trackFormat">
-                            <span class="format-icon" id="formatIcon">⚫</span>
-                        </div>
                         <div class="detail-item condition" id="trackCondition">
                             <span class="condition-stars" id="conditionStars"></span>
                         </div>
@@ -67,538 +71,32 @@
                 </div>
             </div>
             
-            <div class="video-container" id="videoContainer">
-                <div class="record-image-overlay" id="recordImageOverlay"></div>
-                <div id="youtube-player"></div>
+            <!-- Spotify Player Container -->
+            <div class="spotify-container" id="spotifyContainer" style="display: none;">
+                <iframe id="spotifyPlaylistEmbed" 
+                        width="100%" 
+                        height="380" 
+                        frameborder="0" 
+                        allowfullscreen="" 
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                        loading="lazy">
+                </iframe>
             </div>
             
-            <div class="nav-controls">
+            <!-- YouTube Player Container -->
+            <div class="video-container" id="youtubeContainer" style="display: none;">
+                <div id="youtube-player" style="width: 100%; height: 100%;"></div>
+            </div>
+            
+            <div class="spotify-controls" id="spotifyControls" style="display: none;">
+                <p style="text-align: center; padding: 10px;">Use the player controls above ↑</p>
+            </div>
+            
+            <div class="nav-controls" id="youtubeControls" style="display: none;">
                 <button class="nav-btn" id="prevBtn">◀</button>
                 <button class="nav-btn" id="nextBtn">▶</button>
             </div>
         </div>
     </div>
-
-    <script>
-        // Store all records and filtered records
-        let allRecords = [];
-        let filteredRecords = [];
-        let currentTrackIndex = 0;
-        let youtubePlayer = null;
-        let autoplayEnabled = true;
-        let userIP = null;
-        let currentTrackId = null;
-
-        // Voting system using your PythonAnywhere API
-        class VotingSystem {
-            constructor() {
-                this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
-                this.voteCounts = {};
-                this.userIP = null;
-            }
-
-            async initialize() {
-                await this.getUserIP();
-                await this.loadAllVoteCounts();
-                this.setupVoteHandlers();
-            }
-
-            async getUserIP() {
-                try {
-                    const response = await fetch('https://api.ipify.org?format=json');
-                    const data = await response.json();
-                    this.userIP = data.ip;
-                    console.log('User IP:', this.userIP);
-                } catch (error) {
-                    console.error('Error getting IP:', error);
-                    // Fallback to random identifier
-                    this.userIP = 'unknown_' + Math.random().toString(36).substr(2, 9);
-                }
-            }
-
-            async loadAllVoteCounts() {
-                try {
-                    // Get all records with vote counts from API
-                    const response = await fetch(`${this.apiBaseUrl}/records?limit=1000`);
-                    const data = await response.json();
-                    
-                    if (data && data.records) {
-                        // Extract vote counts from records
-                        data.records.forEach(record => {
-                            const trackId = `${record.artist} - ${record.title}`;
-                            this.voteCounts[trackId] = {
-                                upvotes: record.upvotes || 0,
-                                downvotes: record.downvotes || 0
-                            };
-                        });
-                        console.log('Loaded vote counts from API:', this.voteCounts);
-                        this.updateAllVoteDisplays();
-                    } else {
-                        console.error('Failed to load vote counts from API');
-                    }
-                } catch (error) {
-                    console.error('Error loading vote counts from API:', error);
-                }
-            }
-
-            async loadVoteCountsForRecord(artistTitle) {
-                try {
-                    // Get specific record data from API
-                    const allRecordsResponse = await fetch(`${this.apiBaseUrl}/records?limit=1000`);
-                    const allRecordsData = await allRecordsResponse.json();
-                    
-                    if (allRecordsData && allRecordsData.records) {
-                        const record = allRecordsData.records.find(r => 
-                            `${r.artist} - ${r.title}` === artistTitle
-                        );
-                        
-                        if (record) {
-                            this.voteCounts[artistTitle] = {
-                                upvotes: record.upvotes || 0,
-                                downvotes: record.downvotes || 0
-                            };
-                            this.updateVoteDisplay(artistTitle);
-                            return this.voteCounts[artistTitle];
-                        }
-                    }
-                    return { upvotes: 0, downvotes: 0 };
-                } catch (error) {
-                    console.error('Error loading vote counts for', artistTitle, error);
-                    return { upvotes: 0, downvotes: 0 };
-                }
-            }
-
-            async vote(artistTitle, voteType) {
-                try {
-                    // Extract artist and title from the combined string
-                    const [artist, ...titleParts] = artistTitle.split(' - ');
-                    const title = titleParts.join(' - ');
-                    
-                    // Find the record ID
-                    const recordsResponse = await fetch(`${this.apiBaseUrl}/records?limit=1000`);
-                    const recordsData = await recordsResponse.json();
-                    
-                    let recordId = null;
-                    if (recordsData && recordsData.records) {
-                        const record = recordsData.records.find(r => 
-                            r.artist === artist && r.title === title
-                        );
-                        if (record) {
-                            recordId = record.id;
-                        }
-                    }
-                    
-                    if (!recordId) {
-                        console.error('Record not found for voting:', artistTitle);
-                        return false;
-                    }
-
-                    const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}/${this.userIP}/${voteType}`, {
-                        method: 'POST'
-                    });
-
-                    const data = await response.json();
-                    
-                    if (data && data.status === 'success') {
-                        // Reload vote counts after voting
-                        await this.loadAllVoteCounts();
-                        this.showVoteFeedback(artistTitle, voteType, true);
-                        return true;
-                    } else {
-                        this.showVoteFeedback(artistTitle, voteType, false, data?.error || 'Vote failed');
-                        return false;
-                    }
-                } catch (error) {
-                    console.error('Error recording vote:', error);
-                    this.showVoteFeedback(artistTitle, voteType, false, 'Network error');
-                    return false;
-                }
-            }
-
-            updateVoteDisplay(artistTitle) {
-                const counts = this.voteCounts[artistTitle] || { upvotes: 0, downvotes: 0 };
-                
-                // Update the vote buttons in the UI
-                const upvoteBtn = document.getElementById('upvoteBtn');
-                const downvoteBtn = document.getElementById('downvoteBtn');
-                
-                if (upvoteBtn) {
-                    const upvoteCount = document.getElementById('upvoteCount');
-                    if (upvoteCount) upvoteCount.textContent = counts.upvotes;
-                }
-                
-                if (downvoteBtn) {
-                    const downvoteCount = document.getElementById('downvoteCount');
-                    if (downvoteCount) downvoteCount.textContent = counts.downvotes;
-                }
-            }
-
-            updateAllVoteDisplays() {
-                // This will update all vote displays when a new track loads
-                if (currentTrackId) {
-                    this.updateVoteDisplay(currentTrackId);
-                }
-            }
-
-            showVoteFeedback(artistTitle, voteType, success, errorMessage = '') {
-                // Create a temporary feedback message
-                const feedbackEl = document.createElement('div');
-                feedbackEl.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    color: white;
-                    font-weight: bold;
-                    z-index: 1000;
-                    transition: opacity 0.3s;
-                    background: ${success ? '#27ae60' : '#e74c3c'};
-                `;
-                
-                if (success) {
-                    feedbackEl.textContent = `✓ ${voteType === 'upvote' ? 'Liked!' : 'Disliked!'}`;
-                } else {
-                    feedbackEl.textContent = errorMessage || 'Vote failed';
-                }
-                
-                document.body.appendChild(feedbackEl);
-                
-                // Remove after 2 seconds
-                setTimeout(() => {
-                    feedbackEl.style.opacity = '0';
-                    setTimeout(() => {
-                        if (feedbackEl.parentNode) {
-                            feedbackEl.remove();
-                        }
-                    }, 300);
-                }, 2000);
-            }
-
-            setupVoteHandlers() {
-                document.getElementById('upvoteBtn').addEventListener('click', () => {
-                    if (currentTrackId) {
-                        this.vote(currentTrackId, 'upvote');
-                    }
-                });
-                
-                document.getElementById('downvoteBtn').addEventListener('click', () => {
-                    if (currentTrackId) {
-                        this.vote(currentTrackId, 'downvote');
-                    }
-                });
-            }
-        }
-
-        // Initialize voting system
-        const votingSystem = new VotingSystem();
-
-        // Weighted random selection parameters
-        const MIN_WEIGHT = 0.1;  // Even downvoted songs get some playtime
-        const MAX_WEIGHT = 3.0;  // Highly upvoted songs get more playtime
-        const BASE_WEIGHT = 1.0; // Default weight for songs with no votes
-
-        // Format icons mapping
-        const formatIcons = {
-            'vinyl': '⚫',
-            'record': '⚫',
-            'cassette': '📼',
-            'tape': '📼',
-            'cd': '📀',
-            'compact disc': '📀',
-            'digital': '🔊',
-            'stream': '🔊'
-        };
-
-        // Load data from Flask API
-        async function loadStreamingData() {
-            try {
-                console.log('Loading streaming data from API...');
-                
-                // Initialize voting system
-                await votingSystem.initialize();
-                
-                // Use shared API utility to load records
-                allRecords = await pigstyleAPI.loadAllRecords();
-                
-                // Filter records to only those with YouTube videos using shared utility
-                filteredRecords = pigstyleAPI.filterStreamableRecords(allRecords);
-                
-                console.log(`Loaded ${filteredRecords.length} streamable records from API`);
-                
-                if (filteredRecords.length === 0) {
-                    document.getElementById('loading').innerHTML = '<div class="error-message">No streamable records found in the database.</div>';
-                    return;
-                }
-                
-                // Generate weighted playlist based on votes
-                generateWeightedPlaylist();
-                
-                populateGenreFilter();
-                initializePlayer();
-                
-            } catch (error) {
-                console.error('Error loading streaming data from API:', error);
-                document.getElementById('loading').innerHTML = '<div class="error-message">Error loading streaming station. Please try again later.</div>';
-            }
-        }
-
-        // Generate weighted playlist based on vote scores
-        function generateWeightedPlaylist() {
-            if (filteredRecords.length === 0) return;
-            
-            // Calculate scores and weights for all tracks
-            const tracksWithWeights = filteredRecords.map(record => {
-                const trackId = `${record.artist} - ${record.title}`;
-                const votes = votingSystem.voteCounts[trackId] || { upvotes: 0, downvotes: 0 };
-                const score = votes.upvotes - votes.downvotes;
-                
-                // Calculate weight using hybrid algorithm
-                let weight;
-                if (Object.keys(votingSystem.voteCounts).length === 0) {
-                    // If no votes data yet, use base weight for all
-                    weight = BASE_WEIGHT;
-                } else {
-                    // Find min and max scores across all tracks
-                    const allScores = Object.values(votingSystem.voteCounts).map(v => v.upvotes - v.downvotes);
-                    const minScore = Math.min(...allScores);
-                    const maxScore = Math.max(...allScores);
-                    
-                    if (minScore === maxScore) {
-                        // All songs have same score, use base weight
-                        weight = BASE_WEIGHT;
-                    } else {
-                        // Normalize score to 0-1 range and map to weight range
-                        const normalizedScore = (score - minScore) / (maxScore - minScore);
-                        weight = MIN_WEIGHT + (MAX_WEIGHT - MIN_WEIGHT) * normalizedScore;
-                    }
-                }
-                
-                return {
-                    record: record,
-                    weight: weight,
-                    score: score
-                };
-            });
-            
-            console.log('Track weights:', tracksWithWeights.map(t => ({
-                title: t.record.title,
-                score: t.score,
-                weight: t.weight.toFixed(2)
-            })));
-            
-            // Create weighted playlist by duplicating tracks based on weights
-            const weightedPlaylist = [];
-            tracksWithWeights.forEach(track => {
-                // Round weight to integer for duplication count
-                const count = Math.max(1, Math.round(track.weight));
-                for (let i = 0; i < count; i++) {
-                    weightedPlaylist.push(track.record);
-                }
-            });
-            
-            // Shuffle the weighted playlist
-            shuffleArray(weightedPlaylist);
-            filteredRecords = weightedPlaylist;
-            
-            console.log(`Generated weighted playlist with ${filteredRecords.length} entries (from ${tracksWithWeights.length} unique tracks)`);
-        }
-
-        // Fisher-Yates shuffle algorithm
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        }
-
-        // Populate genre filter dropdown
-        function populateGenreFilter() {
-            const genreFilter = document.getElementById('genreFilter');
-            // Get unique genres from streamable records
-            const genres = pigstyleAPI.getUniqueGenres(filteredRecords);
-            
-            genres.forEach(genre => {
-                const option = document.createElement('option');
-                option.value = genre;
-                option.textContent = genre;
-                genreFilter.appendChild(option);
-            });
-            
-            // Add event listener for genre filter
-            genreFilter.addEventListener('change', function() {
-                applyGenreFilter(this.value);
-            });
-        }
-
-        // Apply genre filter
-        function applyGenreFilter(genre) {
-            let filteredByYouTube = pigstyleAPI.filterStreamableRecords(allRecords);
-            
-            if (!genre) {
-                // Use all streamable records
-                filteredRecords = filteredByYouTube;
-            } else {
-                // Filter by genre
-                filteredRecords = filteredByYouTube.filter(record => record.genre === genre);
-            }
-            
-            // Regenerate weighted playlist for the filtered results
-            generateWeightedPlaylist();
-            
-            if (filteredRecords.length === 0) {
-                // If no records after filtering, show message and stop player
-                document.getElementById('playerContent').style.display = 'none';
-                document.getElementById('loading').innerHTML = '<div class="error-message">No records found for this genre.</div>';
-                return;
-            }
-            
-            // Reset to first track and start playing
-            currentTrackIndex = 0;
-            loadCurrentTrack();
-        }
-
-        // Initialize the player
-        function initializePlayer() {
-            // Hide loading, show player
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('playerContent').style.display = 'block';
-            
-            // Load YouTube API and first track
-            loadYouTubeAPI();
-            
-            // Add event listeners for navigation
-            document.getElementById('prevBtn').addEventListener('click', playPreviousTrack);
-            document.getElementById('nextBtn').addEventListener('click', playNextTrack);
-        }
-
-        // Load YouTube API
-        function loadYouTubeAPI() {
-            // Load YouTube IFrame API
-            const tag = document.createElement('script');
-            tag.src = 'https://www.youtube.com/iframe_api';
-            const firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-            
-            // This function will be called by YouTube API when ready
-            window.onYouTubeIframeAPIReady = function() {
-                loadCurrentTrack();
-            };
-        }
-
-        // Load current track
-        function loadCurrentTrack() {
-            if (filteredRecords.length === 0) return;
-            
-            const currentRecord = filteredRecords[currentTrackIndex];
-            const youtubeId = pigstyleAPI.extractYouTubeId(currentRecord.youtube_url);
-            currentTrackId = `${currentRecord.artist} - ${currentRecord.title}`;
-            
-            // Update track info
-            document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
-            document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
-            
-            // Update format with icon
-            const format = currentRecord.format || 'vinyl';
-            const formatText = format.toLowerCase();
-            const formatIcon = formatIcons[formatText] || '⚫';
-            document.getElementById('formatIcon').textContent = formatIcon;
-            
-            // Update condition with stars
-            const condition = parseInt(currentRecord.condition) || 5;
-            updateConditionStars(condition);
-            
-            // Update price
-            const price = currentRecord.store_price ? `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
-            document.getElementById('trackPrice').textContent = price;
-            
-            // Update vote display for this track
-            votingSystem.updateVoteDisplay(currentTrackId);
-            
-            // Set record image as overlay
-            const recordImageUrl = currentRecord.image_url || 'images/default-record.jpg';
-            document.getElementById('recordImageOverlay').style.backgroundImage = `url('${recordImageUrl}')`;
-            
-            // Reset video container class
-            document.getElementById('videoContainer').classList.remove('video-playing');
-            
-            // Create or update YouTube player
-            if (!youtubePlayer) {
-                youtubePlayer = new YT.Player('youtube-player', {
-                    height: '100%',
-                    width: '100%',
-                    videoId: youtubeId,
-                    playerVars: {
-                        'autoplay': autoplayEnabled ? 1 : 0,
-                        'controls': 1,
-                        'rel': 0,
-                        'modestbranding': 1,
-                        'cc_load_policy': 0,
-                        'iv_load_policy': 3
-                    },
-                    events: {
-                        'onReady': onPlayerReady,
-                        'onStateChange': onPlayerStateChange
-                    }
-                });
-            } else {
-                youtubePlayer.loadVideoById(youtubeId);
-                if (autoplayEnabled) {
-                    youtubePlayer.playVideo();
-                }
-            }
-        }
-
-        // Update condition stars display
-        function updateConditionStars(condition) {
-            const starsContainer = document.getElementById('conditionStars');
-            starsContainer.innerHTML = '';
-            
-            for (let i = 1; i <= 5; i++) {
-                const star = document.createElement('span');
-                star.className = i <= condition ? 'condition-star' : 'condition-star empty';
-                star.textContent = '★';
-                starsContainer.appendChild(star);
-            }
-        }
-
-        // YouTube player ready callback
-        function onPlayerReady(event) {
-            console.log('YouTube player ready');
-            if (autoplayEnabled) {
-                event.target.playVideo();
-            }
-        }
-
-        // YouTube player state change callback
-        function onPlayerStateChange(event) {
-            // When video starts playing, hide the record image overlay
-            if (event.data === YT.PlayerState.PLAYING) {
-                document.getElementById('videoContainer').classList.add('video-playing');
-            }
-            // When video ends, play next track
-            if (event.data === YT.PlayerState.ENDED) {
-                playNextTrack();
-            }
-        }
-
-        // Play previous track
-        function playPreviousTrack() {
-            currentTrackIndex = (currentTrackIndex - 1 + filteredRecords.length) % filteredRecords.length;
-            loadCurrentTrack();
-        }
-
-        // Play next track
-        function playNextTrack() {
-            currentTrackIndex = (currentTrackIndex + 1) % filteredRecords.length;
-            loadCurrentTrack();
-        }
-
-        // Load the streaming data when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            loadStreamingData();
-        });
-    </script>
 </body>
 </html>

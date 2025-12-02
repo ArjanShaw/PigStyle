@@ -1,14 +1,14 @@
-// streaming.js - Complete with thumbs up/down, genre filter, default YouTube
+// streaming.js - Get genres from records, random start, no condition stars
 
 console.log('streaming.js loaded!');
 
 let allRecords = [];
 let filteredRecords = [];
 let currentTrackIndex = 0;
-let currentStreamingService = 'youtube'; // Default to YouTube
+let currentStreamingService = 'youtube';
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
-let uniqueGenres = new Set();
+let genreMap = {};
 
 // Voting system
 class VotingSystem {
@@ -253,6 +253,24 @@ function showYouTubePlayer() {
     loadYouTubeData();
 }
 
+// Build genre map from records
+function buildGenreMap(records) {
+    genreMap = {};
+    
+    // Find unique genre IDs and names from records
+    records.forEach(record => {
+        if (record.genre_id && record.genre_name && !genreMap[record.genre_id]) {
+            // Use the actual genre name from the JOIN
+            genreMap[record.genre_id] = record.genre_name;
+        } else if (record.genre_id && !genreMap[record.genre_id]) {
+            // Fallback if no genre name
+            genreMap[record.genre_id] = `Genre ${record.genre_id}`;
+        }
+    });
+    
+    console.log('Built genre map from records:', genreMap);
+}
+
 // Load YouTube data and populate genre filter
 async function loadYouTubeData() {
     try {
@@ -265,13 +283,8 @@ async function loadYouTubeData() {
             allRecords = data.records;
             console.log(`Loaded ${allRecords.length} records`);
             
-            // Extract unique genres
-            uniqueGenres.clear();
-            allRecords.forEach(record => {
-                if (record.genre_id) {
-                    uniqueGenres.add(record.genre_id);
-                }
-            });
+            // Build genre map from records
+            buildGenreMap(allRecords);
             
             // Populate genre filter
             populateGenreFilter();
@@ -286,7 +299,9 @@ async function loadYouTubeData() {
             console.log(`Found ${filteredRecords.length} records with YouTube URLs`);
             
             if (filteredRecords.length > 0) {
-                currentTrackIndex = 0;
+                // RANDOM START: Pick random track
+                currentTrackIndex = Math.floor(Math.random() * filteredRecords.length);
+                console.log(`Random start at index: ${currentTrackIndex}/${filteredRecords.length}`);
                 
                 if (youtubeAPILoaded) {
                     loadCurrentYouTubeTrack();
@@ -342,13 +357,18 @@ function populateGenreFilter() {
         genreFilter.remove(1);
     }
     
-    // Add genre options
-    uniqueGenres.forEach(genre => {
+    // Add genre options sorted by ID
+    const sortedGenres = Object.entries(genreMap)
+        .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+    
+    sortedGenres.forEach(([id, name]) => {
         const option = document.createElement('option');
-        option.value = genre;
-        option.textContent = `Genre ${genre}`;
+        option.value = id;
+        option.textContent = name;
         genreFilter.appendChild(option);
     });
+    
+    console.log(`Populated ${sortedGenres.length} genres in filter`);
     
     // Set up event listener
     genreFilter.addEventListener('change', function() {
@@ -357,8 +377,8 @@ function populateGenreFilter() {
 }
 
 // Apply genre filter
-function applyGenreFilter(genre) {
-    if (!genre) {
+function applyGenreFilter(genreId) {
+    if (!genreId) {
         // Show all records with YouTube URLs
         filteredRecords = allRecords.filter(record => 
             record.youtube_url && 
@@ -371,20 +391,23 @@ function applyGenreFilter(genre) {
             record.youtube_url && 
             (record.youtube_url.includes('youtube.com') || 
              record.youtube_url.includes('youtu.be')) &&
-            record.genre_id == genre
+            record.genre_id == genreId
         );
     }
     
-    console.log(`Filtered to ${filteredRecords.length} records for genre: ${genre || 'All'}`);
+    const genreName = genreId ? genreMap[genreId] : 'All';
+    console.log(`Filtered to ${filteredRecords.length} records for genre: ${genreName}`);
     
     if (filteredRecords.length > 0) {
-        currentTrackIndex = 0;
+        // Random start when filtering
+        currentTrackIndex = Math.floor(Math.random() * filteredRecords.length);
+        console.log(`Random start at index: ${currentTrackIndex}/${filteredRecords.length}`);
         loadCurrentYouTubeTrack();
     } else {
         document.getElementById('youtube-player').innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
                 <h3>No Tracks Found</h3>
-                <p>No YouTube videos found for the selected genre.</p>
+                <p>No YouTube videos found for ${genreName}.</p>
                 <div style="margin-top: 20px;">
                     <button onclick="document.getElementById('genreFilter').value=''; applyGenreFilter('');" 
                             style="padding: 10px 20px; background: #f0f0f0; color: #333; border: none; border-radius: 5px;">
@@ -405,15 +428,13 @@ function loadCurrentYouTubeTrack() {
     
     console.log('Loading track:', currentRecord.artist, '-', currentRecord.title);
     console.log('YouTube ID:', youtubeId);
+    console.log('Current index:', currentTrackIndex, '/', filteredRecords.length);
     
     // Update track info
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
     document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
     document.getElementById('trackPrice').textContent = currentRecord.store_price ? 
         `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
-    
-    // Update condition stars
-    updateConditionStars(currentRecord.condition || 5);
     
     // Update vote display
     const trackId = `${currentRecord.artist} - ${currentRecord.title}`;
@@ -456,20 +477,6 @@ function loadCurrentYouTubeTrack() {
             'onError': onPlayerError
         }
     });
-}
-
-// Update condition stars display
-function updateConditionStars(condition) {
-    const conditionNum = parseInt(condition) || 5;
-    const starsContainer = document.getElementById('conditionStars');
-    starsContainer.innerHTML = '';
-    
-    for (let i = 1; i <= 5; i++) {
-        const star = document.createElement('span');
-        star.className = i <= conditionNum ? 'condition-star' : 'condition-star empty';
-        star.textContent = '★';
-        starsContainer.appendChild(star);
-    }
 }
 
 // YouTube player ready callback

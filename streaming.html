@@ -68,7 +68,6 @@
             </div>
             
             <div class="video-container" id="videoContainer">
-                <div class="record-image-overlay" id="recordImageOverlay"></div>
                 <div id="youtube-player"></div>
             </div>
             
@@ -516,10 +515,6 @@
             // Update vote display for this track
             votingSystem.updateVoteDisplay(currentTrackId);
             
-            // Set record image as overlay
-            const recordImageUrl = currentRecord.image_url || 'images/default-record.jpg';
-            document.getElementById('recordImageOverlay').style.backgroundImage = `url('${recordImageUrl}')`;
-            
             // Reset video container class
             document.getElementById('videoContainer').classList.remove('video-playing');
             
@@ -573,10 +568,7 @@
 
         // YouTube player state change callback
         function onPlayerStateChange(event) {
-            // When video starts playing, hide the record image overlay
-            if (event.data === YT.PlayerState.PLAYING) {
-                document.getElementById('videoContainer').classList.add('video-playing');
-            }
+            
             // When video ends, play next track
             if (event.data === YT.PlayerState.ENDED) {
                 playNextTrack();

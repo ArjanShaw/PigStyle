@@ -250,38 +250,25 @@ function showYouTubePlayer() {
         loadYouTubeAPI();
     }
     
-    loadYouTubeData();
+    loadRecordsFromAPI();
 }
 
-// Build genre map from records
-function buildGenreMap(records) {
-    genreMap = {};
-    
-    // Find unique genre IDs and names from records
-    records.forEach(record => {
-        if (record.genre_id && record.genre_name && !genreMap[record.genre_id]) {
-            // Use the actual genre name from the JOIN
-            genreMap[record.genre_id] = record.genre_name;
-        } else if (record.genre_id && !genreMap[record.genre_id]) {
-            // Fallback if no genre name
-            genreMap[record.genre_id] = `Genre ${record.genre_id}`;
-        }
-    });
-    
-    console.log('Built genre map from records:', genreMap);
-}
-
-// Load YouTube data and populate genre filter
-async function loadYouTubeData() {
+// Load records from API
+async function loadRecordsFromAPI() {
     try {
         console.log('Loading records from API...');
         
         const response = await fetch('https://arjanshaw.pythonanywhere.com/records?limit=100');
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         if (data && data.status === 'success' && data.records) {
             allRecords = data.records;
-            console.log(`Loaded ${allRecords.length} records`);
+            console.log(`Loaded ${allRecords.length} records from API`);
             
             // Build genre map from records
             buildGenreMap(allRecords);
@@ -317,7 +304,7 @@ async function loadYouTubeData() {
                 document.getElementById('youtube-player').innerHTML = `
                     <div style="padding: 40px; text-align: center; color: white;">
                         <h3>No YouTube Videos Found</h3>
-                        <p>Loaded ${allRecords.length} records from database, but none have YouTube URLs.</p>
+                        <p>Loaded ${allRecords.length} records from API, but none have YouTube URLs.</p>
                         <p>Add YouTube URLs to your records in the database.</p>
                         <div style="margin-top: 20px;">
                             <button onclick="showSpotifyPlayer()" style="padding: 10px 20px; background: #1DB954; color: white; border: none; border-radius: 5px;">
@@ -333,11 +320,12 @@ async function loadYouTubeData() {
         }
         
     } catch (error) {
-        console.error('Error loading YouTube data:', error);
+        console.error('Error loading records from API:', error);
         document.getElementById('youtube-player').innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
                 <h3>Error Loading Records</h3>
-                <p>${error.message}</p>
+                <p>Failed to load from API: ${error.message}</p>
+                <p>Make sure your API server at arjanshaw.pythonanywhere.com is running.</p>
                 <div style="margin-top: 20px;">
                     <button onclick="showSpotifyPlayer()" style="padding: 10px 20px; background: #1DB954; color: white; border: none; border-radius: 5px;">
                         Switch to Spotify
@@ -346,6 +334,24 @@ async function loadYouTubeData() {
             </div>
         `;
     }
+}
+
+// Build genre map from records
+function buildGenreMap(records) {
+    genreMap = {};
+    
+    // Find unique genre IDs and names from records
+    records.forEach(record => {
+        if (record.genre_id && record.genre_name && !genreMap[record.genre_id]) {
+            // Use the actual genre name from the JOIN
+            genreMap[record.genre_id] = record.genre_name;
+        } else if (record.genre_id && !genreMap[record.genre_id]) {
+            // Fallback if no genre name
+            genreMap[record.genre_id] = `Genre ${record.genre_id}`;
+        }
+    });
+    
+    console.log('Built genre map from records:', genreMap);
 }
 
 // Populate genre filter dropdown

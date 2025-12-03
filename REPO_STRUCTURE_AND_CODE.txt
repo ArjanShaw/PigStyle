@@ -4,6 +4,8 @@ REPOSITORY STRUCTURE + CODE FROM: inventory-manager
 REPOSITORY STRUCTURE:
 ----------------------------------------
 └── 🎯 inventory-manager/ [TARGET]
+    ├── images/
+    ├── payloads/
     ├── src/
     │   ├── auth/
     │   │   ├── __init__.py 🐍
@@ -12,9 +14,6 @@ REPOSITORY STRUCTURE:
     │   │   └── session_manager.py 🐍
     │   ├── EbayDraftFiles/
     │   │   └── ebay_drafts oct 16 21_21.csv
-    │   ├── gallery/
-    │   │   ├── __init__.py 🐍
-    │   │   └── generator.py 🐍
     │   ├── handlers/
     │   │   ├── __init__.py 🐍
     │   │   ├── api_key_handler.py 🐍
@@ -25,7 +24,6 @@ REPOSITORY STRUCTURE:
     │   │   ├── ebay_handler.py 🐍
     │   │   ├── export_handler.py 🐍
     │   │   ├── genre_handler.py 🐍
-    │   │   ├── github_sync_handler.py 🐍
     │   │   ├── imagebb_handler.py 🐍
     │   │   ├── price_handler.py 🐍
     │   │   ├── price_tag_handler.py 🐍
@@ -33,6 +31,7 @@ REPOSITORY STRUCTURE:
     │   │   ├── search_handler.py 🐍
     │   │   └── youtube_handler.py 🐍
     │   ├── images/
+    │   ├── payloads/
     │   ├── tabs/
     │   │   ├── admin_config_tab.py 🐍
     │   │   ├── consignment_tab.py 🐍
@@ -49,7 +48,6 @@ REPOSITORY STRUCTURE:
     │   ├── app_config.json 📋
     │   ├── config.py 🐍
     │   ├── database_manager.py 🐍
-    │   ├── desktop_app.py 🐍
     │   ├── image_formatter.py 🐍
     │   ├── print_config.json 📋
     │   ├── records.zip
@@ -75,266 +73,6 @@ python-barcode==0.14.0
 reportlab==4.0.4
 PyJWT==2.8.0
 bcrypt==4.0.1
-
-======================================================================
-
-FILE: inventory-manager/src/desktop_app.py
---------------------------------------------------
-import sys
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-
-# Add the correct path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
-
-# PyQt6 imports
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QVBoxLayout, 
-                            QWidget, QHBoxLayout, QLabel, QPushButton, QMessageBox,
-                            QStatusBar, QTextEdit, QSplitter, QFrame)
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QIcon, QFont
-
-# Import your existing modules
-from database_manager import DatabaseManager
-from handlers.discogs_handler import DiscogsHandler
-from handlers.ebay_handler import EbayHandler
-from handlers.api_key_handler import APIKeyHandler
-from gallery.generator import GalleryJSONManager
-from handlers.github_sync_handler import GitHubSyncHandler
-
-# Import tab classes (you'll need to convert these)
-from tabs.inventory_tab import InventoryTab
-from tabs.statistics_tab import StatisticsTab
-from tabs.ebay_tab import EBayTab
-from tabs.expenses_tab import ExpensesTab
-from tabs.database_switch_tab import DatabaseSwitchTab
-
-class DebugConsole(QTextEdit):
-    """Debug console to replace Streamlit's debug functionality"""
-    def __init__(self):
-        super().__init__()
-        self.setReadOnly(True)
-        self.setMaximumHeight(200)
-        self.setFont(QFont("Courier", 9))
-        
-    def add_log(self, category, message, data=None):
-        """Add a log entry"""
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-        
-        log_entry = f"[{timestamp}] {category}: {message}"
-        if data:
-            log_entry += f"\n    Data: {str(data)}"
-        
-        self.append(log_entry)
-        # Auto-scroll to bottom
-        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("PigStyle Inventory Manager")
-        self.setGeometry(100, 100, 1400, 900)
-        
-        # Initialize components
-        self.debug_console = DebugConsole()
-        self.api_key_handler = None
-        self.db_manager = None
-        self.discogs_handler = None
-        self.ebay_handler = None
-        self.gallery_json_manager = None
-        self.github_sync_handler = None
-        
-        # Setup UI
-        self.setup_ui()
-        
-        # Initialize application
-        QTimer.singleShot(100, self.initialize_application)
-    
-    def setup_ui(self):
-        """Setup the main user interface"""
-        # Central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        # Main layout
-        main_layout = QVBoxLayout(central_widget)
-        
-        # Create splitter for main content and debug console
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        
-        # Top part: Tabs
-        self.tab_widget = QTabWidget()
-        
-        # Create tab instances (you'll need to convert these from Streamlit)
-        self.inventory_tab = InventoryTab(self)
-        self.ebay_tab = EBayTab(self)
-        self.expenses_tab = ExpensesTab(self)
-        self.statistics_tab = StatisticsTab(self)
-        self.database_tab = DatabaseSwitchTab(self)
-        
-        # Add tabs
-        self.tab_widget.addTab(self.inventory_tab, "📦 Inventory")
-        self.tab_widget.addTab(self.ebay_tab, "🛒 eBay")
-        self.tab_widget.addTab(self.expenses_tab, "💰 Expenses")
-        self.tab_widget.addTab(self.statistics_tab, "📊 Statistics")
-        self.tab_widget.addTab(self.database_tab, "🗃️ Database")
-        
-        splitter.addWidget(self.tab_widget)
-        splitter.addWidget(self.debug_console)
-        splitter.setSizes([700, 200])
-        
-        main_layout.addWidget(splitter)
-        
-        # Status bar
-        self.statusBar().showMessage("Ready")
-    
-    def initialize_application(self):
-        """Initialize the application components"""
-        try:
-            # Initialize API Key Handler
-            self.debug_console.add_log("INIT", "Initializing API Key Handler...")
-            self.api_key_handler = APIKeyHandler(self)
-            
-            # Get environment variables
-            env_vars = self.api_key_handler.get_environment_variables()
-            
-            IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
-            DISCOGS_USER_TOKEN = env_vars["DISCOGS_USER_TOKEN"]
-            EBAY_CLIENT_ID = env_vars["EBAY_CLIENT_ID"]
-            EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
-            
-            # Initialize Database Manager
-            self.debug_console.add_log("INIT", "Initializing Database Manager...")
-            self.db_manager = DatabaseManager(gallery_json_manager=self.gallery_json_manager)
-            
-            # Initialize Gallery JSON Manager
-            self.debug_console.add_log("INIT", "Initializing Gallery JSON Manager...")
-            self.gallery_json_manager = GalleryJSONManager(self.db_manager)
-            self.db_manager.gallery_json_manager = self.gallery_json_manager
-            
-            # Initialize GitHub Sync Handler
-            self.debug_console.add_log("INIT", "Initializing GitHub Sync Handler...")
-            self.github_sync_handler = GitHubSyncHandler(
-                repo_path="/home/arjan-ubuntu/Documents/PigStyle",
-                gallery_json_manager=self.gallery_json_manager
-            )
-            
-            # Initialize Discogs handler
-            if DISCOGS_USER_TOKEN:
-                try:
-                    self.debug_console.add_log("INIT", "Initializing Discogs Handler...")
-                    self.discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN, self)
-                except Exception as e:
-                    self.debug_console.add_log("ERROR", f"Failed to initialize Discogs: {e}")
-            
-            # Initialize eBay handler
-            if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
-                try:
-                    self.debug_console.add_log("INIT", "Initializing eBay Handler...")
-                    self.ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, self)
-                except Exception as e:
-                    self.debug_console.add_log("ERROR", f"Failed to initialize eBay: {e}")
-            
-            # Pass handlers to tabs
-            self.inventory_tab.set_handlers(self.discogs_handler, self.ebay_handler, self.gallery_json_manager)
-            self.ebay_tab.set_handlers(self.ebay_handler, self.gallery_json_manager)
-            
-            self.debug_console.add_log("SUCCESS", "Application initialized successfully!")
-            self.statusBar().showMessage("Application ready")
-            
-        except Exception as e:
-            error_msg = f"Failed to initialize application: {str(e)}"
-            self.debug_console.add_log("ERROR", error_msg)
-            QMessageBox.critical(self, "Initialization Error", error_msg)
-    
-    def get_debug_console(self):
-        """Get the debug console instance"""
-        return self.debug_console
-
-class APIKeyHandler:
-    """Modified APIKeyHandler for desktop app"""
-    def __init__(self, main_window):
-        self.main_window = main_window
-        self.env_vars = {}
-        self.env_vars_loaded = False
-    
-    def get_environment_variables(self):
-        """Get environment variables ONLY from .env file"""
-        if self.env_vars_loaded:
-            return self.env_vars
-            
-        required_vars = [
-            "IMAGEBB_API_KEY",
-            "DISCOGS_USER_TOKEN", 
-            "EBAY_CLIENT_ID",
-            "EBAY_CLIENT_SECRET"
-        ]
-        
-        # Get the project base directory and .env file path
-        current_dir = os.getcwd()
-        env_file_path = os.path.join(current_dir, '.env')
-        
-        # Check if .env file exists
-        if not os.path.exists(env_file_path):
-            error_msg = f"❌ .env file not found at {env_file_path}"
-            self.main_window.debug_console.add_log("ERROR", error_msg)
-            raise Exception(error_msg)
-        
-        # Load environment variables from .env file
-        try:
-            with open(env_file_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        key = key.strip()
-                        value = value.strip()
-                        # Remove quotes if present
-                        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-                            value = value[1:-1]
-                        self.env_vars[key] = value
-        except Exception as e:
-            error_msg = f"❌ Error reading .env file: {str(e)}"
-            self.main_window.debug_console.add_log("ERROR", error_msg)
-            raise Exception(error_msg)
-        
-        # Validate all required variables are present
-        missing_vars = []
-        for var in required_vars:
-            if var not in self.env_vars or not self.env_vars[var]:
-                missing_vars.append(var)
-        
-        if missing_vars:
-            error_msg = f"❌ Missing required variables in .env file: {', '.join(missing_vars)}"
-            self.main_window.debug_console.add_log("ERROR", error_msg)
-            raise Exception(error_msg)
-        
-        # Log successful loading
-        for var in required_vars:
-            self.main_window.debug_console.add_log("ENV", f"✅ {var} loaded from .env file")
-        
-        self.env_vars_loaded = True
-        return self.env_vars
-
-def main():
-    """Main function to run the desktop application"""
-    app = QApplication(sys.argv)
-    
-    # Set application properties
-    app.setApplicationName("PigStyle Inventory Manager")
-    app.setApplicationVersion("1.0")
-    
-    # Create and show main window
-    window = MainWindow()
-    window.show()
-    
-    # Start the application event loop
-    sys.exit(app.exec())
-
-if __name__ == "__main__":
-    main()
 
 ======================================================================
 
@@ -393,7 +131,6 @@ from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
 from handlers.ebay_handler import EbayHandler
-from gallery.generator import GalleryJSONManager
 from handlers.github_sync_handler import GitHubSyncHandler
 from handlers.api_key_handler import APIKeyHandler
 from config import AppConfig
@@ -421,9 +158,9 @@ def render_login_page(auth_manager, session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                login_button = st.form_submit_button("🚀 Login", use_container_width=True)
+                login_button = st.form_submit_button("🚀 Login", width='stretch')
             with col2:
-                demo_button = st.form_submit_button("👀 Demo Mode", use_container_width=True)
+                demo_button = st.form_submit_button("👀 Demo Mode", width='stretch')
         
         if login_button:
             if username and password:
@@ -492,15 +229,10 @@ def render_main_app():
         st.session_state.db_manager = DatabaseManager(api_base_url)
         st.session_state.config = config
 
-    # Initialize Gallery JSON Manager AFTER db_manager is set
-    if "gallery_json_manager" not in st.session_state:
-        st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
-
     # Initialize GitHub Sync Handler
     if "github_sync_handler" not in st.session_state:
         st.session_state.github_sync_handler = GitHubSyncHandler(
-            repo_path="/home/arjan-ubuntu/Documents/PigStyle",
-            gallery_json_manager=st.session_state.gallery_json_manager
+            repo_path="/home/arjan-ubuntu/Documents/PigStyle"
         )
 
     if "search_results" not in st.session_state:
@@ -536,11 +268,11 @@ def render_main_app():
         st.warning("YouTube API key not found. YouTube integration will be disabled.")
  
     # Initialize all tabs
-    inventory_tab = InventoryTab(discogs_handler, ebay_handler, st.session_state.gallery_json_manager, youtube_handler)
+    inventory_tab = InventoryTab(discogs_handler, ebay_handler, youtube_handler)
     statistics_tab = StatisticsTab()
-    ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
+    ebay_tab = EBayTab(ebay_handler)
     store_pricing_tab = StorePricingTab()
-    tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
+    tools_sync_tab = ToolsSyncTab(st.session_state.github_sync_handler)
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
     admin_config_tab = AdminConfigTab()
@@ -567,11 +299,11 @@ def render_header(user, session_manager):
         st.caption(role_display)
     
     with col3:
-        if st.button("🔐 PW", help="Change Password", use_container_width=True):
+        if st.button("🔐 PW", help="Change Password", width='stretch'):
             st.session_state.show_change_password = True
     
     with col4:
-        if st.button("🚪", help="Logout", use_container_width=True):
+        if st.button("🚪", help="Logout", width='stretch'):
             session_manager.logout()
     
     # Show change password form if triggered
@@ -593,9 +325,9 @@ def render_change_password_form(session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                submit = st.form_submit_button("💾 Update Password", use_container_width=True)
+                submit = st.form_submit_button("💾 Update Password", width='stretch')
             with col2:
-                cancel = st.form_submit_button("❌ Cancel", use_container_width=True)
+                cancel = st.form_submit_button("❌ Cancel", width='stretch')
             
             if cancel:
                 st.session_state.show_change_password = False
@@ -998,7 +730,9 @@ class DatabaseManager:
     
     def assign_barcodes(self, record_ids: List[int]) -> Dict:
         """Assign barcodes to records"""
+        print(f"🔴 DEBUG: DatabaseManager.assign_barcodes called with record_ids: {record_ids}")
         result = self._make_request('POST', '/barcodes/assign', json={'record_ids': record_ids})
+        print(f"🔴 DEBUG: DatabaseManager.assign_barcodes API response: {result}")
         if result and 'barcode_mapping' in result:
             return result['barcode_mapping']
         return {}
@@ -1202,222 +936,6 @@ FILE: inventory-manager/src/app_config.json
 
 ======================================================================
 
-FILE: inventory-manager/src/gallery/__init__.py
---------------------------------------------------
-
-
-======================================================================
-
-FILE: inventory-manager/src/gallery/generator.py
---------------------------------------------------
-import json
-import threading
-import time
-import os
-from pathlib import Path
-import pandas as pd
-import math
-
-class GalleryJSONManager:
-    def __init__(self, db_manager):
-        self.db_manager = db_manager
-        
-        # The web server directory
-        web_server_paths = [
-            Path("/var/www/html"),
-            Path("/var/www/pigstylerecords.com/public_html"),
-            Path("/var/www/pigstylerecords.com/html"),
-            Path("/srv/www/pigstylerecords.com/public_html"),
-            Path("/home/pigstyle/public_html"),
-            Path("/home/pigstyle/www"),
-            Path("/home/pigstyle/web"),
-            Path("/mount/src/pigstyle/web/public"),
-            Path("./web/public"),
-        ]
-        
-        # Find the correct web server directory
-        self.web_base_path = None
-        for path in web_server_paths:
-            if path.exists():
-                catalog_path = path / "catalog.html"
-                if catalog_path.exists():
-                    self.web_base_path = path
-                    print(f"✅ Found web directory: {path}")
-                    print(f"✅ Catalog.html exists at: {catalog_path}")
-                    break
-        
-        # If no directory found, use a fallback
-        if self.web_base_path is None:
-            self.web_base_path = Path("/tmp/pigstyle_web_fallback")
-            self.web_base_path.mkdir(parents=True, exist_ok=True)
-            print(f"⚠️  WARNING: Using fallback directory: {self.web_base_path}")
-        
-        self.json_path = self.web_base_path / "gallery-data.json"
-        self.temp_path = self.web_base_path / "gallery-data.json.tmp"
-        
-        print(f"🎯 JSON will be saved to: {self.json_path}")
-        
-        self._rebuild_lock = threading.Lock()
-        self._last_rebuild_time = 0
-        self._rebuild_in_progress = False
-        
-    def trigger_rebuild(self, async_mode=True):
-        """Trigger a JSON rebuild, optionally in background thread"""
-        if async_mode:
-            thread = threading.Thread(target=self._rebuild_in_thread, daemon=True)
-            thread.start()
-            return True
-        else:
-            return self._perform_rebuild()
-    
-    def _rebuild_in_thread(self):
-        self._perform_rebuild()
-    
-    def _perform_rebuild(self):
-        if not self._rebuild_lock.acquire(blocking=False):
-            print("JSON rebuild already in progress, skipping...")
-            return False
-        
-        try:
-            self._rebuild_in_progress = True
-            start_time = time.time()
-            
-            print(f"🎯 Starting gallery JSON rebuild to: {self.json_path}")
-            
-            # Ensure directory exists
-            self.web_base_path.mkdir(parents=True, exist_ok=True)
-            
-            if not os.access(self.web_base_path, os.W_OK):
-                raise Exception(f"Directory not writable: {self.web_base_path}")
-            
-            # Get all records from database using API
-            records = self._fetch_all_records()
-            print(f"📊 Fetched {len(records)} records from database")
-            
-            # Build JSON structure
-            json_data = self._build_json_structure(records)
-            
-            # Write to file
-            success = self._write_json_file(json_data)
-            
-            if success:
-                duration = time.time() - start_time
-                print(f"✅ Gallery JSON rebuild completed in {duration:.2f}s - {len(records)} records")
-                self._last_rebuild_time = time.time()
-                
-                # Verify the file was created
-                if self.json_path.exists():
-                    file_size = self.json_path.stat().st_size
-                    print(f"📄 JSON file created: {file_size} bytes")
-                    
-                    # Check if catalog.html can access it
-                    catalog_path = self.web_base_path / "catalog.html"
-                    if catalog_path.exists():
-                        print(f"🌐 Website should now see the JSON at: https://pigstylerecords.com/gallery-data.json")
-                    else:
-                        print(f"⚠️  Warning: catalog.html not found in {self.web_base_path}")
-                else:
-                    print("❌ WARNING: JSON file was not created!")
-                    
-            else:
-                print("❌ Gallery JSON rebuild failed")
-                
-            return success
-            
-        except Exception as e:
-            print(f"❌ Gallery JSON rebuild error: {e}")
-            import traceback
-            print(f"📋 Traceback: {traceback.format_exc()}")
-            return False
-        finally:
-            self._rebuild_in_progress = False
-            self._rebuild_lock.release()
-    
-    def _fetch_all_records(self):
-        """Fetch all records using API instead of direct SQL connection"""
-        try:
-            # Use the API-based database manager
-            records_df = self.db_manager.get_all_records()
-            
-            if records_df.empty:
-                print("⚠️  No records found in database")
-                return []
-            
-            # Convert DataFrame to list of dicts with proper field mapping
-            records = []
-            for _, record in records_df.iterrows():
-                record_dict = {
-                    'id': record.get('id'),
-                    'artist': record.get('artist', ''),
-                    'title': record.get('title', ''),
-                    'image_url': record.get('image_url', ''),
-                    'genre': record.get('genre', ''),
-                    'barcode': record.get('barcode', ''),
-                    'store_price': record.get('store_price'),
-                    'file_at': record.get('file_at', ''),
-                    'youtube_url': record.get('youtube_url', ''),
-                    'catalog_number': record.get('catalog_number', ''),
-                    'format': record.get('format', ''),
-                    'condition': record.get('condition', '')
-                }
-                records.append(record_dict)
-            
-            return records
-            
-        except Exception as e:
-            print(f"❌ Error fetching records via API: {e}")
-            return []
-    
-    def _build_json_structure(self, records):
-        # Clean the records data to replace NaN with null
-        cleaned_records = []
-        for record in records:
-            cleaned_record = {}
-            for key, value in record.items():
-                # Replace NaN, None, and other invalid values with null
-                if value is None or (isinstance(value, float) and math.isnan(value)):
-                    cleaned_record[key] = None
-                else:
-                    cleaned_record[key] = value
-            
-            # VOTE ID REMOVED - No longer needed for client-side voting
-            # The streaming system uses the record ID directly
-            
-            cleaned_records.append(cleaned_record)
-        
-        return {
-            "meta": {
-                "last_updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "total_records": len(cleaned_records),
-                "format_version": "2.0"
-            },
-            "records": cleaned_records
-        }
-    
-    def _write_json_file(self, json_data):
-        # Write to temporary file first
-        with open(self.temp_path, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, indent=2, ensure_ascii=False)
-        
-        # Atomic rename from temp to final
-        self.temp_path.rename(self.json_path)
-        
-        return True
-    
-    def get_rebuild_status(self):
-        return {
-            "in_progress": self._rebuild_in_progress,
-            "last_rebuild_time": self._last_rebuild_time
-        }
-    
-    def get_json_path(self):
-        return str(self.json_path)
-    
-    def get_web_directory(self):
-        return str(self.web_base_path)
-
-======================================================================
-
 FILE: inventory-manager/src/tabs/ebay_tab.py
 --------------------------------------------------
 # FILE: inventory-manager/src/tabs/ebay_tab.py
@@ -1429,9 +947,8 @@ import io
 import csv
 
 class EBayTab:
-    def __init__(self, ebay_handler, gallery_json_manager):
+    def __init__(self, ebay_handler):
         self.ebay_handler = ebay_handler
-        self.gallery_json_manager = gallery_json_manager
 
     def render(self):
         st.header("🛒 eBay Management")
@@ -1755,9 +1272,7 @@ class EBayTab:
                         key=f"download_ebay_results_{timestamp}"
                     )
         
-        # Trigger JSON rebuild to include eBay item numbers
-        if updated_count > 0 and self.gallery_json_manager:
-            self.gallery_json_manager.trigger_rebuild(async_mode=True)
+        # No JSON rebuild needed since gallery functionality removed
 
     def _find_record_by_artist_title(self, artist, title):
         """Find a record by artist and title using API"""
@@ -2614,13 +2129,13 @@ FILE: inventory-manager/src/tabs/print_config.json
 --------------------------------------------------
 {
   "price_font_size": 10,
-  "price_y_pos": 1.0,
+  "price_y_pos": 2.0,
   "text_font_size": 6,
   "artist_y_pos": 8.0,
   "file_y_pos": 5.0,
   "date_font_size": 5,
-  "date_y_pos": 12.0,
-  "barcode_y_pos": 2.0,
+  "date_y_pos": 2.0,
+  "barcode_y_pos": 1.0,
   "barcode_height": 4.0,
   "label_width_mm": 45.0,
   "label_height_mm": 16.8,
@@ -2629,7 +2144,7 @@ FILE: inventory-manager/src/tabs/print_config.json
   "top_margin_mm": 14.0,
   "rows": 15,
   "columns": 4,
-  "print_borders": false
+  "print_borders": true
 }
 
 ======================================================================
@@ -3509,57 +3024,294 @@ class ConsignmentTab:
 FILE: inventory-manager/src/tabs/debug_tab.py
 --------------------------------------------------
 import streamlit as st
+import pandas as pd
 from datetime import datetime
 import json
-from pathlib import Path
 
 class DebugTab:
     def __init__(self):
-        # Initialize session state for logs if not exists
-        if 'debug_logs' not in st.session_state:
-            st.session_state.debug_logs = []
-        
-    def add_log(self, category, message, data=None):
-        """Add a log entry to the debug tab"""
-        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-        log_entry = {
-            'timestamp': timestamp,
-            'category': category,
-            'message': message,
-            'data': data
-        }
-        st.session_state.debug_logs.append(log_entry)
-        # Keep only last 100 entries to prevent memory issues
-        if len(st.session_state.debug_logs) > 100:
-            st.session_state.debug_logs.pop(0)
+        pass
     
     def render(self):
-        st.header("🔧 Debug Logs")
+        st.header("🐛 Debug & System Info")
         
-        if not st.session_state.debug_logs:
-            st.info("No debug logs yet. Actions will appear here as they happen.")
+        # Check if user is admin
+        user = st.session_state.get('user', {})
+        if user.get('role') != 'admin':
+            st.error("❌ Access denied. Administrator privileges required to view debug information.")
             return
         
-        # Display logs in reverse chronological order
-        for log in reversed(st.session_state.debug_logs):
-            with st.container():
-                col1, col2 = st.columns([1, 4])
+        # Tab layout for different debug information
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "🚨 API Errors",
+            "📊 Session State", 
+            "🔧 System Info",
+            "🔄 API Logs"
+        ])
+        
+        with tab1:
+            self._render_api_errors()
+        
+        with tab2:
+            self._render_session_state()
+        
+        with tab3:
+            self._render_system_info()
+        
+        with tab4:
+            self._render_api_logs()
+    
+    def _render_api_errors(self):
+        """Render API errors section"""
+        st.subheader("🚨 Recent API Errors")
+        
+        if 'api_errors' not in st.session_state or not st.session_state.api_errors:
+            st.info("No API errors recorded.")
+            return
+        
+        # Show most recent errors first
+        errors = st.session_state.api_errors[::-1]
+        
+        for i, error in enumerate(errors[:10]):  # Show last 10 errors
+            with st.expander(f"Error {i+1} - {error['timestamp']}", expanded=i==0):
+                col1, col2 = st.columns(2)
                 with col1:
-                    st.code(log['timestamp'])
+                    st.write(f"**URL:** `{error['url']}`")
+                    st.write(f"**Method:** `{error['method']}`")
                 with col2:
-                    st.write(f"**{log['category']}**: {log['message']}")
+                    st.write(f"**Status Code:** `{error['status_code']}`")
+                    st.write(f"**Time:** `{error['timestamp']}`")
                 
-                # Show data in expander if available
-                if log['data']:
-                    with st.expander("View Request/Response Details"):
-                        st.json(log['data'])
+                st.write("**Message:**")
+                st.code(error['message'], language='text')
+        
+        # Clear errors button
+        if st.button("🗑️ Clear All Error Logs", type="secondary"):
+            st.session_state.api_errors = []
+            st.rerun()
+    
+    def _render_session_state(self):
+        """Render session state information"""
+        st.subheader("📊 Session State")
+        
+        # Create a copy of session state without large objects
+        session_data = {}
+        for key, value in st.session_state.items():
+            if key in ['db_manager', 'gallery_json_manager', 'github_sync_handler']:
+                session_data[key] = f"<{type(value).__name__} object>"
+            elif key == 'api_details':
+                session_data[key] = f"API details: {len(value)} entries"
+            elif key == 'api_logs':
+                session_data[key] = f"API logs: {len(value)} entries"
+            elif key == 'api_errors':
+                session_data[key] = f"API errors: {len(value)} entries"
+            elif key == 'user':
+                session_data[key] = dict(value) if hasattr(value, 'items') else str(value)
+            else:
+                try:
+                    # Try to convert to JSON-serializable format
+                    json.dumps(value)
+                    session_data[key] = value
+                except:
+                    session_data[key] = f"<{type(value).__name__} object>"
+        
+        # Display as JSON
+        st.json(session_data)
+        
+        # Download session state
+        if st.button("💾 Download Session State JSON"):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"session_state_{timestamp}.json"
+            
+            # Convert to serializable format
+            serializable_data = {}
+            for key, value in session_data.items():
+                if isinstance(value, (str, int, float, bool, type(None))):
+                    serializable_data[key] = value
+                else:
+                    serializable_data[key] = str(value)
+            
+            json_data = json.dumps(serializable_data, indent=2)
+            st.download_button(
+                label="⬇️ Download JSON",
+                data=json_data,
+                file_name=filename,
+                mime="application/json"
+            )
+    
+    def _render_system_info(self):
+        """Render system information"""
+        st.subheader("🔧 System Information")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Python Environment:**")
+            st.code(f"""
+Python Version: {st.__version__}
+Streamlit Version: {st.__version__}
+Pandas Version: {pd.__version__}
+            """)
+            
+            st.write("**Database Info:**")
+            if hasattr(st.session_state, 'db_manager'):
+                try:
+                    stats = st.session_state.db_manager.get_database_stats()
+                    st.code(f"""
+Records: {stats.get('records_count', 'N/A')}
+Users: {stats.get('users_count', 'N/A')}
+Latest Record: {stats.get('latest_record', 'N/A')}
+Database: {stats.get('db_path', 'N/A')}
+                    """)
+                except Exception as e:
+                    st.error(f"Error getting database stats: {e}")
+            else:
+                st.warning("Database manager not available")
+        
+        with col2:
+            st.write("**API Configuration:**")
+            if hasattr(st.session_state, 'db_manager'):
+                api_url = st.session_state.db_manager.api_base_url
+                st.code(f"""
+API Base URL: {api_url}
+                    """)
+            
+            st.write("**Feature Status:**")
+            status_items = []
+            
+            # Check various handlers
+            handlers_to_check = [
+                ('Discogs Handler', 'discogs_handler'),
+                ('eBay Handler', 'ebay_handler'), 
+                ('YouTube Handler', 'youtube_handler'),
+                ('Gallery JSON Manager', 'gallery_json_manager'),
+                ('GitHub Sync Handler', 'github_sync_handler')
+            ]
+            
+            for name, attr in handlers_to_check:
+                handler = getattr(st.session_state, attr, None)
+                if handler:
+                    status_items.append(f"✅ {name}: Available")
+                else:
+                    status_items.append(f"❌ {name}: Not available")
+            
+            st.code("\n".join(status_items))
+        
+        # System actions
+        st.subheader("🛠️ System Actions")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("🔄 Test API Connection", use_container_width=True):
+                self._test_api_connection()
+        
+        with col2:
+            if st.button("🗑️ Clear All Caches", use_container_width=True):
+                self._clear_caches()
+        
+        with col3:
+            if st.button("📋 Export System Report", use_container_width=True):
+                self._export_system_report()
+    
+    def _render_api_logs(self):
+        """Render API logs from session state"""
+        st.subheader("🔄 API Request Logs")
+        
+        if 'api_logs' not in st.session_state or not st.session_state.api_logs:
+            st.info("No API requests logged.")
+            return
+        
+        # Show most recent logs first
+        logs = st.session_state.api_logs[::-1]
+        
+        for i, log_title in enumerate(logs[:20]):  # Show last 20 logs
+            if log_title in st.session_state.api_details:
+                details = st.session_state.api_details[log_title]
+                duration = details.get('duration', 'N/A')
                 
-                st.divider()
+                with st.expander(f"{log_title} ({duration}s)", expanded=False):
+                    # Request details
+                    if 'request' in details:
+                        st.write("**Request:**")
+                        st.json(details['request'])
+                    
+                    # Response details  
+                    if 'response' in details:
+                        st.write("**Response:**")
+                        st.json(details['response'])
         
         # Clear logs button
-        if st.button("Clear Logs"):
-            st.session_state.debug_logs = []
+        if st.button("🗑️ Clear API Logs", key="clear_api_logs"):
+            st.session_state.api_logs = []
+            st.session_state.api_details = {}
             st.rerun()
+    
+    def _test_api_connection(self):
+        """Test API connection"""
+        if hasattr(st.session_state, 'db_manager'):
+            with st.spinner("Testing API connection..."):
+                try:
+                    result = st.session_state.db_manager._make_request('GET', '/health')
+                    if result:
+                        st.success("✅ API connection successful!")
+                    else:
+                        st.error("❌ API connection failed")
+                except Exception as e:
+                    st.error(f"❌ API connection error: {e}")
+        else:
+            st.error("Database manager not available")
+    
+    def _clear_caches(self):
+        """Clear various caches"""
+        cache_keys = [
+            'store_fill_info', 'store_capacity_cache',
+            'selected_records', 'search_results', 'current_search'
+        ]
+        
+        cleared = []
+        for key in cache_keys:
+            if key in st.session_state:
+                del st.session_state[key]
+                cleared.append(key)
+        
+        if cleared:
+            st.success(f"✅ Cleared caches: {', '.join(cleared)}")
+        else:
+            st.info("No caches to clear")
+    
+    def _export_system_report(self):
+        """Export system report"""
+        report_data = {
+            'timestamp': datetime.now().isoformat(),
+            'system_info': {}
+        }
+        
+        # Collect system information
+        if hasattr(st.session_state, 'db_manager'):
+            try:
+                stats = st.session_state.db_manager.get_database_stats()
+                report_data['database_stats'] = stats
+            except Exception as e:
+                report_data['database_stats_error'] = str(e)
+        
+        # Add API errors
+        if 'api_errors' in st.session_state:
+            report_data['recent_errors'] = st.session_state.api_errors[-10:]  # Last 10 errors
+        
+        # Convert to JSON
+        json_report = json.dumps(report_data, indent=2)
+        
+        # Download button
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"system_report_{timestamp}.json"
+        
+        st.download_button(
+            label="📥 Download System Report",
+            data=json_report,
+            file_name=filename,
+            mime="application/json"
+        )
 
 ======================================================================
 
@@ -4173,23 +3925,17 @@ class PriceTagTab:
         # Get records without barcodes
         records = self.price_tag_handler.get_records_without_barcodes()
         
-        # MANAGEMENT SECTION
+        # MANAGEMENT SECTION - REMOVED CLEAR ALL BARCODES BUTTON
         st.subheader("Manage Printed Tags")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🗑️ CLEAR ALL BARCODES", type="secondary", use_container_width=True):
-                self._clear_barcodes()
-        
-        with col2:
-            # Get printed count using API
-            all_records = self.db_manager.get_all_records()
-            printed_count = len(all_records[all_records['barcode'].notna() & (all_records['barcode'] != '')])
-            total_count = len(all_records)
-            st.metric("Printed", f"{printed_count}/{total_count}")
+        # Show printed count using API
+        all_records = self.db_manager.get_all_records()
+        printed_count = len(all_records[all_records['barcode'].notna() & (all_records['barcode'] != '')])
+        total_count = len(all_records)
+        st.metric("Printed", f"{printed_count}/{total_count}")
         
         if not records:
-            st.info("All records have price tags printed. Use the 'Clear All Barcodes' button above to reset them.")
+            st.info("All records have price tags printed.")
             return
         
         st.subheader(f"Records Needing Price Tags ({len(records)} found)")
@@ -4251,13 +3997,9 @@ class PriceTagTab:
             st.subheader(f"Selected for Printing ({len(selected_records)} records)")
             st.dataframe(selected_records[['ID', 'Artist', 'Title', 'Price']], hide_index=True)
             
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("🖨️ Print Price Tags", type="primary", use_container_width=True):
-                    self._print_tags(selected_records['ID'].tolist())
-            with col2:
-                if st.button("⚡ Quick Assign Barcodes Only", use_container_width=True):
-                    self._quick_assign_barcodes(selected_records['ID'].tolist())
+            # REMOVED QUICK ASSIGN BARCODES BUTTON - ONLY PRINT BUTTON REMAINS
+            if st.button("🖨️ Print Price Tags", type="primary", use_container_width=True):
+                self._print_tags(selected_records['ID'].tolist())
     
     def _print_tags(self, record_ids):
         """Print price tags with robust error handling and progress tracking"""
@@ -4277,7 +4019,9 @@ class PriceTagTab:
         
         # Step 1: Assign barcodes
         status_text.text("Step 1/3: Assigning barcodes...")
+        print(f"🔴 DEBUG: Calling assign_barcodes with record_ids: {record_ids}")
         barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
+        print(f"🔴 DEBUG: assign_barcodes returned: {barcode_mapping}")
         progress_bar.progress(33)
         
         if not barcode_mapping:
@@ -4292,7 +4036,9 @@ class PriceTagTab:
         # Step 2: Get record data using API
         status_text.text("Step 2/3: Loading record data...")
         all_records = self.db_manager.get_all_records()
+        print(f"🔴 DEBUG: all_records: {all_records}")
         records_to_print = all_records[all_records['id'].isin(record_ids)]
+        print(f"🔴 DEBUG: records_to_print: {records_to_print}")
         progress_bar.progress(66)
         
         # Step 3: Generate PDF with timeout protection
@@ -4324,8 +4070,13 @@ class PriceTagTab:
         }
         
         def generate_pdf_thread():
-            pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params)
-            result_queue.put(('success', pdf_path))
+            try:
+                print(f"🔴 DEBUG: generate_pdf called with {len(records_to_print)} records and barcode_mapping: {barcode_mapping}")
+                pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params)
+                result_queue.put(('success', pdf_path))
+            except Exception as e:
+                print(f"🔴 DEBUG: PDF generation error: {str(e)}")
+                result_queue.put(('error', str(e)))
         
         # Start PDF generation in thread
         pdf_thread = threading.Thread(target=generate_pdf_thread)
@@ -4342,21 +4093,26 @@ class PriceTagTab:
             st.session_state.print_message = "❌ PDF generation timed out after 20 seconds"
             st.session_state.print_success = False
         else:
-            result_type, result_data = result_queue.get_nowait()
-            
-            if result_type == 'success' and result_data and os.path.exists(result_data):
-                with open(result_data, "rb") as f:
-                    st.session_state.pdf_data = f.read()
-                st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            try:
+                result_type, result_data = result_queue.get_nowait()
                 
-                os.unlink(result_data)
-                
-                st.session_state.print_status = "completed"
-                st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
-                st.session_state.print_success = True
-            else:
+                if result_type == 'success' and result_data and os.path.exists(result_data):
+                    with open(result_data, "rb") as f:
+                        st.session_state.pdf_data = f.read()
+                    st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                    
+                    os.unlink(result_data)
+                    
+                    st.session_state.print_status = "completed"
+                    st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
+                    st.session_state.print_success = True
+                else:
+                    st.session_state.print_status = "error"
+                    st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
+                    st.session_state.print_success = False
+            except queue.Empty:
                 st.session_state.print_status = "error"
-                st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
+                st.session_state.print_message = "❌ PDF generation failed - no result returned"
                 st.session_state.print_success = False
         
         progress_bar.empty()
@@ -4374,51 +4130,6 @@ class PriceTagTab:
         
         if hasattr(st.session_state, 'print_success') and not st.session_state.print_success:
             st.rerun()
-     
-    def _quick_assign_barcodes(self, record_ids):
-        """Quickly assign barcodes without PDF generation"""
-        if not record_ids:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ No records selected"
-            st.session_state.print_success = False
-            st.rerun()
-            return
-        
-        st.session_state.print_status = "processing"
-        st.session_state.print_message = f"🔄 Assigning barcodes to {len(record_ids)} records..."
-        st.session_state.print_success = False
-        st.rerun()
-        
-        barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
-        
-        if barcode_mapping:
-            st.session_state.print_status = "completed"
-            st.session_state.print_message = f"✅ Successfully assigned barcodes to {len(record_ids)} records. You can print labels later."
-            st.session_state.print_success = True
-        else:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ Failed to assign barcodes"
-            st.session_state.print_success = False
-        
-        st.rerun()
-    
-    def _clear_barcodes(self):
-        """Clear all barcodes using API"""
-        # This would require a new API endpoint to clear all barcodes
-        # For now, update each record individually
-        all_records = self.db_manager.get_all_records()
-        updated_count = 0
-        
-        for _, record in all_records.iterrows():
-            success = self.db_manager.update_record(record['id'], {'barcode': None})
-            if success:
-                updated_count += 1
-        
-        st.session_state.print_status = "completed"
-        st.session_state.print_message = f"✅ Cleared barcodes from {updated_count} records!"
-        st.session_state.print_success = True
-        
-        st.rerun()
 
 ======================================================================
 
@@ -4432,34 +4143,13 @@ from pathlib import Path
 from datetime import datetime
 
 class ToolsSyncTab:
-    def __init__(self, gallery_json_manager=None, github_sync_handler=None):
-        self.gallery_json_manager = gallery_json_manager
+    def __init__(self, github_sync_handler=None):
         self.github_sync_handler = github_sync_handler
     
     def render(self):
         st.header("🛠️ Tools & Sync")
         
         col1, col2 = st.columns(2)
-        
-        # Gallery JSON Management
-        with col1:
-            st.subheader("🔄 Gallery JSON")
-            if st.button("🔄 Manual JSON Rebuild", width='stretch'):
-                if self.gallery_json_manager:
-                    with st.spinner("Rebuilding gallery JSON..."):
-                        success = self.gallery_json_manager.trigger_rebuild(async_mode=False)
-                    if success:
-                        st.success("✅ Gallery JSON rebuilt successfully!")
-                    else:
-                        st.error("❌ Gallery JSON rebuild failed")
-                else:
-                    st.error("Gallery JSON manager not initialized")
-            
-            if self.gallery_json_manager:
-                status = self.gallery_json_manager.get_rebuild_status()
-                st.write(f"**Status:** {'Rebuilding...' if status['in_progress'] else 'Ready'}")
-                json_path = self.gallery_json_manager.get_json_path()
-                st.write(f"**JSON Path:** `{json_path}`")
         
         # GitHub Sync Section
         with col2:
@@ -4907,10 +4597,9 @@ from handlers.genre_handler import GenreHandler
 from handlers.youtube_handler import YouTubeHandler
 
 class InventoryTab:
-    def __init__(self, discogs_handler, ebay_handler=None, gallery_json_manager=None, youtube_handler=None):
+    def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
-        self.gallery_json_manager = gallery_json_manager
         self.youtube_handler = youtube_handler
         self.price_handler = PriceHandler()
         self.genre_handler = GenreHandler()
@@ -4946,9 +4635,6 @@ class InventoryTab:
         
         # Inventory Controls (NO EXPANDER)
         self._render_unified_operations(store_fill_info['fill_fraction'])
-        
-        # API Requests & Responses - Show immediately when available
-        self._render_api_logs_section()
 
     def _render_unified_operations(self, store_fill_fraction):
         """Render the unified search/add/checkout operations"""
@@ -4991,7 +4677,7 @@ class InventoryTab:
             
             col1, col2 = st.columns([3, 1])
             with col1:
-                search_submitted = st.form_submit_button("🔍 Search", use_container_width=True, disabled=search_disabled)
+                search_submitted = st.form_submit_button("🔍 Search", width='stretch', disabled=search_disabled)
         
         # Handle search submission
         if search_submitted and search_input and search_input.strip():
@@ -5087,12 +4773,6 @@ class InventoryTab:
         )
         
         if success:
-            # Clear API logs after successful addition
-            if 'api_logs' in st.session_state:
-                st.session_state.api_logs = []
-            if 'api_details' in st.session_state:
-                st.session_state.api_details = {}
-            
             # Get the full record data using the row ID
             import time
             time.sleep(0.5)  # Small delay to ensure triggers complete
@@ -5141,27 +4821,6 @@ class InventoryTab:
         st.warning("Checkout functionality is not available. The status column has been removed from the database.")
         return 0
 
-    def _render_api_logs_section(self):
-        """Render API logs section immediately when available"""
-        if 'api_logs' in st.session_state and st.session_state.api_logs:
-            with st.expander("📡 API Requests & Responses", expanded=False):
-                for api_title in st.session_state.api_logs:
-                    if api_title in st.session_state.api_details:
-                        details = st.session_state.api_details[api_title]
-                        duration = details.get('duration', 'N/A')
-                        display_title = f"{api_title} ({duration}s)" if duration != 'N/A' else api_title
-                        with st.expander(display_title, expanded=False):
-                            # FIX: Check if raw_request exists before accessing it
-                            request_data = details.get('raw_request', details.get('request', {}))
-                            st.write("**Request:**")
-                            st.json(request_data)
-                            
-                            # FIX: Check if raw_response exists before accessing it
-                            response_data = details.get('raw_response', details.get('response', {}))
-                            if response_data:
-                                st.write("**Response:**")
-                                st.json(response_data)
-
     def _get_user_database_stats(self) -> dict:
         """Get database statistics filtered by user for consignors"""
         user = st.session_state.get('user', {})
@@ -5190,84 +4849,50 @@ __all__ = ['AuthManager', 'SessionManager', 'PermissionManager']
 
 FILE: inventory-manager/src/auth/auth_manager.py
 --------------------------------------------------
+# FILE: inventory-manager/src/auth/auth_manager.py
 import streamlit as st
 import hashlib
 import secrets
-import sqlite3
 import time
 from datetime import datetime, timedelta
 import re
 from typing import Optional, Dict, Any
 import os
+import requests
 
 class AuthManager:
-    def __init__(self, db_path: str = "data/records.db"):
-        self.db_path = db_path
-        self._init_auth_database()
+    def __init__(self, api_base_url: str = None):
+        if api_base_url is None:
+            # Get from environment or use default
+            api_base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        
+        self.api_base_url = api_base_url
+        self.session = requests.Session()
     
-    def _init_auth_database(self):
-        """Initialize authentication database within main records database"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+    def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
+        """Make API request with error handling"""
+        url = f"{self.api_base_url}{endpoint}"
         
-        # Users table - with contact info and role
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'consignor',
-                full_name TEXT,
-                phone TEXT,
-                address TEXT,
-                is_active BOOLEAN DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_login TIMESTAMP,
-                failed_attempts INTEGER DEFAULT 0,
-                locked_until TIMESTAMP
-            )
-        ''')
-        
-        # Sessions table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS user_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                session_token TEXT UNIQUE NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP NOT NULL,
-                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ip_address TEXT,
-                user_agent TEXT,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        ''')
-        
-        # Create default admin user if none exists
-        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
-        admin_count = cursor.fetchone()[0]
-        
-        if admin_count == 0:
-            # Create admin user with password admin123
-            password_hash = self._hash_password("admin123")
-            cursor.execute('''
-                INSERT INTO users (username, email, password_hash, role, full_name, is_active)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', ('admin', 'admin@pigstylerecords.com', password_hash, 'admin', 'System Administrator', 1))
-            print("✅ Default admin user created: admin / admin123")
-        
-        conn.commit()
-        conn.close()
+        try:
+            response = self.session.request(method, url, **kwargs)
+            
+            if 200 <= response.status_code < 300:
+                return response.json()
+            else:
+                print(f"API Error {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            print(f"Network error: {str(e)}")
+            return None
     
     def _hash_password(self, password: str) -> str:
-        """Hash password using SHA-256 with salt"""
+        """Hash password using SHA-256 with salt - FOR LOCAL USE ONLY"""
         salt = secrets.token_hex(16)
         return f"{salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"
     
     def _verify_password(self, password: str, password_hash: str) -> bool:
-        """Verify password against hash"""
+        """Verify password against hash - FOR LOCAL USE ONLY"""
         try:
             if not password_hash or '$' not in password_hash:
                 return False
@@ -5294,265 +4919,129 @@ class AuthManager:
             return False, "Password must contain at least one number"
         return True, "Password is strong"
     
-    def create_user(self, username: str, email: str, password: str, role: str = "consignor", full_name: str = "", phone: str = "", address: str = "") -> tuple[bool, str]:
-        """Create a new user account"""
-        # Validate inputs
-        if not username or not email or not password:
-            return False, "All fields are required"
-        
-        if not self._validate_email(email):
-            return False, "Invalid email format"
-        
-        is_strong, message = self._validate_password_strength(password)
-        if not is_strong:
-            return False, message
-        
-        # Check if username or email already exists
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT id FROM users WHERE username = ? OR email = ?", (username, email))
-        if cursor.fetchone():
-            conn.close()
-            return False, "Username or email already exists"
-        
-        # Create user
-        password_hash = self._hash_password(password)
-        try:
-            cursor.execute('''
-                INSERT INTO users (username, email, password_hash, role, full_name, phone, address)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (username, email, password_hash, role, full_name, phone, address))
-            
-            user_id = cursor.lastrowid
-            
-            conn.commit()
-            conn.close()
-            return True, "User created successfully"
-            
-        except Exception as e:
-            conn.close()
-            return False, f"Error creating user: {str(e)}"
-    
     def authenticate_user(self, username: str, password: str, ip_address: str = "", user_agent: str = "") -> tuple[bool, str, Optional[Dict]]:
-        """Authenticate user and create session"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        """Authenticate user via API"""
+        # Use the debug endpoint to verify login
+        # First, get user by username/email to find user_id
+        users_result = self._make_request('GET', '/users')
+        if not users_result or 'users' not in users_result:
+            return False, "Unable to access user database", None
         
-        # Get user data
-        cursor.execute('''
-            SELECT id, username, email, password_hash, role, full_name, is_active, 
-                   failed_attempts, locked_until 
-            FROM users WHERE username = ? OR email = ?
-        ''', (username, username))
+        # Find user by username or email
+        user_data = None
+        user_id = None
         
-        user_data = cursor.fetchone()
+        for user in users_result['users']:
+            if user['username'] == username or user['email'] == username:
+                user_data = user
+                user_id = user['id']
+                break
         
         if not user_data:
-            conn.close()
             return False, "Invalid username or password", None
         
-        user_id, db_username, email, password_hash, role, full_name, is_active, failed_attempts, locked_until = user_data
+        # Now verify the password using the debug endpoint
+        verify_result = self._make_request(
+            'POST', 
+            f'/debug/verify-login/{user_id}',
+            json={'password': password}
+        )
         
-        # Check if account is locked
-        if locked_until and datetime.fromisoformat(locked_until) > datetime.now():
-            conn.close()
-            return False, "Account temporarily locked due to too many failed attempts", None
+        if not verify_result:
+            return False, "Authentication service unavailable", None
         
-        # Check if account is active
-        if not is_active:
-            conn.close()
-            return False, "Account is deactivated", None
-        
-        # Verify password
-        if self._verify_password(password, password_hash):
-            # Successful login - reset failed attempts and update last login
-            cursor.execute('''
-                UPDATE users 
-                SET failed_attempts = 0, locked_until = NULL, last_login = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ''', (user_id,))
-            
-            # Create session
-            session_token = secrets.token_urlsafe(32)
-            expires_at = datetime.now() + timedelta(hours=24)
-            
-            cursor.execute('''
-                INSERT INTO user_sessions (user_id, session_token, expires_at, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, session_token, expires_at, ip_address, user_agent))
-            
-            conn.commit()
-            conn.close()
-            
+        if verify_result.get('login_valid'):
+            # Successful login - create session info
             user_info = {
                 'id': user_id,
-                'username': db_username,
-                'email': email,
-                'role': role,
-                'full_name': full_name,
-                'session_token': session_token
+                'username': user_data['username'],
+                'email': user_data['email'],
+                'role': user_data['role'],
+                'full_name': user_data.get('full_name', ''),
+                'session_token': secrets.token_urlsafe(32)  # Generate local session token
             }
             
             return True, "Login successful", user_info
         else:
-            # Failed login - increment failed attempts
-            failed_attempts += 1
-            if failed_attempts >= 5:
-                locked_until = datetime.now() + timedelta(minutes=30)
-                cursor.execute('''
-                    UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?
-                ''', (failed_attempts, locked_until, user_id))
-                message = "Account locked for 30 minutes due to too many failed attempts"
-            else:
-                cursor.execute('UPDATE users SET failed_attempts = ? WHERE id = ?', (failed_attempts, user_id))
-                message = f"Invalid password. {5 - failed_attempts} attempts remaining"
-            
-            conn.commit()
-            conn.close()
-            return False, message, None
+            return False, "Invalid password", None
     
     def validate_session(self, session_token: str) -> tuple[bool, Optional[Dict]]:
-        """Validate session token and return user info"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT us.user_id, us.expires_at, u.username, u.email, u.role, u.full_name, u.is_active
-            FROM user_sessions us
-            JOIN users u ON us.user_id = u.id
-            WHERE us.session_token = ? AND us.expires_at > CURRENT_TIMESTAMP AND u.is_active = 1
-        ''', (session_token,))
-        
-        session_data = cursor.fetchone()
-        
-        if not session_data:
-            conn.close()
-            return False, None
-        
-        user_id, expires_at, username, email, role, full_name, is_active = session_data
-        
-        # Update last activity
-        cursor.execute('''
-            UPDATE user_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_token = ?
-        ''', (session_token,))
-        
-        conn.commit()
-        conn.close()
-        
-        user_info = {
-            'id': user_id,
-            'username': username,
-            'email': email,
-            'role': role,
-            'full_name': full_name
-        }
-        
-        return True, user_info
+        """Validate session token - for now, just check if user exists in session state"""
+        # This is a simplified session validation for Streamlit
+        # In a production app, you'd want more robust session management
+        if hasattr(st.session_state, 'user') and st.session_state.user:
+            return True, st.session_state.user
+        return False, None
     
     def logout_user(self, session_token: str):
-        """Invalidate user session"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Delete session
-        cursor.execute('DELETE FROM user_sessions WHERE session_token = ?', (session_token,))
-        conn.commit()
-        conn.close()
+        """Invalidate user session - clear session state"""
+        # Clear session state
+        if hasattr(st.session_state, 'user'):
+            st.session_state.user = None
+        if hasattr(st.session_state, 'authenticated'):
+            st.session_state.authenticated = False
+        if hasattr(st.session_state, 'session_token'):
+            st.session_state.session_token = None
     
     def change_password(self, user_id: int, current_password: str, new_password: str) -> tuple[bool, str]:
-        """Change user password"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Get current password hash
-        cursor.execute('SELECT password_hash FROM users WHERE id = ?', (user_id,))
-        result = cursor.fetchone()
-        
-        if not result:
-            conn.close()
-            return False, "User not found"
-        
-        current_password_hash = result[0]
-        
-        # Verify current password
-        if not self._verify_password(current_password, current_password_hash):
-            conn.close()
-            return False, "Current password is incorrect"
-        
+        """Change user password via API"""
         # Validate new password strength
         is_strong, message = self._validate_password_strength(new_password)
         if not is_strong:
-            conn.close()
             return False, f"New password is weak: {message}"
         
-        # Hash and update new password
-        new_password_hash = self._hash_password(new_password)
+        # Use API to change password
+        result = self._make_request(
+            'POST', 
+            f'/users/{user_id}/change-password',
+            json={
+                'current_password': current_password,
+                'new_password': new_password
+            }
+        )
         
-        try:
-            cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, user_id))
-            
-            conn.commit()
-            conn.close()
+        if result and result.get('status') == 'success':
             return True, "Password changed successfully"
-            
-        except Exception as e:
-            conn.close()
-            return False, f"Error changing password: {str(e)}"
+        else:
+            error_msg = result.get('error', 'Unknown error') if result else 'API request failed'
+            return False, f"Error changing password: {error_msg}"
     
     def reset_password(self, admin_user_id: int, target_user_id: int, new_password: str) -> tuple[bool, str]:
-        """Admin reset user password (admin only)"""
+        """Admin reset user password via API"""
         # Validate new password strength
         is_strong, message = self._validate_password_strength(new_password)
         if not is_strong:
             return False, f"New password is weak: {message}"
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        # Use API to reset password
+        result = self._make_request(
+            'POST', 
+            f'/users/{target_user_id}/reset-password',
+            json={'new_password': new_password}
+        )
         
-        try:
-            # Hash and update new password
-            new_password_hash = self._hash_password(new_password)
-            cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', (new_password_hash, target_user_id))
-            
-            conn.commit()
-            conn.close()
+        if result and result.get('status') == 'success':
             return True, "Password reset successfully"
-            
-        except Exception as e:
-            conn.close()
-            return False, f"Error resetting password: {str(e)}"
+        else:
+            error_msg = result.get('error', 'Unknown error') if result else 'API request failed'
+            return False, f"Error resetting password: {error_msg}"
     
     def get_all_users(self):
-        """Get all users (admin only)"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, username, email, role, full_name, phone, address, is_active, created_at, last_login
-            FROM users ORDER BY username
-        ''')
-        
-        users = cursor.fetchall()
-        conn.close()
-        
-        return users
+        """Get all users via API"""
+        result = self._make_request('GET', '/users')
+        if result and 'users' in result:
+            return result['users']
+        return []
+    
+    def create_user(self, username: str, email: str, password: str, role: str = "consignor", full_name: str = "", phone: str = "", address: str = "") -> tuple[bool, str]:
+        """Create a new user account - NOT IMPLEMENTED IN API YET"""
+        # This would require a new API endpoint for user creation
+        return False, "User creation not available via API"
     
     def update_user_role(self, user_id: int, new_role: str, admin_id: int) -> tuple[bool, str]:
-        """Update user role (admin only)"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
-            
-            conn.commit()
-            conn.close()
-            return True, "User role updated successfully"
-            
-        except Exception as e:
-            conn.close()
-            return False, f"Error updating user role: {str(e)}"
+        """Update user role - NOT IMPLEMENTED IN API YET"""
+        # This would require a new API endpoint for role updates
+        return False, "Role updates not available via API"
 
 ======================================================================
 
@@ -5613,11 +5102,12 @@ class PermissionManager:
 
 FILE: inventory-manager/src/auth/session_manager.py
 --------------------------------------------------
+# FILE: inventory-manager/src/auth/session_manager.py
 import streamlit as st
 from typing import Optional, Dict, Any
 
 class SessionManager:
-    """Manage user sessions in Streamlit"""
+    """Manage user sessions in Streamlit with API-based authentication"""
     
     def __init__(self, auth_manager):
         self.auth_manager = auth_manager
@@ -5645,42 +5135,16 @@ class SessionManager:
                 # Session expired or invalid
                 self.logout()
         
-        # Check for session token in query params (for remember me functionality)
-        query_params = st.query_params
-        if 'token' in query_params:
-            token = query_params['token'][0]
-            is_valid, user_info = self.auth_manager.validate_session(token)
-            if is_valid:
-                st.session_state.session_token = token
-                st.session_state.user = user_info
-                st.session_state.authenticated = True
-                return True
-        
         return False
     
     def login(self, username: str, password: str, remember_me: bool = False) -> tuple[bool, str]:
-        """Authenticate user and create session"""
-        # Get client info for logging
-        try:
-            import requests
-            ip_address = requests.get('https://api.ipify.org').text
-        except:
-            ip_address = "unknown"
-        
-        user_agent = "Streamlit App"  # Simplified for Streamlit Cloud
-        
-        success, message, user_info = self.auth_manager.authenticate_user(
-            username, password, ip_address, user_agent
-        )
+        """Authenticate user and create session using API"""
+        success, message, user_info = self.auth_manager.authenticate_user(username, password)
         
         if success and user_info:
             st.session_state.authenticated = True
             st.session_state.user = user_info
             st.session_state.session_token = user_info['session_token']
-            
-            # Set query param for "remember me" functionality
-            if remember_me:
-                st.query_params = {"token": user_info['session_token']}
             
             return True, message
         else:
@@ -5688,7 +5152,7 @@ class SessionManager:
     
     def logout(self):
         """Logout user and clear session"""
-        if st.session_state.session_token:
+        if hasattr(st.session_state, 'session_token') and st.session_state.session_token:
             self.auth_manager.logout_user(st.session_state.session_token)
         
         # Clear session state
@@ -5696,19 +5160,16 @@ class SessionManager:
         st.session_state.user = None
         st.session_state.session_token = None
         
-        # Clear query params
-        st.query_params = {}
-        
         # Force rerun to show login page
         st.rerun()
     
     def get_current_user(self) -> Optional[Dict]:
         """Get current user information"""
-        return st.session_state.user if st.session_state.authenticated else None
+        return st.session_state.user if hasattr(st.session_state, 'authenticated') and st.session_state.authenticated else None
     
     def change_password(self, current_password: str, new_password: str) -> tuple[bool, str]:
-        """Change current user's password"""
-        if not st.session_state.authenticated or not st.session_state.user:
+        """Change current user's password via API"""
+        if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated or not st.session_state.user:
             return False, "Not authenticated"
         
         user_id = st.session_state.user['id']
@@ -5718,7 +5179,7 @@ class SessionManager:
         """Decorator to require authentication for functions"""
         def decorator(func):
             def wrapper(*args, **kwargs):
-                if not st.session_state.authenticated:
+                if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
                     st.error("Please log in to access this feature")
                     return None
                 return func(*args, **kwargs)
@@ -5729,7 +5190,7 @@ class SessionManager:
         """Decorator to require specific roles"""
         def decorator(func):
             def wrapper(*args, **kwargs):
-                if not st.session_state.authenticated:
+                if not hasattr(st.session_state, 'authenticated') or not st.session_state.authenticated:
                     st.error("Please log in to access this feature")
                     return None
                 
@@ -5769,15 +5230,10 @@ class DiscogsHandler:
         """Get all price suggestions for a release using marketplace price_suggestions endpoint"""
         endpoint_url = f"{self.base_url}/marketplace/price_suggestions/{release_id}"
         
-        # Log the API call
-        api_title = f"💰 Discogs Price Suggestions API (GET): {endpoint_url}"
+        # Log the API call to terminal
+        print(f"🔴 DEBUG: Starting Discogs Price Suggestions API call for release_id: {release_id}")
+        print(f"🔴 DEBUG: Endpoint: {endpoint_url}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'method': 'GET',
-            'params': {},
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         try:
             response = requests.get(
@@ -5789,16 +5245,15 @@ class DiscogsHandler:
             duration = round(time.time() - start_time, 2)
             
             if response.status_code != 200:
-                error_data = {'error': f'Status {response.status_code}', 'response_text': response.text}
-                self._log_api_response(api_title, error_data, duration)
+                error_msg = f'Status {response.status_code}: {response.text}'
+                print(f"🔴 DEBUG: Discogs API ERROR: {error_msg}")
                 return None
             
             data = response.json()
             
-            # Log RAW DISCOGS PRICE SUGGESTIONS PAYLOAD
-            self._log_api_response(api_title, data, duration)
-            
-            print(f"🔴 DEBUG price_suggestions response: {data}")
+            # Log successful response to terminal
+            print(f"🔴 DEBUG: Discogs API SUCCESS - Duration: {duration}s")
+            print(f"🔴 DEBUG: Price suggestions keys: {list(data.keys()) if data else 'No data'}")
             
             # Return all conditions and their prices
             price_suggestions = {}
@@ -5806,6 +5261,8 @@ class DiscogsHandler:
                 price_value = self._parse_price_from_suggestion(price_data)
                 if price_value:
                     price_suggestions[condition] = price_value
+            
+            print(f"🔴 DEBUG: Parsed price suggestions: {price_suggestions}")
             
             return {
                 'price_suggestions': price_suggestions,
@@ -5815,8 +5272,8 @@ class DiscogsHandler:
             
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            error_data = {'error': str(e)}
-            self._log_api_response(api_title, error_data, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: Discogs API EXCEPTION: {error_msg} - Duration: {duration}s")
             return None
 
     def _parse_price_from_suggestion(self, price_data):
@@ -5844,14 +5301,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Log the API call with unified format
-        api_title = f"🔍 Discogs Search API: {endpoint_url}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Search API for query: {query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': params,
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
         
         response = requests.get(
             endpoint_url,
@@ -5864,12 +5316,14 @@ class DiscogsHandler:
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
+            print(f"🔴 DEBUG: Discogs Search API ERROR: {error_msg}")
             raise Exception(error_msg)
         
         data = response.json()
         
-        # Log successful response - RAW DISCOGS PAYLOAD
-        self._log_api_response(api_title, data, duration)
+        # Log successful search
+        print(f"🔴 DEBUG: Discogs Search API SUCCESS - Duration: {duration}s")
+        print(f"🔴 DEBUG: Found {len(data.get('results', []))} results")
         
         return data
 
@@ -5904,14 +5358,9 @@ class DiscogsHandler:
         """Get basic release info for images and metadata"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
         
-        # Log the API call
-        api_title = f"📀 Discogs Release API: {endpoint_url}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Release API for release_id: {release_id}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': {},
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         response = requests.get(
             endpoint_url,
@@ -5923,8 +5372,7 @@ class DiscogsHandler:
         
         if response.status_code == 200:
             release_data = response.json()
-            # Log the response
-            self._log_api_response(api_title, release_data, duration)
+            print(f"🔴 DEBUG: Discogs Release API SUCCESS - Duration: {duration}s")
             
             image_url = self._extract_image_from_release(release_data)
             return {
@@ -5932,22 +5380,17 @@ class DiscogsHandler:
                 'release_data': release_data
             }
         else:
-            # Log error response
-            self._log_api_response(api_title, {'error': f'Status {response.status_code}', 'response_text': response.text}, duration)
+            error_msg = f'Status {response.status_code}: {response.text}'
+            print(f"🔴 DEBUG: Discogs Release API ERROR: {error_msg}")
             return {'image_url': '', 'release_data': {}}
 
     def get_release_tracklist(self, release_id: str):
         """Get tracklist from Discogs release data"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
         
-        # Log the API call
-        api_title = f"🎵 Discogs Tracklist API: {endpoint_url}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Tracklist API for release_id: {release_id}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': {},
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         try:
             response = requests.get(
@@ -5960,8 +5403,7 @@ class DiscogsHandler:
             
             if response.status_code == 200:
                 release_data = response.json()
-                # Log the response
-                self._log_api_response(api_title, release_data, duration)
+                print(f"🔴 DEBUG: Discogs Tracklist API SUCCESS - Duration: {duration}s")
                 
                 # Extract tracklist
                 tracklist = release_data.get('tracklist', [])
@@ -5973,16 +5415,17 @@ class DiscogsHandler:
                         if title and title not in track_titles:
                             track_titles.append(title)
                 
+                print(f"🔴 DEBUG: Found {len(track_titles)} tracks")
                 return track_titles
             else:
-                # Log error response
-                self._log_api_response(api_title, {'error': f'Status {response.status_code}', 'response_text': response.text}, duration)
+                error_msg = f'Status {response.status_code}: {response.text}'
+                print(f"🔴 DEBUG: Discogs Tracklist API ERROR: {error_msg}")
                 return []
                 
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            error_data = {'error': str(e)}
-            self._log_api_response(api_title, error_data, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: Discogs Tracklist API EXCEPTION: {error_msg}")
             return []
 
     def get_simple_search_results(self, query: str, filename_base: str = None):
@@ -5995,14 +5438,9 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Log the API call with unified format
-        api_title = f"🔍 Discogs Simple Search API: {endpoint_url}?q={query}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting Discogs Simple Search API for query: {query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': endpoint_url,
-            'params': params,
-            'headers': {k: '***' if 'Authorization' in k else v for k, v in self.headers.items()}
-        })
 
         response = requests.get(
             endpoint_url,
@@ -6015,12 +5453,14 @@ class DiscogsHandler:
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
+            print(f"🔴 DEBUG: Discogs Simple Search API ERROR: {error_msg}")
             raise Exception(error_msg)
         
         search_data = response.json()
         
-        # Log RAW DISCOGS SEARCH PAYLOAD
-        self._log_api_response(api_title, search_data, duration)
+        # Log successful search
+        print(f"🔴 DEBUG: Discogs Simple Search API SUCCESS - Duration: {duration}s")
+        print(f"🔴 DEBUG: Found {len(search_data.get('results', []))} results")
         
         # Process results - just basic info, no pricing calls
         formatted_results = []
@@ -6279,26 +5719,6 @@ class DiscogsHandler:
         file_path = payloads_folder / filename
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-
-    def _log_api_call(self, title, request_data):
-        """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
-            
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {
-            'request': request_data,
-            'raw_request': request_data  # Store raw request data
-        }
-
-    def _log_api_response(self, title, response_data, duration):
-        """Log API response in unified format - RAW PAYLOADS ONLY"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
-            st.session_state.api_details[title]['duration'] = duration
-            st.session_state.api_details[title]['raw_response'] = response_data  # Store raw response data
 
 ======================================================================
 
@@ -6701,7 +6121,7 @@ class DisplayHandler:
         if add_disabled:
             st.error("❌ Cannot add new items - store is over capacity!")
         
-        # Add consignment dropdown for both new and existing records - NOW DIRECT USER SELECTION
+        # Add consignment dropdown for both new and existing records - NOW WITH USER ROLE CHECK
         user_id, commission_rate, store_return_days = self._render_consignment_section(record_data, current_consignment_rate)
         if user_id:
             record_data['consignor_id'] = user_id
@@ -6809,7 +6229,51 @@ class DisplayHandler:
             return 0.40  # 40% when above 110%
 
     def _render_consignment_section(self, record_data=None, current_consignment_rate=0.10):
-        """Render consignment section with direct user selection and individual rates"""
+        """Render consignment section with direct user selection and individual rates - NOW WITH USER ROLE CHECK"""
+        # Get current user info
+        current_user = st.session_state.get('user', {})
+        user_role = current_user.get('role', 'consignor')
+        current_user_id = current_user.get('id')
+        
+        # If user is consignor, automatically set to themselves and make it unchangeable
+        if user_role == 'consignor' and current_user_id:
+            # Auto-select current user as consignor
+            user_id = current_user_id
+            
+            # Use current calculated consignment rate as default
+            current_commission_rate = record_data.get('commission_rate')
+            if current_commission_rate is None:
+                current_commission_rate = current_consignment_rate
+            
+            commission_rate = st.number_input(
+                "Commission Rate:",
+                min_value=0.0,
+                max_value=1.0,
+                value=current_commission_rate,
+                step=0.05,
+                format="%.2f",
+                key="commission_rate_input"
+            )
+            
+            # Show store return days input
+            current_store_return_days = record_data.get('store_return_days')
+            if current_store_return_days is None:
+                current_store_return_days = int(st.session_state.db_manager.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
+            
+            store_return_days = st.number_input(
+                "Store Return Days:",
+                min_value=1,
+                max_value=365,
+                value=current_store_return_days,
+                step=1,
+                key="store_return_days_input"
+            )
+            
+            st.info(f"🔒 Consignor automatically set to: {current_user.get('username', 'You')} (Consignor account)")
+            
+            return user_id, commission_rate, store_return_days
+        
+        # For admin users, show the full dropdown selection
         # Get all users for dropdown - using API approach
         users_df = st.session_state.db_manager.get_all_users()
         
@@ -7060,6 +6524,9 @@ class DisplayHandler:
         if current_youtube_url:
             st.success(f"✅ Currently linked: {current_youtube_url}")
             
+            # Add clickable link to view the video
+            st.markdown(f"[📺 Click here to view the video]({current_youtube_url})", unsafe_allow_html=True)
+            
             # Show option to remove link
             if st.button("❌ Remove YouTube Link", key="remove_youtube", width='stretch'):
                 record_data['youtube_url'] = ''
@@ -7091,6 +6558,7 @@ class DisplayHandler:
             # Group by track if available
             track_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'track']
             album_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'album']
+            other_results = [r for r in st.session_state.youtube_search_results if r.get('type') == 'other']
             
             if track_results:
                 st.write("**🎵 Individual Track Recordings:**")
@@ -7101,25 +6569,48 @@ class DisplayHandler:
                 st.write("**📀 Album Content:**")
                 for i, video in enumerate(album_results, start=len(track_results)):
                     self._render_youtube_video_option(video, i, record_data)
+                    
+            if other_results:
+                st.write("**🎥 Other Related Videos:**")
+                for i, video in enumerate(other_results, start=len(track_results) + len(album_results)):
+                    self._render_youtube_video_option(video, i, record_data)
+                    
+            # If no results were categorized, show all results
+            if not track_results and not album_results and not other_results and st.session_state.youtube_search_results:
+                st.write("**🎥 All Search Results:**")
+                for i, video in enumerate(st.session_state.youtube_search_results):
+                    self._render_youtube_video_option(video, i, record_data)
         else:
             st.info("No YouTube search results available")
 
     def _render_youtube_video_option(self, video, index, record_data):
-        """Display a YouTube video option with link button"""
-        col1, col2, col3 = st.columns([1, 3, 1])
+        """Display a YouTube video option with link button and clickable link"""
+        col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
         with col1:
             if video.get('thumbnail'):
                 st.image(video['thumbnail'], width=80)
+            else:
+                st.write("No thumbnail")
         with col2:
             st.write(f"**{video['title']}**")
             st.write(f"Channel: {video['channel']}")
             if video.get('track_title'):
                 st.write(f"Track: {video['track_title']}")
+            if video.get('type'):
+                st.write(f"Type: {video['type']}")
+            
+            # Add clickable link to view the video
+            st.markdown(f"[📺 Watch this video]({video['url']})", unsafe_allow_html=True)
+            
         with col3:
             if st.button("🔗 Link", key=f"youtube_link_{index}", width='stretch'):
                 record_data['youtube_url'] = video['url']
                 st.success(f"✅ Linked to: {video['title']}")
                 st.rerun()
+        
+        with col4:
+            # Add a direct view button
+            st.markdown(f'<a href="{video["url"]}" target="_blank"><button style="width: 100%;">👀 View</button></a>', unsafe_allow_html=True)
 
     def _render_pricing_information(self, record_data):
         """Render ALL pricing information - ONLY called after ALL API calls complete"""
@@ -7723,130 +7214,6 @@ class DraftCSVHandler:
 
 ======================================================================
 
-FILE: inventory-manager/src/handlers/github_sync_handler.py
---------------------------------------------------
-import subprocess
-import os
-import json
-from pathlib import Path
-import streamlit as st
-from datetime import datetime
-
-class GitHubSyncHandler:
-    def __init__(self, repo_path=None, gallery_json_manager=None):
-        self.repo_path = Path(repo_path or "/home/arjan-ubuntu/Documents/PigStyle")
-        self.gallery_json_manager = gallery_json_manager
-        self.sync_script_path = self.repo_path / "sync_to_github.py"
-        
-    def trigger_sync(self, commit_message=None):
-        """Trigger GitHub sync using your existing script"""
-        try:
-            if commit_message is None:
-                commit_message = f"Auto-sync: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            
-            # Ensure gallery JSON is rebuilt first via the manager
-            if self.gallery_json_manager:
-                rebuild_success = self.gallery_json_manager.trigger_rebuild(async_mode=False)
-                if not rebuild_success:
-                    return False, "Gallery JSON rebuild failed"
-            
-            # Run your existing sync script
-            if self.sync_script_path.exists():
-                result = subprocess.run(
-                    ['python3', str(self.sync_script_path)],
-                    capture_output=True, 
-                    text=True, 
-                    timeout=60,
-                    cwd=self.repo_path
-                )
-                
-                if result.returncode == 0:
-                    return True, "GitHub sync completed successfully"
-                else:
-                    # Parse the output to get meaningful error message
-                    output = result.stdout + result.stderr
-                    if "✅" in output:
-                        return True, "Sync completed"
-                    else:
-                        return False, f"Sync script failed: {output}"
-            else:
-                return False, f"Sync script not found at: {self.sync_script_path}"
-                
-        except subprocess.TimeoutExpired:
-            return False, "GitHub sync timed out"
-        except Exception as e:
-            return False, f"Sync error: {str(e)}"
-    
-    def get_sync_status(self):
-        """Get current git status"""
-        try:
-            # Check if there are any changes
-            status_result = subprocess.run(
-                ['git', 'status', '--porcelain'],
-                capture_output=True, 
-                text=True, 
-                cwd=self.repo_path
-            )
-            
-            has_changes = bool(status_result.stdout.strip())
-            
-            # Get last commit info
-            log_result = subprocess.run(
-                ['git', 'log', '-1', '--format=%H %cd %s', '--date=short'],
-                capture_output=True, 
-                text=True, 
-                cwd=self.repo_path
-            )
-            
-            last_commit = log_result.stdout.strip() if log_result.returncode == 0 else "Unknown"
-            
-            # Check if sync script exists
-            script_exists = self.sync_script_path.exists()
-            
-            return {
-                'has_changes': has_changes,
-                'last_commit': last_commit,
-                'repo_path': str(self.repo_path),
-                'script_exists': script_exists,
-                'script_path': str(self.sync_script_path)
-            }
-            
-        except Exception as e:
-            return {
-                'has_changes': False,
-                'last_commit': f"Error: {str(e)}",
-                'repo_path': str(self.repo_path),
-                'script_exists': self.sync_script_path.exists(),
-                'script_path': str(self.sync_script_path)
-            }
-    
-    def manual_trigger_with_message(self, message):
-        """Manual trigger with custom commit message"""
-        try:
-            # First rebuild the JSON
-            if self.gallery_json_manager:
-                self.gallery_json_manager.trigger_rebuild(async_mode=False)
-            
-            # Then use git commands directly with custom message
-            commands = [
-                ['git', 'add', 'web/public/gallery-data.json'],
-                ['git', 'commit', '-m', message],
-                ['git', 'push']
-            ]
-            
-            for cmd in commands:
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.repo_path)
-                if result.returncode != 0:
-                    if "nothing to commit" not in result.stderr:
-                        return False, f"Command failed: {' '.join(cmd)} - {result.stderr}"
-            
-            return True, f"Manual sync completed: {message}"
-            
-        except Exception as e:
-            return False, f"Manual sync failed: {str(e)}"
-
-======================================================================
-
 FILE: inventory-manager/src/handlers/price_handler.py
 --------------------------------------------------
 import math
@@ -7963,13 +7330,13 @@ class RecordOperationsHandler:
         # Get Discogs pricing information - USE PRICE SUGGESTIONS
         pricing_data = None
         
-        print(f"🔴 DEBUG calling get_release_statistics_pricing")
+        print(f"🔴 DEBUG: BEFORE Discogs pricing API call for release_id: {release_id}")
         
         if self.discogs_handler:
             with st.spinner("Fetching Discogs price suggestions..."):
                 pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
             
-            print(f"🔴 DEBUG pricing_data result: {pricing_data}")
+            print(f"🔴 DEBUG: AFTER Discogs pricing API call - pricing_data: {pricing_data}")
         else:
             st.error("Discogs handler not available")
             return False, None
@@ -8043,7 +7410,12 @@ class RecordOperationsHandler:
             'compilation': compilation  # Include compilation status
         }
         
+        print(f"🔴 DEBUG: BEFORE database save_record call")
+        print(f"🔴 DEBUG: Saving record data: {result_data}")
+        
         record_id = st.session_state.db_manager.save_record(result_data)
+        
+        print(f"🔴 DEBUG: AFTER database save_record call - record_id: {record_id}")
         
         # Trigger GitHub sync after successful addition
         if record_id:
@@ -8167,18 +7539,11 @@ class RecordOperationsHandler:
             # Import here to avoid circular imports
             from handlers.github_sync_handler import GitHubSyncHandler
             
-            # Get the gallery JSON manager from session state
-            gallery_json_manager = st.session_state.get('gallery_json_manager')
-            if gallery_json_manager:
-                # Rebuild JSON first
-                gallery_json_manager.trigger_rebuild(async_mode=False)
-                
-                # Then trigger GitHub sync
-                github_handler = GitHubSyncHandler(
-                    repo_path="/home/arjan-ubuntu/Documents/PigStyle",
-                    gallery_json_manager=gallery_json_manager
-                )
-                github_handler.trigger_sync()
+            # Trigger GitHub sync
+            github_handler = GitHubSyncHandler(
+                repo_path="/home/arjan-ubuntu/Documents/PigStyle"
+            )
+            github_handler.trigger_sync()
         
         # Start sync in background thread
         sync_thread = threading.Thread(target=sync_background, daemon=True)
@@ -8326,19 +7691,9 @@ class YouTubeHandler:
         artist = record_data.get('artist', '')
         album_title = record_data.get('title', '')
         
-        # Log the API call
-        api_title = f"🎵 YouTube Album Search API: {search_query}"
+        # Log to terminal
+        print(f"🔴 DEBUG: Starting YouTube Album Search for: {search_query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': 'https://www.googleapis.com/youtube/v3/search',
-            'request': {
-                'search_query': search_query,
-                'artist': artist,
-                'album_title': album_title,
-                'track_titles_count': len(track_titles) if track_titles else 0,
-                'maxResults': 20  # Get more results to filter through
-            }
-        })
         
         try:
             youtube = build('youtube', 'v3', developerKey=self.api_key)
@@ -8346,7 +7701,7 @@ class YouTubeHandler:
                 q=search_query,
                 part='snippet',
                 type='video',
-                maxResults=20,  # Get more results to find matching tracks
+                maxResults=20,  # Get more results to filter through
                 videoEmbeddable='true',
                 videoDuration='short',
                 order='relevance'
@@ -8359,13 +7714,11 @@ class YouTubeHandler:
             
             duration = round(time.time() - start_time, 2)
             
-            # Log the response
-            self._log_api_response(api_title, {
-                'status_code': 200,
-                'results_count': len(all_results),
-                'track_matches': len([r for r in all_results if r.get('type') == 'track']),
-                'album_matches': len([r for r in all_results if r.get('type') == 'album'])
-            }, duration)
+            # Log to terminal
+            print(f"🔴 DEBUG: YouTube Search SUCCESS - Duration: {duration}s")
+            print(f"🔴 DEBUG: Found {len(all_results)} total results")
+            print(f"🔴 DEBUG: Track matches: {len([r for r in all_results if r.get('type') == 'track'])}")
+            print(f"🔴 DEBUG: Album matches: {len([r for r in all_results if r.get('type') == 'album'])}")
             
             return all_results
             
@@ -8373,25 +7726,18 @@ class YouTubeHandler:
             duration = round(time.time() - start_time, 2)
             if e.resp.status == 403 and 'quotaExceeded' in str(e):
                 self.quota_exceeded = True
-                self._log_api_response(api_title, {
-                    'status_code': 403,
-                    'error': 'YouTube API quota exceeded'
-                }, duration)
+                print(f"🔴 DEBUG: YouTube API quota exceeded")
                 st.error("🎵 YouTube API quota exceeded. Please try again tomorrow.")
                 return []
             else:
-                self._log_api_response(api_title, {
-                    'status_code': e.resp.status,
-                    'error': str(e)
-                }, duration)
+                error_msg = f"HTTP Error {e.resp.status}: {str(e)}"
+                print(f"🔴 DEBUG: YouTube API ERROR: {error_msg}")
                 st.error(f"🎵 YouTube API error: {e}")
                 return []
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            self._log_api_response(api_title, {
-                'status_code': 'Error',
-                'error': str(e)
-            }, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: YouTube Search EXCEPTION: {error_msg}")
             st.error(f"🎵 YouTube search error: {e}")
             return []
 
@@ -8558,22 +7904,6 @@ class YouTubeHandler:
                 return match.group(1)
         return None
 
-    def _log_api_call(self, title, request_data):
-        """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
-            
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {'request': request_data}
-
-    def _log_api_response(self, title, response_data, duration):
-        """Log API response in unified format"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
-            st.session_state.api_details[title]['duration'] = duration
-
     def is_enabled(self):
         """Check if YouTube handler is enabled"""
         return self.enabled
@@ -8627,39 +7957,34 @@ class PriceTagHandler:
         return records_without_barcodes.to_dict('records')
     
     def assign_barcodes(self, record_ids):
-        """Assign sequential barcodes to records using API"""
+        """Assign sequential barcodes to records using the bulk API endpoint"""
         if not record_ids:
             return {}
         
-        # Get current max barcode using API
-        all_records = self.db_manager.get_all_records()
+        print(f"🔴 DEBUG: Calling assign_barcodes with record_ids: {record_ids}")
         
-        if all_records.empty:
-            start_barcode = 100000
-        else:
-            # Find the maximum numeric barcode
-            numeric_barcodes = []
-            for barcode_val in all_records['barcode']:
-                if barcode_val and barcode_val.isdigit():
-                    numeric_barcodes.append(int(barcode_val))
+        try:
+            # Use the bulk barcode assignment endpoint
+            result = self.db_manager._make_request(
+                'POST', 
+                '/barcodes/assign',
+                json={'record_ids': record_ids}
+            )
             
-            if numeric_barcodes:
-                start_barcode = max(numeric_barcodes) + 1
+            print(f"🔴 DEBUG: API response: {result}")
+            
+            if result and 'barcode_mapping' in result:
+                print(f"🔴 DEBUG: Barcode assignment successful: {result['barcode_mapping']}")
+                return result['barcode_mapping']
             else:
-                start_barcode = 100000
-        
-        barcode_mapping = {}
-        current_barcode = start_barcode
-        
-        # Update each record with new barcode using API
-        for record_id in record_ids:
-            barcode_str = str(current_barcode)
-            success = self.db_manager.update_record(record_id, {'barcode': barcode_str})
-            if success:
-                barcode_mapping[record_id] = barcode_str
-                current_barcode += 1
-        
-        return barcode_mapping
+                print(f"🔴 DEBUG: Barcode assignment failed: {result}")
+                return {}
+                
+        except Exception as e:
+            print(f"🔴 DEBUG: Exception in assign_barcodes: {str(e)}")
+            import traceback
+            print(f"🔴 DEBUG: Traceback: {traceback.format_exc()}")
+            return {}
     
     def generate_barcode(self, barcode_number):
         """Generate barcode image"""
@@ -8713,7 +8038,8 @@ class PriceTagHandler:
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         output_path = temp_file.name
         temp_file.close()
-        
+        print(f"🔴 DEBUG:generate_pdf temp_file: {temp_file}")
+
         c = canvas.Canvas(output_path, pagesize=letter)
         
         # Use provided layout parameters or defaults
@@ -8728,10 +8054,13 @@ class PriceTagHandler:
         rows = params['rows']
         columns = params['columns']
         
+        print(f"🔴 DEBUG:generate_pdf columns: {columns}")
+
         labels_per_page = rows * columns
         current_label = 0
         
         for _, record in df.iterrows():
+             
             if current_label % labels_per_page == 0 and current_label > 0:
                 c.showPage()
             
@@ -8741,10 +8070,17 @@ class PriceTagHandler:
             
             x = left_margin + col * (label_width + gutter_spacing)
             y = letter[1] - top_margin - (row + 1) * label_height
+             
+            barcode_number = barcode_mapping.get(str(record['id']))
+
             
-            self.draw_tag(c, x, y, label_width, label_height, record, barcode_mapping.get(record['id']), params)
+            self.draw_tag(c, x, y, label_width, label_height, record, barcode_number, params)
+
+            
+
+
             current_label += 1
-        
+ 
         c.save()
         return output_path
     
@@ -8764,11 +8100,15 @@ class PriceTagHandler:
     def draw_tag(self, c, x, y, label_width, label_height, record, barcode_number, params):
         """Draw a single price tag with configurable layout"""
         # Draw border only if enabled
+        print(f"🔴 DEBUG:barcode_mapping 1: barcode_number: {barcode_number}")
+ 
         if params.get('print_borders', True):
             c.setStrokeColorRGB(0, 0, 0)
             c.setLineWidth(0.5)
             c.rect(x, y, label_width, label_height, stroke=1, fill=0)
         
+        
+
         # Calculate positions with proper spacing
         left_margin = x + 2 * mm
         right_margin = x + label_width - 2 * mm
@@ -8782,7 +8122,7 @@ class PriceTagHandler:
         c.setFont("Helvetica-Bold", params['price_font_size'])
         price_y = top_start - (params['price_y_pos'] * mm)
         c.drawString(left_margin, price_y, price_text)
-        
+         
         # ARTIST - TITLE
         c.setFont("Helvetica", params['text_font_size'])
         artist = record.get('artist', '')[:15]
@@ -8814,6 +8154,8 @@ class PriceTagHandler:
                 c.drawImage(temp_path, barcode_x, barcode_y, width=barcode_width, height=barcode_height)
                 os.unlink(temp_path)
         
+        
+
         # RIGHT SIDE INFO - date and consignor
         print_date = datetime.now().strftime("%m/%d/%y")
         c.setFont("Helvetica", params['date_font_size'])
@@ -8823,10 +8165,12 @@ class PriceTagHandler:
         c.drawRightString(right_margin, date_y, print_date)
         
         # Consignor below date
-        consignor = record.get('consignor_name', '')[:10]
+        consignor = record.get('consignor_name', '')
         if consignor:
             consignor_y = date_y - (3.5 * mm)  # Fixed spacing below date
-            c.drawRightString(right_margin, consignor_y, consignor)
+            c.drawRightString(right_margin, consignor_y, consignor[:10])
+
+        
 
 ======================================================================
 
@@ -8954,16 +8298,9 @@ class EbayHandler:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"}
 
-        # Log token API call
-        api_title = f"🔑 eBay Token API: {self.EBAY_TOKEN_URL}"
+        # Log token API call to terminal
+        print(f"🔴 DEBUG: Starting eBay Token API call")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': self.EBAY_TOKEN_URL,
-            'request': {
-                'headers': headers,
-                'data': data
-            }
-        })
         
         resp = requests.post(self.EBAY_TOKEN_URL, headers=headers, data=data, auth=(self.client_id, self.client_secret))
         resp.raise_for_status()
@@ -8973,8 +8310,8 @@ class EbayHandler:
         
         duration = round(time.time() - start_time, 2)
         
-        # Log token response
-        self._log_api_response(api_title, token_data, duration)
+        # Log token response to terminal
+        print(f"🔴 DEBUG: eBay Token API SUCCESS - Duration: {duration}s")
         
         return self.token
 
@@ -8994,35 +8331,26 @@ class EbayHandler:
             "fieldgroups": "EXTENDED"  # Get more detailed info including shipping
         }
 
-        # Log search API call with unified format
-        api_title = f"🛒 eBay Search API: {self.EBAY_SEARCH_URL}?q={query}"
+        # Log search API call to terminal
+        print(f"🔴 DEBUG: Starting eBay Search API for query: {query}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': self.EBAY_SEARCH_URL,
-            'request': {
-                'params': params,
-                'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
-            }
-        })
 
         resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
         
         # Handle API errors gracefully
         if resp.status_code != 200:
             duration = round(time.time() - start_time, 2)
-            error_data = {
-                'error': f'Status {resp.status_code}',
-                'response_text': resp.text
-            }
-            self._log_api_response(api_title, error_data, duration)
+            error_msg = f'Status {resp.status_code}: {resp.text}'
+            print(f"🔴 DEBUG: eBay Search API ERROR: {error_msg}")
             return None
             
         data = resp.json()
 
         duration = round(time.time() - start_time, 2)
 
-        # Log the ACTUAL raw response from eBay - no wrapper, just the raw JSON
-        self._log_api_response(api_title, data, duration)
+        # Log successful response to terminal
+        print(f"🔴 DEBUG: eBay Search API SUCCESS - Duration: {duration}s")
+        print(f"🔴 DEBUG: Found {len(data.get('itemSummaries', []))} items")
 
         items = data.get("itemSummaries", [])
         
@@ -9233,15 +8561,9 @@ class EbayHandler:
         headers = {"Authorization": f"Bearer {self.token}"}
         url = f"{self.EBAY_ITEM_URL}{item_id}"
 
-        # Log item API call
-        api_title = f"📦 eBay Item API: {url}"
+        # Log item API call to terminal
+        print(f"🔴 DEBUG: Starting eBay Item API for item_id: {item_id}")
         start_time = time.time()
-        self._log_api_call(api_title, {
-            'endpoint': url,
-            'request': {
-                'headers': {k: '***' if 'Authorization' in k else v for k, v in headers.items()}
-            }
-        })
 
         try:
             resp = requests.get(url, headers=headers, timeout=10)
@@ -9250,38 +8572,15 @@ class EbayHandler:
             
             duration = round(time.time() - start_time, 2)
             
-            # Log successful response - raw eBay data
-            self._log_api_response(api_title, item_data, duration)
+            # Log successful response to terminal
+            print(f"🔴 DEBUG: eBay Item API SUCCESS - Duration: {duration}s")
             
             return item_data
         except Exception as e:
             duration = round(time.time() - start_time, 2)
-            # Log error response
-            self._log_api_response(api_title, {
-                'status_code': resp.status_code if 'resp' in locals() else 'No response',
-                'error': str(e)
-            }, duration)
+            error_msg = f"Exception: {str(e)}"
+            print(f"🔴 DEBUG: eBay Item API ERROR: {error_msg}")
             return None
-
-    def _log_api_call(self, title, request_data):
-        """Log API call in unified format"""
-        if 'api_logs' not in st.session_state:
-            st.session_state.api_logs = []
-        if 'api_details' not in st.session_state:
-            st.session_state.api_details = {}
-            
-        st.session_state.api_logs.append(title)
-        st.session_state.api_details[title] = {
-            'request': request_data,
-            'raw_request': request_data  # Store raw request data
-        }
-
-    def _log_api_response(self, title, response_data, duration):
-        """Log API response in unified format"""
-        if 'api_details' in st.session_state and title in st.session_state.api_details:
-            st.session_state.api_details[title]['response'] = response_data
-            st.session_state.api_details[title]['duration'] = duration
-            st.session_state.api_details[title]['raw_response'] = response_data  # Store raw response data
 
 ======================================================================
 
@@ -9412,5 +8711,5 @@ class BarcodeGenerator:
 
 ======================================================================
 
-📊 Total files processed: 43
+📊 Total files processed: 39
 

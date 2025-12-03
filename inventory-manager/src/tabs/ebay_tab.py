@@ -7,9 +7,8 @@ import io
 import csv
 
 class EBayTab:
-    def __init__(self, ebay_handler, gallery_json_manager):
+    def __init__(self, ebay_handler):
         self.ebay_handler = ebay_handler
-        self.gallery_json_manager = gallery_json_manager
 
     def render(self):
         st.header("🛒 eBay Management")
@@ -333,9 +332,7 @@ class EBayTab:
                         key=f"download_ebay_results_{timestamp}"
                     )
         
-        # Trigger JSON rebuild to include eBay item numbers
-        if updated_count > 0 and self.gallery_json_manager:
-            self.gallery_json_manager.trigger_rebuild(async_mode=True)
+        # No JSON rebuild needed since gallery functionality removed
 
     def _find_record_by_artist_title(self, artist, title):
         """Find a record by artist and title using API"""

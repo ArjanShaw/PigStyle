@@ -12,10 +12,9 @@ from handlers.genre_handler import GenreHandler
 from handlers.youtube_handler import YouTubeHandler
 
 class InventoryTab:
-    def __init__(self, discogs_handler, ebay_handler=None, gallery_json_manager=None, youtube_handler=None):
+    def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
-        self.gallery_json_manager = gallery_json_manager
         self.youtube_handler = youtube_handler
         self.price_handler = PriceHandler()
         self.genre_handler = GenreHandler()

@@ -6,55 +6,22 @@ from pathlib import Path
 from datetime import datetime
 
 class ToolsSyncTab:
-    def __init__(self, gallery_json_manager=None, github_sync_handler=None):
-        self.gallery_json_manager = gallery_json_manager
-        self.github_sync_handler = github_sync_handler
+    def __init__(self):
+        pass  # Removed GitHubSyncHandler parameter
     
     def render(self):
         st.header("🛠️ Tools & Sync")
         
         col1, col2 = st.columns(2)
         
-        # Gallery JSON Management
-        with col1:
-            st.subheader("🔄 Gallery JSON")
-            if st.button("🔄 Manual JSON Rebuild", width='stretch'):
-                if self.gallery_json_manager:
-                    with st.spinner("Rebuilding gallery JSON..."):
-                        success = self.gallery_json_manager.trigger_rebuild(async_mode=False)
-                    if success:
-                        st.success("✅ Gallery JSON rebuilt successfully!")
-                    else:
-                        st.error("❌ Gallery JSON rebuild failed")
-                else:
-                    st.error("Gallery JSON manager not initialized")
-            
-            if self.gallery_json_manager:
-                status = self.gallery_json_manager.get_rebuild_status()
-                st.write(f"**Status:** {'Rebuilding...' if status['in_progress'] else 'Ready'}")
-                json_path = self.gallery_json_manager.get_json_path()
-                st.write(f"**JSON Path:** `{json_path}`")
-        
-        # GitHub Sync Section
+        # GitHub Sync Section - REMOVED GITHUB SYNC FUNCTIONALITY
         with col2:
             st.subheader("🔄 GitHub Sync")
-            if st.button("🔄 Manual GitHub Sync", width='stretch'):
-                if self.github_sync_handler:
-                    with st.spinner("Syncing with GitHub..."):
-                        success, message = self.github_sync_handler.trigger_sync()
-                        if success:
-                            st.success(f"✅ {message}")
-                        else:
-                            st.error(f"❌ {message}")
-                else:
-                    st.error("GitHub sync handler not initialized")
+            st.warning("GitHub sync functionality is currently disabled")
             
-            if self.github_sync_handler:
-                status = self.github_sync_handler.get_sync_status()
-                st.write(f"**Repo:** `{status['repo_path']}`")
-                st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
-                st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
-                st.write(f"**Last commit:** {status['last_commit']}")
+            # Show placeholder status
+            st.write("**Repo:** `GitHub sync disabled`")
+            st.write("**Status:** ❌ Disabled")
         
         # Store Capacity Configuration
         st.subheader("🏪 Store Capacity Configuration")

@@ -119,10 +119,6 @@ class RecordOperationsHandler:
         
         print(f"🔴 DEBUG: AFTER database save_record call - record_id: {record_id}")
         
-        # Trigger GitHub sync after successful addition
-        if record_id:
-            self._trigger_github_sync()
-        
         return True, record_id
 
     def _calculate_store_price(self, selected_price):
@@ -229,31 +225,4 @@ class RecordOperationsHandler:
         
         success = st.session_state.db_manager.update_record(record_id, updates)
         
-        # Trigger GitHub sync after successful update
-        if success:
-            self._trigger_github_sync()
-        
         return success
-
-    def _trigger_github_sync(self):
-        """Trigger GitHub sync in background thread"""
-        def sync_background():
-            # Import here to avoid circular imports
-            from handlers.github_sync_handler import GitHubSyncHandler
-            
-            # Get the gallery JSON manager from session state
-            gallery_json_manager = st.session_state.get('gallery_json_manager')
-            if gallery_json_manager:
-                # Rebuild JSON first
-                gallery_json_manager.trigger_rebuild(async_mode=False)
-                
-                # Then trigger GitHub sync
-                github_handler = GitHubSyncHandler(
-                    repo_path="/home/arjan-ubuntu/Documents/PigStyle",
-                    gallery_json_manager=gallery_json_manager
-                )
-                github_handler.trigger_sync()
-        
-        # Start sync in background thread
-        sync_thread = threading.Thread(target=sync_background, daemon=True)
-        sync_thread.start()

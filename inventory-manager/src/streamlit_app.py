@@ -22,8 +22,6 @@ from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
 from handlers.ebay_handler import EbayHandler
-from gallery.generator import GalleryJSONManager
-from handlers.github_sync_handler import GitHubSyncHandler
 from handlers.api_key_handler import APIKeyHandler
 from config import AppConfig
 from handlers.youtube_handler import YouTubeHandler
@@ -121,17 +119,6 @@ def render_main_app():
         st.session_state.db_manager = DatabaseManager(api_base_url)
         st.session_state.config = config
 
-    # Initialize Gallery JSON Manager AFTER db_manager is set
-    if "gallery_json_manager" not in st.session_state:
-        st.session_state.gallery_json_manager = GalleryJSONManager(st.session_state.db_manager)
-
-    # Initialize GitHub Sync Handler
-    if "github_sync_handler" not in st.session_state:
-        st.session_state.github_sync_handler = GitHubSyncHandler(
-            repo_path="/home/arjan-ubuntu/Documents/PigStyle",
-            gallery_json_manager=st.session_state.gallery_json_manager
-        )
-
     if "search_results" not in st.session_state:
         st.session_state.search_results = {}
 
@@ -165,11 +152,11 @@ def render_main_app():
         st.warning("YouTube API key not found. YouTube integration will be disabled.")
  
     # Initialize all tabs
-    inventory_tab = InventoryTab(discogs_handler, ebay_handler, st.session_state.gallery_json_manager, youtube_handler)
+    inventory_tab = InventoryTab(discogs_handler, ebay_handler, youtube_handler)
     statistics_tab = StatisticsTab()
-    ebay_tab = EBayTab(ebay_handler, st.session_state.gallery_json_manager)
+    ebay_tab = EBayTab(ebay_handler)
     store_pricing_tab = StorePricingTab()
-    tools_sync_tab = ToolsSyncTab(st.session_state.gallery_json_manager, st.session_state.github_sync_handler)
+    tools_sync_tab = ToolsSyncTab()  # Removed GitHubSyncHandler parameter
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
     admin_config_tab = AdminConfigTab()

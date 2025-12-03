@@ -54,6 +54,7 @@ REPOSITORY STRUCTURE:
     │   ├── Screenshot from 2025-10-24 21-15-56.png
     │   ├── sku_generator.py 🐍
     │   └── streamlit_app.py 🐍
+    ├── app_config.json 📋
     └── requirements.txt 📄
 
 ======================================================================
@@ -73,6 +74,22 @@ python-barcode==0.14.0
 reportlab==4.0.4
 PyJWT==2.8.0
 bcrypt==4.0.1
+
+======================================================================
+
+FILE: inventory-manager/app_config.json
+--------------------------------------------------
+{
+  "database_path": "data/records.db",
+  "label_width_mm": 45.0,
+  "label_height_mm": 16.8,
+  "left_margin_mm": 6.5,
+  "gutter_spacing_mm": 6.5,
+  "top_margin_mm": 14.0,
+  "font_size": 7,
+  "last_genre": "",
+  "genre_font_size": 48
+}
 
 ======================================================================
 
@@ -131,7 +148,6 @@ from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
 from handlers.ebay_handler import EbayHandler
-from handlers.github_sync_handler import GitHubSyncHandler
 from handlers.api_key_handler import APIKeyHandler
 from config import AppConfig
 from handlers.youtube_handler import YouTubeHandler
@@ -229,12 +245,6 @@ def render_main_app():
         st.session_state.db_manager = DatabaseManager(api_base_url)
         st.session_state.config = config
 
-    # Initialize GitHub Sync Handler
-    if "github_sync_handler" not in st.session_state:
-        st.session_state.github_sync_handler = GitHubSyncHandler(
-            repo_path="/home/arjan-ubuntu/Documents/PigStyle"
-        )
-
     if "search_results" not in st.session_state:
         st.session_state.search_results = {}
 
@@ -272,7 +282,7 @@ def render_main_app():
     statistics_tab = StatisticsTab()
     ebay_tab = EBayTab(ebay_handler)
     store_pricing_tab = StorePricingTab()
-    tools_sync_tab = ToolsSyncTab(st.session_state.github_sync_handler)
+    tools_sync_tab = ToolsSyncTab()  # Removed GitHubSyncHandler parameter
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
     admin_config_tab = AdminConfigTab()
@@ -4143,34 +4153,22 @@ from pathlib import Path
 from datetime import datetime
 
 class ToolsSyncTab:
-    def __init__(self, github_sync_handler=None):
-        self.github_sync_handler = github_sync_handler
+    def __init__(self):
+        pass  # Removed GitHubSyncHandler parameter
     
     def render(self):
         st.header("🛠️ Tools & Sync")
         
         col1, col2 = st.columns(2)
         
-        # GitHub Sync Section
+        # GitHub Sync Section - REMOVED GITHUB SYNC FUNCTIONALITY
         with col2:
             st.subheader("🔄 GitHub Sync")
-            if st.button("🔄 Manual GitHub Sync", width='stretch'):
-                if self.github_sync_handler:
-                    with st.spinner("Syncing with GitHub..."):
-                        success, message = self.github_sync_handler.trigger_sync()
-                        if success:
-                            st.success(f"✅ {message}")
-                        else:
-                            st.error(f"❌ {message}")
-                else:
-                    st.error("GitHub sync handler not initialized")
+            st.warning("GitHub sync functionality is currently disabled")
             
-            if self.github_sync_handler:
-                status = self.github_sync_handler.get_sync_status()
-                st.write(f"**Repo:** `{status['repo_path']}`")
-                st.write(f"**Script:** {'✅ Found' if status['script_exists'] else '❌ Missing'}")
-                st.write(f"**Changes pending:** {'✅ Yes' if status['has_changes'] else '❌ No'}")
-                st.write(f"**Last commit:** {status['last_commit']}")
+            # Show placeholder status
+            st.write("**Repo:** `GitHub sync disabled`")
+            st.write("**Status:** ❌ Disabled")
         
         # Store Capacity Configuration
         st.subheader("🏪 Store Capacity Configuration")
@@ -7417,10 +7415,6 @@ class RecordOperationsHandler:
         
         print(f"🔴 DEBUG: AFTER database save_record call - record_id: {record_id}")
         
-        # Trigger GitHub sync after successful addition
-        if record_id:
-            self._trigger_github_sync()
-        
         return True, record_id
 
     def _calculate_store_price(self, selected_price):
@@ -7527,27 +7521,7 @@ class RecordOperationsHandler:
         
         success = st.session_state.db_manager.update_record(record_id, updates)
         
-        # Trigger GitHub sync after successful update
-        if success:
-            self._trigger_github_sync()
-        
         return success
-
-    def _trigger_github_sync(self):
-        """Trigger GitHub sync in background thread"""
-        def sync_background():
-            # Import here to avoid circular imports
-            from handlers.github_sync_handler import GitHubSyncHandler
-            
-            # Trigger GitHub sync
-            github_handler = GitHubSyncHandler(
-                repo_path="/home/arjan-ubuntu/Documents/PigStyle"
-            )
-            github_handler.trigger_sync()
-        
-        # Start sync in background thread
-        sync_thread = threading.Thread(target=sync_background, daemon=True)
-        sync_thread.start()
 
 ======================================================================
 
@@ -8711,5 +8685,5 @@ class BarcodeGenerator:
 
 ======================================================================
 
-📊 Total files processed: 39
+📊 Total files processed: 40
 

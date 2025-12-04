@@ -48,10 +48,7 @@ SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID', 'your-client-id-here')
 SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET', 'your-client-secret-here')
 SPOTIFY_REDIRECT_URI = 'https://arjanshaw.pythonanywhere.com/spotify/callback'
 
-# Your Spotify playlist ID
-YOUR_SPOTIFY_PLAYLIST_ID = '72RkLX9Hhy5LZcaUTNSj60'
-
-# Token storage (in production, use database or Redis)
+# Token storage
 user_tokens = {}
 
 def setup_logging():
@@ -59,15 +56,15 @@ def setup_logging():
     logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
     os.makedirs(logs_dir, exist_ok=True)
 
-    logging.basicConfig(level=logging.INFO)
-    app.logger.setLevel(logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
+    app.logger.setLevel(logging.DEBUG)
 
     file_handler = RotatingFileHandler(
         os.path.join(logs_dir, 'api.log'),
         maxBytes=1024 * 1024,
         backupCount=10
     )
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter(
         '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
     ))
@@ -75,7 +72,7 @@ def setup_logging():
     app.logger.addHandler(file_handler)
 
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG)
     app.logger.addHandler(console_handler)
 
 setup_logging()
@@ -97,6 +94,7 @@ def get_basic_auth_header():
 def exchange_code_for_token(code, redirect_uri=None):
     """Exchange authorization code for access token"""
     try:
+        app.logger.debug(f"DEBUG: Exchanging code for token, redirect_uri: {redirect_uri}")
         token_url = 'https://accounts.spotify.com/api/token'
         headers = {
             'Authorization': f'Basic {get_basic_auth_header()}',
@@ -110,42 +108,18 @@ def exchange_code_for_token(code, redirect_uri=None):
         }
 
         response = requests.post(token_url, headers=headers, data=data)
-        if response.status_code == 200:
-            token_data = response.json()
-            # Store the token with expiration time
-            token_data['expires_at'] = datetime.now().timestamp() + token_data.get('expires_in', 3600)
-            return token_data
-        else:
-            app.logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        app.logger.error(f"Error exchanging token: {str(e)}")
-        return None
+        app.logger.debug(f"DEBUG: Token exchange response status: {response.status_code}")
 
-def refresh_access_token(refresh_token):
-    """Refresh access token using refresh token"""
-    try:
-        token_url = 'https://accounts.spotify.com/api/token'
-        headers = {
-            'Authorization': f'Basic {get_basic_auth_header()}',
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-
-        data = {
-            'grant_type': 'refresh_token',
-            'refresh_token': refresh_token
-        }
-
-        response = requests.post(token_url, headers=headers, data=data)
         if response.status_code == 200:
             token_data = response.json()
             token_data['expires_at'] = datetime.now().timestamp() + token_data.get('expires_in', 3600)
+            app.logger.debug(f"DEBUG: Token exchange successful")
             return token_data
         else:
-            app.logger.error(f"Token refresh failed: {response.status_code}")
+            app.logger.error(f"DEBUG: Token exchange failed: {response.status_code} - {response.text}")
             return None
     except Exception as e:
-        app.logger.error(f"Error refreshing token: {str(e)}")
+        app.logger.error(f"DEBUG: Error exchanging token: {str(e)}")
         return None
 
 def get_valid_token(token_key):
@@ -153,21 +127,19 @@ def get_valid_token(token_key):
     token_data = user_tokens.get(token_key)
 
     if not token_data:
+        app.logger.debug(f"DEBUG: No token data for key: {token_key}")
         return None
 
     # Check if token is expired
     if datetime.now().timestamp() > token_data['expires_at']:
+        app.logger.debug(f"DEBUG: Token expired, attempting refresh")
         refresh_token = token_data.get('refresh_token')
         if refresh_token:
-            new_token_data = refresh_access_token(refresh_token)
-            if new_token_data:
-                # Preserve refresh token if not provided in refresh response
-                if 'refresh_token' not in new_token_data:
-                    new_token_data['refresh_token'] = refresh_token
-                user_tokens[token_key] = new_token_data
-                return new_token_data['access_token']
+            # Simple refresh - for now just return None to force re-auth
+            app.logger.debug(f"DEBUG: Token needs refresh")
         return None
 
+    app.logger.debug(f"DEBUG: Returning valid token for key: {token_key}")
     return token_data['access_token']
 
 # ==================== SPOTIFY API FUNCTIONS ====================
@@ -175,6 +147,8 @@ def get_valid_token(token_key):
 def search_spotify_album_track(artist, album_title, access_token):
     """Search for an album on Spotify and return the MOST POPULAR track"""
     try:
+        app.logger.debug(f"DEBUG: Searching Spotify for artist: {artist}, album: {album_title}")
+
         # Clean up album title
         clean_album_title = album_title
         for suffix in ['(Vinyl)', '[Vinyl]', '(LP)', '[LP]', '(Album)', '[Album]']:
@@ -187,25 +161,35 @@ def search_spotify_album_track(artist, album_title, access_token):
         params = {'q': search_query, 'type': 'album', 'limit': 5}
 
         response = requests.get(search_url, headers=headers, params=params)
+        app.logger.debug(f"DEBUG: Spotify search response status: {response.status_code}")
+
         if response.status_code != 200:
+            app.logger.debug(f"DEBUG: Spotify search failed with status: {response.status_code}")
             return None
 
         albums = response.json().get('albums', {}).get('items', [])
+        app.logger.debug(f"DEBUG: Found {len(albums)} albums on Spotify")
+
         if not albums:
+            app.logger.debug(f"DEBUG: No albums found for {artist} - {album_title}")
             return None
 
         # Get the first matching album
         album = albums[0]
         album_id = album['id']
+        app.logger.debug(f"DEBUG: Selected album ID: {album_id}")
 
         # Get tracks from this album
         tracks_url = f'https://api.spotify.com/v1/albums/{album_id}/tracks?limit=50'
         tracks_response = requests.get(tracks_url, headers=headers)
 
         if tracks_response.status_code != 200:
+            app.logger.debug(f"DEBUG: Failed to get album tracks: {tracks_response.status_code}")
             return None
 
         tracks = tracks_response.json().get('items', [])
+        app.logger.debug(f"DEBUG: Found {len(tracks)} tracks in album")
+
         if not tracks:
             return None
 
@@ -235,6 +219,7 @@ def search_spotify_album_track(artist, album_title, access_token):
                 most_popular_track = track_response.json()
 
         if most_popular_track:
+            app.logger.debug(f"DEBUG: Found track: {most_popular_track['name']} (popularity: {most_popular_track.get('popularity', 0)})")
             return {
                 'id': most_popular_track['id'],
                 'name': most_popular_track['name'],
@@ -243,16 +228,18 @@ def search_spotify_album_track(artist, album_title, access_token):
                 'uri': most_popular_track['uri'],
                 'popularity': most_popular_track.get('popularity', 0)
             }
+
+        app.logger.debug(f"DEBUG: No suitable track found")
         return None
 
     except Exception as e:
-        app.logger.error(f"Error searching album: {str(e)}")
+        app.logger.error(f"DEBUG: Error searching album: {str(e)}")
         return None
 
 def clear_spotify_playlist(playlist_id, access_token):
     """Clear all tracks from a Spotify playlist"""
     try:
-        # Get all current tracks
+        app.logger.debug(f"DEBUG: Clearing playlist: {playlist_id}")
         url = f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
         headers = {
             'Authorization': f'Bearer {access_token}',
@@ -265,6 +252,8 @@ def clear_spotify_playlist(playlist_id, access_token):
 
         while next_url:
             response = requests.get(next_url, headers=headers)
+            app.logger.debug(f"DEBUG: Get tracks response: {response.status_code}")
+
             if response.status_code != 200:
                 return False, f"Failed to get playlist tracks: {response.status_code}"
 
@@ -272,6 +261,8 @@ def clear_spotify_playlist(playlist_id, access_token):
             tracks = data.get('items', [])
             all_tracks.extend([{'uri': item['track']['uri']} for item in tracks])
             next_url = data.get('next')
+
+        app.logger.debug(f"DEBUG: Found {len(all_tracks)} tracks to clear")
 
         if not all_tracks:
             return True, "Playlist is already empty"
@@ -281,17 +272,21 @@ def clear_spotify_playlist(playlist_id, access_token):
         remove_data = {'tracks': all_tracks}
 
         response = requests.delete(remove_url, headers=headers, json=remove_data)
+        app.logger.debug(f"DEBUG: Clear response: {response.status_code}")
+
         if response.status_code == 200:
             return True, f"Cleared {len(all_tracks)} tracks"
         else:
             return False, f"Failed to clear: {response.status_code} - {response.text}"
 
     except Exception as e:
+        app.logger.error(f"DEBUG: Error clearing playlist: {str(e)}")
         return False, f"Error: {str(e)}"
 
 def add_tracks_to_playlist(playlist_id, track_uris, access_token):
     """Add tracks to a Spotify playlist"""
     try:
+        app.logger.debug(f"DEBUG: Adding {len(track_uris)} tracks to playlist: {playlist_id}")
         url = f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
         headers = {
             'Authorization': f'Bearer {access_token}',
@@ -305,117 +300,305 @@ def add_tracks_to_playlist(playlist_id, track_uris, access_token):
             data = {'uris': batch}
 
             response = requests.post(url, headers=headers, json=data)
+            app.logger.debug(f"DEBUG: Batch {i//100} add response: {response.status_code}")
+
             if response.status_code == 201:
                 successful += len(batch)
+                app.logger.debug(f"DEBUG: Batch {i//100} successful, added {len(batch)} tracks")
             else:
-                app.logger.error(f"Failed batch {i//100}: {response.text}")
+                app.logger.error(f"DEBUG: Failed batch {i//100}: {response.text}")
 
             time.sleep(0.1)
 
+        app.logger.debug(f"DEBUG: Total successful: {successful}/{len(track_uris)}")
         return True, f"Added {successful}/{len(track_uris)} tracks"
 
     except Exception as e:
+        app.logger.error(f"DEBUG: Error adding tracks: {str(e)}")
         return False, f"Error: {str(e)}"
 
-# ==================== TOKEN ENDPOINTS ====================
+def create_or_get_genre_playlist(genre_name, access_token):
+    """Create a new playlist for a genre or get existing one - WITH DEBUG"""
+    try:
+        app.logger.debug(f"DEBUG: Creating/getting playlist for genre: {genre_name}")
 
-@app.route('/spotify/token', methods=['POST'])
-def get_token_endpoint():
-    """Get or refresh Spotify access token"""
-    data = request.get_json()
+        # Clean genre name for playlist naming
+        clean_genre = re.sub(r'[^\w\s-]', '', genre_name).strip()
+        if not clean_genre:
+            clean_genre = "Miscellaneous"
 
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+        playlist_name = f"PigStyle: {clean_genre}"
+        playlist_description = f"Vinyl records from PigStyle Records - Genre: {genre_name}"
 
-    grant_type = data.get('grant_type')
+        app.logger.debug(f"DEBUG: Playlist name: {playlist_name}")
 
-    if grant_type == 'authorization_code':
+        # First, get current user ID
+        user_url = 'https://api.spotify.com/v1/me'
+        headers = {'Authorization': f'Bearer {access_token}'}
+
+        user_response = requests.get(user_url, headers=headers)
+        app.logger.debug(f"DEBUG: Get user response: {user_response.status_code}")
+
+        if user_response.status_code != 200:
+            app.logger.error(f"DEBUG: Failed to get user info: {user_response.status_code}")
+            return None
+
+        user_id = user_response.json()['id']
+        app.logger.debug(f"DEBUG: Got user ID: {user_id}")
+
+        # Get user's playlists to check for existing
+        playlists_url = f'https://api.spotify.com/v1/users/{user_id}/playlists?limit=50'
+        playlists_response = requests.get(playlists_url, headers=headers)
+        app.logger.debug(f"DEBUG: Get playlists response: {playlists_response.status_code}")
+
+        if playlists_response.status_code == 200:
+            playlists = playlists_response.json().get('items', [])
+            app.logger.debug(f"DEBUG: Found {len(playlists)} playlists")
+
+            for playlist in playlists:
+                if playlist['name'] == playlist_name:
+                    app.logger.debug(f"DEBUG: Found existing playlist: {playlist['id']}")
+                    return playlist['id']
+
+        # Create new playlist if not found
+        app.logger.debug(f"DEBUG: Creating new playlist: {playlist_name}")
+        create_url = f'https://api.spotify.com/v1/users/{user_id}/playlists'
+        playlist_data = {
+            'name': playlist_name,
+            'description': playlist_description,
+            'public': True
+        }
+
+        create_response = requests.post(create_url, headers=headers, json=playlist_data)
+        app.logger.debug(f"DEBUG: Create playlist response: {create_response.status_code}")
+
+        if create_response.status_code == 201:
+            new_playlist = create_response.json()
+            app.logger.debug(f"DEBUG: Created new playlist: {new_playlist['id']}")
+            return new_playlist['id']
+        else:
+            app.logger.error(f"DEBUG: Failed to create playlist: {create_response.status_code} - {create_response.text}")
+            return None
+
+    except Exception as e:
+        app.logger.error(f"DEBUG: Error creating/getting genre playlist: {str(e)}")
+        return None
+
+# ==================== INTERNAL AUTHORIZATION ENDPOINT ====================
+
+@app.route('/spotify/authorize-and-update', methods=['GET'])
+def authorize_and_update():
+    """Internal endpoint that handles auth and playlist update in one call"""
+    app.logger.debug("DEBUG: Starting authorize_and_update endpoint")
+
+    # Get parameters
+    limit = request.args.get('limit', default=20, type=int)
+    state = secrets.token_hex(16)
+
+    # Store in session for callback
+    session['spotify_state'] = state
+    session['spotify_limit'] = limit
+    session['spotify_return_url'] = request.args.get('return_url', 'https://pigstylemusic.com')
+
+    app.logger.debug(f"DEBUG: Generated state: {state}, limit: {limit}")
+
+    # Build authorization URL
+    params = {
+        'client_id': SPOTIFY_CLIENT_ID,
+        'response_type': 'code',
+        'redirect_uri': 'https://arjanshaw.pythonanywhere.com/spotify/callback',
+        'scope': 'playlist-modify-public playlist-modify-private',
+        'state': state,
+        'show_dialog': 'false'
+    }
+
+    auth_url = f"https://accounts.spotify.com/authorize?{urllib.parse.urlencode(params)}"
+    app.logger.debug(f"DEBUG: Redirecting to auth URL")
+
+    return redirect(auth_url)
+
+@app.route('/spotify/callback', methods=['GET'])
+def authorize_callback():
+    """Callback for internal authorization"""
+    app.logger.debug("DEBUG: Starting authorize_callback")
+
+    code = request.args.get('code')
+    state = request.args.get('state')
+    error = request.args.get('error')
+
+    app.logger.debug(f"DEBUG: Callback params - code: {'yes' if code else 'no'}, state: {state}, error: {error}")
+
+    if error:
+        app.logger.error(f"DEBUG: Spotify auth error: {error}")
+        return jsonify({'error': error}), 400
+
+    if not code:
+        app.logger.error("DEBUG: No code provided")
+        return jsonify({'error': 'No code provided'}), 400
+
+    # Verify state
+    if state != session.get('spotify_state'):
+        app.logger.error(f"DEBUG: State mismatch: {state} != {session.get('spotify_state')}")
+        return jsonify({'error': 'State mismatch'}), 400
+
+    limit = session.get('spotify_limit', 20)
+    return_url = session.get('spotify_return_url', 'https://pigstylemusic.com')
+
+    app.logger.debug(f"DEBUG: Proceeding with limit: {limit}")
+
+    try:
         # Exchange code for token
-        code = data.get('code')
-        redirect_uri = data.get('redirect_uri', SPOTIFY_REDIRECT_URI)
+        app.logger.debug("DEBUG: Exchanging code for token")
+        token_data = exchange_code_for_token(code, 'https://arjanshaw.pythonanywhere.com/spotify/callback')
 
-        if not code:
-            return jsonify({"error": "Authorization code required"}), 400
-
-        token_data = exchange_code_for_token(code, redirect_uri)
         if not token_data:
+            app.logger.error("DEBUG: Token exchange failed")
             return jsonify({"error": "Failed to exchange code for token"}), 400
 
-        # Generate a token key (user ID from Spotify could be used here)
+        access_token = token_data['access_token']
+        app.logger.debug("DEBUG: Got access token")
+
+        # Store token for later use
         token_key = secrets.token_hex(16)
         user_tokens[token_key] = token_data
 
-        return jsonify({
-            "access_token": token_data['access_token'],
-            "token_type": token_data['token_type'],
-            "expires_in": token_data.get('expires_in', 3600),
-            "refresh_token": token_data.get('refresh_token'),
-            "token_key": token_key  # Return key for future use
-        })
+        # Get database records GROUPED BY GENRE
+        app.logger.debug("DEBUG: Getting records from database")
+        conn = get_db()
+        cursor = conn.cursor()
 
-    elif grant_type == 'refresh_token':
-        # Refresh token
-        refresh_token = data.get('refresh_token')
-        token_key = data.get('token_key')
+        cursor.execute('''
+            SELECT DISTINCT r.artist, r.title, r.genre_id,
+                   COALESCE(g.genre_name, 'Miscellaneous') as genre_name
+            FROM records r
+            LEFT JOIN genres g ON r.genre_id = g.id
+            WHERE r.artist IS NOT NULL AND r.title IS NOT NULL
+            AND r.artist != '' AND r.title != ''
+            ORDER BY genre_name, r.artist, r.title
+        ''')
 
-        if refresh_token:
-            token_data = refresh_access_token(refresh_token)
-        elif token_key and token_key in user_tokens:
-            old_token = user_tokens[token_key]
-            refresh_token = old_token.get('refresh_token')
-            token_data = refresh_access_token(refresh_token) if refresh_token else None
-        else:
-            return jsonify({"error": "Refresh token or token_key required"}), 400
+        records = cursor.fetchall()
+        conn.close()
 
-        if not token_data:
-            return jsonify({"error": "Failed to refresh token"}), 400
+        app.logger.debug(f"DEBUG: Found {len(records)} total records")
 
-        # Update stored token
-        if token_key and token_key in user_tokens:
-            if 'refresh_token' not in token_data:
-                token_data['refresh_token'] = user_tokens[token_key].get('refresh_token')
-            user_tokens[token_key] = token_data
+        if len(records) == 0:
+            app.logger.error("DEBUG: No records found")
+            return jsonify({"error": "No records found in database"}), 400
 
-        return jsonify({
-            "access_token": token_data['access_token'],
-            "token_type": token_data['token_type'],
-            "expires_in": token_data.get('expires_in', 3600)
-        })
+        # Group records by genre
+        genre_groups = {}
+        for record in records:
+            genre_name = record['genre_name']
+            if genre_name not in genre_groups:
+                genre_groups[genre_name] = []
+            genre_groups[genre_name].append(record)
 
-    else:
-        return jsonify({"error": "Invalid grant_type"}), 400
+        app.logger.debug(f"DEBUG: Grouped into {len(genre_groups)} genres: {list(genre_groups.keys())}")
 
-@app.route('/spotify/token/validate', methods=['POST'])
-def validate_token():
-    """Validate and get a working access token"""
-    data = request.get_json()
+        results = {}
+        all_tracks_added = 0
 
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+        # Process each genre
+        for genre_name, genre_records in genre_groups.items():
+            app.logger.debug(f"DEBUG: Processing genre: {genre_name} ({len(genre_records)} records)")
 
-    token_key = data.get('token_key')
-    access_token = data.get('access_token')
+            # Create or get playlist for this genre
+            playlist_id = create_or_get_genre_playlist(genre_name, access_token)
 
-    if token_key:
-        # Get token from stored tokens
-        valid_token = get_valid_token(token_key)
-        if valid_token:
-            return jsonify({"access_token": valid_token, "source": "stored"})
+            if not playlist_id:
+                app.logger.error(f"DEBUG: Failed to get playlist for genre: {genre_name}")
+                results[genre_name] = {"error": "Failed to create/get playlist"}
+                continue
 
-    if access_token:
-        # Validate provided token
-        test_url = 'https://api.spotify.com/v1/me'
-        headers = {'Authorization': f'Bearer {access_token}'}
-        response = requests.get(test_url, headers=headers)
+            # Clear existing tracks
+            app.logger.debug(f"DEBUG: Clearing playlist for {genre_name}")
+            clear_success, clear_msg = clear_spotify_playlist(playlist_id, access_token)
 
-        if response.status_code == 200:
-            return jsonify({"access_token": access_token, "source": "provided", "valid": True})
-        else:
-            return jsonify({"error": "Invalid access token", "spotify_error": response.text}), 401
+            if not clear_success:
+                app.logger.error(f"DEBUG: Failed to clear playlist: {clear_msg}")
+                results[genre_name] = {"error": f"Failed to clear: {clear_msg}"}
+                continue
 
-    return jsonify({"error": "token_key or access_token required"}), 400
+            # Search for tracks
+            genre_tracks = []
+            genre_track_uris = []
 
-# ==================== RECORDS API ENDPOINT (UPDATED WITH JOIN) ====================
+            app.logger.debug(f"DEBUG: Searching for {len(genre_records)} tracks in genre {genre_name}")
+            for i, record in enumerate(genre_records):
+                artist = record['artist']
+                album = record['title']
+
+                track_info = search_spotify_album_track(artist, album, access_token)
+
+                if track_info:
+                    genre_tracks.append({
+                        'artist': artist,
+                        'album': album,
+                        'track': track_info['name'],
+                        'uri': track_info['uri']
+                    })
+                    genre_track_uris.append(track_info['uri'])
+                    app.logger.debug(f"DEBUG: Found track: {track_info['name']}")
+
+                time.sleep(0.2)  # Rate limiting
+
+            app.logger.debug(f"DEBUG: Found {len(genre_tracks)} tracks for genre {genre_name}")
+
+            # Add tracks to playlist
+            if genre_track_uris:
+                app.logger.debug(f"DEBUG: Adding {len(genre_track_uris)} tracks to {genre_name} playlist")
+                add_success, add_msg = add_tracks_to_playlist(playlist_id, genre_track_uris, access_token)
+
+                if add_success:
+                    results[genre_name] = {
+                        'playlist_id': playlist_id,
+                        'playlist_url': f"https://open.spotify.com/playlist/{playlist_id}",
+                        'tracks_added': len(genre_track_uris),
+                        'total_records': len(genre_records),
+                        'sample_tracks': genre_tracks[:5]
+                    }
+                    all_tracks_added += len(genre_track_uris)
+                    app.logger.debug(f"DEBUG: Successfully added tracks to {genre_name} playlist")
+                else:
+                    results[genre_name] = {"error": add_msg}
+                    app.logger.error(f"DEBUG: Failed to add tracks: {add_msg}")
+            else:
+                results[genre_name] = {"error": "No tracks found on Spotify"}
+                app.logger.warning(f"DEBUG: No tracks found for genre {genre_name}")
+
+        # Prepare success response
+        app.logger.debug(f"DEBUG: Processed all genres. Total tracks added: {all_tracks_added}")
+
+        if all_tracks_added == 0:
+            return jsonify({
+                "error": "No tracks could be added to any playlists",
+                "genre_results": results,
+                "total_records": len(records),
+                "genres_processed": len(genre_groups)
+            }), 400
+
+        # Redirect back to original site with success message
+        success_data = {
+            "status": "success",
+            "message": f"Added {all_tracks_added} tracks across {len(results)} genre playlists",
+            "genre_results": results,
+            "token_key": token_key,
+            "total_records": len(records),
+            "genres_processed": len(genre_groups)
+        }
+
+        # Encode the success data for URL
+        encoded_data = urllib.parse.quote(json.dumps(success_data))
+
+        app.logger.debug(f"DEBUG: Redirecting to: {return_url}")
+        return redirect(f"{return_url}?spotify_success={encoded_data}")
+
+    except Exception as e:
+        app.logger.error(f"DEBUG: Error in authorize_callback: {str(e)}", exc_info=True)
+        return jsonify({"error": f"Internal error: {str(e)}"}), 500
+
+# ==================== EXISTING ENDPOINTS (KEPT AS IS) ====================
 
 @app.route('/records', methods=['GET'])
 def get_records():
@@ -491,261 +674,6 @@ def get_records_count():
     except Exception as e:
         app.logger.error(f"Error getting record count: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-# ==================== PLAYLIST SYNC ENDPOINT ====================
-
-@app.route('/spotify/playlist/update', methods=['POST'])
-def update_playlist_from_db():
-    """Update Spotify playlist from database records"""
-    app.logger.info("Starting playlist update from database...")
-
-    data = request.get_json() or {}
-
-    # Get token parameters
-    token_key = data.get('token_key')
-    access_token = data.get('access_token')
-    code = data.get('code')
-    redirect_uri = data.get('redirect_uri', SPOTIFY_REDIRECT_URI)
-
-    # Optional: limit parameter
-    limit = data.get('limit', 50)
-
-    # Step 1: Get a valid access token
-    valid_token = None
-
-    if access_token:
-        valid_token = access_token
-        app.logger.info("Using provided access token")
-    elif token_key:
-        valid_token = get_valid_token(token_key)
-        if valid_token:
-            app.logger.info(f"Using stored token for key: {token_key}")
-    elif code:
-        app.logger.info("Exchanging code for token...")
-        token_data = exchange_code_for_token(code, redirect_uri)
-        if token_data:
-            new_token_key = secrets.token_hex(16)
-            user_tokens[new_token_key] = token_data
-            valid_token = token_data['access_token']
-            token_key = new_token_key
-            app.logger.info(f"Got new token with key: {token_key}")
-
-    if not valid_token:
-        return jsonify({
-            "error": "No valid access token",
-            "instructions": "Provide either: access_token, token_key, or code",
-            "auth_url": f"https://accounts.spotify.com/authorize?client_id={SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri={SPOTIFY_REDIRECT_URI}&scope=playlist-modify-public%20playlist-modify-private"
-        }), 401
-
-    # Verify token works
-    test_url = 'https://api.spotify.com/v1/me'
-    headers = {'Authorization': f'Bearer {valid_token}'}
-    test_response = requests.get(test_url, headers=headers)
-
-    if test_response.status_code != 200:
-        return jsonify({
-            "error": "Invalid access token",
-            "spotify_error": test_response.text
-        }), 401
-
-    try:
-        # Get database records using same logic as /records endpoint
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute('''
-            SELECT DISTINCT artist, title
-            FROM records
-            WHERE artist IS NOT NULL AND title IS NOT NULL
-            AND artist != '' AND title != ''
-            ORDER BY artist, title
-            LIMIT ?
-        ''', (limit,))
-
-        records = cursor.fetchall()
-        conn.close()
-
-        total_records = len(records)
-        app.logger.info(f"Found {total_records} records")
-
-        if total_records == 0:
-            return jsonify({"error": "No records found in database"}), 400
-
-        # Step 2: Clear playlist
-        app.logger.info("Clearing playlist...")
-        clear_success, clear_msg = clear_spotify_playlist(YOUR_SPOTIFY_PLAYLIST_ID, valid_token)
-        if not clear_success:
-            return jsonify({"error": f"Failed to clear playlist: {clear_msg}"}), 500
-
-        # Step 3: Search for tracks
-        app.logger.info("Searching for tracks on Spotify...")
-        found_tracks = []
-        track_uris = []
-
-        for i, record in enumerate(records):
-            artist = record['artist']
-            album = record['title']
-
-            if i % 10 == 0:
-                app.logger.info(f"Progress: {i}/{total_records}")
-
-            track_info = search_spotify_album_track(artist, album, valid_token)
-
-            if track_info:
-                found_tracks.append({
-                    'artist': artist,
-                    'album': album,
-                    'track': track_info['name'],
-                    'spotify_uri': track_info['uri']
-                })
-                track_uris.append(track_info['uri'])
-
-            time.sleep(0.2)  # Rate limiting
-
-        app.logger.info(f"Found {len(found_tracks)} tracks on Spotify")
-
-        if len(found_tracks) == 0:
-            return jsonify({
-                "error": "No tracks found on Spotify",
-                "stats": {
-                    "total_database_records": total_records,
-                    "found_tracks": 0
-                }
-            }), 400
-
-        # Step 4: Add tracks to playlist
-        app.logger.info(f"Adding {len(track_uris)} tracks to playlist...")
-        add_success, add_msg = add_tracks_to_playlist(YOUR_SPOTIFY_PLAYLIST_ID, track_uris, valid_token)
-
-        if not add_success:
-            return jsonify({"error": f"Failed to add tracks: {add_msg}"}), 500
-
-        # Success response
-        response_data = {
-            "status": "success",
-            "message": "Playlist updated successfully",
-            "playlist_id": YOUR_SPOTIFY_PLAYLIST_ID,
-            "playlist_url": f"https://open.spotify.com/playlist/{YOUR_SPOTIFY_PLAYLIST_ID}",
-            "stats": {
-                "total_database_records": total_records,
-                "found_on_spotify": len(found_tracks),
-                "added_to_playlist": len(track_uris)
-            }
-        }
-
-        # Include token key if we created one
-        if token_key:
-            response_data['token_key'] = token_key
-
-        # Include sample tracks
-        response_data['sample_tracks'] = found_tracks[:10]
-
-        app.logger.info("Playlist update complete!")
-        return jsonify(response_data)
-
-    except Exception as e:
-        app.logger.error(f"Playlist update error: {str(e)}")
-        return jsonify({"error": f"Internal error: {str(e)}"}), 500
-
-# ==================== HELPER ENDPOINTS ====================
-
-@app.route('/spotify/auth/url', methods=['GET'])
-def get_auth_url():
-    """Get Spotify authorization URL"""
-    params = {
-        'client_id': SPOTIFY_CLIENT_ID,
-        'response_type': 'code',
-        'redirect_uri': SPOTIFY_REDIRECT_URI,
-        'scope': 'playlist-modify-public playlist-modify-private',
-        'state': secrets.token_hex(16)
-    }
-
-    auth_url = f"https://accounts.spotify.com/authorize?{urllib.parse.urlencode(params)}"
-    return jsonify({'auth_url': auth_url})
-
-@app.route('/spotify/callback', methods=['GET'])
-def callback():
-    """Handle Spotify OAuth callback"""
-    code = request.args.get('code')
-    error = request.args.get('error')
-
-    if error:
-        return jsonify({'error': error}), 400
-
-    if not code:
-        return jsonify({'error': 'No code provided'}), 400
-
-    # Return the code for the user to use
-    return f"""
-    <html>
-    <head><title>Spotify Authentication</title></head>
-    <body style="font-family: Arial, sans-serif; padding: 20px;">
-        <h1>✅ Authentication Successful</h1>
-        <p>Your authorization code: <code>{code}</code></p>
-        <p>You can now use this code to get an access token.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3>Example curl command:</h3>
-            <pre style="background: white; padding: 10px; border-radius: 3px;">
-curl -X POST https://arjanshaw.pythonanywhere.com/spotify/token \\
-  -H "Content-Type: application/json" \\
-  -d '{{
-    "grant_type": "authorization_code",
-    "code": "{code}",
-    "redirect_uri": "https://arjanshaw.pythonanywhere.com/spotify/callback"
-  }}'
-            </pre>
-        </div>
-    </body>
-    </html>
-    """
-
-@app.route('/spotify/playlist/status', methods=['GET'])
-def get_playlist_status():
-    """Get current playlist status"""
-    try:
-        # Get app token for reading
-        auth_string = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
-        auth_bytes = auth_string.encode('utf-8')
-        auth_base64 = base64.b64encode(auth_bytes).decode('utf-8')
-
-        token_url = 'https://accounts.spotify.com/api/token'
-        headers = {
-            'Authorization': f'Basic {auth_base64}',
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        data = {'grant_type': 'client_credentials'}
-
-        response = requests.post(token_url, headers=headers, data=data)
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to get app token"}), 500
-
-        access_token = response.json()['access_token']
-
-        # Get playlist info
-        url = f'https://api.spotify.com/v1/playlists/{YOUR_SPOTIFY_PLAYLIST_ID}'
-        headers = {'Authorization': f'Bearer {access_token}'}
-
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            return jsonify({
-                "status": "success",
-                "playlist": {
-                    "name": data.get('name'),
-                    "description": data.get('description'),
-                    "tracks": data.get('tracks', {}).get('total', 0),
-                    "public": data.get('public', False),
-                    "url": data.get('external_urls', {}).get('spotify')
-                }
-            })
-        else:
-            return jsonify({
-                "status": "error",
-                "message": f"Failed to get playlist: {response.status_code}"
-            }), response.status_code
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.logger.info("Starting PigStyle API with Spotify integration...")

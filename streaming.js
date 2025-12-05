@@ -9,15 +9,8 @@ let currentStreamingService = 'youtube';
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let genreMap = {};
-
-// Spotify playlist mapping - map genre IDs to Spotify playlist IDs
-const spotifyPlaylists = {
-    // You can add more genre-to-playlist mappings here
-    // Example: '1': '37i9dQZF1DXcBWIGoYBM5M', // Rock
-    // Example: '2': '37i9dQZF1DX4JAvHpjipBk', // Pop
-    // For now, we'll use a default playlist for all genres
-    'default': '72RkLX9Hhy5LZcaUTNSj60' // Default PigStyle playlist
-};
+let spotifyPlaylists = [];
+let currentSpotifyPlaylistId = null;
 
 // Voting system
 class VotingSystem {
@@ -317,46 +310,293 @@ function startSpotifyPlayback(genreId, genreName) {
     document.getElementById('spotifyControls').style.display = 'flex';
     document.getElementById('youtubeControls').style.display = 'none';
     
-    // Check if we have a playlist for this genre
-    const playlistId = spotifyPlaylists[genreId] || spotifyPlaylists['default'];
-    
-    if (genreId && !spotifyPlaylists[genreId]) {
-        // No specific playlist for this genre, use default
-        showSpotifyPlaylist(playlistId, genreName, true);
-    } else {
-        // We have a playlist for this genre
-        showSpotifyPlaylist(playlistId, genreName, false);
+    // Fetch Spotify playlists and display them
+    fetchAndDisplaySpotifyPlaylists(genreName);
+}
+
+// Fetch Spotify playlists from API
+async function fetchAndDisplaySpotifyPlaylists(genreName) {
+    try {
+        console.log('Fetching Spotify playlists...');
+        
+        const response = await fetch('https://arjanshaw.pythonanywhere.com/spotify/playlists');
+        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            spotifyPlaylists = data.playlists;
+            console.log(`Fetched ${spotifyPlaylists.length} Spotify playlists`);
+            
+            // Display playlists in UI
+            displaySpotifyPlaylists(spotifyPlaylists, genreName);
+        } else {
+            throw new Error(data.error || 'Failed to fetch playlists');
+        }
+        
+    } catch (error) {
+        console.error('Error fetching Spotify playlists:', error);
+        displaySpotifyError(error.message);
     }
 }
 
-// Show Spotify playlist
-function showSpotifyPlaylist(playlistId, genreName, isDefault = false) {
-    console.log(`Showing Spotify playlist: ${playlistId} for genre: ${genreName}`);
+// Display Spotify playlists in the UI
+function displaySpotifyPlaylists(playlists, genreName) {
+    const spotifyContainer = document.getElementById('spotifyContainer');
     
-    const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
+    if (playlists.length === 0) {
+        spotifyContainer.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: white;">
+                <h3>🎵 No Spotify Playlists Found</h3>
+                <p>No playlists are currently available on Spotify.</p>
+                <p>You can create playlists using the admin tools.</p>
+                <div style="margin-top: 20px;">
+                    <button onclick="switchToYouTube()" style="padding: 10px 20px; background: #FF0000; color: white; border: none; border-radius: 5px; margin: 5px;">
+                        Switch to YouTube
+                    </button>
+                </div>
+            </div>
+        `;
+        return;
+    }
     
-    document.getElementById('spotifyContainer').innerHTML = `
-        <iframe id="spotifyPlaylistEmbed" 
-                src="${embedUrl}"
-                width="100%" 
-                height="380" 
-                frameborder="0" 
-                allowfullscreen="" 
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                loading="lazy">
-        </iframe>
+    // Create playlist selection UI
+    let playlistHTML = `
+        <div style="padding: 20px; color: white;">
+            <h3 style="margin-bottom: 20px; text-align: center;">🎵 Available Spotify Playlists</h3>
+            <p style="text-align: center; margin-bottom: 20px; opacity: 0.8;">Select a playlist to play:</p>
+            
+            <div style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 15px;
+                max-height: 400px;
+                overflow-y: auto;
+                padding: 10px;
+            ">
+    `;
+    
+    playlists.forEach((playlist, index) => {
+        const isSelected = currentSpotifyPlaylistId === playlist.id;
+        playlistHTML += `
+            <div style="
+                background: ${isSelected ? 'rgba(29, 185, 84, 0.2)' : 'rgba(255, 255, 255, 0.1)'};
+                border: 1px solid ${isSelected ? '#1DB954' : 'rgba(255, 255, 255, 0.2)'};
+                border-radius: 8px;
+                padding: 15px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                ${isSelected ? 'box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);' : ''}
+            " 
+            onclick="selectSpotifyPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}')"
+            onmouseover="this.style.transform='translateY(-2px)'; this.style.backgroundColor='${isSelected ? 'rgba(29, 185, 84, 0.3)' : 'rgba(255, 255, 255, 0.15)'}'"
+            onmouseout="this.style.transform='translateY(0)'; this.style.backgroundColor='${isSelected ? 'rgba(29, 185, 84, 0.2)' : 'rgba(255, 255, 255, 0.1)'}'">
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <div style="
+                        width: 40px;
+                        height: 40px;
+                        background: linear-gradient(135deg, #1DB954, #1ed760);
+                        border-radius: 4px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-right: 12px;
+                        font-size: 20px;
+                    ">
+                        ${index + 1}
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 5px 0; font-size: 16px; color: ${isSelected ? '#1DB954' : 'white'};">
+                            ${playlist.name}
+                        </h4>
+                        <div style="font-size: 12px; opacity: 0.7; display: flex; align-items: center; gap: 10px;">
+                            <span>${playlist.tracks} tracks</span>
+                            <span>•</span>
+                            <span>${playlist.public ? 'Public' : 'Private'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                ${playlist.description ? `
+                <p style="
+                    font-size: 13px;
+                    opacity: 0.8;
+                    margin: 8px 0 0 0;
+                    line-height: 1.4;
+                    font-style: italic;
+                    border-left: 2px solid rgba(29, 185, 84, 0.5);
+                    padding-left: 10px;
+                ">
+                    "${playlist.description}"
+                </p>
+                ` : ''}
+                
+                <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <button onclick="event.stopPropagation(); selectSpotifyPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}')"
+                            style="
+                                padding: 6px 12px;
+                                background: ${isSelected ? '#1DB954' : 'rgba(29, 185, 84, 0.3)'};
+                                color: white;
+                                border: none;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-size: 13px;
+                                transition: background 0.3s;
+                            "
+                            onmouseover="this.style.backgroundColor='#1DB954'"
+                            onmouseout="this.style.backgroundColor='${isSelected ? '#1DB954' : 'rgba(29, 185, 84, 0.3)'}'">
+                        ${isSelected ? '✓ Playing' : 'Play'}
+                    </button>
+                    
+                    <a href="${playlist.url}" 
+                       target="_blank"
+                       onclick="event.stopPropagation();"
+                       style="
+                            font-size: 12px;
+                            color: #1DB954;
+                            text-decoration: none;
+                            opacity: 0.8;
+                            transition: opacity 0.3s;
+                       "
+                       onmouseover="this.style.opacity='1';"
+                       onmouseout="this.style.opacity='0.8';">
+                        Open in Spotify ↗
+                    </a>
+                </div>
+            </div>
+        `;
+    });
+    
+    playlistHTML += `
+            </div>
+            
+            <div style="text-align: center; margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                <p style="opacity: 0.7; font-size: 14px; margin-bottom: 15px;">
+                    Showing ${playlists.length} playlists from Spotify API
+                </p>
+                <div>
+                    <button onclick="fetchAndDisplaySpotifyPlaylists('${genreName.replace(/'/g, "\\'")}')" 
+                            style="padding: 8px 16px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; margin: 0 5px;">
+                        Refresh Playlists
+                    </button>
+                    <button onclick="switchToYouTube()" 
+                            style="padding: 8px 16px; background: rgba(255, 0, 0, 0.2); color: #ff6b6b; border: 1px solid rgba(255, 0, 0, 0.3); border-radius: 4px; cursor: pointer; margin: 0 5px;">
+                        Switch to YouTube
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    spotifyContainer.innerHTML = playlistHTML;
+    
+    // Update track info
+    document.getElementById('trackTitle').textContent = 'Select a Spotify Playlist';
+    document.getElementById('trackArtist').textContent = `${spotifyPlaylists.length} playlists available`;
+    document.getElementById('trackPrice').textContent = 'Stream Now';
+}
+
+// Display Spotify error
+function displaySpotifyError(errorMessage) {
+    const spotifyContainer = document.getElementById('spotifyContainer');
+    
+    spotifyContainer.innerHTML = `
+        <div style="padding: 40px; text-align: center; color: white;">
+            <h3>⚠️ Error Loading Spotify Playlists</h3>
+            <p>Failed to load playlists from Spotify API.</p>
+            <p style="opacity: 0.7; margin: 10px 0; font-size: 14px;">Error: ${errorMessage}</p>
+            <p>Please check:</p>
+            <ul style="text-align: left; display: inline-block; opacity: 0.8; margin: 15px 0;">
+                <li>Spotify API credentials are set</li>
+                <li>Server can access Spotify API</li>
+                <li>Network connection is working</li>
+            </ul>
+            <div style="margin-top: 20px;">
+                <button onclick="fetchAndDisplaySpotifyPlaylists('All Genres')" 
+                        style="padding: 10px 20px; background: #1DB954; color: white; border: none; border-radius: 5px; margin: 5px;">
+                    Try Again
+                </button>
+                <button onclick="switchToYouTube()" 
+                        style="padding: 10px 20px; background: #FF0000; color: white; border: none; border-radius: 5px; margin: 5px;">
+                    Switch to YouTube
+                </button>
+            </div>
+        </div>
     `;
     
     // Update track info
-    if (isDefault && genreName !== 'All Genres') {
-        document.getElementById('trackTitle').textContent = `${genreName} - Using Default Playlist`;
-        document.getElementById('trackArtist').textContent = 'PigStyle Records Collection';
-        document.getElementById('trackPrice').textContent = 'Stream Now';
-    } else {
-        document.getElementById('trackTitle').textContent = `${genreName} Playlist`;
-        document.getElementById('trackArtist').textContent = 'PigStyle Records';
-        document.getElementById('trackPrice').textContent = 'Stream Now';
-    }
+    document.getElementById('trackTitle').textContent = 'Spotify API Error';
+    document.getElementById('trackArtist').textContent = 'Failed to load playlists';
+    document.getElementById('trackPrice').textContent = 'Please Try Again';
+}
+
+// Select a Spotify playlist
+function selectSpotifyPlaylist(playlistId, playlistName) {
+    console.log(`Selected Spotify playlist: ${playlistName} (${playlistId})`);
+    
+    currentSpotifyPlaylistId = playlistId;
+    
+    // Get embed URL from API
+    fetch(`https://arjanshaw.pythonanywhere.com/spotify/playlist/${playlistId}/embed`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displaySpotifyPlayer(data.embed_url, playlistName);
+            } else {
+                // Fallback to direct embed URL
+                const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
+                displaySpotifyPlayer(embedUrl, playlistName);
+            }
+        })
+        .catch(error => {
+            console.error('Error getting embed URL:', error);
+            // Fallback to direct embed URL
+            const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
+            displaySpotifyPlayer(embedUrl, playlistName);
+        });
+}
+
+// Display Spotify player with embed
+function displaySpotifyPlayer(embedUrl, playlistName) {
+    const spotifyContainer = document.getElementById('spotifyContainer');
+    
+    spotifyContainer.innerHTML = `
+        <div style="width: 100%; height: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 10px;">
+                <h4 style="margin: 0; color: white; font-size: 18px;">
+                    🎵 Now Playing: <span style="color: #1DB954;">${playlistName}</span>
+                </h4>
+                <button onclick="fetchAndDisplaySpotifyPlaylists('')"
+                        style="padding: 6px 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; font-size: 13px;">
+                    Back to Playlists
+                </button>
+            </div>
+            
+            <iframe src="${embedUrl}"
+                    width="100%" 
+                    height="380" 
+                    frameborder="0" 
+                    allowfullscreen="" 
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                    loading="lazy"
+                    style="border-radius: 12px;">
+            </iframe>
+            
+            <div style="text-align: center; margin-top: 15px; padding: 10px; background: rgba(29, 185, 84, 0.1); border-radius: 6px;">
+                <p style="margin: 0; color: #1DB954; font-size: 14px;">
+                    ♫ Playing from Spotify • Use Spotify controls above to play/pause
+                </p>
+            </div>
+        </div>
+    `;
+    
+    // Update track info
+    document.getElementById('trackTitle').textContent = playlistName;
+    document.getElementById('trackArtist').textContent = 'Spotify Playlist';
+    document.getElementById('trackPrice').textContent = 'Streaming Now';
 }
 
 // Switch to YouTube mode
@@ -621,3 +861,5 @@ window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;
 window.switchToYouTube = switchToYouTube;
 window.startPlaying = startPlaying;
+window.fetchAndDisplaySpotifyPlaylists = fetchAndDisplaySpotifyPlaylists;
+window.selectSpotifyPlaylist = selectSpotifyPlaylist;

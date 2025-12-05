@@ -337,8 +337,35 @@ async function fetchAndDisplayStoredPlaylists(genreName) {
             spotifyPlaylists = data.playlists;
             console.log(`Fetched ${spotifyPlaylists.length} stored Spotify playlists`);
             
-            // Display playlists in UI
-            displayStoredPlaylists(spotifyPlaylists, genreName);
+            // NEW LOGIC: Auto-select and play the matching playlist
+            if (spotifyPlaylists.length > 0) {
+                // For "All Genres", play the "PigStyle: All Genres" playlist
+                if (genreName === 'All Genres') {
+                    const allGenresPlaylist = spotifyPlaylists.find(p => p.name === 'PigStyle: All Genres');
+                    if (allGenresPlaylist) {
+                        selectAndPlayStoredPlaylist(allGenresPlaylist);
+                        return;
+                    }
+                } else {
+                    // For specific genre, find playlist with matching genre name
+                    // Match format: "PigStyle: {Genre}" or exact genre name match
+                    const matchingPlaylist = spotifyPlaylists.find(p => 
+                        p.genre === genreName || 
+                        p.name === `PigStyle: ${genreName}` ||
+                        p.name.includes(genreName)
+                    );
+                    
+                    if (matchingPlaylist) {
+                        selectAndPlayStoredPlaylist(matchingPlaylist);
+                        return;
+                    }
+                }
+                
+                // If no exact match found, show selection UI
+                displayStoredPlaylists(spotifyPlaylists, genreName);
+            } else {
+                displayStoredPlaylistsError('No playlists found in database', genreName);
+            }
         } else {
             throw new Error(data.error || 'Failed to fetch stored playlists');
         }
@@ -347,6 +374,19 @@ async function fetchAndDisplayStoredPlaylists(genreName) {
         console.error('Error fetching stored playlists:', error);
         displayStoredPlaylistsError(error.message, genreName);
     }
+}
+
+// NEW FUNCTION: Select and play a stored playlist
+function selectAndPlayStoredPlaylist(playlist) {
+    console.log(`Auto-selecting playlist: ${playlist.name} (${playlist.id})`);
+    
+    currentSpotifyPlaylistId = playlist.id;
+    displayStoredPlaylistPlayer(playlist.embed_url, playlist.name, playlist.genre);
+    
+    // Update track info
+    document.getElementById('trackTitle').textContent = playlist.name;
+    document.getElementById('trackArtist').textContent = `Genre: ${playlist.genre}`;
+    document.getElementById('trackPrice').textContent = `${playlist.tracks} tracks`;
 }
 
 // Display stored playlists in the UI
@@ -404,7 +444,7 @@ function displayStoredPlaylists(playlists, genreName) {
                 transition: all 0.3s ease;
                 ${isSelected ? 'box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);' : ''}
             " 
-            onclick="selectStoredPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}', '${playlist.embed_url}')"
+            onclick="selectAndPlayStoredPlaylist(${JSON.stringify(playlist).replace(/"/g, '&quot;')})"
             onmouseover="this.style.transform='translateY(-2px)'; this.style.backgroundColor='${isSelected ? 'rgba(29, 185, 84, 0.3)' : 'rgba(255, 255, 255, 0.15)'}'"
             onmouseout="this.style.transform='translateY(0)'; this.style.backgroundColor='${isSelected ? 'rgba(29, 185, 84, 0.2)' : 'rgba(255, 255, 255, 0.1)'}'">
                 <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -446,7 +486,7 @@ function displayStoredPlaylists(playlists, genreName) {
                 </p>
                 
                 <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                    <button onclick="event.stopPropagation(); selectStoredPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}', '${playlist.embed_url}')"
+                    <button onclick="event.stopPropagation(); selectAndPlayStoredPlaylist(${JSON.stringify(playlist).replace(/"/g, '&quot;')})"
                             style="
                                 padding: 6px 12px;
                                 background: ${isSelected ? '#1DB954' : 'rgba(29, 185, 84, 0.3)'};
@@ -508,7 +548,7 @@ function displayStoredPlaylists(playlists, genreName) {
     // Update track info
     document.getElementById('trackTitle').textContent = 'PigStyle Spotify Playlists';
     document.getElementById('trackArtist').textContent = `${playlists.length} playlists available`;
-    document.getElementById('trackPrice').textContent = 'Stream Now';
+    document.getElementById('trackPrice').textContent = 'Select a playlist';
 }
 
 // Display stored playlists error
@@ -545,16 +585,8 @@ function displayStoredPlaylistsError(errorMessage, genreName) {
     document.getElementById('trackPrice').textContent = 'Please Try Again';
 }
 
-// Select a stored playlist
-function selectStoredPlaylist(playlistId, playlistName, embedUrl) {
-    console.log(`Selected stored playlist: ${playlistName} (${playlistId})`);
-    
-    currentSpotifyPlaylistId = playlistId;
-    displayStoredPlaylistPlayer(embedUrl, playlistName);
-}
-
 // Display stored playlist player with embed
-function displayStoredPlaylistPlayer(embedUrl, playlistName) {
+function displayStoredPlaylistPlayer(embedUrl, playlistName, playlistGenre) {
     const spotifyContainer = document.getElementById('spotifyContainer');
     
     spotifyContainer.innerHTML = `
@@ -563,7 +595,7 @@ function displayStoredPlaylistPlayer(embedUrl, playlistName) {
                 <h4 style="margin: 0; color: white; font-size: 18px;">
                     🎵 Now Playing: <span style="color: #1DB954;">${playlistName}</span>
                 </h4>
-                <button onclick="fetchAndDisplayStoredPlaylists('')"
+                <button onclick="fetchAndDisplayStoredPlaylists('${playlistGenre || ''}')"
                         style="padding: 6px 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; font-size: 13px;">
                     Back to Playlists
                 </button>
@@ -589,7 +621,7 @@ function displayStoredPlaylistPlayer(embedUrl, playlistName) {
     
     // Update track info
     document.getElementById('trackTitle').textContent = playlistName;
-    document.getElementById('trackArtist').textContent = 'Spotify Playlist';
+    document.getElementById('trackArtist').textContent = `Genre: ${playlistGenre || 'Various'}`;
     document.getElementById('trackPrice').textContent = 'Streaming Now';
 }
 
@@ -856,4 +888,4 @@ window.playNextTrack = playNextTrack;
 window.switchToYouTube = switchToYouTube;
 window.startPlaying = startPlaying;
 window.fetchAndDisplayStoredPlaylists = fetchAndDisplayStoredPlaylists;
-window.selectStoredPlaylist = selectStoredPlaylist;
+window.selectAndPlayStoredPlaylist = selectAndPlayStoredPlaylist;

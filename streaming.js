@@ -310,16 +310,22 @@ function startSpotifyPlayback(genreId, genreName) {
     document.getElementById('spotifyControls').style.display = 'flex';
     document.getElementById('youtubeControls').style.display = 'none';
     
-    // Fetch Spotify playlists and display them
-    fetchAndDisplaySpotifyPlaylists(genreName);
+    // Fetch stored Spotify playlists from database
+    fetchAndDisplayStoredPlaylists(genreName);
 }
 
-// Fetch Spotify playlists from API
-async function fetchAndDisplaySpotifyPlaylists(genreName) {
+// Fetch stored Spotify playlists from database
+async function fetchAndDisplayStoredPlaylists(genreName) {
     try {
-        console.log('Fetching Spotify playlists...');
+        console.log('Fetching stored Spotify playlists from database...');
         
-        const response = await fetch('https://arjanshaw.pythonanywhere.com/spotify/playlists');
+        // Build URL with genre filter if applicable
+        let url = 'https://arjanshaw.pythonanywhere.com/spotify/stored-playlists';
+        if (genreName !== 'All Genres') {
+            url += `?genre=${encodeURIComponent(genreName)}`;
+        }
+        
+        const response = await fetch(url);
         
         if (!response.ok) {
             throw new Error(`API error: ${response.status} ${response.statusText}`);
@@ -329,30 +335,30 @@ async function fetchAndDisplaySpotifyPlaylists(genreName) {
         
         if (data.status === 'success') {
             spotifyPlaylists = data.playlists;
-            console.log(`Fetched ${spotifyPlaylists.length} Spotify playlists`);
+            console.log(`Fetched ${spotifyPlaylists.length} stored Spotify playlists`);
             
             // Display playlists in UI
-            displaySpotifyPlaylists(spotifyPlaylists, genreName);
+            displayStoredPlaylists(spotifyPlaylists, genreName);
         } else {
-            throw new Error(data.error || 'Failed to fetch playlists');
+            throw new Error(data.error || 'Failed to fetch stored playlists');
         }
         
     } catch (error) {
-        console.error('Error fetching Spotify playlists:', error);
-        displaySpotifyError(error.message);
+        console.error('Error fetching stored playlists:', error);
+        displayStoredPlaylistsError(error.message, genreName);
     }
 }
 
-// Display Spotify playlists in the UI
-function displaySpotifyPlaylists(playlists, genreName) {
+// Display stored playlists in the UI
+function displayStoredPlaylists(playlists, genreName) {
     const spotifyContainer = document.getElementById('spotifyContainer');
     
     if (playlists.length === 0) {
         spotifyContainer.innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
-                <h3>🎵 No Spotify Playlists Found</h3>
-                <p>No playlists are currently available on Spotify.</p>
-                <p>You can create playlists using the admin tools.</p>
+                <h3>🎵 No Stored Spotify Playlists</h3>
+                <p>No PigStyle playlists are currently available in the database.</p>
+                <p>You can create playlists by running the Spotify update tool.</p>
                 <div style="margin-top: 20px;">
                     <button onclick="switchToYouTube()" style="padding: 10px 20px; background: #FF0000; color: white; border: none; border-radius: 5px; margin: 5px;">
                         Switch to YouTube
@@ -360,14 +366,21 @@ function displaySpotifyPlaylists(playlists, genreName) {
                 </div>
             </div>
         `;
+        
+        // Update track info
+        document.getElementById('trackTitle').textContent = 'No Playlists Available';
+        document.getElementById('trackArtist').textContent = 'Create playlists first';
+        document.getElementById('trackPrice').textContent = 'Setup Required';
         return;
     }
     
     // Create playlist selection UI
     let playlistHTML = `
         <div style="padding: 20px; color: white;">
-            <h3 style="margin-bottom: 20px; text-align: center;">🎵 Available Spotify Playlists</h3>
-            <p style="text-align: center; margin-bottom: 20px; opacity: 0.8;">Select a playlist to play:</p>
+            <h3 style="margin-bottom: 20px; text-align: center;">🎵 PigStyle Spotify Playlists</h3>
+            <p style="text-align: center; margin-bottom: 20px; opacity: 0.8;">
+                ${genreName === 'All Genres' ? 'All Genres' : `Genre: ${genreName}`} • ${playlists.length} playlists
+            </p>
             
             <div style="
                 display: grid;
@@ -391,7 +404,7 @@ function displaySpotifyPlaylists(playlists, genreName) {
                 transition: all 0.3s ease;
                 ${isSelected ? 'box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);' : ''}
             " 
-            onclick="selectSpotifyPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}')"
+            onclick="selectStoredPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}', '${playlist.embed_url}')"
             onmouseover="this.style.transform='translateY(-2px)'; this.style.backgroundColor='${isSelected ? 'rgba(29, 185, 84, 0.3)' : 'rgba(255, 255, 255, 0.15)'}'"
             onmouseout="this.style.transform='translateY(0)'; this.style.backgroundColor='${isSelected ? 'rgba(29, 185, 84, 0.2)' : 'rgba(255, 255, 255, 0.1)'}'">
                 <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -415,12 +428,11 @@ function displaySpotifyPlaylists(playlists, genreName) {
                         <div style="font-size: 12px; opacity: 0.7; display: flex; align-items: center; gap: 10px;">
                             <span>${playlist.tracks} tracks</span>
                             <span>•</span>
-                            <span>${playlist.public ? 'Public' : 'Private'}</span>
+                            <span>${playlist.genre || 'Various'}</span>
                         </div>
                     </div>
                 </div>
                 
-                ${playlist.description ? `
                 <p style="
                     font-size: 13px;
                     opacity: 0.8;
@@ -430,12 +442,11 @@ function displaySpotifyPlaylists(playlists, genreName) {
                     border-left: 2px solid rgba(29, 185, 84, 0.5);
                     padding-left: 10px;
                 ">
-                    "${playlist.description}"
+                    ${playlist.description || 'PigStyle Records Collection'}
                 </p>
-                ` : ''}
                 
                 <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                    <button onclick="event.stopPropagation(); selectSpotifyPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}')"
+                    <button onclick="event.stopPropagation(); selectStoredPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}', '${playlist.embed_url}')"
                             style="
                                 padding: 6px 12px;
                                 background: ${isSelected ? '#1DB954' : 'rgba(29, 185, 84, 0.3)'};
@@ -475,10 +486,11 @@ function displaySpotifyPlaylists(playlists, genreName) {
             
             <div style="text-align: center; margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                 <p style="opacity: 0.7; font-size: 14px; margin-bottom: 15px;">
-                    Showing ${playlists.length} playlists from Spotify API
+                    Showing ${playlists.length} PigStyle playlists from database
+                    ${genreName !== 'All Genres' ? `(filtered by: ${genreName})` : ''}
                 </p>
                 <div>
-                    <button onclick="fetchAndDisplaySpotifyPlaylists('${genreName.replace(/'/g, "\\'")}')" 
+                    <button onclick="fetchAndDisplayStoredPlaylists('${genreName.replace(/'/g, "\\'")}')" 
                             style="padding: 8px 16px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; margin: 0 5px;">
                         Refresh Playlists
                     </button>
@@ -494,28 +506,28 @@ function displaySpotifyPlaylists(playlists, genreName) {
     spotifyContainer.innerHTML = playlistHTML;
     
     // Update track info
-    document.getElementById('trackTitle').textContent = 'Select a Spotify Playlist';
-    document.getElementById('trackArtist').textContent = `${spotifyPlaylists.length} playlists available`;
+    document.getElementById('trackTitle').textContent = 'PigStyle Spotify Playlists';
+    document.getElementById('trackArtist').textContent = `${playlists.length} playlists available`;
     document.getElementById('trackPrice').textContent = 'Stream Now';
 }
 
-// Display Spotify error
-function displaySpotifyError(errorMessage) {
+// Display stored playlists error
+function displayStoredPlaylistsError(errorMessage, genreName) {
     const spotifyContainer = document.getElementById('spotifyContainer');
     
     spotifyContainer.innerHTML = `
         <div style="padding: 40px; text-align: center; color: white;">
-            <h3>⚠️ Error Loading Spotify Playlists</h3>
-            <p>Failed to load playlists from Spotify API.</p>
+            <h3>⚠️ Error Loading Stored Playlists</h3>
+            <p>Failed to load PigStyle playlists from database.</p>
             <p style="opacity: 0.7; margin: 10px 0; font-size: 14px;">Error: ${errorMessage}</p>
             <p>Please check:</p>
             <ul style="text-align: left; display: inline-block; opacity: 0.8; margin: 15px 0;">
-                <li>Spotify API credentials are set</li>
-                <li>Server can access Spotify API</li>
-                <li>Network connection is working</li>
+                <li>Database connection is working</li>
+                <li>Spotify playlists have been created</li>
+                <li>spotify_playlists table exists</li>
             </ul>
             <div style="margin-top: 20px;">
-                <button onclick="fetchAndDisplaySpotifyPlaylists('All Genres')" 
+                <button onclick="fetchAndDisplayStoredPlaylists('${genreName.replace(/'/g, "\\'")}')" 
                         style="padding: 10px 20px; background: #1DB954; color: white; border: none; border-radius: 5px; margin: 5px;">
                     Try Again
                 </button>
@@ -528,39 +540,21 @@ function displaySpotifyError(errorMessage) {
     `;
     
     // Update track info
-    document.getElementById('trackTitle').textContent = 'Spotify API Error';
+    document.getElementById('trackTitle').textContent = 'Database Error';
     document.getElementById('trackArtist').textContent = 'Failed to load playlists';
     document.getElementById('trackPrice').textContent = 'Please Try Again';
 }
 
-// Select a Spotify playlist
-function selectSpotifyPlaylist(playlistId, playlistName) {
-    console.log(`Selected Spotify playlist: ${playlistName} (${playlistId})`);
+// Select a stored playlist
+function selectStoredPlaylist(playlistId, playlistName, embedUrl) {
+    console.log(`Selected stored playlist: ${playlistName} (${playlistId})`);
     
     currentSpotifyPlaylistId = playlistId;
-    
-    // Get embed URL from API
-    fetch(`https://arjanshaw.pythonanywhere.com/spotify/playlist/${playlistId}/embed`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                displaySpotifyPlayer(data.embed_url, playlistName);
-            } else {
-                // Fallback to direct embed URL
-                const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
-                displaySpotifyPlayer(embedUrl, playlistName);
-            }
-        })
-        .catch(error => {
-            console.error('Error getting embed URL:', error);
-            // Fallback to direct embed URL
-            const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
-            displaySpotifyPlayer(embedUrl, playlistName);
-        });
+    displayStoredPlaylistPlayer(embedUrl, playlistName);
 }
 
-// Display Spotify player with embed
-function displaySpotifyPlayer(embedUrl, playlistName) {
+// Display stored playlist player with embed
+function displayStoredPlaylistPlayer(embedUrl, playlistName) {
     const spotifyContainer = document.getElementById('spotifyContainer');
     
     spotifyContainer.innerHTML = `
@@ -569,7 +563,7 @@ function displaySpotifyPlayer(embedUrl, playlistName) {
                 <h4 style="margin: 0; color: white; font-size: 18px;">
                     🎵 Now Playing: <span style="color: #1DB954;">${playlistName}</span>
                 </h4>
-                <button onclick="fetchAndDisplaySpotifyPlaylists('')"
+                <button onclick="fetchAndDisplayStoredPlaylists('')"
                         style="padding: 6px 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; font-size: 13px;">
                     Back to Playlists
                 </button>
@@ -861,5 +855,5 @@ window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;
 window.switchToYouTube = switchToYouTube;
 window.startPlaying = startPlaying;
-window.fetchAndDisplaySpotifyPlaylists = fetchAndDisplaySpotifyPlaylists;
-window.selectSpotifyPlaylist = selectSpotifyPlaylist;
+window.fetchAndDisplayStoredPlaylists = fetchAndDisplayStoredPlaylists;
+window.selectStoredPlaylist = selectStoredPlaylist;

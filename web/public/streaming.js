@@ -10,6 +10,15 @@ let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let genreMap = {};
 
+// Spotify playlist mapping - map genre IDs to Spotify playlist IDs
+const spotifyPlaylists = {
+    // You can add more genre-to-playlist mappings here
+    // Example: '1': '37i9dQZF1DXcBWIGoYBM5M', // Rock
+    // Example: '2': '37i9dQZF1DX4JAvHpjipBk', // Pop
+    // For now, we'll use a default playlist for all genres
+    'default': '72RkLX9Hhy5LZcaUTNSj60' // Default PigStyle playlist
+};
+
 // Voting system
 class VotingSystem {
     constructor() {
@@ -308,63 +317,46 @@ function startSpotifyPlayback(genreId, genreName) {
     document.getElementById('spotifyControls').style.display = 'flex';
     document.getElementById('youtubeControls').style.display = 'none';
     
-    if (genreId) {
-        // Show "not implemented" error for genre-specific Spotify
-        showNotImplementedError(genreName);
+    // Check if we have a playlist for this genre
+    const playlistId = spotifyPlaylists[genreId] || spotifyPlaylists['default'];
+    
+    if (genreId && !spotifyPlaylists[genreId]) {
+        // No specific playlist for this genre, use default
+        showSpotifyPlaylist(playlistId, genreName, true);
     } else {
-        // Show main Spotify player (empty for now)
-        showMainSpotifyPlayer();
+        // We have a playlist for this genre
+        showSpotifyPlaylist(playlistId, genreName, false);
     }
 }
 
-// Show "not implemented" error for Spotify genre selection
-function showNotImplementedError(genreName) {
-    console.log(`Spotify not implemented for genre: ${genreName}`);
+// Show Spotify playlist
+function showSpotifyPlaylist(playlistId, genreName, isDefault = false) {
+    console.log(`Showing Spotify playlist: ${playlistId} for genre: ${genreName}`);
+    
+    const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
     
     document.getElementById('spotifyContainer').innerHTML = `
-        <div style="padding: 40px; text-align: center; color: white;">
-            <h3>⏳ Genre Playlist Coming Soon</h3>
-            <p>Spotify playlist for <strong>${genreName}</strong> is not available yet.</p>
-            <p>We're working on creating dedicated Spotify playlists for each genre.</p>
-            <p>For now, you can:</p>
-            <div style="margin-top: 20px;">
-                <button onclick="showMainSpotifyPlayer()" style="padding: 10px 20px; background: #1DB954; color: white; border: none; border-radius: 5px; margin: 5px;">
-                    Use Main Spotify Playlist
-                </button>
-                <button onclick="switchToYouTube()" style="padding: 10px 20px; background: #FF0000; color: white; border: none; border-radius: 5px; margin: 5px;">
-                    Switch to YouTube for ${genreName}
-                </button>
-            </div>
-        </div>
+        <iframe id="spotifyPlaylistEmbed" 
+                src="${embedUrl}"
+                width="100%" 
+                height="380" 
+                frameborder="0" 
+                allowfullscreen="" 
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                loading="lazy">
+        </iframe>
     `;
     
     // Update track info
-    document.getElementById('trackTitle').textContent = 'Genre Playlist Coming Soon';
-    document.getElementById('trackArtist').textContent = `${genreName} - Spotify`;
-    document.getElementById('trackPrice').textContent = 'Not Implemented';
-}
-
-// Show main Spotify player
-function showMainSpotifyPlayer() {
-    console.log('Showing main Spotify player');
-    
-    document.getElementById('spotifyContainer').innerHTML = `
-        <div style="padding: 40px; text-align: center; color: white;">
-            <h3>🎵 Main Spotify Player</h3>
-            <p>Spotify integration is coming soon!</p>
-            <p>For now, enjoy our YouTube streaming station.</p>
-            <div style="margin-top: 20px;">
-                <button onclick="switchToYouTube()" style="padding: 10px 20px; background: #FF0000; color: white; border: none; border-radius: 5px; margin: 5px;">
-                    Switch to YouTube
-                </button>
-            </div>
-        </div>
-    `;
-    
-    // Update track info
-    document.getElementById('trackTitle').textContent = 'Spotify Integration Coming Soon';
-    document.getElementById('trackArtist').textContent = 'PigStyle Records';
-    document.getElementById('trackPrice').textContent = 'In Development';
+    if (isDefault && genreName !== 'All Genres') {
+        document.getElementById('trackTitle').textContent = `${genreName} - Using Default Playlist`;
+        document.getElementById('trackArtist').textContent = 'PigStyle Records Collection';
+        document.getElementById('trackPrice').textContent = 'Stream Now';
+    } else {
+        document.getElementById('trackTitle').textContent = `${genreName} Playlist`;
+        document.getElementById('trackArtist').textContent = 'PigStyle Records';
+        document.getElementById('trackPrice').textContent = 'Stream Now';
+    }
 }
 
 // Switch to YouTube mode
@@ -627,6 +619,5 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Make functions available globally
 window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;
-window.showMainSpotifyPlayer = showMainSpotifyPlayer;
 window.switchToYouTube = switchToYouTube;
 window.startPlaying = startPlaying;

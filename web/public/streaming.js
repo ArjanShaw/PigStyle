@@ -376,14 +376,65 @@ function populateGenreFilter() {
     
     console.log(`Populated ${sortedGenres.length} genres in filter`);
     
-    // Set up event listener
+    // Set up event listener - FIXED: Only apply genre filter for YouTube
     genreFilter.addEventListener('change', function() {
-        applyGenreFilter(this.value);
+        if (currentStreamingService === 'youtube') {
+            applyGenreFilter(this.value);
+        } else {
+            showSpotifyGenreNotAvailable(this.value);
+        }
     });
 }
 
-// Apply genre filter
+// Show error message for Spotify genre selection
+function showSpotifyGenreNotAvailable(genreId) {
+    const genreName = genreId ? (genreMap[genreId] || 'Selected Genre') : 'All Genres';
+    
+    document.getElementById('spotifyPlaylistEmbed').src = '';
+    document.getElementById('spotifyContainer').innerHTML = `
+        <div style="padding: 40px; text-align: center; color: white;">
+            <h3>⏳ Genre Playlist Coming Soon</h3>
+            <p>The Spotify playlist for <strong>${genreName}</strong> is not available yet.</p>
+            <p>We're working on creating dedicated Spotify playlists for each genre.</p>
+            <p>For now, you can enjoy our main PigStyle Records collection on Spotify.</p>
+            <div style="margin-top: 20px;">
+                <button onclick="resetToMainSpotifyPlaylist()" style="padding: 10px 20px; background: #1DB954; color: white; border: none; border-radius: 5px; margin: 5px;">
+                    Back to Main Spotify Playlist
+                </button>
+                <button onclick="switchToYouTube()" style="padding: 10px 20px; background: #FF0000; color: white; border: none; border-radius: 5px; margin: 5px;">
+                    Switch to YouTube for Genre Selection
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Reset genre filter to "All Genres"
+    document.getElementById('genreFilter').value = '';
+    
+    // Update track info
+    document.getElementById('trackTitle').textContent = 'Genre Playlist Coming Soon';
+    document.getElementById('trackArtist').textContent = `${genreName} - Spotify`;
+    document.getElementById('trackPrice').textContent = 'In Development';
+}
+
+// Reset to main Spotify playlist
+function resetToMainSpotifyPlaylist() {
+    showSpotifyPlayer();
+}
+
+// Switch to YouTube mode
+function switchToYouTube() {
+    document.getElementById('streamingService').value = 'youtube';
+    currentStreamingService = 'youtube';
+    showYouTubePlayer();
+}
+
+// Apply genre filter for YouTube
 function applyGenreFilter(genreId) {
+    if (currentStreamingService !== 'youtube') {
+        return; // Only apply for YouTube
+    }
+    
     if (!genreId) {
         // Show all records with YouTube URLs
         filteredRecords = allRecords.filter(record => 
@@ -556,6 +607,9 @@ function setupUI() {
             currentStreamingService = e.target.value;
             console.log('Switching to:', currentStreamingService);
             
+            // Reset genre filter when switching services
+            document.getElementById('genreFilter').value = '';
+            
             if (currentStreamingService === 'youtube') {
                 showYouTubePlayer();
             } else {
@@ -592,3 +646,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;
 window.showSpotifyPlayer = showSpotifyPlayer;
+window.resetToMainSpotifyPlaylist = resetToMainSpotifyPlaylist;
+window.switchToYouTube = switchToYouTube;
+window.showSpotifyGenreNotAvailable = showSpotifyGenreNotAvailable;

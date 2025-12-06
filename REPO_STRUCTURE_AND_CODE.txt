@@ -51,15 +51,31 @@ REPOSITORY STRUCTURE:
     │   ├── image_formatter.py 🐍
     │   ├── print_config.json 📋
     │   ├── records.zip
-    │   ├── Screenshot from 2025-10-24 21-15-56.png
     │   ├── sku_generator.py 🐍
     │   └── streamlit_app.py 🐍
+    ├── app.py 🐍
     ├── app_config.json 📋
     └── requirements.txt 📄
 
 ======================================================================
 
 CODE FROM: inventory-manager
+======================================================================
+
+FILE: inventory-manager/app.py
+--------------------------------------------------
+import sys
+import os
+
+# Add the src directory to the path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+# Now import from streamlit_app
+from streamlit_app import main
+
+if __name__ == "__main__":
+    main()
+
 ======================================================================
 
 FILE: inventory-manager/requirements.txt
@@ -174,9 +190,9 @@ def render_login_page(auth_manager, session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                login_button = st.form_submit_button("🚀 Login", width='stretch')
+                login_button = st.form_submit_button("🚀 Login")
             with col2:
-                demo_button = st.form_submit_button("👀 Demo Mode", width='stretch')
+                demo_button = st.form_submit_button("👀 Demo Mode")
         
         if login_button:
             if username and password:
@@ -309,11 +325,11 @@ def render_header(user, session_manager):
         st.caption(role_display)
     
     with col3:
-        if st.button("🔐 PW", help="Change Password", width='stretch'):
+        if st.button("🔐 PW", help="Change Password"):
             st.session_state.show_change_password = True
     
     with col4:
-        if st.button("🚪", help="Logout", width='stretch'):
+        if st.button("🚪", help="Logout"):
             session_manager.logout()
     
     # Show change password form if triggered
@@ -335,9 +351,9 @@ def render_change_password_form(session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                submit = st.form_submit_button("💾 Update Password", width='stretch')
+                submit = st.form_submit_button("💾 Update Password")
             with col2:
-                cancel = st.form_submit_button("❌ Cancel", width='stretch')
+                cancel = st.form_submit_button("❌ Cancel")
             
             if cancel:
                 st.session_state.show_change_password = False
@@ -991,13 +1007,13 @@ class EBayTab:
             # eBay pricing action buttons
             col1, col2, col3 = st.columns(3)
             with col1:
-                if st.button("🔄 Update eBay Prices", width='stretch', help="Call eBay API to update pricing data for all inventory"):
+                if st.button("🔄 Update eBay Prices", use_container_width=True, help="Call eBay API to update pricing data for all inventory"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_prices(test_record_id.strip())
                     else:
                         self._update_all_ebay_prices()
             with col2:
-                if st.button("💰 Update eBay Sell At", width='stretch', help="Calculate eBay sell prices from existing lowest prices"):
+                if st.button("💰 Update eBay Sell At", use_container_width=True, help="Calculate eBay sell prices from existing lowest prices"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_sell_at(test_record_id.strip())
                     else:
@@ -1056,7 +1072,7 @@ class EBayTab:
                         st.dataframe(preview_df)
                         
                         # Process button
-                        if st.button("🔗 Match Listings to Database", width='stretch'):
+                        if st.button("🔗 Match Listings to Database", use_container_width=True):
                             self._process_ebay_listings(listings_data)
                             
                 except Exception as e:
@@ -1077,7 +1093,7 @@ class EBayTab:
                 )
             
             with col2:
-                if st.button("🛒 Export eBay Draft CSV", width='stretch'):
+                if st.button("🛒 Export eBay Draft CSV", use_container_width=True):
                     self._export_ebay_draft_csv(num_listings)
         
         # Show individual listings table if available
@@ -1268,7 +1284,7 @@ class EBayTab:
                 )
                 
                 # Export results option
-                if st.button("📊 Export Results CSV", width='stretch'):
+                if st.button("📊 Export Results CSV", use_container_width=True):
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"ebay_listing_matches_{timestamp}.csv"
                     csv_data = df.to_csv(index=False)
@@ -1278,7 +1294,7 @@ class EBayTab:
                         data=csv_data,
                         file_name=filename,
                         mime="text/csv",
-                        width='stretch',
+                        use_container_width=True,
                         key=f"download_ebay_results_{timestamp}"
                     )
         
@@ -1358,7 +1374,7 @@ class EBayTab:
             data=csv_content,
             file_name=filename,
             mime="text/csv",
-            width='stretch',
+            use_container_width=True,
             key=f"download_ebay_draft_{timestamp}"
         )
         
@@ -1745,7 +1761,7 @@ class EBayTab:
             record_id = record.get('id')
             ebay_lowest_price = record.get('ebay_lowest_price')
             ebay_low_shipping = record.get('ebay_low_shipping')
-            discogs_median_price = record.get('discogs_median_price')
+            discogs_median_price = record.get('discogs_suggested_price')
             
             status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
@@ -1799,7 +1815,7 @@ class EBayTab:
         title = record.get('title', '')
         ebay_lowest_price = record.get('ebay_lowest_price')
         ebay_low_shipping = record.get('ebay_low_shipping')
-        discogs_median_price = record.get('discogs_median_price')
+        discogs_median_price = record.get('discogs_suggested_price')
         
         try:
             # Use the unified calculation function
@@ -4675,7 +4691,7 @@ class InventoryTab:
             
             col1, col2 = st.columns([3, 1])
             with col1:
-                search_submitted = st.form_submit_button("🔍 Search", width='stretch', disabled=search_disabled)
+                search_submitted = st.form_submit_button("🔍 Search", use_container_width=True, disabled=search_disabled)
         
         # Handle search submission
         if search_submitted and search_input and search_input.strip():
@@ -8685,5 +8701,5 @@ class BarcodeGenerator:
 
 ======================================================================
 
-📊 Total files processed: 40
+📊 Total files processed: 41
 

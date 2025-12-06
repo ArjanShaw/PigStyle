@@ -302,14 +302,7 @@ class DatabaseManager:
         if result and 'records' in result:
             return pd.DataFrame(result['records'])
         return pd.DataFrame()
-    
-    def get_user_records(self, user_id: int) -> pd.DataFrame:
-        """Get records for a specific user (consignor)"""
-        result = self._make_request('GET', f'/records/user/{user_id}')
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        return pd.DataFrame()
-    
+
     def get_artist_genre(self, artist_name: str) -> Optional[pd.Series]:
         """Get the genre assigned to an artist"""
         result = self._make_request('GET', f'/genre-assignments/artist/{artist_name}')
@@ -323,14 +316,7 @@ class DatabaseManager:
         if result and 'genre_stats' in result:
             return pd.DataFrame(result['genre_stats'])
         return pd.DataFrame(columns=['genre_name', 'record_count'])
-    
-    def get_artists_without_genres(self) -> pd.DataFrame:
-        """Get artists that don't have genres assigned yet"""
-        result = self._make_request('GET', '/artists/no-genre')
-        if result and 'artists' in result:
-            return pd.DataFrame(result['artists'])
-        return pd.DataFrame(columns=['artist_name'])
-    
+
     def get_all_artists_with_genres(self, search_term: str = None) -> pd.DataFrame:
         """Get all artists from records and their assigned genres"""
         endpoint = '/artists/with-genres'

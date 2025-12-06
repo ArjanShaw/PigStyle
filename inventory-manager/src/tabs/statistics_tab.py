@@ -45,14 +45,22 @@ class StatisticsTab:
                 st.info("No records available for genre chart.")
                 return
             
-            # Count records by genre
-            genre_counts = records_df['genre'].value_counts().head(10).reset_index()
-            genre_counts.columns = ['genre', 'record_count']
+            # Count records by genre_name
+            if 'genre_name' in records_df.columns:
+                genre_counts = records_df['genre_name'].value_counts().head(10).reset_index()
+                genre_counts.columns = ['genre_name', 'record_count']
+            elif 'genre' in records_df.columns:
+                # Fallback to 'genre' column if 'genre_name' doesn't exist
+                genre_counts = records_df['genre'].value_counts().head(10).reset_index()
+                genre_counts.columns = ['genre_name', 'record_count']
+            else:
+                st.info("No genre data available for chart.")
+                return
             
             if len(genre_counts) > 0:
                 fig = px.bar(
                     genre_counts,
-                    x='genre',
+                    x='genre_name',
                     y='record_count',
                     title='Top 10 Genres',
                     color='record_count',
@@ -65,7 +73,7 @@ class StatisticsTab:
                     showlegend=False,
                     xaxis_tickangle=-45
                 )
-                st.plotly_chart(fig, width= 'stretch')
+                st.plotly_chart(fig, width='stretch')
             else:
                 st.info("No genre data available for chart.")
                 
@@ -121,7 +129,7 @@ class StatisticsTab:
                     # Format y-axis as currency
                     fig.update_yaxes(tickprefix='$', tickformat='.2f')
                     
-                    st.plotly_chart(fig, width= 'stretch')
+                    st.plotly_chart(fig, width='stretch')
                     
                     # Add some statistics
                     col1, col2, col3 = st.columns(3)

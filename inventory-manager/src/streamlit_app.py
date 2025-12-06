@@ -48,9 +48,9 @@ def render_login_page(auth_manager, session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                login_button = st.form_submit_button("🚀 Login", width='stretch')
+                login_button = st.form_submit_button("🚀 Login")
             with col2:
-                demo_button = st.form_submit_button("👀 Demo Mode", width='stretch')
+                demo_button = st.form_submit_button("👀 Demo Mode")
         
         if login_button:
             if username and password:
@@ -183,11 +183,11 @@ def render_header(user, session_manager):
         st.caption(role_display)
     
     with col3:
-        if st.button("🔐 PW", help="Change Password", width='stretch'):
+        if st.button("🔐 PW", help="Change Password"):
             st.session_state.show_change_password = True
     
     with col4:
-        if st.button("🚪", help="Logout", width='stretch'):
+        if st.button("🚪", help="Logout"):
             session_manager.logout()
     
     # Show change password form if triggered
@@ -209,9 +209,9 @@ def render_change_password_form(session_manager):
             
             col1, col2 = st.columns(2)
             with col1:
-                submit = st.form_submit_button("💾 Update Password", width='stretch')
+                submit = st.form_submit_button("💾 Update Password")
             with col2:
-                cancel = st.form_submit_button("❌ Cancel", width='stretch')
+                cancel = st.form_submit_button("❌ Cancel")
             
             if cancel:
                 st.session_state.show_change_password = False

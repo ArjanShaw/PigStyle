@@ -92,7 +92,7 @@ class InventoryTab:
             
             col1, col2 = st.columns([3, 1])
             with col1:
-                search_submitted = st.form_submit_button("🔍 Search", width='stretch', disabled=search_disabled)
+                search_submitted = st.form_submit_button("🔍 Search", use_container_width=True, disabled=search_disabled)
         
         # Handle search submission
         if search_submitted and search_input and search_input.strip():

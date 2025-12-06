@@ -41,13 +41,13 @@ class EBayTab:
             # eBay pricing action buttons
             col1, col2, col3 = st.columns(3)
             with col1:
-                if st.button("🔄 Update eBay Prices", width='stretch', help="Call eBay API to update pricing data for all inventory"):
+                if st.button("🔄 Update eBay Prices", use_container_width=True, help="Call eBay API to update pricing data for all inventory"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_prices(test_record_id.strip())
                     else:
                         self._update_all_ebay_prices()
             with col2:
-                if st.button("💰 Update eBay Sell At", width='stretch', help="Calculate eBay sell prices from existing lowest prices"):
+                if st.button("💰 Update eBay Sell At", use_container_width=True, help="Calculate eBay sell prices from existing lowest prices"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_sell_at(test_record_id.strip())
                     else:
@@ -106,7 +106,7 @@ class EBayTab:
                         st.dataframe(preview_df)
                         
                         # Process button
-                        if st.button("🔗 Match Listings to Database", width='stretch'):
+                        if st.button("🔗 Match Listings to Database", use_container_width=True):
                             self._process_ebay_listings(listings_data)
                             
                 except Exception as e:
@@ -127,7 +127,7 @@ class EBayTab:
                 )
             
             with col2:
-                if st.button("🛒 Export eBay Draft CSV", width='stretch'):
+                if st.button("🛒 Export eBay Draft CSV", use_container_width=True):
                     self._export_ebay_draft_csv(num_listings)
         
         # Show individual listings table if available
@@ -318,7 +318,7 @@ class EBayTab:
                 )
                 
                 # Export results option
-                if st.button("📊 Export Results CSV", width='stretch'):
+                if st.button("📊 Export Results CSV", use_container_width=True):
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"ebay_listing_matches_{timestamp}.csv"
                     csv_data = df.to_csv(index=False)
@@ -328,7 +328,7 @@ class EBayTab:
                         data=csv_data,
                         file_name=filename,
                         mime="text/csv",
-                        width='stretch',
+                        use_container_width=True,
                         key=f"download_ebay_results_{timestamp}"
                     )
         
@@ -408,7 +408,7 @@ class EBayTab:
             data=csv_content,
             file_name=filename,
             mime="text/csv",
-            width='stretch',
+            use_container_width=True,
             key=f"download_ebay_draft_{timestamp}"
         )
         
@@ -795,7 +795,7 @@ class EBayTab:
             record_id = record.get('id')
             ebay_lowest_price = record.get('ebay_lowest_price')
             ebay_low_shipping = record.get('ebay_low_shipping')
-            discogs_median_price = record.get('discogs_median_price')
+            discogs_median_price = record.get('discogs_suggested_price')
             
             status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
@@ -849,7 +849,7 @@ class EBayTab:
         title = record.get('title', '')
         ebay_lowest_price = record.get('ebay_lowest_price')
         ebay_low_shipping = record.get('ebay_low_shipping')
-        discogs_median_price = record.get('discogs_median_price')
+        discogs_median_price = record.get('discogs_suggested_price')
         
         try:
             # Use the unified calculation function

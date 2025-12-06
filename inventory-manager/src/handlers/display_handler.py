@@ -670,8 +670,8 @@ class DisplayHandler:
         
         # Find the most common genre for this artist
         artist_records = all_records[all_records['artist'] == artist]
-        if not artist_records.empty and 'genre' in artist_records.columns:
-            genre_counts = artist_records['genre'].value_counts()
+        if not artist_records.empty:
+            genre_counts = artist_records['genre_name'].value_counts()
             if not genre_counts.empty:
                 return genre_counts.index[0]
         return ""

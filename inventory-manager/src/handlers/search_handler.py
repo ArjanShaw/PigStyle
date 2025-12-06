@@ -68,7 +68,7 @@ class SearchHandler:
                     'discogs_suggested_price': record.get('discogs_suggested_price', ''),
                     'ebay_lowest_price': record.get('ebay_lowest_price', ''),
                     'condition': record.get('condition', ''),
-                    'genre': record.get('genre', ''),
+                    'genre': record.get('genre_name', record.get('genre', '')),  # FIXED: API returns 'genre_name'
                     'youtube_url': record.get('youtube_url', ''),
                     'consignor_name': record.get('consignor_name', ''),
                     'commission_rate': record.get('commission_rate', ''),

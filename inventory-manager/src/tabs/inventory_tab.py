@@ -66,6 +66,11 @@ class InventoryTab:
             st.session_state.checkout_records = []
         if 'record_added' not in st.session_state:
             st.session_state.record_added = None
+        # NEW: Initialize search trigger and persistent query
+        if 'search_triggered' not in st.session_state:
+            st.session_state.search_triggered = False
+        if 'search_query' not in st.session_state:
+            st.session_state.search_query = ""
         
         # Action type selection - renamed from Search Type
         col1, col2 = st.columns([1, 3])
@@ -80,11 +85,12 @@ class InventoryTab:
         # Disable search input if store is over capacity and trying to add items
         search_disabled = (store_fill_fraction > 1.10 and search_type == "Add item")
         
-        # Use a form to handle search submission properly
+        # Use a form with clear_on_submit=False to keep the input value
         with st.form(key="search_form", clear_on_submit=False):
-            # Search input and button
+            # Search input - bound to session_state.search_query
             search_input = st.text_input(
                 "Search:",
+                value=st.session_state.search_query,  # Use persistent value
                 placeholder="Enter barcode, artist, or title...",
                 key="unified_search_input",
                 disabled=search_disabled
@@ -94,23 +100,38 @@ class InventoryTab:
             with col1:
                 search_submitted = st.form_submit_button("🔍 Search", use_container_width=True, disabled=search_disabled)
         
-        # Handle search submission
-        if search_submitted and search_input and search_input.strip():
-            st.session_state.current_search = search_input.strip()
+        # Update the persistent query when user types
+        if search_input != st.session_state.search_query:
+            st.session_state.search_query = search_input
+        
+        # Handle search submission - set trigger when button is clicked
+        if search_submitted:
+            st.session_state.search_triggered = True
+        
+        # Process search only when triggered AND we have a query
+        if (st.session_state.search_triggered and 
+            st.session_state.search_query and 
+            st.session_state.search_query.strip()):
+            
+            search_term = st.session_state.search_query.strip()
+            st.session_state.current_search = search_term
             st.session_state.selected_record = None
             st.session_state.record_added = None
             
+            # Perform the actual search
             if search_type == "Add item":
-                results = self.search_handler.perform_discogs_search(search_input.strip())
-                st.session_state.search_results[search_input.strip()] = results
+                results = self.search_handler.perform_discogs_search(search_term)
+                st.session_state.search_results[search_term] = results
             else:
-                results = self.search_handler.perform_database_search(search_input.strip())
-                st.session_state.search_results[search_input.strip()] = results
+                results = self.search_handler.perform_database_search(search_term)
+                st.session_state.search_results[search_term] = results
             
-            st.session_state.last_search = search_input.strip()
+            # Reset trigger to prevent infinite loop
+            st.session_state.search_triggered = False
+            st.session_state.last_search = search_term
             st.rerun()
         
-        # Display search results
+        # Display search results if we have them for the current search
         if (st.session_state.current_search and 
             st.session_state.current_search in st.session_state.search_results and
             st.session_state.record_added is None):

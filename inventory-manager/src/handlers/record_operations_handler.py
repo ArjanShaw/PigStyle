@@ -20,6 +20,19 @@ class RecordOperationsHandler:
             
         print(f"🔴 DEBUG add_inventory_record: genre={genre}")
         
+        # Check for duplicates BEFORE adding
+        duplicates_found = self._check_for_duplicate(record_data)
+        
+        if duplicates_found:
+            user = st.session_state.get('user', {})
+            user_role = user.get('role', 'consignor')
+            
+            if user_role != 'admin':
+                st.error("❌ **Cannot add duplicate record!**")
+                return False, None
+            else:
+                st.warning("⚠️ **Duplicate detected - you may proceed as admin**")
+        
         release_id = record_data.get('discogs_id')
         
         if not release_id:
@@ -120,6 +133,42 @@ class RecordOperationsHandler:
         print(f"🔴 DEBUG: AFTER database save_record call - record_id: {record_id}")
         
         return True, record_id
+
+    def _check_for_duplicate(self, record_data):
+        """Check for duplicates using ONLY artist, title, and catalog number"""
+        # Get the data to check
+        artist = record_data.get('artist', '')
+        title = record_data.get('title', '')
+        catalog_number = record_data.get('catalog_number', '')
+        
+        # Get all records from database
+        all_records = st.session_state.db_manager.get_all_records()
+        
+        if all_records.empty:
+            return False
+        
+        duplicates = []
+        
+        # Check artist/title combination
+        if artist and title:
+            artist_title_match = all_records[
+                (all_records['artist'].str.lower() == artist.lower()) & 
+                (all_records['title'].str.lower() == title.lower())
+            ]
+            if not artist_title_match.empty:
+                duplicates.extend(artist_title_match['id'].tolist())
+        
+        # Check catalog number
+        if catalog_number:
+            catalog_match = all_records[
+                (all_records['catalog_number'].str.lower() == catalog_number.lower())
+            ]
+            if not catalog_match.empty:
+                for record_id in catalog_match['id'].tolist():
+                    if record_id not in duplicates:
+                        duplicates.append(record_id)
+        
+        return len(duplicates) > 0
 
     def _calculate_store_price(self, selected_price):
         """Calculate store price using configurable parameters"""

@@ -254,6 +254,19 @@ class DisplayHandler:
         if add_disabled:
             st.error("❌ Cannot add new items - store is over capacity!")
         
+        # Check for duplicates
+        duplicates_found = self._check_for_duplicate_simple(record_data)
+        
+        if duplicates_found:
+            user = st.session_state.get('user', {})
+            user_role = user.get('role', 'consignor')
+            
+            if user_role != 'admin':
+                st.error("❌ **Cannot add duplicate record!**")
+                return
+            else:
+                st.warning("⚠️ **Duplicate detected - you may proceed as admin**")
+        
         # Add consignment dropdown for both new and existing records - NOW WITH USER ROLE CHECK
         user_id, commission_rate, store_return_days = self._render_consignment_section(record_data, current_consignment_rate)
         if user_id:
@@ -334,7 +347,13 @@ class DisplayHandler:
         
         # Single submit button - only enable if genre is selected and not over capacity
         button_label = "Add to Database" if selected_record['type'] == 'discogs' else "Update Record"
-        disabled_condition = not genre or (selected_record['type'] == 'discogs' and add_disabled)
+        
+        # Check user role for duplicate restrictions
+        user_role = st.session_state.get('user', {}).get('role', 'consignor')
+        is_admin = (user_role == 'admin')
+        
+        # Disable button for non-admin users with duplicates
+        disabled_condition = not genre or (selected_record['type'] == 'discogs' and add_disabled) or (duplicates_found and not is_admin)
         
         if st.button(button_label, use_container_width=True, disabled=disabled_condition, key="add_to_database"):
             # Get the file_at value for confirmation message
@@ -342,6 +361,10 @@ class DisplayHandler:
             if selected_record['type'] == 'discogs':
                 success, record_id = add_callback(genre)
                 if success:
+                    # Clear duplicate warning if successful
+                    if 'last_duplicate_check' in st.session_state:
+                        del st.session_state.last_duplicate_check
+                    
                     # Show confirmation message with artist, title, and fileat
                     st.success(f"✅ Record added successfully!\\n**Artist:** {record_data['artist']}\\n**Title:** {record_data['title']}\\n**File Location:** {file_at_value}")
                     st.session_state.record_added = True
@@ -349,6 +372,38 @@ class DisplayHandler:
                 success = update_callback(genre)
                 if success:
                     st.success(f"✅ Record updated successfully!\\n**File Location:** {file_at_value}")
+
+    def _check_for_duplicate_simple(self, record_data):
+        """Simple duplicate check using ONLY artist, title, and catalog number"""
+        # Get the data to check
+        artist = record_data.get('artist', '')
+        title = record_data.get('title', '')
+        catalog_number = record_data.get('catalog_number', '')
+        
+        # Get all records from database
+        all_records = st.session_state.db_manager.get_all_records()
+        
+        if all_records.empty:
+            return False
+        
+        # Check artist/title combination
+        if artist and title:
+            artist_title_match = all_records[
+                (all_records['artist'].str.lower() == artist.lower()) & 
+                (all_records['title'].str.lower() == title.lower())
+            ]
+            if not artist_title_match.empty:
+                return True
+        
+        # Check catalog number
+        if catalog_number:
+            catalog_match = all_records[
+                (all_records['catalog_number'].str.lower() == catalog_number.lower())
+            ]
+            if not catalog_match.empty:
+                return True
+        
+        return False
 
     def _calculate_consignment_rate(self, fill_fraction):
         """Calculate consignment rate based on store fill fraction"""

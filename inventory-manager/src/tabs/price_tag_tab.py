@@ -148,7 +148,7 @@ class PriceTagTab:
             self._save_current_layout_config()
             st.success("✅ Layout configuration saved!")
         
-        # Get records without barcodes
+        # Get records without barcodes - ORDERED BY CREATION TIME (latest first)
         records = self.price_tag_handler.get_records_without_barcodes()
         
         # MANAGEMENT SECTION - REMOVED CLEAR ALL BARCODES BUTTON
@@ -184,7 +184,7 @@ class PriceTagTab:
             print_first_x = getattr(st.session_state, 'print_first_x', 0)
             st.number_input("Print First X Labels", min_value=0, value=print_first_x, key="print_first_x")
         
-        # Display records table
+        # Display records table - ordered by creation time (latest first)
         display_data = []
         for i, record in enumerate(records):
             # If print_first_x is set and we're within the range, auto-select
@@ -199,6 +199,7 @@ class PriceTagTab:
                 'Title': record['title'],
                 'Price': f"${record.get('store_price', 0):.2f}" if record.get('store_price') else 'N/A',
                 'File Location': record.get('file_at', ''),
+                'Added Date': record.get('created_at', '')  # Show when record was added
             })
         
         df = pd.DataFrame(display_data)
@@ -211,6 +212,7 @@ class PriceTagTab:
                 "Title": st.column_config.TextColumn("Title", disabled=True),
                 "Price": st.column_config.TextColumn("Price", disabled=True),
                 "File Location": st.column_config.TextColumn("File Location", disabled=True),
+                "Added Date": st.column_config.DatetimeColumn("Added Date", disabled=True)
             },
             hide_index=True,
             use_container_width=True,

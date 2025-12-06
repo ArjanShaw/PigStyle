@@ -26,7 +26,7 @@ class PriceTagHandler:
         return Path(__file__).parent.parent / "print_config.json"
     
     def get_records_without_barcodes(self):
-        """Get records that don't have barcodes using API"""
+        """Get records that don't have barcodes using API - ORDERED BY CREATION TIME (latest first)"""
         # Get all records using API
         records_df = self.db_manager.get_all_records()
         
@@ -39,6 +39,14 @@ class PriceTagHandler:
             (records_df['barcode'] == '') | 
             (records_df['barcode'] == 'None')
         ]
+        
+        # Sort by creation time - newest records first
+        # First check if 'created_at' column exists, fall back to 'id' (higher id = newer record)
+        if 'created_at' in records_without_barcodes.columns:
+            records_without_barcodes = records_without_barcodes.sort_values('created_at', ascending=False)
+        else:
+            # If no created_at column, sort by ID (assuming higher IDs are newer)
+            records_without_barcodes = records_without_barcodes.sort_values('id', ascending=False)
         
         return records_without_barcodes.to_dict('records')
     
@@ -255,5 +263,3 @@ class PriceTagHandler:
         if consignor:
             consignor_y = date_y - (3.5 * mm)  # Fixed spacing below date
             c.drawRightString(right_margin, consignor_y, consignor[:10])
-
-        

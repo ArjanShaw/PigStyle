@@ -66,7 +66,6 @@ class InventoryTab:
             st.session_state.checkout_records = []
         if 'record_added' not in st.session_state:
             st.session_state.record_added = None
-        # NEW: Initialize search trigger and persistent query
         if 'search_triggered' not in st.session_state:
             st.session_state.search_triggered = False
         if 'search_query' not in st.session_state:
@@ -85,12 +84,12 @@ class InventoryTab:
         # Disable search input if store is over capacity and trying to add items
         search_disabled = (store_fill_fraction > 1.10 and search_type == "Add item")
         
-        # Use a form with clear_on_submit=False to keep the input value
+        # Use a form to handle search submission properly
         with st.form(key="search_form", clear_on_submit=False):
-            # Search input - bound to session_state.search_query
+            # Search input - bind to session state to preserve value
             search_input = st.text_input(
                 "Search:",
-                value=st.session_state.search_query,  # Use persistent value
+                value=st.session_state.get('search_query', ''),
                 placeholder="Enter barcode, artist, or title...",
                 key="unified_search_input",
                 disabled=search_disabled
@@ -100,15 +99,12 @@ class InventoryTab:
             with col1:
                 search_submitted = st.form_submit_button("🔍 Search", use_container_width=True, disabled=search_disabled)
         
-        # Update the persistent query when user types
-        if search_input != st.session_state.search_query:
-            st.session_state.search_query = search_input
-        
-        # Handle search submission - set trigger when button is clicked
+        # Handle search submission - ONLY when button is clicked
         if search_submitted:
+            st.session_state.search_query = search_input
             st.session_state.search_triggered = True
         
-        # Process search only when triggered AND we have a query
+        # Process search only when triggered
         if (st.session_state.search_triggered and 
             st.session_state.search_query and 
             st.session_state.search_query.strip()):

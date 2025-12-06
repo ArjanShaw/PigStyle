@@ -1,4 +1,5 @@
 # FILE: inventory-manager/src/handlers/display_handler.py
+# FILE: inventory-manager/src/handlers/display_handler.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -105,7 +106,7 @@ class DisplayHandler:
                         st.write("*No additional info*")
                 
             with col3:
-                if st.button("Select", key=f"select_{result_type}_{i}", width='stretch'):
+                if st.button("Select", key=f"select_{result_type}_{i}", use_container_width=True):
                     st.session_state.selected_record = {
                         'type': 'discogs' if result_type == "Add item" else 'database',
                         'data': record,
@@ -124,7 +125,7 @@ class DisplayHandler:
             with col4:
                 # DELETE BUTTON for each item in search results
                 if result_type == "Edit or Delete item":
-                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", width='stretch', type="secondary"):
+                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", use_container_width=True, type="secondary"):
                         record_id = record.get('id')
                         if self._delete_record(record_id):
                             st.success("Record deleted successfully!")
@@ -217,7 +218,7 @@ class DisplayHandler:
             for i, track in enumerate(record['tracklist'], 1):
                 st.write(f"{i}. {track}")
         
-        if st.button("← Back to Results", key="back_to_results"):
+        if st.button("← Back to Results", key="back_to_results", use_container_width=True):
             st.session_state.selected_record = None
             st.rerun()
 
@@ -327,14 +328,15 @@ class DisplayHandler:
         # Show ALL pricing information (now fully loaded after ALL API calls)
         self._render_pricing_information(record_data)
         
-        # Show YouTube integration (merged search and manual input)
-        self._render_youtube_integration(record_data)
+        # Show YouTube integration in a collapsible component (collapsed by default)
+        with st.expander("🎵 YouTube Integration", expanded=False):
+            self._render_youtube_integration(record_data)
         
         # Single submit button - only enable if genre is selected and not over capacity
         button_label = "Add to Database" if selected_record['type'] == 'discogs' else "Update Record"
         disabled_condition = not genre or (selected_record['type'] == 'discogs' and add_disabled)
         
-        if st.button(button_label, width='stretch', disabled=disabled_condition, key="add_to_database"):
+        if st.button(button_label, use_container_width=True, disabled=disabled_condition, key="add_to_database"):
             # Get the file_at value for confirmation message
             file_at_value = self._calculate_file_at(record_data['artist'], genre, compilation)
             if selected_record['type'] == 'discogs':
@@ -649,8 +651,6 @@ class DisplayHandler:
 
     def _render_youtube_integration(self, record_data):
         """Render merged YouTube integration with search results and manual input"""
-        st.subheader("🎵 YouTube Integration")
-        
         # Show current linked YouTube URL
         current_youtube_url = record_data.get('youtube_url', '')
         if current_youtube_url:
@@ -660,7 +660,7 @@ class DisplayHandler:
             st.markdown(f"[📺 Click here to view the video]({current_youtube_url})", unsafe_allow_html=True)
             
             # Show option to remove link
-            if st.button("❌ Remove YouTube Link", key="remove_youtube", width='stretch'):
+            if st.button("❌ Remove YouTube Link", key="remove_youtube", use_container_width=True):
                 record_data['youtube_url'] = ''
                 st.success("YouTube link removed!")
                 st.rerun()
@@ -675,7 +675,7 @@ class DisplayHandler:
         )
         
         if manual_url and "youtube.com" in manual_url:
-            if st.button("🔗 Use This YouTube URL", key="use_manual_url", width='stretch'):
+            if st.button("🔗 Use This YouTube URL", key="use_manual_url", use_container_width=True):
                 record_data['youtube_url'] = manual_url
                 st.success("✅ YouTube URL linked!")
                 st.rerun()
@@ -735,7 +735,7 @@ class DisplayHandler:
             st.markdown(f"[📺 Watch this video]({video['url']})", unsafe_allow_html=True)
             
         with col3:
-            if st.button("🔗 Link", key=f"youtube_link_{index}", width='stretch'):
+            if st.button("🔗 Link", key=f"youtube_link_{index}", use_container_width=True):
                 record_data['youtube_url'] = video['url']
                 st.success(f"✅ Linked to: {video['title']}")
                 st.rerun()
@@ -774,7 +774,7 @@ class DisplayHandler:
                 # Display as a table
                 if conditions_data:
                     df = pd.DataFrame(conditions_data)
-                    st.dataframe(df, width='stretch', hide_index=True)
+                    st.dataframe(df, use_container_width=True, hide_index=True)
                     
                     # Let user select a condition - default to Good Plus
                     condition_options = list(price_suggestions.keys())

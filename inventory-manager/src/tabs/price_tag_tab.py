@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import tempfile
 import os
 import time
@@ -151,7 +151,7 @@ class PriceTagTab:
         # Get records without barcodes - ORDERED BY CREATION TIME (latest first)
         records = self.price_tag_handler.get_records_without_barcodes()
         
-        # MANAGEMENT SECTION - REMOVED CLEAR ALL BARCODES BUTTON
+        # MANAGEMENT SECTION
         st.subheader("Manage Printed Tags")
         
         # Show printed count using API
@@ -159,6 +159,18 @@ class PriceTagTab:
         printed_count = len(all_records[all_records['barcode'].notna() & (all_records['barcode'] != '')])
         total_count = len(all_records)
         st.metric("Printed", f"{printed_count}/{total_count}")
+        
+        # Add button to clear recent price tags
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Clear Recent Price Tags (24h)", use_container_width=True, 
+                       help="Remove barcodes from records printed in the last 24 hours"):
+                cleared_count = self._clear_recent_price_tags()
+                if cleared_count > 0:
+                    st.success(f"✅ Cleared {cleared_count} recent price tags!")
+                    st.rerun()
+                else:
+                    st.info("No recent price tags to clear")
         
         if not records:
             st.info("All records have price tags printed.")
@@ -228,6 +240,58 @@ class PriceTagTab:
             # REMOVED QUICK ASSIGN BARCODES BUTTON - ONLY PRINT BUTTON REMAINS
             if st.button("🖨️ Print Price Tags", type="primary", use_container_width=True):
                 self._print_tags(selected_records['ID'].tolist())
+    
+    def _clear_recent_price_tags(self):
+        """Clear barcodes from records that were printed in the last 24 hours"""
+        try:
+            # Calculate timestamp for 24 hours ago
+            twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+            
+            # Get all records with barcodes
+            all_records = self.db_manager.get_all_records()
+            
+            if all_records.empty:
+                return 0
+            
+            # Filter records with barcodes
+            records_with_barcodes = all_records[
+                (all_records['barcode'].notna()) & 
+                (all_records['barcode'] != '') & 
+                (all_records['barcode'] != 'None')
+            ]
+            
+            if records_with_barcodes.empty:
+                return 0
+            
+            # Check if records have a created_at timestamp
+            # If not, we can't determine which ones are recent
+            if 'created_at' not in records_with_barcodes.columns:
+                st.warning("Records don't have creation timestamps. Cannot determine which are recent.")
+                return 0
+            
+            # Convert created_at to datetime for comparison
+            records_with_barcodes['created_at_dt'] = pd.to_datetime(records_with_barcodes['created_at'])
+            
+            # Filter records created in the last 24 hours
+            recent_records = records_with_barcodes[
+                records_with_barcodes['created_at_dt'] >= twenty_four_hours_ago
+            ]
+            
+            if recent_records.empty:
+                return 0
+            
+            # Clear barcodes for recent records using API
+            cleared_count = 0
+            for _, record in recent_records.iterrows():
+                success = self.db_manager.update_record(record['id'], {'barcode': None})
+                if success:
+                    cleared_count += 1
+            
+            return cleared_count
+            
+        except Exception as e:
+            st.error(f"Error clearing recent price tags: {str(e)}")
+            return 0
     
     def _print_tags(self, record_ids):
         """Print price tags with robust error handling and progress tracking"""

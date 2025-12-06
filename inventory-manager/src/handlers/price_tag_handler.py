@@ -9,7 +9,7 @@ import barcode
 from barcode.writer import ImageWriter
 import io
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import streamlit as st
 import json
@@ -49,6 +49,58 @@ class PriceTagHandler:
             records_without_barcodes = records_without_barcodes.sort_values('id', ascending=False)
         
         return records_without_barcodes.to_dict('records')
+    
+    def clear_recent_barcodes(self):
+        """Clear barcodes from records that were created in the last 24 hours"""
+        try:
+            # Calculate timestamp for 24 hours ago
+            twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+            
+            # Get all records with barcodes using API
+            all_records = self.db_manager.get_all_records()
+            
+            if all_records.empty:
+                return 0
+            
+            # Filter records with barcodes
+            records_with_barcodes = all_records[
+                (all_records['barcode'].notna()) & 
+                (all_records['barcode'] != '') & 
+                (all_records['barcode'] != 'None')
+            ]
+            
+            if records_with_barcodes.empty:
+                return 0
+            
+            # Check if records have a created_at timestamp
+            # If not, we can't determine which ones are recent
+            if 'created_at' not in records_with_barcodes.columns:
+                st.warning("Records don't have creation timestamps. Cannot determine which are recent.")
+                return 0
+            
+            # Convert created_at to datetime for comparison
+            records_with_barcodes['created_at_dt'] = pd.to_datetime(records_with_barcodes['created_at'])
+            
+            # Filter records created in the last 24 hours
+            recent_records = records_with_barcodes[
+                records_with_barcodes['created_at_dt'] >= twenty_four_hours_ago
+            ]
+            
+            if recent_records.empty:
+                return 0
+            
+            # Clear barcodes for recent records using API
+            cleared_count = 0
+            for _, record in recent_records.iterrows():
+                success = self.db_manager.update_record(record['id'], {'barcode': None})
+                if success:
+                    cleared_count += 1
+            
+            return cleared_count
+            
+        except Exception as e:
+            st.error(f"Error clearing recent barcodes: {str(e)}")
+            return 0
     
     def assign_barcodes(self, record_ids):
         """Assign sequential barcodes to records using the bulk API endpoint"""

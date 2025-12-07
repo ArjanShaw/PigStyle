@@ -353,33 +353,44 @@ async function fetchAndDisplayStoredPlaylists(genreName) {
             
             // NEW LOGIC: Auto-select and play the matching playlist
             if (spotifyPlaylists.length > 0) {
+                let matchingPlaylist = null;
+                
                 // For "All Genres", play the "PigStyle: All Genres" playlist
                 if (genreName === 'All Genres') {
-                    const allGenresPlaylist = spotifyPlaylists.find(p => p.name === 'PigStyle: All Genres');
-                    if (allGenresPlaylist) {
-                        selectAndPlayStoredPlaylist(allGenresPlaylist);
-                        return;
+                    matchingPlaylist = spotifyPlaylists.find(p => p.name === 'PigStyle: All Genres');
+                    if (!matchingPlaylist && spotifyPlaylists.length > 0) {
+                        matchingPlaylist = spotifyPlaylists[0]; // Fallback to first playlist
                     }
                 } else {
                     // For specific genre, find playlist with matching genre name
                     // Match format: "PigStyle: {Genre}" or exact genre name match
-                    const matchingPlaylist = spotifyPlaylists.find(p => 
+                    matchingPlaylist = spotifyPlaylists.find(p => 
                         p.genre === genreName || 
                         p.name === `PigStyle: ${genreName}` ||
                         p.name.includes(genreName)
                     );
                     
-                    if (matchingPlaylist) {
-                        selectAndPlayStoredPlaylist(matchingPlaylist);
-                        return;
+                    // If no exact match, find any playlist that contains the genre name
+                    if (!matchingPlaylist) {
+                        matchingPlaylist = spotifyPlaylists.find(p => 
+                            p.name.toLowerCase().includes(genreName.toLowerCase())
+                        );
+                    }
+                    
+                    // Fallback to first playlist if still no match
+                    if (!matchingPlaylist && spotifyPlaylists.length > 0) {
+                        matchingPlaylist = spotifyPlaylists[0];
                     }
                 }
                 
-                // If no exact match found, show selection UI
-                displayStoredPlaylists(spotifyPlaylists, genreName);
-            } else {
-                displayStoredPlaylistsError('No playlists found in database', genreName);
+                if (matchingPlaylist) {
+                    selectAndPlayStoredPlaylist(matchingPlaylist);
+                    return;
+                }
             }
+            
+            // If no matching playlist found, show selection UI
+            displayStoredPlaylists(spotifyPlaylists, genreName);
         } else {
             throw new Error(data.error || 'Failed to fetch stored playlists');
         }
@@ -396,16 +407,28 @@ async function selectAndPlayStoredPlaylist(playlist) {
     
     currentSpotifyPlaylistId = playlist.id;
     
+    // Clear any existing visualizer state
+    stopSpotifyVisualizer();
+    spotifyPlaylistTracks = [];
+    spotifyVisualizerCumulativeTimes = [];
+    spotifyVisualizerCurrentTrackIndex = 0;
+    spotifyVisualizerCurrentTime = 0;
+    
     // Fetch track details for visualizer
-    await fetchPlaylistTracksForVisualizer(playlist.id, playlist.name, playlist.genre);
+    const tracksLoaded = await fetchPlaylistTracksForVisualizer(playlist.id, playlist.name, playlist.genre);
     
-    // Show visualizer UI instead of embed
-    displaySpotifyVisualizer(playlist);
-    
-    // Start visualizer after 5 seconds
-    setTimeout(() => {
-        startSpotifyVisualizer();
-    }, 5000);
+    if (tracksLoaded) {
+        // Show visualizer UI
+        displaySpotifyVisualizer(playlist);
+        
+        // Start visualizer after 5 seconds
+        setTimeout(() => {
+            startSpotifyVisualizer();
+        }, 5000);
+    } else {
+        // Fallback to embed if track fetch fails
+        displayStoredPlaylistPlayer(playlist.embed_url, playlist.name, playlist.genre);
+    }
 }
 
 // Fetch playlist tracks for visualizer
@@ -435,8 +458,6 @@ async function fetchPlaylistTracksForVisualizer(playlistId, playlistName, playli
         
     } catch (error) {
         console.error('Error fetching playlist tracks:', error);
-        // Fallback to showing embed if track fetch fails
-        displayStoredPlaylistPlayer(playlistId, playlistName, playlistGenre);
         return false;
     }
 }
@@ -457,6 +478,13 @@ function calculateCumulativeTimes() {
 // Display Spotify visualizer UI
 function displaySpotifyVisualizer(playlist) {
     const spotifyContainer = document.getElementById('spotifyContainer');
+    
+    // Check if we have tracks for the visualizer
+    if (spotifyPlaylistTracks.length === 0) {
+        // Fallback to embed if no tracks
+        displayStoredPlaylistPlayer(playlist.embed_url, playlist.name, playlist.genre);
+        return;
+    }
     
     spotifyContainer.innerHTML = `
         <div style="width: 100%; height: 100%;">
@@ -485,7 +513,8 @@ function displaySpotifyVisualizer(playlist) {
             <div id="visualizerContent" style="display: none;">
                 <div class="album-art-container">
                     <img id="albumArtImage" src="" alt="Album Art" 
-                         style="width: 300px; height: 300px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                         style="width: 300px; height: 300px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"
+                         onerror="this.style.display='none'">
                     <div class="album-art-overlay">
                         <div class="track-info-large">
                             <div id="visualizerTrackTitle" class="track-title-large">Loading track...</div>
@@ -540,8 +569,22 @@ function displaySpotifyVisualizer(playlist) {
     // Update track info with price instead of track count
     document.getElementById('trackTitle').textContent = playlist.name;
     document.getElementById('trackArtist').textContent = `Genre: ${playlist.genre || 'Various'}`;
-    // Replace track count with price placeholder - you'll need to fetch actual price data
-    document.getElementById('trackPrice').textContent = 'Stream Now';
+    
+    // Try to get price for the first track if available
+    if (spotifyPlaylistTracks.length > 0) {
+        const firstTrack = spotifyPlaylistTracks[0];
+        const price = getTrackPrice(firstTrack);
+        document.getElementById('trackPrice').textContent = price;
+    } else {
+        document.getElementById('trackPrice').textContent = 'Stream Now';
+    }
+    
+    // Update vote display for the first track
+    if (spotifyPlaylistTracks.length > 0) {
+        const firstTrack = spotifyPlaylistTracks[0];
+        const trackId = `${firstTrack.artists ? firstTrack.artists[0] : 'Unknown'} - ${firstTrack.name || 'Unknown'}`;
+        votingSystem.updateVoteDisplay(trackId);
+    }
 }
 
 // Start visualizer countdown

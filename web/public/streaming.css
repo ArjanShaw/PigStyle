@@ -212,17 +212,6 @@ header {
 }
 
 /* Spotify Visualizer Styles */
-.visualizer-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: rgba(0, 0, 0, 0.5);
-    border-radius: 8px;
-    border: 1px solid rgba(29, 185, 84, 0.3);
-}
-
 .album-art-container {
     position: relative;
     width: 300px;
@@ -653,18 +642,14 @@ header {
         width: 14px;
         height: 14px;
         font-size: 0.5rem;
+        top: -3px;
+        right: -3px;
     }
     
     /* Visualizer mobile */
     .album-art-container {
         width: 200px;
         height: 200px;
-    }
-    
-    .visualizer-header {
-        flex-direction: column;
-        gap: 10px;
-        text-align: center;
     }
     
     .track-title-large {

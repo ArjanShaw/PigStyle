@@ -294,32 +294,36 @@ header {
     color: rgba(255, 255, 255, 0.7);
 }
 
-.playlist-info {
+/* Spotify Control Buttons */
+.spotify-control-buttons {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 20px;
     margin-top: 30px;
-    padding: 20px;
-    background: rgba(0, 0, 0, 0.3);
+}
+
+.spotify-control-btn {
+    padding: 12px 24px;
+    color: white;
+    border: none;
     border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-.current-track-info, .upcoming-tracks {
-    flex: 1;
+.spotify-control-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
-.current-track-info h5, .upcoming-tracks h5 {
-    color: #1DB954;
-    margin-bottom: 10px;
-    font-size: 1.1rem;
-}
-
-.upcoming-track-item {
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.upcoming-track-item:last-child {
-    border-bottom: none;
+.spotify-control-btn:active {
+    transform: translateY(0);
 }
 
 /* Navigation controls */
@@ -606,9 +610,14 @@ header {
         height: 250px;
     }
     
-    .playlist-info {
+    .spotify-control-buttons {
         flex-direction: column;
-        gap: 20px;
+        align-items: center;
+    }
+    
+    .spotify-control-btn {
+        width: 200px;
+        justify-content: center;
     }
     
     .track-title-large {
@@ -663,6 +672,12 @@ header {
     .album-art-container {
         width: 200px;
         height: 200px;
+    }
+    
+    .spotify-control-btn {
+        width: 180px;
+        padding: 10px 20px;
+        font-size: 14px;
     }
     
     .track-title-large {

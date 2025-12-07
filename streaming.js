@@ -1,4 +1,5 @@
 // streaming.js - Get genres from records, random start, no condition stars
+// Now includes Spotify album art visualizer feature
 
 console.log('streaming.js loaded!');
 
@@ -11,6 +12,15 @@ let youtubeAPILoaded = false;
 let genreMap = {};
 let spotifyPlaylists = [];
 let currentSpotifyPlaylistId = null;
+
+// Spotify Visualizer Variables
+let spotifyVisualizerActive = false;
+let spotifyVisualizerTimer = null;
+let spotifyVisualizerStartTime = null;
+let spotifyVisualizerCurrentTime = 0;
+let spotifyPlaylistTracks = [];
+let spotifyVisualizerCurrentTrackIndex = 0;
+let spotifyVisualizerCumulativeTimes = [];
 
 // Voting system
 class VotingSystem {
@@ -230,6 +240,9 @@ function startPlaying() {
 function startYouTubePlayback(genreId) {
     console.log('Starting YouTube playback for genre:', genreId || 'All');
     
+    // Stop any Spotify visualizer
+    stopSpotifyVisualizer();
+    
     if (youtubePlayer) {
         youtubePlayer.destroy();
         youtubePlayer = null;
@@ -297,6 +310,7 @@ function startYouTubePlayback(genreId) {
 function startSpotifyPlayback(genreId, genreName) {
     console.log('Starting Spotify playback for genre:', genreName);
     
+    // Stop any YouTube player
     if (youtubePlayer) {
         youtubePlayer.destroy();
         youtubePlayer = null;
@@ -377,16 +391,447 @@ async function fetchAndDisplayStoredPlaylists(genreName) {
 }
 
 // NEW FUNCTION: Select and play a stored playlist
-function selectAndPlayStoredPlaylist(playlist) {
+async function selectAndPlayStoredPlaylist(playlist) {
     console.log(`Auto-selecting playlist: ${playlist.name} (${playlist.id})`);
     
     currentSpotifyPlaylistId = playlist.id;
-    displayStoredPlaylistPlayer(playlist.embed_url, playlist.name, playlist.genre);
+    
+    // Fetch track details for visualizer
+    await fetchPlaylistTracksForVisualizer(playlist.id, playlist.name, playlist.genre);
+    
+    // Show visualizer UI instead of embed
+    displaySpotifyVisualizer(playlist);
+    
+    // Start visualizer after 5 seconds
+    setTimeout(() => {
+        startSpotifyVisualizer();
+    }, 5000);
+}
+
+// Fetch playlist tracks for visualizer
+async function fetchPlaylistTracksForVisualizer(playlistId, playlistName, playlistGenre) {
+    try {
+        console.log(`Fetching tracks for playlist: ${playlistId}`);
+        
+        const response = await fetch(`https://arjanshaw.pythonanywhere.com/spotify/playlist-tracks/${playlistId}`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch playlist tracks: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            spotifyPlaylistTracks = data.tracks;
+            console.log(`Fetched ${spotifyPlaylistTracks.length} tracks for visualizer`);
+            
+            // Calculate cumulative times for track switching
+            calculateCumulativeTimes();
+            
+            return true;
+        } else {
+            throw new Error(data.error || 'Failed to fetch tracks');
+        }
+        
+    } catch (error) {
+        console.error('Error fetching playlist tracks:', error);
+        // Fallback to showing embed if track fetch fails
+        displayStoredPlaylistPlayer(playlistId, playlistName, playlistGenre);
+        return false;
+    }
+}
+
+// Calculate cumulative times for track switching
+function calculateCumulativeTimes() {
+    spotifyVisualizerCumulativeTimes = [];
+    let cumulativeTime = 0;
+    
+    for (let i = 0; i < spotifyPlaylistTracks.length; i++) {
+        spotifyVisualizerCumulativeTimes[i] = cumulativeTime;
+        cumulativeTime += spotifyPlaylistTracks[i].duration_ms || 0;
+    }
+    
+    console.log(`Calculated cumulative times for ${spotifyPlaylistTracks.length} tracks`);
+}
+
+// Display Spotify visualizer UI
+function displaySpotifyVisualizer(playlist) {
+    const spotifyContainer = document.getElementById('spotifyContainer');
+    
+    spotifyContainer.innerHTML = `
+        <div style="width: 100%; height: 100%;">
+            <div class="visualizer-header">
+                <h4 style="margin: 0; color: white; font-size: 18px;">
+                    🎵 Spotify Album Art Visualizer
+                </h4>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="toggleSpotifyVisualizer()" id="visualizerToggleBtn"
+                            style="padding: 6px 12px; background: rgba(29, 185, 84, 0.3); color: white; border: 1px solid rgba(29, 185, 84, 0.5); border-radius: 4px; cursor: pointer; font-size: 13px;">
+                        ⏸️ Pause
+                    </button>
+                    <button onclick="showSpotifyEmbedInstead()"
+                            style="padding: 6px 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; font-size: 13px;">
+                        Show Spotify Player
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Countdown timer before visualizer starts -->
+            <div id="visualizerCountdown" style="text-align: center; padding: 20px; color: #1DB954; font-size: 24px; font-weight: bold;">
+                Visualizer starting in <span id="countdownValue">5</span> seconds...
+            </div>
+            
+            <!-- Visualizer content (hidden initially) -->
+            <div id="visualizerContent" style="display: none;">
+                <div class="album-art-container">
+                    <img id="albumArtImage" src="" alt="Album Art" 
+                         style="width: 300px; height: 300px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <div class="album-art-overlay">
+                        <div class="track-info-large">
+                            <div id="visualizerTrackTitle" class="track-title-large">Loading track...</div>
+                            <div id="visualizerTrackArtist" class="track-artist-large">Loading artist...</div>
+                            <div id="visualizerTrackAlbum" class="track-album-large">Loading album...</div>
+                        </div>
+                        <div class="track-progress">
+                            <div class="progress-bar">
+                                <div id="trackProgressBar" class="progress-fill" style="width: 0%;"></div>
+                            </div>
+                            <div class="time-display">
+                                <span id="currentTime">0:00</span>
+                                <span id="trackDuration">0:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="playlist-info">
+                    <div class="current-track-info">
+                        <h5>Now Playing</h5>
+                        <div id="nowPlayingTrack">Track 1 of ${spotifyPlaylistTracks.length}</div>
+                        <div id="nowPlayingTime">Total playlist time: ${formatPlaylistDuration()}</div>
+                    </div>
+                    <div class="upcoming-tracks">
+                        <h5>Upcoming Tracks</h5>
+                        <div id="upcomingTracksList" style="max-height: 150px; overflow-y: auto;">
+                            ${getUpcomingTracksHTML()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Fallback to embed if visualizer fails -->
+            <div id="spotifyEmbedFallback" style="display: none;">
+                <iframe src="${playlist.embed_url}"
+                        width="100%" 
+                        height="380" 
+                        frameborder="0" 
+                        allowfullscreen="" 
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                        loading="lazy"
+                        style="border-radius: 12px;">
+                </iframe>
+            </div>
+        </div>
+    `;
+    
+    // Start countdown
+    startVisualizerCountdown();
     
     // Update track info
     document.getElementById('trackTitle').textContent = playlist.name;
-    document.getElementById('trackArtist').textContent = `Genre: ${playlist.genre}`;
+    document.getElementById('trackArtist').textContent = `Genre: ${playlist.genre || 'Various'}`;
     document.getElementById('trackPrice').textContent = `${playlist.tracks} tracks`;
+}
+
+// Start visualizer countdown
+function startVisualizerCountdown() {
+    let countdown = 5;
+    const countdownElement = document.getElementById('countdownValue');
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        countdownElement.textContent = countdown;
+        
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            document.getElementById('visualizerCountdown').style.display = 'none';
+            document.getElementById('visualizerContent').style.display = 'block';
+        }
+    }, 1000);
+}
+
+// Start Spotify visualizer
+function startSpotifyVisualizer() {
+    if (spotifyVisualizerActive) {
+        return;
+    }
+    
+    if (spotifyPlaylistTracks.length === 0) {
+        console.error('No tracks available for visualizer');
+        return;
+    }
+    
+    spotifyVisualizerActive = true;
+    spotifyVisualizerStartTime = Date.now();
+    spotifyVisualizerCurrentTrackIndex = 0;
+    spotifyVisualizerCurrentTime = 0;
+    
+    // Update display for first track
+    updateVisualizerDisplay();
+    
+    // Start the timer
+    spotifyVisualizerTimer = setInterval(updateVisualizerTimer, 1000);
+    
+    console.log('Spotify visualizer started');
+}
+
+// Update visualizer timer
+function updateVisualizerTimer() {
+    if (!spotifyVisualizerActive || spotifyPlaylistTracks.length === 0) {
+        return;
+    }
+    
+    const now = Date.now();
+    const elapsed = now - spotifyVisualizerStartTime;
+    spotifyVisualizerCurrentTime = elapsed;
+    
+    // Check if we need to switch to next track
+    const currentTrack = spotifyPlaylistTracks[spotifyVisualizerCurrentTrackIndex];
+    const currentTrackDuration = currentTrack.duration_ms || 30000; // Default 30 seconds if no duration
+    
+    if (elapsed >= spotifyVisualizerCumulativeTimes[spotifyVisualizerCurrentTrackIndex] + currentTrackDuration) {
+        // Move to next track
+        spotifyVisualizerCurrentTrackIndex++;
+        
+        if (spotifyVisualizerCurrentTrackIndex >= spotifyPlaylistTracks.length) {
+            // Loop back to beginning
+            spotifyVisualizerCurrentTrackIndex = 0;
+            spotifyVisualizerStartTime = now;
+            spotifyVisualizerCurrentTime = 0;
+        }
+        
+        updateVisualizerDisplay();
+    }
+    
+    // Update progress bar
+    updateProgressBar();
+    
+    // Update time display
+    updateTimeDisplay();
+}
+
+// Update visualizer display for current track
+function updateVisualizerDisplay() {
+    if (spotifyPlaylistTracks.length === 0 || spotifyVisualizerCurrentTrackIndex >= spotifyPlaylistTracks.length) {
+        return;
+    }
+    
+    const track = spotifyPlaylistTracks[spotifyVisualizerCurrentTrackIndex];
+    
+    // Update album art
+    const albumArtImg = document.getElementById('albumArtImage');
+    if (track.album_art_url) {
+        albumArtImg.src = track.album_art_url;
+        albumArtImg.style.display = 'block';
+    } else {
+        albumArtImg.style.display = 'none';
+    }
+    
+    // Update track info
+    document.getElementById('visualizerTrackTitle').textContent = track.name || 'Unknown Track';
+    document.getElementById('visualizerTrackArtist').textContent = track.artists ? track.artists.join(', ') : 'Unknown Artist';
+    document.getElementById('visualizerTrackAlbum').textContent = track.album_name || 'Unknown Album';
+    
+    // Update now playing info
+    document.getElementById('nowPlayingTrack').textContent = `Track ${spotifyVisualizerCurrentTrackIndex + 1} of ${spotifyPlaylistTracks.length}`;
+    
+    // Update upcoming tracks
+    updateUpcomingTracks();
+    
+    // Also update main track display
+    document.getElementById('trackTitle').textContent = track.name || 'Unknown Track';
+    document.getElementById('trackArtist').textContent = track.artists ? track.artists.join(', ') : 'Unknown Artist';
+    
+    // Update vote display
+    const trackId = `${track.artists ? track.artists[0] : 'Unknown'} - ${track.name || 'Unknown'}`;
+    votingSystem.updateVoteDisplay(trackId);
+}
+
+// Update progress bar
+function updateProgressBar() {
+    if (spotifyPlaylistTracks.length === 0) {
+        return;
+    }
+    
+    const track = spotifyPlaylistTracks[spotifyVisualizerCurrentTrackIndex];
+    const trackDuration = track.duration_ms || 30000;
+    const trackStartTime = spotifyVisualizerCumulativeTimes[spotifyVisualizerCurrentTrackIndex];
+    const elapsedInTrack = spotifyVisualizerCurrentTime - trackStartTime;
+    const progressPercent = Math.min(100, (elapsedInTrack / trackDuration) * 100);
+    
+    const progressBar = document.getElementById('trackProgressBar');
+    if (progressBar) {
+        progressBar.style.width = `${progressPercent}%`;
+    }
+}
+
+// Update time display
+function updateTimeDisplay() {
+    if (spotifyPlaylistTracks.length === 0) {
+        return;
+    }
+    
+    const track = spotifyPlaylistTracks[spotifyVisualizerCurrentTrackIndex];
+    const trackDuration = track.duration_ms || 30000;
+    const trackStartTime = spotifyVisualizerCumulativeTimes[spotifyVisualizerCurrentTrackIndex];
+    const elapsedInTrack = Math.max(0, spotifyVisualizerCurrentTime - trackStartTime);
+    
+    // Format current time
+    const currentSeconds = Math.floor(elapsedInTrack / 1000);
+    const currentMinutes = Math.floor(currentSeconds / 60);
+    const currentSecs = currentSeconds % 60;
+    
+    // Format total duration
+    const totalSeconds = Math.floor(trackDuration / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalSecs = totalSeconds % 60;
+    
+    const currentTimeElement = document.getElementById('currentTime');
+    const durationElement = document.getElementById('trackDuration');
+    
+    if (currentTimeElement) {
+        currentTimeElement.textContent = `${currentMinutes}:${currentSecs.toString().padStart(2, '0')}`;
+    }
+    
+    if (durationElement) {
+        durationElement.textContent = `${totalMinutes}:${totalSecs.toString().padStart(2, '0')}`;
+    }
+}
+
+// Update upcoming tracks list
+function updateUpcomingTracks() {
+    const upcomingTracksList = document.getElementById('upcomingTracksList');
+    if (upcomingTracksList) {
+        upcomingTracksList.innerHTML = getUpcomingTracksHTML();
+    }
+}
+
+// Get HTML for upcoming tracks
+function getUpcomingTracksHTML() {
+    let html = '';
+    const startIndex = spotifyVisualizerCurrentTrackIndex + 1;
+    const endIndex = Math.min(startIndex + 5, spotifyPlaylistTracks.length);
+    
+    for (let i = startIndex; i < endIndex; i++) {
+        const track = spotifyPlaylistTracks[i];
+        html += `
+            <div class="upcoming-track-item" style="padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-weight: bold; font-size: 14px;">${track.name || 'Unknown Track'}</div>
+                <div style="font-size: 12px; opacity: 0.8;">${track.artists ? track.artists.join(', ') : 'Unknown Artist'}</div>
+            </div>
+        `;
+    }
+    
+    if (html === '') {
+        html = '<div style="padding: 10px; text-align: center; opacity: 0.7;">End of playlist</div>';
+    }
+    
+    return html;
+}
+
+// Format playlist duration
+function formatPlaylistDuration() {
+    if (spotifyPlaylistTracks.length === 0) {
+        return '0:00';
+    }
+    
+    const totalMs = spotifyVisualizerCumulativeTimes[spotifyPlaylistTracks.length - 1] + 
+                   (spotifyPlaylistTracks[spotifyPlaylistTracks.length - 1].duration_ms || 0);
+    
+    const totalMinutes = Math.floor(totalMs / 60000);
+    const totalHours = Math.floor(totalMinutes / 60);
+    
+    if (totalHours > 0) {
+        return `${totalHours}h ${totalMinutes % 60}m`;
+    } else {
+        return `${totalMinutes}m`;
+    }
+}
+
+// Toggle visualizer play/pause
+function toggleSpotifyVisualizer() {
+    const toggleBtn = document.getElementById('visualizerToggleBtn');
+    
+    if (spotifyVisualizerActive) {
+        stopSpotifyVisualizer();
+        toggleBtn.innerHTML = '▶️ Play';
+        toggleBtn.style.background = 'rgba(29, 185, 84, 0.6)';
+    } else {
+        startSpotifyVisualizer();
+        toggleBtn.innerHTML = '⏸️ Pause';
+        toggleBtn.style.background = 'rgba(29, 185, 84, 0.3)';
+    }
+}
+
+// Stop Spotify visualizer
+function stopSpotifyVisualizer() {
+    spotifyVisualizerActive = false;
+    if (spotifyVisualizerTimer) {
+        clearInterval(spotifyVisualizerTimer);
+        spotifyVisualizerTimer = null;
+    }
+    console.log('Spotify visualizer stopped');
+}
+
+// Show Spotify embed instead of visualizer
+function showSpotifyEmbedInstead() {
+    stopSpotifyVisualizer();
+    
+    const spotifyContainer = document.getElementById('spotifyContainer');
+    const currentPlaylist = spotifyPlaylists.find(p => p.id === currentSpotifyPlaylistId);
+    
+    if (currentPlaylist) {
+        displayStoredPlaylistPlayer(currentPlaylist.embed_url, currentPlaylist.name, currentPlaylist.genre);
+    }
+}
+
+// Display stored playlist player with embed
+function displayStoredPlaylistPlayer(embedUrl, playlistName, playlistGenre) {
+    const spotifyContainer = document.getElementById('spotifyContainer');
+    
+    spotifyContainer.innerHTML = `
+        <div style="width: 100%; height: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 10px;">
+                <h4 style="margin: 0; color: white; font-size: 18px;">
+                    🎵 Now Playing: <span style="color: #1DB954;">${playlistName}</span>
+                </h4>
+                <button onclick="fetchAndDisplayStoredPlaylists('${playlistGenre || ''}')"
+                        style="padding: 6px 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; font-size: 13px;">
+                    Back to Playlists
+                </button>
+            </div>
+            
+            <iframe src="${embedUrl}"
+                    width="100%" 
+                    height="380" 
+                    frameborder="0" 
+                    allowfullscreen="" 
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                    loading="lazy"
+                    style="border-radius: 12px;">
+            </iframe>
+            
+            <div style="text-align: center; margin-top: 15px; padding: 10px; background: rgba(29, 185, 84, 0.1); border-radius: 6px;">
+                <p style="margin: 0; color: #1DB954; font-size: 14px;">
+                    ♫ Playing from Spotify • Use Spotify controls above to play/pause
+                </p>
+            </div>
+        </div>
+    `;
+    
+    // Update track info
+    document.getElementById('trackTitle').textContent = playlistName;
+    document.getElementById('trackArtist').textContent = `Genre: ${playlistGenre || 'Various'}`;
+    document.getElementById('trackPrice').textContent = 'Streaming Now';
 }
 
 // Display stored playlists in the UI
@@ -585,48 +1030,11 @@ function displayStoredPlaylistsError(errorMessage, genreName) {
     document.getElementById('trackPrice').textContent = 'Please Try Again';
 }
 
-// Display stored playlist player with embed
-function displayStoredPlaylistPlayer(embedUrl, playlistName, playlistGenre) {
-    const spotifyContainer = document.getElementById('spotifyContainer');
-    
-    spotifyContainer.innerHTML = `
-        <div style="width: 100%; height: 100%;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 10px;">
-                <h4 style="margin: 0; color: white; font-size: 18px;">
-                    🎵 Now Playing: <span style="color: #1DB954;">${playlistName}</span>
-                </h4>
-                <button onclick="fetchAndDisplayStoredPlaylists('${playlistGenre || ''}')"
-                        style="padding: 6px 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; font-size: 13px;">
-                    Back to Playlists
-                </button>
-            </div>
-            
-            <iframe src="${embedUrl}"
-                    width="100%" 
-                    height="380" 
-                    frameborder="0" 
-                    allowfullscreen="" 
-                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                    loading="lazy"
-                    style="border-radius: 12px;">
-            </iframe>
-            
-            <div style="text-align: center; margin-top: 15px; padding: 10px; background: rgba(29, 185, 84, 0.1); border-radius: 6px;">
-                <p style="margin: 0; color: #1DB954; font-size: 14px;">
-                    ♫ Playing from Spotify • Use Spotify controls above to play/pause
-                </p>
-            </div>
-        </div>
-    `;
-    
-    // Update track info
-    document.getElementById('trackTitle').textContent = playlistName;
-    document.getElementById('trackArtist').textContent = `Genre: ${playlistGenre || 'Various'}`;
-    document.getElementById('trackPrice').textContent = 'Streaming Now';
-}
-
 // Switch to YouTube mode
 function switchToYouTube() {
+    // Stop Spotify visualizer if active
+    stopSpotifyVisualizer();
+    
     document.getElementById('streamingService').value = 'youtube';
     currentStreamingService = 'youtube';
     startPlaying();
@@ -889,3 +1297,6 @@ window.switchToYouTube = switchToYouTube;
 window.startPlaying = startPlaying;
 window.fetchAndDisplayStoredPlaylists = fetchAndDisplayStoredPlaylists;
 window.selectAndPlayStoredPlaylist = selectAndPlayStoredPlaylist;
+window.toggleSpotifyVisualizer = toggleSpotifyVisualizer;
+window.showSpotifyEmbedInstead = showSpotifyEmbedInstead;
+window.displayStoredPlaylistPlayer = displayStoredPlaylistPlayer;

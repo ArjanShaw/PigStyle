@@ -208,7 +208,7 @@ function loadSavedSelections() {
     
     if (savedService) {
         currentStreamingService = savedService;
-        document.getElementById('streamingService').value = savedService;
+        updateServiceIcons(savedService);
     }
     
     if (savedGenre) {
@@ -218,9 +218,24 @@ function loadSavedSelections() {
     console.log('Loaded saved selections:', { service: savedService, genre: savedGenre });
 }
 
+// Update service icons active state
+function updateServiceIcons(service) {
+    const youtubeIcon = document.getElementById('youtubeIcon');
+    const spotifyIcon = document.getElementById('spotifyIcon');
+    
+    if (youtubeIcon) youtubeIcon.classList.remove('active');
+    if (spotifyIcon) spotifyIcon.classList.remove('active');
+    
+    if (service === 'youtube' && youtubeIcon) {
+        youtubeIcon.classList.add('active');
+    } else if (service === 'spotify' && spotifyIcon) {
+        spotifyIcon.classList.add('active');
+    }
+}
+
 // Save selections to localStorage
 function saveSelections() {
-    const service = document.getElementById('streamingService').value;
+    const service = currentStreamingService;
     const genre = document.getElementById('genreFilter').value;
     
     localStorage.setItem('pigstyleStreamingService', service);
@@ -553,13 +568,13 @@ function displaySpotifyVisualizer(playlist) {
                     </div>
                 </div>
                 
-                <!-- Spotify Control Buttons -->
-                <div class="spotify-control-buttons" style="display: flex; justify-content: center; gap: 20px; margin-top: 30px;">
-                    <button id="stopBtn" class="spotify-control-btn" style="padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                        ⏹️ Stop
+                <!-- Spotify Control Buttons - Icon Only -->
+                <div class="spotify-control-buttons" style="margin-top: 30px;">
+                    <button id="stopBtn" class="spotify-control-btn stop-btn" title="Stop/Play">
+                        <i class="fas fa-stop"></i>
                     </button>
-                    <button id="muteBtn" class="spotify-control-btn" style="padding: 12px 24px; background: #3498db; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                        🔇 Mute
+                    <button id="muteBtn" class="spotify-control-btn mute-btn" title="Mute">
+                        <i class="fas fa-volume-mute"></i>
                     </button>
                 </div>
             </div>
@@ -572,7 +587,7 @@ function displaySpotifyVisualizer(playlist) {
                         frameborder="0" 
                         allowfullscreen="" 
                         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-loading="lazy"
+                        loading="lazy"
                         style="border-radius: 12px;">
                 </iframe>
             </div>
@@ -661,14 +676,17 @@ async function findMatchingRecord(trackName, artistName, genreName) {
 function handleStopVisualizer() {
     spotifyVisualizerPaused = !spotifyVisualizerPaused;
     
-    if (spotifyVisualizerPaused) {
-        stopSpotifyVisualizer();
-        document.getElementById('stopBtn').innerHTML = '▶️ Play';
-        document.getElementById('stopBtn').style.background = '#27ae60';
-    } else {
-        startSpotifyVisualizer();
-        document.getElementById('stopBtn').innerHTML = '⏹️ Stop';
-        document.getElementById('stopBtn').style.background = '#e74c3c';
+    const stopBtn = document.getElementById('stopBtn');
+    if (stopBtn) {
+        if (spotifyVisualizerPaused) {
+            stopSpotifyVisualizer();
+            stopBtn.innerHTML = '<i class="fas fa-play"></i>';
+            stopBtn.title = "Play";
+        } else {
+            startSpotifyVisualizer();
+            stopBtn.innerHTML = '<i class="fas fa-stop"></i>';
+            stopBtn.title = "Stop";
+        }
     }
 }
 
@@ -676,16 +694,19 @@ function handleStopVisualizer() {
 function handleMuteVisualizer() {
     spotifyVisualizerMuted = !spotifyVisualizerMuted;
     
-    if (spotifyVisualizerMuted) {
-        document.getElementById('muteBtn').innerHTML = '🔊 Unmute';
-        document.getElementById('muteBtn').style.background = '#95a5a6';
-    } else {
-        document.getElementById('muteBtn').innerHTML = '🔇 Mute';
-        document.getElementById('muteBtn').style.background = '#3498db';
+    const muteBtn = document.getElementById('muteBtn');
+    if (muteBtn) {
+        if (spotifyVisualizerMuted) {
+            muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            muteBtn.title = "Unmute";
+            muteBtn.classList.add('muted');
+        } else {
+            muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            muteBtn.title = "Mute";
+            muteBtn.classList.remove('muted');
+        }
     }
     
-    // Note: Muting would require controlling the Spotify iframe volume
-    // This is a placeholder for the mute functionality
     console.log('Visualizer muted:', spotifyVisualizerMuted);
 }
 
@@ -1112,8 +1133,15 @@ function switchToYouTube() {
     // Stop Spotify visualizer if active
     stopSpotifyVisualizer();
     
-    document.getElementById('streamingService').value = 'youtube';
     currentStreamingService = 'youtube';
+    updateServiceIcons('youtube');
+    startPlaying();
+}
+
+// Switch to Spotify mode
+function switchToSpotify() {
+    currentStreamingService = 'spotify';
+    updateServiceIcons('spotify');
     startPlaying();
 }
 
@@ -1330,13 +1358,24 @@ async function loadRecordsFromAPI() {
 
 // Setup service selector and other UI
 function setupUI() {
-    const serviceSelector = document.getElementById('streamingService');
+    const youtubeIcon = document.getElementById('youtubeIcon');
+    const spotifyIcon = document.getElementById('spotifyIcon');
     const genreFilter = document.getElementById('genreFilter');
     
-    if (serviceSelector) {
-        serviceSelector.addEventListener('change', function(e) {
-            currentStreamingService = e.target.value;
-            console.log('Service changed to:', currentStreamingService);
+    if (youtubeIcon) {
+        youtubeIcon.addEventListener('click', function() {
+            currentStreamingService = 'youtube';
+            updateServiceIcons('youtube');
+            console.log('Service changed to: YouTube');
+            startPlaying();
+        });
+    }
+    
+    if (spotifyIcon) {
+        spotifyIcon.addEventListener('click', function() {
+            currentStreamingService = 'spotify';
+            updateServiceIcons('spotify');
+            console.log('Service changed to: Spotify');
             startPlaying();
         });
     }
@@ -1376,6 +1415,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;
 window.switchToYouTube = switchToYouTube;
+window.switchToSpotify = switchToSpotify;
 window.startPlaying = startPlaying;
 window.fetchAndDisplayStoredPlaylists = fetchAndDisplayStoredPlaylists;
 window.selectAndPlayStoredPlaylist = selectAndPlayStoredPlaylist;

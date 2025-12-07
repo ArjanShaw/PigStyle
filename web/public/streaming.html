@@ -15,6 +15,9 @@
       gtag('config', 'G-03HFDR9PV7');
     </script>
     
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <link rel="stylesheet" href="streaming.css">
     <!-- External JavaScript -->
     <script src="streaming.js"></script>
@@ -31,11 +34,13 @@
             <div class="logo-container">
                 <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
             </div>
-            <div class="streaming-selector">
-                <select id="streamingService" class="service-select">
-                    <option value="youtube">YouTube</option>
-                    <option value="spotify">Spotify</option>
-                </select>
+            <div class="service-icons">
+                <div class="service-icon youtube-icon active" id="youtubeIcon" title="YouTube">
+                    <i class="fab fa-youtube"></i>
+                </div>
+                <div class="service-icon spotify-icon" id="spotifyIcon" title="Spotify">
+                    <i class="fab fa-spotify"></i>
+                </div>
             </div>
             <div class="genre-selector">
                 <select id="genreFilter" class="genre-select">

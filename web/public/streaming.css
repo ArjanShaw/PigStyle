@@ -211,6 +211,106 @@ header {
     display: none;
 }
 
+/* Vote Controls */
+.vote-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.vote-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.vote-btn:hover {
+    transform: scale(1.1);
+}
+
+.vote-btn.upvote:hover {
+    background: rgba(46, 204, 113, 0.3);
+    border-color: #2ecc71;
+}
+
+.vote-btn.downvote:hover {
+    background: rgba(231, 76, 60, 0.3);
+    border-color: #e74c3c;
+}
+
+.vote-btn.kill:hover {
+    background: rgba(155, 89, 182, 0.3);
+    border-color: #9b59b6;
+}
+
+.vote-btn.voted {
+    transform: scale(1.1);
+}
+
+.vote-btn.upvote.voted {
+    background: rgba(46, 204, 113, 0.6);
+    border-color: #2ecc71;
+    color: #2ecc71;
+}
+
+.vote-btn.downvote.voted {
+    background: rgba(231, 76, 60, 0.6);
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.vote-btn.kill.voted {
+    background: rgba(155, 89, 182, 0.6);
+    border-color: #9b59b6;
+    color: #9b59b6;
+}
+
+/* Vote info display */
+.vote-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.votes-count {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #f1c40f;
+}
+
+.playlist-status {
+    font-size: 1rem;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.playlist-status.active {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border: 1px solid #2ecc71;
+}
+
+.playlist-status.inactive {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border: 1px solid #e74c3c;
+}
+
 /* Spotify Visualizer Styles */
 .album-art-container {
     position: relative;
@@ -359,85 +459,6 @@ header {
     transform: scale(0.95);
 }
 
-/* Updated Vote controls - now inline with badges */
-.vote-controls {
-    display: flex;
-    gap: 8px;
-}
-
-.vote-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    color: white;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-}
-
-.vote-btn:hover {
-    transform: scale(1.1);
-}
-
-.vote-btn.upvote:hover {
-    background: rgba(46, 204, 113, 0.3);
-    border-color: #2ecc71;
-}
-
-.vote-btn.downvote:hover {
-    background: rgba(231, 76, 60, 0.3);
-    border-color: #e74c3c;
-}
-
-.vote-btn.voted {
-    transform: scale(1.1);
-}
-
-.vote-btn.upvote.voted {
-    background: rgba(46, 204, 113, 0.6);
-    border-color: #2ecc71;
-    color: #2ecc71;
-}
-
-.vote-btn.downvote.voted {
-    background: rgba(231, 76, 60, 0.6);
-    border-color: #e74c3c;
-    color: #e74c3c;
-}
-
-/* Vote count badge */
-.vote-count-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: #e74c3c;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 0.7rem;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid rgba(0, 0, 0, 0.7);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-}
-
-.vote-btn.upvote .vote-count-badge {
-    background: #2ecc71;
-}
-
-.vote-btn.downvote .vote-count-badge {
-    background: #e74c3c;
-}
-
 /* Genre selector */
 .genre-selector {
     display: flex;
@@ -570,17 +591,9 @@ header {
     }
     
     .vote-btn {
-        width: 35px;
-        height: 35px;
-        font-size: 0.9rem;
-    }
-    
-    .vote-count-badge {
-        width: 16px;
-        height: 16px;
-        font-size: 0.6rem;
-        top: -3px;
-        right: -3px;
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
     }
     
     .price-badge {
@@ -627,6 +640,19 @@ header {
     .track-artist-large {
         font-size: 1.1rem;
     }
+    
+    .vote-controls {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .votes-count {
+        font-size: 1.2rem;
+    }
+    
+    .playlist-status {
+        font-size: 0.9rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -655,17 +681,9 @@ header {
     }
     
     .vote-btn {
-        width: 30px;
-        height: 30px;
-        font-size: 0.8rem;
-    }
-    
-    .vote-count-badge {
-        width: 14px;
-        height: 14px;
-        font-size: 0.5rem;
-        top: -3px;
-        right: -3px;
+        width: 35px;
+        height: 35px;
+        font-size: 0.9rem;
     }
     
     /* Visualizer mobile */
@@ -686,5 +704,17 @@ header {
     
     .track-artist-large {
         font-size: 1rem;
+    }
+    
+    .vote-controls {
+        gap: 8px;
+    }
+    
+    .votes-count {
+        font-size: 1rem;
+    }
+    
+    .playlist-status {
+        font-size: 0.8rem;
     }
 }

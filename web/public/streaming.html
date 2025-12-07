@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
@@ -63,18 +63,25 @@
                 <div class="price-container">
                     <div class="price-badge" id="trackPrice">Stream Now</div>
                     <div class="info-badges">
-                        <!-- Vote controls -->
-                        <div class="vote-controls">
-                            <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
-                                👍
-                                <span class="vote-count-badge" id="upvoteCount">0</span>
-                            </button>
-                            <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">
-                                👎
-                                <span class="vote-count-badge" id="downvoteCount">0</span>
-                            </button>
+                        <!-- Vote info display -->
+                        <div class="vote-info">
+                            <div class="votes-count" id="votesCount">0</div>
+                            <div class="playlist-status active" id="playlistStatus">✅ In Playlists</div>
                         </div>
                     </div>
+                </div>
+                
+                <!-- Vote controls -->
+                <div class="vote-controls" id="voteControls" style="display: none;">
+                    <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
+                        👍
+                    </button>
+                    <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">
+                        👎
+                    </button>
+                    <button class="vote-btn kill" id="killBtn" title="Remove from Playlists">
+                        ⚡
+                    </button>
                 </div>
             </div>
             

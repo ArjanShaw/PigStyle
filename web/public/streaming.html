@@ -2,7 +2,7 @@
 <html lang='en'>
 <head>
     <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=0.25'>
     <link rel="icon" type="image/jpeg" href="images/pigstyle_icon.png">
     <title>Streaming Station - PigStyle Records</title>
     
@@ -33,13 +33,13 @@
         <div class="header-content">
             <div class="logo-container">
                 <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
-            </div>
-            <div class="service-icons">
-                <div class="service-icon youtube-icon active" id="youtubeIcon" title="YouTube">
-                    <i class="fab fa-youtube"></i>
-                </div>
-                <div class="service-icon spotify-icon" id="spotifyIcon" title="Spotify">
-                    <i class="fab fa-spotify"></i>
+                <div class="service-icons">
+                    <div class="service-icon youtube-icon active" id="youtubeIcon" title="YouTube">
+                        <i class="fab fa-youtube"></i>
+                    </div>
+                    <div class="service-icon spotify-icon" id="spotifyIcon" title="Spotify">
+                        <i class="fab fa-spotify"></i>
+                    </div>
                 </div>
             </div>
             <div class="genre-selector">
@@ -65,28 +65,34 @@
             <div class="current-track">
                 <h2 id="trackTitle">PigStyle Records Collection</h2>
                 <p class="artist" id="trackArtist">Various Artists</p>
-                <div class="price-container">
-                    <div class="price-badge" id="trackPrice">Stream Now</div>
-                    <div class="info-badges">
-                        <!-- Vote info display -->
-                        <div class="vote-info">
-                            <div class="votes-count" id="votesCount">0</div>
-                            <div class="playlist-status active" id="playlistStatus">✅ In Playlists</div>
+                
+                <!-- Combined vote component -->
+                <div class="combined-vote-controls" id="voteControls" style="display: none;">
+                    <div class="vote-stats">
+                        <div class="vote-count" id="votesCount">0</div>
+                        <div class="vote-action">
+                            <div class="vote-toggle">
+                                <button class="vote-btn minus-btn" id="downvoteBtn" title="Downvote">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <button class="vote-btn plus-btn" id="upvoteBtn" title="Upvote">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <button class="vote-btn kill-btn" id="killBtn" title="Remove from Playlists">
+                                <i class="fas fa-bolt"></i>
+                            </button>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Vote controls -->
-                <div class="vote-controls" id="voteControls" style="display: none;">
-                    <button class="vote-btn upvote" id="upvoteBtn" title="Upvote">
-                        👍
-                    </button>
-                    <button class="vote-btn downvote" id="downvoteBtn" title="Downvote">
-                        👎
-                    </button>
-                    <button class="vote-btn kill" id="killBtn" title="Remove from Playlists">
-                        ⚡
-                    </button>
+                    <!-- Spotify visualizer controls moved here -->
+                    <div class="visualizer-controls" id="visualizerControls" style="display: none;">
+                        <button class="visualizer-btn stop-btn" id="stopBtn" title="Stop/Play">
+                            <i class="fas fa-stop"></i>
+                        </button>
+                        <button class="visualizer-btn mute-btn" id="muteBtn" title="Mute">
+                            <i class="fas fa-volume-mute"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -107,15 +113,19 @@
                 <div id="youtube-player" style="width: 100%; height: 100%;"></div>
             </div>
             
-            <div class="spotify-controls" id="spotifyControls" style="display: none;">
-                 
-            </div>
-            
             <div class="nav-controls" id="youtubeControls" style="display: none;">
                 <button class="nav-btn" id="prevBtn">◀</button>
                 <button class="nav-btn" id="nextBtn">▶</button>
             </div>
         </div>
+    </div>
+    
+    <!-- Scale Controls -->
+    <div class="scale-controls">
+        <button class="scale-btn" onclick="scaleDown()">-</button>
+        <span style="color:white; padding: 0 10px;" id="scalePercent">100%</span>
+        <button class="scale-btn" onclick="scaleUp()">+</button>
+        <button class="scale-btn" onclick="resetScale()">↺</button>
     </div>
 </body>
 </html>

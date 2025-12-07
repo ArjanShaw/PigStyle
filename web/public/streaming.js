@@ -477,8 +477,24 @@ function displaySpotifyVisualizer(playlist) {
             </div>
             
             <!-- Countdown timer before visualizer starts -->
-            <div id="visualizerCountdown" style="text-align: center; padding: 20px; color: #1DB954; font-size: 24px; font-weight: bold;">
-                Visualizer starting in <span id="countdownValue">5</span> seconds...
+            <div id="visualizerCountdown" style="text-align: center; padding: 20px; color: #1DB954; font-size: 24px; font-weight: bold; background: rgba(0, 0, 0, 0.7); border-radius: 10px; margin: 20px 0;">
+                ⏱️ Visualizer starting in <span id="countdownValue">5</span> seconds...
+                <div style="font-size: 16px; margin-top: 10px; color: rgba(255, 255, 255, 0.8);">
+                    Press play on the Spotify player below to start audio
+                </div>
+            </div>
+            
+            <!-- Spotify embed player (shown during countdown) -->
+            <div id="spotifyEmbedDuringCountdown" style="margin-bottom: 20px;">
+                <iframe src="${playlist.embed_url}"
+                        width="100%" 
+                        height="380" 
+                        frameborder="0" 
+                        allowfullscreen="" 
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                        loading="lazy"
+                        style="border-radius: 12px;">
+                </iframe>
             </div>
             
             <!-- Visualizer content (hidden initially) -->
@@ -553,7 +569,10 @@ function startVisualizerCountdown() {
         
         if (countdown <= 0) {
             clearInterval(countdownInterval);
+            // Hide countdown and Spotify embed
             document.getElementById('visualizerCountdown').style.display = 'none';
+            document.getElementById('spotifyEmbedDuringCountdown').style.display = 'none';
+            // Show visualizer
             document.getElementById('visualizerContent').style.display = 'block';
         }
     }, 1000);

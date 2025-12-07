@@ -40,21 +40,16 @@ class PriceTagHandler:
             (records_df['barcode'] == 'None')
         ]
         
-        # Sort by creation time - newest records first
-        # First check if 'created_at' column exists, fall back to 'id' (higher id = newer record)
-        if 'created_at' in records_without_barcodes.columns:
-            records_without_barcodes = records_without_barcodes.sort_values('created_at', ascending=False)
-        else:
-            # If no created_at column, sort by ID (assuming higher IDs are newer)
-            records_without_barcodes = records_without_barcodes.sort_values('id', ascending=False)
+        # Sort by ID (assuming higher IDs are newer)
+        records_without_barcodes = records_without_barcodes.sort_values('id', ascending=False)
         
         return records_without_barcodes.to_dict('records')
     
     def clear_recent_barcodes(self):
-        """Clear barcodes from records that were created in the last 24 hours"""
+        """Clear barcodes from recent records created in the last 24 hours"""
         try:
-            # Calculate timestamp for 24 hours ago
-            twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+            # Calculate cutoff time (24 hours ago)
+            cutoff_time = datetime.now() - timedelta(hours=24)
             
             # Get all records with barcodes using API
             all_records = self.db_manager.get_all_records()
@@ -62,28 +57,12 @@ class PriceTagHandler:
             if all_records.empty:
                 return 0
             
-            # Filter records with barcodes
-            records_with_barcodes = all_records[
+            # Filter records with barcodes created in the last 24 hours
+            recent_records = all_records[
                 (all_records['barcode'].notna()) & 
                 (all_records['barcode'] != '') & 
-                (all_records['barcode'] != 'None')
-            ]
-            
-            if records_with_barcodes.empty:
-                return 0
-            
-            # Check if records have a created_at timestamp
-            # If not, we can't determine which ones are recent
-            if 'created_at' not in records_with_barcodes.columns:
-                st.warning("Records don't have creation timestamps. Cannot determine which are recent.")
-                return 0
-            
-            # Convert created_at to datetime for comparison
-            records_with_barcodes['created_at_dt'] = pd.to_datetime(records_with_barcodes['created_at'])
-            
-            # Filter records created in the last 24 hours
-            recent_records = records_with_barcodes[
-                records_with_barcodes['created_at_dt'] >= twenty_four_hours_ago
+                (all_records['barcode'] != 'None') &
+                (pd.to_datetime(all_records['created_at']) >= cutoff_time)
             ]
             
             if recent_records.empty:
@@ -144,9 +123,9 @@ class PriceTagHandler:
         # Save to bytes buffer
         buffer = io.BytesIO()
         barcode_obj.write(buffer, options={
-            'module_height': 6.0,  # Reduced height
+            'module_height': 6.0,
             'font_size': 0,
-            'quiet_zone': 1.0,    # Reduced quiet zone
+            'quiet_zone': 1.0,
             'write_text': False
         })
         buffer.seek(0)
@@ -178,35 +157,37 @@ class PriceTagHandler:
         else:
             return None, "❌ Failed to generate PDF"
     
-    def generate_pdf(self, df, barcode_mapping, layout_params=None):
+    def generate_pdf(self, df, barcode_mapping, layout_params=None, page_layout_params=None):
         """Generate PDF with price tags using configurable layout"""
         # Create temp file
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         output_path = temp_file.name
         temp_file.close()
-        print(f"🔴 DEBUG:generate_pdf temp_file: {temp_file}")
 
         c = canvas.Canvas(output_path, pagesize=letter)
         
         # Use provided layout parameters or defaults
         params = layout_params if layout_params else self._get_default_layout_params()
         
-        # Calculate layout from parameters
-        label_width = params['label_width_mm'] * mm
-        label_height = params['label_height_mm'] * mm
-        left_margin = params['left_margin_mm'] * mm
-        gutter_spacing = params['gutter_spacing_mm'] * mm
-        top_margin = params['top_margin_mm'] * mm
-        rows = params['rows']
-        columns = params['columns']
+        # Use provided page layout parameters or defaults
+        page_params = page_layout_params if page_layout_params else self._get_default_page_layout_params()
         
-        print(f"🔴 DEBUG:generate_pdf columns: {columns}")
+        # Calculate layout from parameters
+        label_width = page_params.get('label_width_mm', 45.0) * mm
+        label_height = page_params.get('label_height_mm', 16.8) * mm
+        left_margin = page_params.get('left_margin_mm', 6.5) * mm
+        gutter_spacing = page_params.get('gutter_spacing_mm', 6.5) * mm
+        top_margin = page_params.get('top_margin_mm', 14.0) * mm
+        rows = 15  # Fixed rows
+        columns = 4  # Fixed columns
 
         labels_per_page = rows * columns
         current_label = 0
         
-        for _, record in df.iterrows():
-             
+        # Track errors for reporting
+        errors = []
+        
+        for idx, (_, record) in enumerate(df.iterrows()):
             if current_label % labels_per_page == 0 and current_label > 0:
                 c.showPage()
             
@@ -216,74 +197,116 @@ class PriceTagHandler:
             
             x = left_margin + col * (label_width + gutter_spacing)
             y = letter[1] - top_margin - (row + 1) * label_height
-             
+            
             barcode_number = barcode_mapping.get(str(record['id']))
-
             
-            self.draw_tag(c, x, y, label_width, label_height, record, barcode_number, params)
-
-            
-
+            # Draw tag and collect any errors
+            error = self.draw_tag(c, x, y, label_width, label_height, record, barcode_number, params)
+            if error:
+                errors.append(f"Record ID {record['id']}: {error}")
 
             current_label += 1
- 
+        
         c.save()
+        
+        # If there were errors, raise them
+        if errors:
+            raise ValueError(f"Text overflow errors detected:\n" + "\n".join(errors))
+        
         return output_path
     
     def _get_default_layout_params(self):
-        """Get default layout parameters"""
-        config_file = self._get_config_path()
-        if not config_file.exists():
-            raise Exception(f"Configuration file not found: {config_file}")
-        
-        with open(config_file, 'r') as f:
-            content = f.read().strip()
-            if not content:
-                raise Exception("Configuration file is empty")
-            config = json.loads(content)
-        return config
+        """Get default layout parameters - ONLY BASIC PARAMS FOR PRICE TAGS"""
+        return {
+            'price_font_size': 10,  # Font size for price
+            'price_y_pos': 12.0,  # Y position for price
+            'text_font_size': 6,  # Font size for text
+            'barcode_y_pos': 2.0,  # Y position for barcode
+            'barcode_height': 6.0,  # Height for barcode
+            'print_borders': True  # Print borders
+        }
+    
+    def _get_default_page_layout_params(self):
+        """Get default page layout parameters"""
+        return {
+            'label_width_mm': 45.0,
+            'label_height_mm': 16.8,
+            'left_margin_mm': 6.5,
+            'gutter_spacing_mm': 6.5,
+            'top_margin_mm': 14.0,
+            'font_size': 7
+        }
     
     def draw_tag(self, c, x, y, label_width, label_height, record, barcode_number, params):
-        """Draw a single price tag with configurable layout"""
+        """Draw a single price tag with price, genre | artist (truncated to 35 chars), and barcode"""
+        # Calculate printable area bounds (with 2mm margins on each side)
+        left_bound = x + 2 * mm
+        right_bound = x + label_width - 2 * mm
+        printable_width = label_width - 4 * mm
+        
         # Draw border only if enabled
-        print(f"🔴 DEBUG:barcode_mapping 1: barcode_number: {barcode_number}")
- 
         if params.get('print_borders', True):
             c.setStrokeColorRGB(0, 0, 0)
             c.setLineWidth(0.5)
             c.rect(x, y, label_width, label_height, stroke=1, fill=0)
         
-        
-
-        # Calculate positions with proper spacing
-        left_margin = x + 2 * mm
-        right_margin = x + label_width - 2 * mm
-        
         # Top of label (starting from top going down)
         top_start = y + label_height - 2 * mm
         
-        # PRICE
-        price = record.get('store_price', 0)
-        price_text = f"${price:.2f}" if price else "$0.00"
+        # PRICE - Top Center
+        price = record.get('store_price', 0.0)
+        price_text = f"${price:.2f}"
         c.setFont("Helvetica-Bold", params['price_font_size'])
+        price_width = c.stringWidth(price_text, "Helvetica-Bold", params['price_font_size'])
+        
+        # Check if price text fits in printable area
+        if price_width > printable_width:
+            return f"Price text too wide: '{price_text}' ({price_width:.1f}mm > {printable_width/mm:.1f}mm printable width)"
+        
+        # Center price within printable area
+        price_x = left_bound + (printable_width - price_width) / 2
         price_y = top_start - (params['price_y_pos'] * mm)
-        c.drawString(left_margin, price_y, price_text)
-         
-        # ARTIST - TITLE
+        c.drawString(price_x, price_y, price_text)
+        
+        # GENRE | ARTIST - Below Price (truncated to 35 characters total)
+        genre = record.get('genre_name', 'Unknown')
+        artist = record.get('artist', 'Unknown')
+        
+        # Format as "genre | artist"
+        genre_artist_text = f"{genre} | {artist}"
+        
+        # Calculate maximum length (35 characters)
+        MAX_LENGTH = 35
+        SEPARATOR = ' | '
+        
+        # Don't truncate genre, truncate artist if needed
+        if len(genre_artist_text) > MAX_LENGTH:
+            # Calculate how many characters we have for artist
+            # MAX_LENGTH - genre length - separator length (3)
+            max_artist_length = MAX_LENGTH - len(genre) - len(SEPARATOR)
+            
+            if max_artist_length > 0:
+                # Truncate artist with ellipsis if needed
+                if len(artist) > max_artist_length:
+                    artist = artist[:max_artist_length-1] + '…'
+                genre_artist_text = f"{genre}{SEPARATOR}{artist}"
+            else:
+                # If genre is already too long, just show genre (this shouldn't happen with normal genre names)
+                genre_artist_text = genre[:MAX_LENGTH-1] + '…'
+        
         c.setFont("Helvetica", params['text_font_size'])
-        artist = record.get('artist', '')[:15]
-        title = record.get('title', '')[:15]
-        artist_title = f"{artist} - {title}"
-        artist_title_y = top_start - (params['artist_y_pos'] * mm)
-        c.drawString(left_margin, artist_title_y, artist_title)
+        genre_artist_width = c.stringWidth(genre_artist_text, "Helvetica", params['text_font_size'])
         
-        # FILE LOCATION
-        file_at = record.get('file_at', '')[:20]
-        if file_at:
-            file_at_y = top_start - (params['file_y_pos'] * mm)
-            c.drawString(left_margin, file_at_y, file_at)
+        # Check if genre/artist text fits in printable area
+        if genre_artist_width > printable_width:
+            return f"Genre/Artist text too wide: '{genre_artist_text}' ({genre_artist_width:.1f}mm > {printable_width/mm:.1f}mm printable width)"
         
-        # BARCODE
+        # Center genre/artist within printable area
+        genre_artist_x = left_bound + (printable_width - genre_artist_width) / 2
+        genre_artist_y = price_y - 4 * mm  # Fixed position below price
+        c.drawString(genre_artist_x, genre_artist_y, genre_artist_text)
+        
+        # BARCODE - Center
         if barcode_number:
             barcode_bytes = self.generate_barcode(barcode_number)
             if barcode_bytes:
@@ -291,27 +314,22 @@ class PriceTagHandler:
                     temp_file.write(barcode_bytes.getvalue())
                     temp_path = temp_file.name
                 
-                # Calculate barcode position
+                # Calculate barcode position - center it within printable area
                 barcode_height = params['barcode_height'] * mm
-                barcode_width = 25 * mm
-                barcode_x = left_margin
+                barcode_width = 25 * mm  # Fixed barcode width
+                
+                # Check if barcode fits in printable area
+                if barcode_width > printable_width:
+                    os.unlink(temp_path)
+                    return f"Barcode too wide: {barcode_width:.1f}mm > {printable_width/mm:.1f}mm printable width"
+                
+                barcode_x = left_bound + (printable_width - barcode_width) / 2
                 barcode_y = y + (params['barcode_y_pos'] * mm)
                 
                 c.drawImage(temp_path, barcode_x, barcode_y, width=barcode_width, height=barcode_height)
                 os.unlink(temp_path)
         
+        # NOTE: Barcode number display removed as requested
+        # No barcode number text is displayed below the barcode
         
-
-        # RIGHT SIDE INFO - date and consignor
-        print_date = datetime.now().strftime("%m/%d/%y")
-        c.setFont("Helvetica", params['date_font_size'])
-        
-        # Date at top right
-        date_y = top_start - (params['date_y_pos'] * mm)
-        c.drawRightString(right_margin, date_y, print_date)
-        
-        # Consignor below date
-        consignor = record.get('consignor_name', '')
-        if consignor:
-            consignor_y = date_y - (3.5 * mm)  # Fixed spacing below date
-            c.drawRightString(right_margin, consignor_y, consignor[:10])
+        return None  # No error

@@ -91,9 +91,6 @@ class RecordOperationsHandler:
                     st.error(f"Failed to create new genre: {genre}")
                     return False, None
         
-        # Calculate file_at for confirmation message
-        file_at_value = self._calculate_file_at(artist, genre, compilation)
-        
         # Store pricing data in record_data for display
         if pricing_data:
             record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
@@ -104,7 +101,7 @@ class RecordOperationsHandler:
         # Get eBay sell price from record_data if available
         ebay_sell_at = record_data.get('ebay_sell_at', 0.0)
         
-        # Save to database - include calculated store price and Discogs condition
+        # Save to database
         result_data = {
             'artist': artist,  # Use the edited artist name
             'title': title,    # Use the edited title
@@ -115,7 +112,6 @@ class RecordOperationsHandler:
             'catalog_number': catalog_number,
             'format': format_selected,
             'condition': selected_condition,  # Store the Discogs condition text
-            'file_at': file_at_value,  # Use calculated file_at
             'store_price': store_price,  # CALCULATED STORE PRICE
             'ebay_sell_at': ebay_sell_at,  # CALCULATED EBAY SELL PRICE
             'youtube_url': youtube_url,  # Include YouTube URL
@@ -208,36 +204,6 @@ class RecordOperationsHandler:
             return base_price + 0.49
         else:
             return base_price + 0.99
-
-    def _calculate_file_at(self, artist, genre, compilation):
-        """Calculate file_at value for an artist and genre"""
-        if not artist or not genre:
-            return "?"
-        
-        if compilation:
-            # For compilations: Comp(first_letter_of_genre)
-            genre_first_char = genre[0].upper() if genre and genre[0].isalpha() else "?"
-            return f"Comp({genre_first_char})"
-        else:
-            # For regular records: genre(first_letter_of_artist)
-            artist_clean = artist.strip().lower()
-            
-            if artist_clean.startswith('the '):
-                artist_clean = artist_clean[4:]
-            
-            if artist_clean and artist_clean[0].isdigit():
-                number_words = {
-                    '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
-                    '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
-                }
-                first_char = artist_clean[0]
-                file_at_letter = number_words.get(first_char, '?')[0].upper()
-            elif artist_clean and artist_clean[0].isalpha():
-                file_at_letter = artist_clean[0].upper()
-            else:
-                file_at_letter = "?"
-            
-            return f"{genre}({file_at_letter})"
 
     def update_database_record(self, record_data, genre):
         """Update database record"""

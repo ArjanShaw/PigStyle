@@ -11,27 +11,80 @@ class StatisticsTab:
     def render(self):
         st.header("📊 Statistics")
         
+        # Check if user is admin
+        user = st.session_state.get('user', {})
+        if user.get('role') != 'admin':
+            st.error("❌ Access denied. Administrator privileges required to view statistics.")
+            return
+        
+        # Tab layout for different statistics
+        tab1, tab2, tab3 = st.tabs([
+            "📈 Overview",
+            "🎵 Genres",
+            "💰 Pricing"
+        ])
+        
+        with tab1:
+            self._render_overview_stats()
+        
+        with tab2:
+            self._render_genre_chart()
+        
+        with tab3:
+            self._render_price_comparison_chart()
+    
+    def _render_overview_stats(self):
+        """Render overview statistics"""
         try:
             # Get database statistics using API
             stats = st.session_state.db_manager.get_database_stats()
             
             # Display basic stats
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Total Records", stats['records_count'])
             with col2:
                 st.metric("Latest Record", stats['latest_record'][:16] if stats['latest_record'] != "None" else "None")
+            with col3:
+                st.metric("Users", stats['users_count'])
+            with col4:
+                st.metric("Database", stats['db_path'])
             
-            if stats['records_count'] > 0:
-                # Use half width for both charts
-                col1, col2 = st.columns(2)
-                with col1:
-                    self._render_genre_chart()
-                with col2:
-                    self._render_price_comparison_chart()
-            else:
-                st.info("No records available for analytics. Add some records first!")
-                
+            # Try to get vote statistics
+            try:
+                vote_stats = st.session_state.db_manager.get_vote_statistics()
+                if not vote_stats.empty:
+                    # Calculate vote statistics
+                    total_votes = vote_stats['total_votes'].sum()
+                    avg_votes_per_record = vote_stats['total_votes'].mean()
+                    most_voted = vote_stats.sort_values('total_votes', ascending=False).head(1)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Votes", int(total_votes))
+                    with col2:
+                        st.metric("Avg Votes/Record", f"{avg_votes_per_record:.1f}")
+                    with col3:
+                        if not most_voted.empty:
+                            record = most_voted.iloc[0]
+                            st.metric("Most Voted", f"{record['total_votes']} votes")
+                    
+                    # Show top 5 most voted records
+                    st.subheader("🏆 Top 5 Most Voted Records")
+                    top_records = vote_stats.sort_values('total_votes', ascending=False).head(5)
+                    
+                    for i, (_, record) in enumerate(top_records.iterrows()):
+                        with st.expander(f"{i+1}. {record['artist']} - {record['title']}", expanded=(i==0)):
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("👍 Upvotes", record['upvotes'])
+                            with col2:
+                                st.metric("👎 Downvotes", record['downvotes'])
+                            with col3:
+                                st.metric("📊 Total", record['total_votes'])
+            except Exception as e:
+                st.info("Vote statistics not available")
+            
         except Exception as e:
             st.error(f"Error loading statistics: {e}")
 

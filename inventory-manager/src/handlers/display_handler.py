@@ -1,5 +1,4 @@
 # FILE: inventory-manager/src/handlers/display_handler.py
-# FILE: inventory-manager/src/handlers/display_handler.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -23,15 +22,125 @@ class DisplayHandler:
         self._render_unified_results(results, search_type)
 
     def render_database_results(self, results, search_type):
-        """Render database search results"""
+        """Render database search results - NOW WITH DIRECT EDITING"""
         if not results:
             st.warning("No records found in database")
             return
         
-        self._render_unified_results(results, search_type)
+        # For database results, render editable fields directly
+        self._render_editable_database_results(results)
+
+    def _render_editable_database_results(self, results):
+        """Render database results with direct editing (no Select button)"""
+        for i, record in enumerate(results):
+            # Create an expander for each record with editing capabilities
+            with st.expander(f"{record.get('artist', '')} - {record.get('title', '')}", expanded=False):
+                self._render_editable_record(record, i)
+
+    def _render_editable_record(self, record, index):
+        """Render a single record with editable fields"""
+        col1, col2 = st.columns([1, 3])
+        
+        with col1:
+            image_url = record.get('image_url', '')
+            if image_url:
+                st.image(image_url, width=80)
+            else:
+                st.write("No image")
+        
+        with col2:
+            # Show record details
+            st.write(f"**ID:** {record.get('id', '')}")
+            st.write(f"**Barcode:** {record.get('barcode', '')}")
+            st.write(f"**Catalog:** {record.get('catalog_number', '')}")
+            st.write(f"**Genre:** {record.get('genre', '')}")
+            
+            # Editable fields
+            artist = st.text_input("Artist", value=record.get('artist', ''), key=f"artist_edit_{index}")
+            title = st.text_input("Title", value=record.get('title', ''), key=f"title_edit_{index}")
+            
+            # Genre selection
+            all_genres = self._get_all_genres()
+            current_genre = record.get('genre', '')
+            genre_index = all_genres.index(current_genre) + 1 if current_genre in all_genres else 0
+            genre = st.selectbox("Genre", options=[""] + all_genres, index=genre_index, key=f"genre_edit_{index}")
+            
+            # Compilation checkbox
+            compilation = st.checkbox("Compilation", value=record.get('compilation', False), key=f"compilation_{index}")
+            
+            # Store price
+            store_price = st.number_input("Store Price", value=float(record.get('store_price', 0.0)), min_value=0.0, step=0.5, key=f"store_price_{index}")
+            
+            # YouTube URL
+            youtube_url = st.text_input("YouTube URL", value=record.get('youtube_url', ''), key=f"youtube_{index}")
+            
+            # Barcode clearing option
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                if st.button("💾 Save", key=f"save_{index}", use_container_width=True):
+                    self._save_record_changes(record, artist, title, genre, compilation, store_price, youtube_url)
+            
+            with col_btn2:
+                if st.button("🗑️ Delete", key=f"delete_{index}", use_container_width=True, type="secondary"):
+                    if self._delete_record(record.get('id')):
+                        st.success("Record deleted successfully!")
+                        st.rerun()
+            
+            with col_btn3:
+                if record.get('barcode'):
+                    if st.button("🗑️ Clear Barcode", key=f"clear_barcode_{index}", use_container_width=True, type="secondary"):
+                        if self._clear_barcode(record.get('id')):
+                            st.success("Barcode cleared!")
+                            st.rerun()
+
+    def _save_record_changes(self, original_record, artist, title, genre, compilation, store_price, youtube_url):
+        """Save changes to a record"""
+        try:
+            # Get genre_id for the genre
+            genre_id = None
+            if genre:
+                genres_df = st.session_state.db_manager.get_all_genres()
+                genre_row = genres_df[genres_df['genre_name'] == genre]
+                if not genre_row.empty:
+                    genre_id = genre_row.iloc[0]['id']
+                else:
+                    # Create new genre
+                    success, new_genre_id = st.session_state.db_manager.add_genre(genre)
+                    if success:
+                        genre_id = new_genre_id
+            
+            # Prepare updates
+            updates = {
+                'artist': artist,
+                'title': title,
+                'genre_id': genre_id,
+                'compilation': compilation,
+                'store_price': store_price,
+                'youtube_url': youtube_url
+            }
+            
+            # Update the record
+            success = st.session_state.db_manager.update_record(original_record['id'], updates)
+            if success:
+                st.success("Record updated successfully!")
+                st.rerun()
+            else:
+                st.error("Failed to update record")
+                
+        except Exception as e:
+            st.error(f"Error updating record: {str(e)}")
+
+    def _clear_barcode(self, record_id):
+        """Clear barcode from a record"""
+        try:
+            success = st.session_state.db_manager.update_record(record_id, {'barcode': None})
+            return success
+        except Exception as e:
+            st.error(f"Error clearing barcode: {str(e)}")
+            return False
 
     def _render_unified_results(self, results, result_type):
-        """Render unified results component for both Discogs and Database searches"""
+        """Render unified results component for Discogs searches (keeps Select button)"""
         for i, record in enumerate(results):
             # Use columns for layout
             col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
@@ -60,7 +169,6 @@ class DisplayHandler:
                     # SHOW THE REQUESTED FIELDS when selecting from inventory
                     record_id = record.get('id', '')
                     barcode = record.get('barcode', '')
-                    file_at = record.get('file_at', '')
                     youtube_url = record.get('youtube_url', '')
                     catalog_number = record.get('catalog_number', '')
                     genre = record.get('genre', '')
@@ -74,7 +182,6 @@ class DisplayHandler:
                         st.write(f"**Consignor:** {consignor_name} ({commission_rate*100 if commission_rate else 0}%)")
                     st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**Discogs Price:** ${discogs_suggested_price:.2f}" if discogs_suggested_price and discogs_suggested_price > 0 else "**Discogs Price:** N/A")
-                    st.write(f"**File Location:** {file_at}")
                     if youtube_url:
                         st.write(f"🎵 **YouTube:** {youtube_url}")
                 else:  # discogs
@@ -157,7 +264,6 @@ class DisplayHandler:
                 # SHOW THE REQUESTED FIELDS prominently
                 record_id = record.get('id', '')
                 barcode = record.get('barcode', '')
-                file_at = record.get('file_at', '')
                 store_price = record.get('store_price', '')
                 youtube_url = record.get('youtube_url', '')
                 catalog_number = record.get('catalog_number', '')
@@ -181,7 +287,6 @@ class DisplayHandler:
                     st.write(f"**Store Return Days:** {store_return_days if store_return_days else 'N/A'}")
                 st.write(f"**Store Price:** ${store_price:.2f}" if store_price and store_price > 0 else "**Store Price:** N/A")
                 st.write(f"**Discogs Price:** ${discogs_suggested_price:.2f}" if discogs_suggested_price and discogs_suggested_price > 0 else "**Discogs Price:** N/A")
-                st.write(f"**File Location:** {file_at}")
                 if youtube_url:
                     st.write(f"🎵 **YouTube:** {youtube_url}")
                 st.write("---")
@@ -356,8 +461,6 @@ class DisplayHandler:
         disabled_condition = not genre or (selected_record['type'] == 'discogs' and add_disabled) or (duplicates_found and not is_admin)
         
         if st.button(button_label, use_container_width=True, disabled=disabled_condition, key="add_to_database"):
-            # Get the file_at value for confirmation message
-            file_at_value = self._calculate_file_at(record_data['artist'], genre, compilation)
             if selected_record['type'] == 'discogs':
                 success, record_id = add_callback(genre)
                 if success:
@@ -365,13 +468,13 @@ class DisplayHandler:
                     if 'last_duplicate_check' in st.session_state:
                         del st.session_state.last_duplicate_check
                     
-                    # Show confirmation message with artist, title, and fileat
-                    st.success(f"✅ Record added successfully!\\n**Artist:** {record_data['artist']}\\n**Title:** {record_data['title']}\\n**File Location:** {file_at_value}")
+                    # Show confirmation message with artist and title
+                    st.success(f"✅ Record added successfully!\\n**Artist:** {record_data['artist']}\\n**Title:** {record_data['title']}")
                     st.session_state.record_added = True
             else:
                 success = update_callback(genre)
                 if success:
-                    st.success(f"✅ Record updated successfully!\\n**File Location:** {file_at_value}")
+                    st.success(f"✅ Record updated successfully!")
 
     def _check_for_duplicate_simple(self, record_data):
         """Simple duplicate check using ONLY artist, title, and catalog number"""
@@ -589,36 +692,6 @@ class DisplayHandler:
             return True
             
         return False
-
-    def _calculate_file_at(self, artist, genre, compilation):
-        """Calculate file_at value for display in confirmation message"""
-        if not artist or not genre:
-            return "?"
-        
-        if compilation:
-            # For compilations: Comp(first_letter_of_genre)
-            genre_first_char = genre[0].upper() if genre and genre[0].isalpha() else "?"
-            return f"Comp({genre_first_char})"
-        else:
-            # For regular records: genre(first_letter_of_artist)
-            artist_clean = artist.strip().lower()
-            
-            if artist_clean.startswith('the '):
-                artist_clean = artist_clean[4:]
-            
-            if artist_clean and artist_clean[0].isdigit():
-                number_words = {
-                    '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
-                    '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
-                }
-                first_char = artist_clean[0]
-                file_at_letter = number_words.get(first_char, '?')[0].upper()
-            elif artist_clean and artist_clean[0].isalpha():
-                file_at_letter = artist_clean[0].upper()
-            else:
-                file_at_letter = "?"
-            
-            return f"{genre}({file_at_letter})"
 
     def _fetch_all_data_sync(self, record_data, discogs_handler, ebay_handler):
         """Fetch all required data synchronously (blocking calls) - ALL APIs must complete"""

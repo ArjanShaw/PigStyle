@@ -580,3 +580,25 @@ class DatabaseManager:
     def _get_connection(self):
         """Legacy method - raises error to prevent direct SQLite usage"""
         raise Exception("Direct database connections are disabled. Use API methods instead.")
+    
+    def get_all_votes(self) -> pd.DataFrame:
+        """Get all votes with record information"""
+        print(f"🔴 DEBUG: get_all_votes called")
+        result = self._make_request('GET', '/votes/all')
+        if result and 'votes' in result:
+            df = pd.DataFrame(result['votes'])
+            print(f"🔴 DEBUG: get_all_votes returned {len(df)} votes")
+            return df
+        print(f"🔴 DEBUG: get_all_votes returned empty DataFrame")
+        return pd.DataFrame()
+    
+    def get_vote_statistics(self) -> pd.DataFrame:
+        """Get vote statistics for records"""
+        print(f"🔴 DEBUG: get_vote_statistics called")
+        result = self._make_request('GET', '/votes/statistics')
+        if result and 'statistics' in result:
+            df = pd.DataFrame(result['statistics'])
+            print(f"🔴 DEBUG: get_vote_statistics returned {len(df)} statistics")
+            return df
+        print(f"🔴 DEBUG: get_vote_statistics returned empty DataFrame")
+        return pd.DataFrame(columns=['record_id', 'artist', 'title', 'upvotes', 'downvotes', 'total_votes'])

@@ -21,6 +21,7 @@ from tabs.tools_sync_tab import ToolsSyncTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
+from tabs.votes_tab import VotesTab  # New import
 from handlers.ebay_handler import EbayHandler
 from handlers.api_key_handler import APIKeyHandler
 from config import AppConfig
@@ -160,13 +161,15 @@ def render_main_app():
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
     admin_config_tab = AdminConfigTab()
+    votes_tab = VotesTab()  # New tab
 
     # Render header with user info
     render_header(user, session_manager)
     
     # Create tabs based on user permissions
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab)
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, 
+                                   admin_config_tab, votes_tab)  # Added votes_tab
 
 def render_header(user, session_manager):
     """Render application header with user information"""
@@ -232,7 +235,8 @@ def render_change_password_form(session_manager):
                         st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, admin_config_tab):
+                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, 
+                                   admin_config_tab, votes_tab):  # Added votes_tab parameter
     """Render tabs based on user permissions"""
     user_role = user['role']
     
@@ -256,6 +260,10 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
     # Statistics tab only for admin
     if user_role == 'admin' and PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("📊 Statistics", statistics_tab.render))
+    
+    # Votes tab only for admin
+    if user_role == 'admin' and PermissionManager.has_permission(user_role, 'reports', 'view'):
+        tab_configs.append(("🗳️ Votes", votes_tab.render))
     
     if PermissionManager.has_permission(user_role, 'consignment', 'view'):
         tab_configs.append(("🤝 Consignment", consignment_tab.render))

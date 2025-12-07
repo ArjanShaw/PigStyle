@@ -17,80 +17,142 @@ class PriceTagTab:
         from handlers.price_tag_handler import PriceTagHandler
         self.price_tag_handler = PriceTagHandler(db_manager)
         
-        # Initialize session state
-        self._initialize_session_state()
+        # Initialize session state with configuration values from files
+        self._load_configuration()
     
-    def _get_config_path(self):
-        """Get the unified configuration file path"""
-        return Path(__file__).parent / "print_config.json"
+    def _load_configuration(self):
+        """Load configuration values from files"""
+        # Load page/layout configuration from app_config.json
+        app_config_path = Path("app_config.json")
+        if app_config_path.exists():
+            try:
+                with open(app_config_path, 'r') as f:
+                    app_config = json.load(f)
+                
+                # Set page/layout config values in session state
+                layout_keys = ['label_width_mm', 'label_height_mm', 'left_margin_mm', 
+                             'gutter_spacing_mm', 'top_margin_mm', 'font_size']
+                for key in layout_keys:
+                    if key not in st.session_state:
+                        st.session_state[key] = app_config.get(key, self._get_default_value(key))
+            except Exception as e:
+                st.error(f"Error loading app config: {e}")
+                self._set_default_layout_values()
+        else:
+            self._set_default_layout_values()
+        
+        # Load price tag design configuration from print_config.json
+        print_config_path = Path("src/print_config.json")
+        if print_config_path.exists():
+            try:
+                with open(print_config_path, 'r') as f:
+                    print_config = json.load(f)
+                
+                # Set design config values in session state
+                design_keys = ['price_font_size', 'price_y_pos', 'text_font_size', 
+                             'barcode_y_pos', 'barcode_height', 'print_borders']
+                for key in design_keys:
+                    if key not in st.session_state:
+                        st.session_state[key] = print_config.get(key, self._get_default_value(key))
+            except Exception as e:
+                st.error(f"Error loading print config: {e}")
+                self._set_default_design_values()
+        else:
+            self._set_default_design_values()
     
-    def _initialize_session_state(self):
-        """Initialize session state with values from config file"""
-        # Load saved layout configuration
-        saved_config = self._load_layout_config()
-        
-        # Initialize ONLY layout configuration parameters from the config file
-        layout_config_keys = [
-            'price_font_size', 'price_y_pos', 'text_font_size', 'artist_y_pos', 'file_y_pos',
-            'date_font_size', 'date_y_pos', 'barcode_y_pos', 'barcode_height', 'label_width_mm',
-            'label_height_mm', 'left_margin_mm', 'gutter_spacing_mm', 'top_margin_mm', 'rows',
-            'columns', 'print_borders'
-        ]
-        
-        for key in layout_config_keys:
-            if key not in st.session_state:
-                if key not in saved_config:
-                    raise Exception(f"Missing required configuration key: {key}")
-                st.session_state[key] = saved_config[key]
-        
-        # UI state parameters will be created on-demand when users interact with the UI
-        # No need to pre-initialize print_first_x, select_all, etc.
-    
-    def _load_layout_config(self):
-        """Load layout configuration from file"""
-        config_file = self._get_config_path()
-        
-        if not config_file.exists():
-            raise Exception(f"Configuration file not found: {config_file}")
-        
-        with open(config_file, 'r') as f:
-            content = f.read().strip()
-            if not content:
-                raise Exception("Configuration file is empty")
-            saved_config = json.loads(content)
-        return saved_config
-    
-    def _save_layout_config(self, config):
-        """Save layout configuration to file"""
-        config_file = self._get_config_path()
-        with open(config_file, 'w') as f:
-            json.dump(config, f, indent=2)
-    
-    def _save_current_layout_config(self):
-        """Save current layout configuration to file"""
-        current_config = {
-            # Label Layout Configuration
-            'price_font_size': st.session_state.price_font_size,
-            'price_y_pos': st.session_state.price_y_pos,
-            'text_font_size': st.session_state.text_font_size,
-            'artist_y_pos': st.session_state.artist_y_pos,
-            'file_y_pos': st.session_state.file_y_pos,
-            'date_font_size': st.session_state.date_font_size,
-            'date_y_pos': st.session_state.date_y_pos,
-            'barcode_y_pos': st.session_state.barcode_y_pos,
-            'barcode_height': st.session_state.barcode_height,
-            # Page Layout Configuration
-            'label_width_mm': st.session_state.label_width_mm,
-            'label_height_mm': st.session_state.label_height_mm,
-            'left_margin_mm': st.session_state.left_margin_mm,
-            'gutter_spacing_mm': st.session_state.gutter_spacing_mm,
-            'top_margin_mm': st.session_state.top_margin_mm,
-            'rows': st.session_state.rows,
-            'columns': st.session_state.columns,
-            # Border Configuration
-            'print_borders': st.session_state.print_borders
+    def _get_default_value(self, key):
+        """Get default value for a configuration key"""
+        defaults = {
+            # Page/Layout defaults
+            'label_width_mm': 45.0,
+            'label_height_mm': 16.8,
+            'left_margin_mm': 6.5,
+            'gutter_spacing_mm': 6.5,
+            'top_margin_mm': 14.0,
+            'font_size': 7,
+            # Design defaults
+            'price_font_size': 10,
+            'price_y_pos': 12.0,
+            'text_font_size': 6,
+            'barcode_y_pos': 2.0,
+            'barcode_height': 6.0,
+            'print_borders': True
         }
-        self._save_layout_config(current_config)
+        return defaults.get(key)
+    
+    def _set_default_layout_values(self):
+        """Set default page/layout values in session state"""
+        layout_defaults = {
+            'label_width_mm': 45.0,
+            'label_height_mm': 16.8,
+            'left_margin_mm': 6.5,
+            'gutter_spacing_mm': 6.5,
+            'top_margin_mm': 14.0,
+            'font_size': 7
+        }
+        for key, value in layout_defaults.items():
+            if key not in st.session_state:
+                st.session_state[key] = value
+    
+    def _set_default_design_values(self):
+        """Set default design values in session state"""
+        design_defaults = {
+            'price_font_size': 10,
+            'price_y_pos': 12.0,
+            'text_font_size': 6,
+            'barcode_y_pos': 2.0,
+            'barcode_height': 6.0,
+            'print_borders': True
+        }
+        for key, value in design_defaults.items():
+            if key not in st.session_state:
+                st.session_state[key] = value
+    
+    def _save_page_layout_config(self, key, value):
+        """Save a page/layout configuration value"""
+        # Update session state
+        st.session_state[key] = value
+        
+        # Save to app_config.json
+        config_path = Path("app_config.json")
+        try:
+            if config_path.exists():
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+            else:
+                config = {}
+            
+            # Update the specific key
+            config[key] = value
+            
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=2)
+            
+        except Exception as e:
+            st.error(f"❌ Error saving page layout: {e}")
+    
+    def _save_tag_design_config(self, key, value):
+        """Save a price tag design configuration value"""
+        # Update session state
+        st.session_state[key] = value
+        
+        # Save to print_config.json
+        config_path = Path("src/print_config.json")
+        try:
+            if config_path.exists():
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+            else:
+                config = {}
+            
+            # Update the specific key
+            config[key] = value
+            
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=2)
+            
+        except Exception as e:
+            st.error(f"❌ Error saving tag design: {e}")
     
     def render(self):
         st.header("🏷️ Print Price Tags")
@@ -107,48 +169,18 @@ class PriceTagTab:
         import reportlab
         st.success("✅ Printing dependencies available")
         
-        # Configuration Sections
-        with st.expander("📐 Label Layout Configuration", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.number_input("Price Font Size", min_value=6, max_value=20, value=st.session_state.price_font_size, key="price_font_size")
-                st.number_input("Price Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.price_y_pos, step=0.5, key="price_y_pos")
-                st.number_input("Text Font Size", min_value=4, max_value=12, value=st.session_state.text_font_size, key="text_font_size")
-                
-            with col2:
-                st.number_input("Artist Title Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.artist_y_pos, step=0.5, key="artist_y_pos")
-                st.number_input("File Location Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.file_y_pos, step=0.5, key="file_y_pos")
-                st.number_input("Date Font Size", min_value=4, max_value=12, value=st.session_state.date_font_size, key="date_font_size")
-                
-            with col3:
-                st.number_input("Date Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.date_y_pos, step=0.5, key="date_y_pos")
-                st.number_input("Barcode Y Position (mm)", min_value=0.0, max_value=20.0, value=st.session_state.barcode_y_pos, step=0.5, key="barcode_y_pos")
-                st.number_input("Barcode Height (mm)", min_value=0.0, max_value=12.0, value=st.session_state.barcode_height, step=0.5, key="barcode_height")
-            
-            # Border Configuration
-            st.checkbox("Print Borders Around Labels", value=st.session_state.print_borders, key="print_borders")
+        # TWO SEPARATE CONFIGURATION SECTIONS
+        col1, col2 = st.columns(2)
         
-        with st.expander("📄 Page Layout Configuration", expanded=False):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.number_input("Label Width (mm)", min_value=10.0, max_value=100.0, value=st.session_state.label_width_mm, step=0.1, key="label_width_mm")
-                st.number_input("Label Height (mm)", min_value=10.0, max_value=100.0, value=st.session_state.label_height_mm, step=0.1, key="label_height_mm")
-                st.number_input("Left Margin (mm)", min_value=0.0, max_value=50.0, value=st.session_state.left_margin_mm, step=0.1, key="left_margin_mm")
-                
-            with col2:
-                st.number_input("Gutter Spacing (mm)", min_value=0.0, max_value=50.0, value=st.session_state.gutter_spacing_mm, step=0.1, key="gutter_spacing_mm")
-                st.number_input("Top Margin (mm)", min_value=0.0, max_value=50.0, value=st.session_state.top_margin_mm, step=0.1, key="top_margin_mm")
-                st.number_input("Rows per Page", min_value=1, max_value=50, value=st.session_state.rows, key="rows")
-                st.number_input("Columns per Page", min_value=1, max_value=10, value=st.session_state.columns, key="columns")
+        with col1:
+            with st.expander("📐 Page/Layout Configuration", expanded=True):
+                self._render_page_layout_configuration()
         
-        # Save configuration button
-        if st.button("💾 Save Layout Configuration", use_container_width=True):
-            self._save_current_layout_config()
-            st.success("✅ Layout configuration saved!")
+        with col2:
+            with st.expander("⚙️ Price Tag Design", expanded=True):
+                self._render_price_tag_design_configuration()
         
-        # Get records without barcodes - ORDERED BY CREATION TIME (latest first)
+        # Get records without barcodes - ORDERED BY ID (latest first)
         records = self.price_tag_handler.get_records_without_barcodes()
         
         # MANAGEMENT SECTION
@@ -160,12 +192,12 @@ class PriceTagTab:
         total_count = len(all_records)
         st.metric("Printed", f"{printed_count}/{total_count}")
         
-        # Add button to clear recent price tags
+        # Add button to clear recent price tags (last 24 hours)
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🗑️ Clear Recent Price Tags (24h)", use_container_width=True, 
-                       help="Remove barcodes from records printed in the last 24 hours"):
-                cleared_count = self._clear_recent_price_tags()
+            if st.button("🗑️ Clear Recent Price Tags (last 24 hours)", use_container_width=True, 
+                       help="Remove barcodes from records created in the last 24 hours"):
+                cleared_count = self.price_tag_handler.clear_recent_barcodes()
                 if cleared_count > 0:
                     st.success(f"✅ Cleared {cleared_count} recent price tags!")
                     st.rerun()
@@ -196,7 +228,7 @@ class PriceTagTab:
             print_first_x = getattr(st.session_state, 'print_first_x', 0)
             st.number_input("Print First X Labels", min_value=0, value=print_first_x, key="print_first_x")
         
-        # Display records table - ordered by creation time (latest first)
+        # Display records table - ordered by ID (latest first)
         display_data = []
         for i, record in enumerate(records):
             # If print_first_x is set and we're within the range, auto-select
@@ -209,9 +241,9 @@ class PriceTagTab:
                 'ID': record['id'],
                 'Artist': record['artist'],
                 'Title': record['title'],
-                'Price': f"${record.get('store_price', 0):.2f}" if record.get('store_price') else 'N/A',
-                'File Location': record.get('file_at', ''),
-                'Added Date': record.get('created_at', '')  # Show when record was added
+                'Genre': record.get('genre_name', 'Unknown'),
+                'Price': f"${record.get('store_price', 0):.2f}",
+                'Added Date': record.get('created_at', '')
             })
         
         df = pd.DataFrame(display_data)
@@ -222,8 +254,8 @@ class PriceTagTab:
                 "ID": st.column_config.NumberColumn("ID", disabled=True),
                 "Artist": st.column_config.TextColumn("Artist", disabled=True),
                 "Title": st.column_config.TextColumn("Title", disabled=True),
+                "Genre": st.column_config.TextColumn("Genre", disabled=True),
                 "Price": st.column_config.TextColumn("Price", disabled=True),
-                "File Location": st.column_config.TextColumn("File Location", disabled=True),
                 "Added Date": st.column_config.DatetimeColumn("Added Date", disabled=True)
             },
             hide_index=True,
@@ -235,63 +267,152 @@ class PriceTagTab:
         
         if len(selected_records) > 0:
             st.subheader(f"Selected for Printing ({len(selected_records)} records)")
-            st.dataframe(selected_records[['ID', 'Artist', 'Title', 'Price']], hide_index=True)
+            st.dataframe(selected_records[['ID', 'Artist', 'Title', 'Genre', 'Price']], hide_index=True)
             
-            # REMOVED QUICK ASSIGN BARCODES BUTTON - ONLY PRINT BUTTON REMAINS
             if st.button("🖨️ Print Price Tags", type="primary", use_container_width=True):
                 self._print_tags(selected_records['ID'].tolist())
     
-    def _clear_recent_price_tags(self):
-        """Clear barcodes from records that were printed in the last 24 hours"""
-        try:
-            # Calculate timestamp for 24 hours ago
-            twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+    def _render_page_layout_configuration(self):
+        """Render page/layout configuration settings with auto-save"""
+        st.write("**Page Layout Settings**")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Label Width - using unique widget key
+            label_width_mm = st.number_input(
+                "Label Width (mm)",
+                min_value=10.0,
+                max_value=100.0,
+                value=st.session_state.label_width_mm,
+                step=0.5,
+                key="widget_label_width_mm",
+                on_change=lambda: self._save_page_layout_config('label_width_mm', st.session_state.widget_label_width_mm)
+            )
             
-            # Get all records with barcodes
-            all_records = self.db_manager.get_all_records()
+            # Label Height - using unique widget key
+            label_height_mm = st.number_input(
+                "Label Height (mm)",
+                min_value=10.0,
+                max_value=100.0,
+                value=st.session_state.label_height_mm,
+                step=0.5,
+                key="widget_label_height_mm",
+                on_change=lambda: self._save_page_layout_config('label_height_mm', st.session_state.widget_label_height_mm)
+            )
             
-            if all_records.empty:
-                return 0
+            # Left Margin - using unique widget key
+            left_margin_mm = st.number_input(
+                "Left Margin (mm)",
+                min_value=0.0,
+                max_value=50.0,
+                value=st.session_state.left_margin_mm,
+                step=0.5,
+                key="widget_left_margin_mm",
+                on_change=lambda: self._save_page_layout_config('left_margin_mm', st.session_state.widget_left_margin_mm)
+            )
+        
+        with col2:
+            # Gutter Spacing - using unique widget key
+            gutter_spacing_mm = st.number_input(
+                "Gutter Spacing (mm)",
+                min_value=0.0,
+                max_value=50.0,
+                value=st.session_state.gutter_spacing_mm,
+                step=0.5,
+                key="widget_gutter_spacing_mm",
+                on_change=lambda: self._save_page_layout_config('gutter_spacing_mm', st.session_state.widget_gutter_spacing_mm)
+            )
             
-            # Filter records with barcodes
-            records_with_barcodes = all_records[
-                (all_records['barcode'].notna()) & 
-                (all_records['barcode'] != '') & 
-                (all_records['barcode'] != 'None')
-            ]
+            # Top Margin - using unique widget key
+            top_margin_mm = st.number_input(
+                "Top Margin (mm)",
+                min_value=0.0,
+                max_value=50.0,
+                value=st.session_state.top_margin_mm,
+                step=0.5,
+                key="widget_top_margin_mm",
+                on_change=lambda: self._save_page_layout_config('top_margin_mm', st.session_state.widget_top_margin_mm)
+            )
             
-            if records_with_barcodes.empty:
-                return 0
+            # Font Size - using unique widget key
+            font_size = st.number_input(
+                "Base Font Size",
+                min_value=4,
+                max_value=20,
+                value=st.session_state.font_size,
+                key="widget_font_size",
+                on_change=lambda: self._save_page_layout_config('font_size', st.session_state.widget_font_size)
+            )
+    
+    def _render_price_tag_design_configuration(self):
+        """Render price tag design configuration settings with auto-save"""
+        st.write("**Price Tag Design Settings**")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Price Font Size - using unique widget key
+            price_font_size = st.number_input(
+                "Price Font Size",
+                min_value=6,
+                max_value=20,
+                value=st.session_state.price_font_size,
+                key="widget_price_font_size",
+                on_change=lambda: self._save_tag_design_config('price_font_size', st.session_state.widget_price_font_size)
+            )
             
-            # Check if records have a created_at timestamp
-            # If not, we can't determine which ones are recent
-            if 'created_at' not in records_with_barcodes.columns:
-                st.warning("Records don't have creation timestamps. Cannot determine which are recent.")
-                return 0
+            # Price Y Position - using unique widget key
+            price_y_pos = st.number_input(
+                "Price Y Position (mm)",
+                min_value=0.0,
+                max_value=20.0,
+                value=st.session_state.price_y_pos,
+                step=0.5,
+                key="widget_price_y_pos",
+                on_change=lambda: self._save_tag_design_config('price_y_pos', st.session_state.widget_price_y_pos)
+            )
             
-            # Convert created_at to datetime for comparison
-            records_with_barcodes['created_at_dt'] = pd.to_datetime(records_with_barcodes['created_at'])
+            # Text Font Size - using unique widget key
+            text_font_size = st.number_input(
+                "Text Font Size",
+                min_value=4,
+                max_value=12,
+                value=st.session_state.text_font_size,
+                key="widget_text_font_size",
+                on_change=lambda: self._save_tag_design_config('text_font_size', st.session_state.widget_text_font_size)
+            )
+                
+        with col2:
+            # Barcode Y Position - using unique widget key
+            barcode_y_pos = st.number_input(
+                "Barcode Y Position (mm)",
+                min_value=0.0,
+                max_value=20.0,
+                value=st.session_state.barcode_y_pos,
+                step=0.5,
+                key="widget_barcode_y_pos",
+                on_change=lambda: self._save_tag_design_config('barcode_y_pos', st.session_state.widget_barcode_y_pos)
+            )
             
-            # Filter records created in the last 24 hours
-            recent_records = records_with_barcodes[
-                records_with_barcodes['created_at_dt'] >= twenty_four_hours_ago
-            ]
+            # Barcode Height - using unique widget key
+            barcode_height = st.number_input(
+                "Barcode Height (mm)",
+                min_value=0.0,
+                max_value=12.0,
+                value=st.session_state.barcode_height,
+                step=0.5,
+                key="widget_barcode_height",
+                on_change=lambda: self._save_tag_design_config('barcode_height', st.session_state.widget_barcode_height)
+            )
             
-            if recent_records.empty:
-                return 0
-            
-            # Clear barcodes for recent records using API
-            cleared_count = 0
-            for _, record in recent_records.iterrows():
-                success = self.db_manager.update_record(record['id'], {'barcode': None})
-                if success:
-                    cleared_count += 1
-            
-            return cleared_count
-            
-        except Exception as e:
-            st.error(f"Error clearing recent price tags: {str(e)}")
-            return 0
+            # Print Borders - using unique widget key
+            print_borders = st.checkbox(
+                "Print Borders Around Labels",
+                value=st.session_state.print_borders,
+                key="widget_print_borders",
+                on_change=lambda: self._save_tag_design_config('print_borders', st.session_state.widget_print_borders)
+            )
     
     def _print_tags(self, record_ids):
         """Print price tags with robust error handling and progress tracking"""
@@ -339,32 +460,28 @@ class PriceTagTab:
         
         # Capture all layout parameters BEFORE creating the thread
         layout_params = {
-            # Label Layout Configuration
             'price_font_size': st.session_state.price_font_size,
             'price_y_pos': st.session_state.price_y_pos,
             'text_font_size': st.session_state.text_font_size,
-            'artist_y_pos': st.session_state.artist_y_pos,
-            'file_y_pos': st.session_state.file_y_pos,
-            'date_font_size': st.session_state.date_font_size,
-            'date_y_pos': st.session_state.date_y_pos,
             'barcode_y_pos': st.session_state.barcode_y_pos,
             'barcode_height': st.session_state.barcode_height,
-            # Page Layout Configuration
+            'print_borders': st.session_state.print_borders
+        }
+        
+        # Capture page layout parameters
+        page_layout_params = {
             'label_width_mm': st.session_state.label_width_mm,
             'label_height_mm': st.session_state.label_height_mm,
             'left_margin_mm': st.session_state.left_margin_mm,
             'gutter_spacing_mm': st.session_state.gutter_spacing_mm,
             'top_margin_mm': st.session_state.top_margin_mm,
-            'rows': st.session_state.rows,
-            'columns': st.session_state.columns,
-            # Border Configuration
-            'print_borders': st.session_state.print_borders
+            'font_size': st.session_state.font_size
         }
         
         def generate_pdf_thread():
             try:
                 print(f"🔴 DEBUG: generate_pdf called with {len(records_to_print)} records and barcode_mapping: {barcode_mapping}")
-                pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params)
+                pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params, page_layout_params)
                 result_queue.put(('success', pdf_path))
             except Exception as e:
                 print(f"🔴 DEBUG: PDF generation error: {str(e)}")

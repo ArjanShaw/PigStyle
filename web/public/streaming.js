@@ -26,17 +26,20 @@ let spotifyVisualizerMuted = false;
 
 // Current record ID for voting
 let currentRecordId = null;
+let currentUserVote = null; // 'upvote', 'downvote', or 'kill'
 
-// Voting system
+// Voting system with improved tracking
 class VotingSystem {
     constructor() {
         this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
         this.userIP = null;
+        this.userVotes = {}; // Cache of user's votes: {recordId: voteType}
     }
 
     async initialize() {
         await this.getUserIP();
         this.setupVoteHandlers();
+        await this.loadUserVotes();
     }
 
     async getUserIP() {
@@ -51,14 +54,62 @@ class VotingSystem {
         }
     }
 
+    async loadUserVotes() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/user-votes/${this.userIP}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'success' && data.votes) {
+                    this.userVotes = data.votes;
+                    console.log('Loaded user votes:', this.userVotes);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading user votes:', error);
+        }
+    }
+
     updateVoteDisplay(record) {
         if (!record) return;
         
         const votesElement = document.getElementById('votesCount');
         
         if (votesElement) {
-            votesElement.textContent = record.votes || 0;
+            // Calculate net votes (upvotes - downvotes)
+            const netVotes = (record.up_votes || 0) - (record.down_votes || 0);
+            votesElement.textContent = netVotes;
         }
+        
+        // Update button states based on user's vote
+        this.updateVoteButtonStates();
+    }
+
+    updateVoteButtonStates() {
+        if (!currentRecordId) return;
+        
+        const upvoteBtn = document.getElementById('upvoteBtn');
+        const downvoteBtn = document.getElementById('downvoteBtn');
+        const killBtn = document.getElementById('killBtn');
+        
+        // Get user's vote for current record
+        const userVote = this.userVotes[currentRecordId];
+        
+        // Reset all buttons
+        if (upvoteBtn) upvoteBtn.classList.remove('active');
+        if (downvoteBtn) downvoteBtn.classList.remove('active');
+        if (killBtn) killBtn.classList.remove('active');
+        
+        // Set active state for current vote
+        if (userVote === 'upvote' && upvoteBtn) {
+            upvoteBtn.classList.add('active');
+        } else if (userVote === 'downvote' && downvoteBtn) {
+            downvoteBtn.classList.add('active');
+        } else if (userVote === 'kill' && killBtn) {
+            killBtn.classList.add('active');
+        }
+        
+        // Update session variable
+        currentUserVote = userVote;
     }
 
     showVoteFeedback(voteType, success, errorMessage = '') {
@@ -114,12 +165,26 @@ class VotingSystem {
             const data = await response.json();
             
             if (data && data.status === 'success') {
-                // Update local record data
+                // Update local vote cache
+                this.userVotes[recordId] = voteType;
+                
+                // Update local record data if available
                 if (currentStreamingService === 'youtube' && filteredRecords.length > 0 && currentTrackIndex < filteredRecords.length) {
-                    filteredRecords[currentTrackIndex].votes = data.votes;
-                    filteredRecords[currentTrackIndex].add_to_playlists = data.add_to_playlists;
-                    this.updateVoteDisplay(filteredRecords[currentTrackIndex]);
+                    const record = filteredRecords[currentTrackIndex];
+                    if (record.id === recordId) {
+                        if (voteType === 'upvote') {
+                            record.up_votes = (record.up_votes || 0) + 1;
+                        } else if (voteType === 'downvote') {
+                            record.down_votes = (record.down_votes || 0) + 1;
+                        } else if (voteType === 'kill') {
+                            record.kill_votes = (record.kill_votes || 0) + 1;
+                        }
+                        this.updateVoteDisplay(record);
+                    }
                 }
+                
+                // Update button states
+                this.updateVoteButtonStates();
                 
                 this.showVoteFeedback(voteType, true);
                 return true;
@@ -273,10 +338,8 @@ function startYouTubePlayback(genreId) {
     document.getElementById('youtubeContainer').style.display = 'block';
     document.getElementById('spotifyContainer').style.display = 'none';
     document.getElementById('youtubeControls').style.display = 'flex';
-    
-    // Show vote controls for YouTube
-    document.getElementById('voteControls').style.display = 'block';
     document.getElementById('visualizerControls').style.display = 'none';
+    document.getElementById('controlsRow').style.display = 'flex';
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();
@@ -344,10 +407,8 @@ function startSpotifyPlayback(genreId, genreName) {
     document.getElementById('spotifyContainer').style.display = 'block';
     document.getElementById('youtubeContainer').style.display = 'none';
     document.getElementById('youtubeControls').style.display = 'none';
-    
-    // Show vote controls and visualizer controls for Spotify
-    document.getElementById('voteControls').style.display = 'block';
     document.getElementById('visualizerControls').style.display = 'flex';
+    document.getElementById('controlsRow').style.display = 'flex';
     
     // Fetch stored Spotify playlists from database
     fetchAndDisplayStoredPlaylists(genreName);
@@ -592,11 +653,11 @@ function updateTrackInfoForSpotify(track, playlist) {
     document.getElementById('trackTitle').textContent = track.name || 'Unknown Track';
     document.getElementById('trackArtist').textContent = track.artists ? track.artists.join(', ') : 'Unknown Artist';
     
-    // Try to find matching record in database
+    // Try to find matching record in database for price and voting
     findMatchingRecord(track.name, track.artists ? track.artists[0] : 'Unknown', playlist.genre);
 }
 
-// Find matching record in database for voting
+// Find matching record in database for voting and price
 async function findMatchingRecord(trackName, artistName, genreName) {
     try {
         // Search for record matching track/artist
@@ -612,6 +673,11 @@ async function findMatchingRecord(trackName, artistName, genreName) {
             
             if (matchingRecord) {
                 currentRecordId = matchingRecord.id;
+                // Update price display
+                const priceElement = document.getElementById('trackPrice');
+                if (priceElement && matchingRecord.store_price) {
+                    priceElement.textContent = `$${parseFloat(matchingRecord.store_price).toFixed(2)}`;
+                }
                 votingSystem.updateVoteDisplay(matchingRecord);
                 return matchingRecord;
             }
@@ -624,18 +690,31 @@ async function findMatchingRecord(trackName, artistName, genreName) {
         
         if (genreRecord) {
             currentRecordId = genreRecord.id;
+            // Update price display
+            const priceElement = document.getElementById('trackPrice');
+            if (priceElement && genreRecord.store_price) {
+                priceElement.textContent = `$${parseFloat(genreRecord.store_price).toFixed(2)}`;
+            }
             votingSystem.updateVoteDisplay(genreRecord);
             return genreRecord;
         }
         
         // Default fallback
         currentRecordId = null;
-        votingSystem.updateVoteDisplay({ votes: 0, add_to_playlists: true });
+        const priceElement = document.getElementById('trackPrice');
+        if (priceElement) {
+            priceElement.textContent = '$0.00';
+        }
+        votingSystem.updateVoteDisplay({ up_votes: 0, down_votes: 0, kill_votes: 0 });
         return null;
         
     } catch (error) {
         console.error('Error finding matching record:', error);
         currentRecordId = null;
+        const priceElement = document.getElementById('trackPrice');
+        if (priceElement) {
+            priceElement.textContent = '$0.00';
+        }
         return null;
     }
 }
@@ -784,7 +863,7 @@ function updateVisualizerDisplay() {
     document.getElementById('visualizerTrackArtist').textContent = track.artists ? track.artists.join(', ') : 'Unknown Artist';
     document.getElementById('visualizerTrackAlbum').textContent = track.album_name || 'Unknown Album';
     
-    // Update main track display and find matching record for voting
+    // Update main track display and find matching record for voting and price
     const currentPlaylist = spotifyPlaylists.find(p => p.id === currentSpotifyPlaylistId);
     updateTrackInfoForSpotify(track, currentPlaylist);
 }
@@ -887,6 +966,10 @@ function displayStoredPlaylistPlayer(embedUrl, playlistName, playlistGenre) {
     // Update track info
     document.getElementById('trackTitle').textContent = playlistName;
     document.getElementById('trackArtist').textContent = `Genre: ${playlistGenre || 'Various'}`;
+    const priceElement = document.getElementById('trackPrice');
+    if (priceElement) {
+        priceElement.textContent = '$0.00';
+    }
     
     // Try to find a matching record for voting
     findMatchingRecord(playlistName, playlistGenre, playlistGenre);
@@ -913,6 +996,10 @@ function displayStoredPlaylists(playlists, genreName) {
         // Update track info
         document.getElementById('trackTitle').textContent = 'No Playlists Available';
         document.getElementById('trackArtist').textContent = 'Create playlists first';
+        const priceElement = document.getElementById('trackPrice');
+        if (priceElement) {
+            priceElement.textContent = '$0.00';
+        }
         return;
     }
     
@@ -1050,10 +1137,14 @@ function displayStoredPlaylists(playlists, genreName) {
     // Update track info
     document.getElementById('trackTitle').textContent = 'PigStyle Spotify Playlists';
     document.getElementById('trackArtist').textContent = `${playlists.length} playlists available`;
+    const priceElement = document.getElementById('trackPrice');
+    if (priceElement) {
+        priceElement.textContent = '$0.00';
+    }
     
     // Reset current record ID when showing playlist selection
     currentRecordId = null;
-    votingSystem.updateVoteDisplay({ votes: 0, add_to_playlists: true });
+    votingSystem.updateVoteDisplay({ up_votes: 0, down_votes: 0, kill_votes: 0 });
 }
 
 // Display stored playlists error
@@ -1087,6 +1178,10 @@ function displayStoredPlaylistsError(errorMessage, genreName) {
     // Update track info
     document.getElementById('trackTitle').textContent = 'Database Error';
     document.getElementById('trackArtist').textContent = 'Failed to load playlists';
+    const priceElement = document.getElementById('trackPrice');
+    if (priceElement) {
+        priceElement.textContent = '$0.00';
+    }
     
     // Reset current record ID
     currentRecordId = null;
@@ -1123,6 +1218,12 @@ function loadCurrentYouTubeTrack() {
     // Update track info
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
     document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
+    
+    // Update price
+    const priceElement = document.getElementById('trackPrice');
+    if (priceElement && currentRecord.store_price) {
+        priceElement.textContent = `$${parseFloat(currentRecord.store_price).toFixed(2)}`;
+    }
     
     // Set current record ID for voting
     currentRecordId = currentRecord.id;

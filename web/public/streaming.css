@@ -211,6 +211,115 @@ header {
     display: none;
 }
 
+/* Spotify Visualizer Styles */
+.visualizer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    border: 1px solid rgba(29, 185, 84, 0.3);
+}
+
+.album-art-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 0 auto 30px auto;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
+}
+
+.album-art-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+    padding: 20px;
+    color: white;
+}
+
+.track-info-large {
+    margin-bottom: 15px;
+}
+
+.track-title-large {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: white;
+}
+
+.track-artist-large {
+    font-size: 1.2rem;
+    color: #1DB954;
+    margin-bottom: 5px;
+}
+
+.track-album-large {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.track-progress {
+    margin-top: 15px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1DB954, #1ed760);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.playlist-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+.current-track-info, .upcoming-tracks {
+    flex: 1;
+}
+
+.current-track-info h5, .upcoming-tracks h5 {
+    color: #1DB954;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+.upcoming-track-item {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.upcoming-track-item:last-child {
+    border-bottom: none;
+}
+
 /* Navigation controls */
 .nav-controls {
     display: flex;
@@ -488,6 +597,25 @@ header {
     .condition-star {
         font-size: 0.9rem;
     }
+    
+    /* Visualizer responsive */
+    .album-art-container {
+        width: 250px;
+        height: 250px;
+    }
+    
+    .playlist-info {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .track-title-large {
+        font-size: 1.3rem;
+    }
+    
+    .track-artist-large {
+        font-size: 1.1rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -525,5 +653,25 @@ header {
         width: 14px;
         height: 14px;
         font-size: 0.5rem;
+    }
+    
+    /* Visualizer mobile */
+    .album-art-container {
+        width: 200px;
+        height: 200px;
+    }
+    
+    .visualizer-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .track-title-large {
+        font-size: 1.1rem;
+    }
+    
+    .track-artist-large {
+        font-size: 1rem;
     }
 }

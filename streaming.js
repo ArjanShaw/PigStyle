@@ -55,16 +55,9 @@ class VotingSystem {
         if (!record) return;
         
         const votesElement = document.getElementById('votesCount');
-        const playlistStatusElement = document.getElementById('playlistStatus');
         
         if (votesElement) {
             votesElement.textContent = record.votes || 0;
-        }
-        
-        if (playlistStatusElement) {
-            const status = record.add_to_playlists ? '✅ In Playlists' : '❌ Removed from Playlists';
-            playlistStatusElement.textContent = status;
-            playlistStatusElement.className = record.add_to_playlists ? 'playlist-status active' : 'playlist-status inactive';
         }
     }
 
@@ -280,10 +273,10 @@ function startYouTubePlayback(genreId) {
     document.getElementById('youtubeContainer').style.display = 'block';
     document.getElementById('spotifyContainer').style.display = 'none';
     document.getElementById('youtubeControls').style.display = 'flex';
-    document.getElementById('spotifyControls').style.display = 'none';
     
     // Show vote controls for YouTube
-    document.getElementById('voteControls').style.display = 'flex';
+    document.getElementById('voteControls').style.display = 'block';
+    document.getElementById('visualizerControls').style.display = 'none';
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();
@@ -350,11 +343,11 @@ function startSpotifyPlayback(genreId, genreName) {
     
     document.getElementById('spotifyContainer').style.display = 'block';
     document.getElementById('youtubeContainer').style.display = 'none';
-    document.getElementById('spotifyControls').style.display = 'flex';
     document.getElementById('youtubeControls').style.display = 'none';
     
-    // Show vote controls for Spotify
-    document.getElementById('voteControls').style.display = 'flex';
+    // Show vote controls and visualizer controls for Spotify
+    document.getElementById('voteControls').style.display = 'block';
+    document.getElementById('visualizerControls').style.display = 'flex';
     
     // Fetch stored Spotify playlists from database
     fetchAndDisplayStoredPlaylists(genreName);
@@ -567,16 +560,6 @@ function displaySpotifyVisualizer(playlist) {
                         </div>
                     </div>
                 </div>
-                
-                <!-- Spotify Control Buttons - Icon Only -->
-                <div class="spotify-control-buttons" style="margin-top: 30px;">
-                    <button id="stopBtn" class="spotify-control-btn stop-btn" title="Stop/Play">
-                        <i class="fas fa-stop"></i>
-                    </button>
-                    <button id="muteBtn" class="spotify-control-btn mute-btn" title="Mute">
-                        <i class="fas fa-volume-mute"></i>
-                    </button>
-                </div>
             </div>
             
             <!-- Fallback to embed if visualizer fails -->
@@ -602,20 +585,6 @@ function displaySpotifyVisualizer(playlist) {
         const firstTrack = spotifyPlaylistTracks[0];
         updateTrackInfoForSpotify(firstTrack, playlist);
     }
-    
-    // Setup control button handlers
-    setTimeout(() => {
-        const stopBtn = document.getElementById('stopBtn');
-        const muteBtn = document.getElementById('muteBtn');
-        
-        if (stopBtn) {
-            stopBtn.addEventListener('click', handleStopVisualizer);
-        }
-        
-        if (muteBtn) {
-            muteBtn.addEventListener('click', handleMuteVisualizer);
-        }
-    }, 100);
 }
 
 // Update track info for Spotify tracks
@@ -661,7 +630,6 @@ async function findMatchingRecord(trackName, artistName, genreName) {
         
         // Default fallback
         currentRecordId = null;
-        document.getElementById('trackPrice').textContent = 'Stream Now';
         votingSystem.updateVoteDisplay({ votes: 0, add_to_playlists: true });
         return null;
         
@@ -919,7 +887,6 @@ function displayStoredPlaylistPlayer(embedUrl, playlistName, playlistGenre) {
     // Update track info
     document.getElementById('trackTitle').textContent = playlistName;
     document.getElementById('trackArtist').textContent = `Genre: ${playlistGenre || 'Various'}`;
-    document.getElementById('trackPrice').textContent = 'Stream Now';
     
     // Try to find a matching record for voting
     findMatchingRecord(playlistName, playlistGenre, playlistGenre);
@@ -946,7 +913,6 @@ function displayStoredPlaylists(playlists, genreName) {
         // Update track info
         document.getElementById('trackTitle').textContent = 'No Playlists Available';
         document.getElementById('trackArtist').textContent = 'Create playlists first';
-        document.getElementById('trackPrice').textContent = 'Setup Required';
         return;
     }
     
@@ -1084,7 +1050,6 @@ function displayStoredPlaylists(playlists, genreName) {
     // Update track info
     document.getElementById('trackTitle').textContent = 'PigStyle Spotify Playlists';
     document.getElementById('trackArtist').textContent = `${playlists.length} playlists available`;
-    document.getElementById('trackPrice').textContent = 'Select a playlist';
     
     // Reset current record ID when showing playlist selection
     currentRecordId = null;
@@ -1122,7 +1087,6 @@ function displayStoredPlaylistsError(errorMessage, genreName) {
     // Update track info
     document.getElementById('trackTitle').textContent = 'Database Error';
     document.getElementById('trackArtist').textContent = 'Failed to load playlists';
-    document.getElementById('trackPrice').textContent = 'Please Try Again';
     
     // Reset current record ID
     currentRecordId = null;
@@ -1159,8 +1123,6 @@ function loadCurrentYouTubeTrack() {
     // Update track info
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
     document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
-    document.getElementById('trackPrice').textContent = currentRecord.store_price ? 
-        `$${parseFloat(currentRecord.store_price).toFixed(2)}` : 'Price N/A';
     
     // Set current record ID for voting
     currentRecordId = currentRecord.id;
@@ -1389,9 +1351,66 @@ function setupUI() {
     
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const muteBtn = document.getElementById('muteBtn');
     
     if (prevBtn) prevBtn.addEventListener('click', playPreviousTrack);
     if (nextBtn) nextBtn.addEventListener('click', playNextTrack);
+    if (stopBtn) stopBtn.addEventListener('click', handleStopVisualizer);
+    if (muteBtn) muteBtn.addEventListener('click', handleMuteVisualizer);
+}
+
+// Manual scaling functionality
+let currentScale = 1;
+
+function scaleDown() {
+    if (currentScale > 0.5) {
+        currentScale -= 0.1;
+        applyScale();
+    }
+}
+
+function scaleUp() {
+    if (currentScale < 2.0) {
+        currentScale += 0.1;
+        applyScale();
+    }
+}
+
+function resetScale() {
+    currentScale = 1;
+    applyScale();
+}
+
+function applyScale() {
+    const playerContainer = document.querySelector('.player-container');
+    const currentTrack = document.querySelector('.current-track');
+    const videoContainer = document.querySelector('.video-container');
+    
+    if (playerContainer) {
+        playerContainer.style.transform = `scale(${currentScale})`;
+        playerContainer.style.transformOrigin = 'center';
+    }
+    
+    // Update scale percentage display
+    const scalePercent = document.getElementById('scalePercent');
+    if (scalePercent) {
+        scalePercent.textContent = `${Math.round(currentScale * 100)}%`;
+    }
+    
+    // Save scale preference
+    localStorage.setItem('pigstyleStreamingScale', currentScale);
+}
+
+// Load saved scale on startup
+function loadSavedScale() {
+    const savedScale = localStorage.getItem('pigstyleStreamingScale');
+    if (savedScale) {
+        currentScale = parseFloat(savedScale);
+        // Limit scale to reasonable bounds
+        currentScale = Math.max(0.5, Math.min(2.0, currentScale));
+        setTimeout(() => applyScale(), 500);
+    }
 }
 
 // Initialize when page loads
@@ -1407,6 +1426,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Load YouTube API
     loadYouTubeAPI();
     
+    // Load saved scale
+    loadSavedScale();
+    
     // Load records and start playing
     setTimeout(loadRecordsFromAPI, 500);
 });
@@ -1421,3 +1443,6 @@ window.fetchAndDisplayStoredPlaylists = fetchAndDisplayStoredPlaylists;
 window.selectAndPlayStoredPlaylist = selectAndPlayStoredPlaylist;
 window.handleStopVisualizer = handleStopVisualizer;
 window.handleMuteVisualizer = handleMuteVisualizer;
+window.scaleDown = scaleDown;
+window.scaleUp = scaleUp;
+window.resetScale = resetScale;

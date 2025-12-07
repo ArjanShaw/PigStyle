@@ -513,8 +513,7 @@ function displaySpotifyVisualizer(playlist) {
             <div id="visualizerContent" style="display: none;">
                 <div class="album-art-container">
                     <img id="albumArtImage" src="" alt="Album Art" 
-                         style="width: 300px; height: 300px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"
-                         onerror="this.style.display='none'">
+                         style="width: 300px; height: 300px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                     <div class="album-art-overlay">
                         <div class="track-info-large">
                             <div id="visualizerTrackTitle" class="track-title-large">Loading track...</div>

@@ -460,22 +460,6 @@ function displaySpotifyVisualizer(playlist) {
     
     spotifyContainer.innerHTML = `
         <div style="width: 100%; height: 100%;">
-            <div class="visualizer-header">
-                <h4 style="margin: 0; color: white; font-size: 18px;">
-                    🎵 Spotify Album Art Visualizer
-                </h4>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="toggleSpotifyVisualizer()" id="visualizerToggleBtn"
-                            style="padding: 6px 12px; background: rgba(29, 185, 84, 0.3); color: white; border: 1px solid rgba(29, 185, 84, 0.5); border-radius: 4px; cursor: pointer; font-size: 13px;">
-                        ⏸️ Pause
-                    </button>
-                    <button onclick="showSpotifyEmbedInstead()"
-                            style="padding: 6px 12px; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; cursor: pointer; font-size: 13px;">
-                        Show Spotify Player
-                    </button>
-                </div>
-            </div>
-            
             <!-- Countdown timer before visualizer starts -->
             <div id="visualizerCountdown" style="text-align: center; padding: 20px; color: #1DB954; font-size: 24px; font-weight: bold; background: rgba(0, 0, 0, 0.7); border-radius: 10px; margin: 20px 0;">
                 ⏱️ Visualizer starting in <span id="countdownValue">5</span> seconds...
@@ -553,10 +537,11 @@ function displaySpotifyVisualizer(playlist) {
     // Start countdown
     startVisualizerCountdown();
     
-    // Update track info
+    // Update track info with price instead of track count
     document.getElementById('trackTitle').textContent = playlist.name;
     document.getElementById('trackArtist').textContent = `Genre: ${playlist.genre || 'Various'}`;
-    document.getElementById('trackPrice').textContent = `${playlist.tracks} tracks`;
+    // Replace track count with price placeholder - you'll need to fetch actual price data
+    document.getElementById('trackPrice').textContent = 'Stream Now';
 }
 
 // Start visualizer countdown
@@ -669,10 +654,18 @@ function updateVisualizerDisplay() {
     // Also update main track display
     document.getElementById('trackTitle').textContent = track.name || 'Unknown Track';
     document.getElementById('trackArtist').textContent = track.artists ? track.artists.join(', ') : 'Unknown Artist';
+    document.getElementById('trackPrice').textContent = getTrackPrice(track);
     
     // Update vote display
     const trackId = `${track.artists ? track.artists[0] : 'Unknown'} - ${track.name || 'Unknown'}`;
     votingSystem.updateVoteDisplay(trackId);
+}
+
+// Get track price - you'll need to implement this based on your database
+function getTrackPrice(track) {
+    // This is a placeholder - you need to fetch actual price from your database
+    // based on track name and artist
+    return '$24.99'; // Default placeholder price
 }
 
 // Update progress bar
@@ -776,21 +769,6 @@ function formatPlaylistDuration() {
     }
 }
 
-// Toggle visualizer play/pause
-function toggleSpotifyVisualizer() {
-    const toggleBtn = document.getElementById('visualizerToggleBtn');
-    
-    if (spotifyVisualizerActive) {
-        stopSpotifyVisualizer();
-        toggleBtn.innerHTML = '▶️ Play';
-        toggleBtn.style.background = 'rgba(29, 185, 84, 0.6)';
-    } else {
-        startSpotifyVisualizer();
-        toggleBtn.innerHTML = '⏸️ Pause';
-        toggleBtn.style.background = 'rgba(29, 185, 84, 0.3)';
-    }
-}
-
 // Stop Spotify visualizer
 function stopSpotifyVisualizer() {
     spotifyVisualizerActive = false;
@@ -799,18 +777,6 @@ function stopSpotifyVisualizer() {
         spotifyVisualizerTimer = null;
     }
     console.log('Spotify visualizer stopped');
-}
-
-// Show Spotify embed instead of visualizer
-function showSpotifyEmbedInstead() {
-    stopSpotifyVisualizer();
-    
-    const spotifyContainer = document.getElementById('spotifyContainer');
-    const currentPlaylist = spotifyPlaylists.find(p => p.id === currentSpotifyPlaylistId);
-    
-    if (currentPlaylist) {
-        displayStoredPlaylistPlayer(currentPlaylist.embed_url, currentPlaylist.name, currentPlaylist.genre);
-    }
 }
 
 // Display stored playlist player with embed
@@ -850,7 +816,7 @@ function displayStoredPlaylistPlayer(embedUrl, playlistName, playlistGenre) {
     // Update track info
     document.getElementById('trackTitle').textContent = playlistName;
     document.getElementById('trackArtist').textContent = `Genre: ${playlistGenre || 'Various'}`;
-    document.getElementById('trackPrice').textContent = 'Streaming Now';
+    document.getElementById('trackPrice').textContent = 'Stream Now';
 }
 
 // Display stored playlists in the UI
@@ -1316,6 +1282,3 @@ window.switchToYouTube = switchToYouTube;
 window.startPlaying = startPlaying;
 window.fetchAndDisplayStoredPlaylists = fetchAndDisplayStoredPlaylists;
 window.selectAndPlayStoredPlaylist = selectAndPlayStoredPlaylist;
-window.toggleSpotifyVisualizer = toggleSpotifyVisualizer;
-window.showSpotifyEmbedInstead = showSpotifyEmbedInstead;
-window.displayStoredPlaylistPlayer = displayStoredPlaylistPlayer;

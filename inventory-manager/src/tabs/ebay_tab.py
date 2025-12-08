@@ -41,13 +41,13 @@ class EBayTab:
             # eBay pricing action buttons
             col1, col2, col3 = st.columns(3)
             with col1:
-                if st.button("🔄 Update eBay Prices", use_container_width=True, help="Call eBay API to update pricing data for all inventory"):
+                if st.button("🔄 Update eBay Prices", width='stretch', help="Call eBay API to update pricing data for all inventory"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_prices(test_record_id.strip())
                     else:
                         self._update_all_ebay_prices()
             with col2:
-                if st.button("💰 Update eBay Sell At", use_container_width=True, help="Calculate eBay sell prices from existing lowest prices"):
+                if st.button("💰 Update eBay Sell At", width='stretch', help="Calculate eBay sell prices from existing lowest prices"):
                     if test_record_id and test_record_id.strip():
                         self._update_single_ebay_sell_at(test_record_id.strip())
                     else:
@@ -106,7 +106,7 @@ class EBayTab:
                         st.dataframe(preview_df)
                         
                         # Process button
-                        if st.button("🔗 Match Listings to Database", use_container_width=True):
+                        if st.button("🔗 Match Listings to Database", width='stretch'):
                             self._process_ebay_listings(listings_data)
                             
                 except Exception as e:
@@ -127,7 +127,7 @@ class EBayTab:
                 )
             
             with col2:
-                if st.button("🛒 Export eBay Draft CSV", use_container_width=True):
+                if st.button("🛒 Export eBay Draft CSV", width='stretch'):
                     self._export_ebay_draft_csv(num_listings)
         
         # Show individual listings table if available
@@ -318,7 +318,7 @@ class EBayTab:
                 )
                 
                 # Export results option
-                if st.button("📊 Export Results CSV", use_container_width=True):
+                if st.button("📊 Export Results CSV", width='stretch'):
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"ebay_listing_matches_{timestamp}.csv"
                     csv_data = df.to_csv(index=False)
@@ -328,7 +328,7 @@ class EBayTab:
                         data=csv_data,
                         file_name=filename,
                         mime="text/csv",
-                        use_container_width=True,
+                        width='stretch',
                         key=f"download_ebay_results_{timestamp}"
                     )
         
@@ -408,7 +408,7 @@ class EBayTab:
             data=csv_content,
             file_name=filename,
             mime="text/csv",
-            use_container_width=True,
+            width='stretch',
             key=f"download_ebay_draft_{timestamp}"
         )
         
@@ -484,12 +484,14 @@ class EBayTab:
         with st.expander("📊 Individual eBay Listings Analysis", expanded=False):
             st.subheader("Individual Listings Analysis")
             
-            # Get shipping cost from config for CALC items
-            shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+            # Get shipping cost from config - throw exception if not found
+            shipping_cost_str = st.session_state.db_manager.get_config_value('SHIPPING_COST')
+            if shipping_cost_str is None:
+                raise ValueError("SHIPPING_COST config value not found in database")
             try:
-                shipping_cost = float(shipping_cost)
-            except (ValueError, TypeError):
-                shipping_cost = 5.72
+                shipping_cost = float(shipping_cost_str)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Invalid SHIPPING_COST config value: '{shipping_cost_str}'. Must be a valid number.") from e
             
             # Extract item summaries from eBay response
             item_summaries = recent_ebay_response.get('itemSummaries', [])
@@ -795,7 +797,7 @@ class EBayTab:
             record_id = record.get('id')
             ebay_lowest_price = record.get('ebay_lowest_price')
             ebay_low_shipping = record.get('ebay_low_shipping')
-            discogs_median_price = record.get('discogs_suggested_price')
+            discogs_median_price = record.get('discogs_median_price')
             
             status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
@@ -849,7 +851,7 @@ class EBayTab:
         title = record.get('title', '')
         ebay_lowest_price = record.get('ebay_lowest_price')
         ebay_low_shipping = record.get('ebay_low_shipping')
-        discogs_median_price = record.get('discogs_suggested_price')
+        discogs_median_price = record.get('discogs_median_price')
         
         try:
             # Use the unified calculation function
@@ -870,12 +872,14 @@ class EBayTab:
 
     def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping, discogs_median_price):
         """Calculate eBay sell price with all rules applied"""
-        # Get SHIPPING_COST from config
-        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        # Get SHIPPING_COST from config - throw exception if not found
+        shipping_cost_str = st.session_state.db_manager.get_config_value('SHIPPING_COST')
+        if shipping_cost_str is None:
+            raise ValueError("SHIPPING_COST config value not found in database")
         try:
-            shipping_cost = float(shipping_cost)
-        except (ValueError, TypeError):
-            shipping_cost = 5.72
+            shipping_cost = float(shipping_cost_str)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid SHIPPING_COST config value: '{shipping_cost_str}'. Must be a valid number.") from e
         
         if ebay_lowest_price is not None and ebay_low_shipping is not None:
             # Convert to float to ensure numeric operations

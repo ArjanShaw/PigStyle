@@ -13,6 +13,16 @@ class RecordOperationsHandler:
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
     
+    def _get_config_value(self, config_key):
+        """Get config value and throw exception if not found"""
+        value = st.session_state.db_manager.get_config_value(config_key, None)
+        if value is None:
+            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+    
     def add_inventory_record(self, record_data, genre, search_term):
         """Add inventory record to database with Discogs condition selection"""
         if genre is None:
@@ -168,10 +178,22 @@ class RecordOperationsHandler:
 
     def _calculate_store_price(self, selected_price):
         """Calculate store price using configurable parameters"""
-        # Get current configuration
-        lowest_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_LOWEST_MULTIPLIER', '1.1'))
-        estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
-        minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
+        # Get current configuration with validation
+        config_keys = ['STORE_PRICE_LOWEST_MULTIPLIER', 'STORE_PRICE_ESTIMATED_MULTIPLIER', 'STORE_PRICE_MINIMUM']
+        
+        config_values = {}
+        for key in config_keys:
+            value = st.session_state.db_manager.get_config_value(key, None)
+            if value is None:
+                raise ValueError(f"Configuration key '{key}' not found in app_config table")
+            try:
+                config_values[key] = float(value)
+            except ValueError:
+                raise ValueError(f"Configuration key '{key}' has invalid value: '{value}'. Must be a number.")
+        
+        lowest_multiplier = config_values['STORE_PRICE_LOWEST_MULTIPLIER']
+        estimated_multiplier = config_values['STORE_PRICE_ESTIMATED_MULTIPLIER']
+        minimum_price = config_values['STORE_PRICE_MINIMUM']
         
         candidates = []
         

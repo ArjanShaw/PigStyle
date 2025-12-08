@@ -46,67 +46,98 @@ class StorePricingTab:
                     else:
                         self._calculate_all_store_prices()
 
+    def _get_config_value(self, config_key):
+        """Get config value and throw exception if not found"""
+        value = st.session_state.db_manager.get_config_value(config_key, None)
+        if value is None:
+            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+    
     def _render_pricing_configuration(self):
         """Render store pricing configuration settings"""
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            estimated_multiplier = st.number_input(
-                "Estimated Price Multiplier", 
-                min_value=0.5,
-                max_value=1.5,
-                value=float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9')),
-                step=0.05,
-                help="Multiply selected Discogs condition price by this factor"
-            )
-            st.session_state.db_manager.set_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', str(estimated_multiplier))
-        
-        with col2:
-            minimum_price = st.number_input(
-                "Minimum Store Price",
-                min_value=0.0,
-                max_value=50.0,
-                value=float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99')),
-                step=0.5,
-                help="Minimum price for any record"
-            )
-            st.session_state.db_manager.set_config_value('STORE_PRICE_MINIMUM', str(minimum_price))
-        
-        # Show current configuration
-        st.info(f"""
-        **Current Configuration:**
-        - Selected Condition Price × {estimated_multiplier}
-        - Minimum Price: ${minimum_price:.2f}
-        """)
+        try:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                estimated_multiplier = st.number_input(
+                    "Estimated Price Multiplier", 
+                    min_value=0.5,
+                    max_value=1.5,
+                    value=self._get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER'),
+                    step=0.05,
+                    help="Multiply selected Discogs condition price by this factor"
+                )
+                st.session_state.db_manager.set_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', str(estimated_multiplier))
+            
+            with col2:
+                minimum_price = st.number_input(
+                    "Minimum Store Price",
+                    min_value=0.0,
+                    max_value=50.0,
+                    value=self._get_config_value('STORE_PRICE_MINIMUM'),
+                    step=0.5,
+                    help="Minimum price for any record"
+                )
+                st.session_state.db_manager.set_config_value('STORE_PRICE_MINIMUM', str(minimum_price))
+            
+            # Show current configuration
+            st.info(f"""
+            **Current Configuration:**
+            - Selected Condition Price × {estimated_multiplier}
+            - Minimum Price: ${minimum_price:.2f}
+            """)
+            
+        except ValueError as e:
+            st.error(f"❌ Configuration Error: {e}")
+            st.warning("Please go to Admin Config tab to set up configuration values.")
 
     def _calculate_all_store_prices(self):
         """Calculate store prices for all inventory records using current configuration"""
-        updated_count = self._update_all_store_prices()
-        
-        if updated_count > 0:
-            st.session_state.records_updated += 1
-            start_time = time.time()
-            st.rerun()
-            duration = time.time() - start_time
+        try:
+            # First validate config values exist
+            estimated_multiplier = self._get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER')
+            minimum_price = self._get_config_value('STORE_PRICE_MINIMUM')
+            
+            updated_count = self._update_all_store_prices(estimated_multiplier, minimum_price)
+            
+            if updated_count > 0:
+                st.session_state.records_updated += 1
+                start_time = time.time()
+                st.rerun()
+                duration = time.time() - start_time
+                
+        except ValueError as e:
+            st.error(f"❌ Cannot calculate store prices: {e}")
 
     def _calculate_single_store_price(self, record_id):
         """Calculate store price for a single record using current configuration"""
-        updated_count = self._update_single_store_price(record_id)
-        
-        if updated_count > 0:
-            st.session_state.records_updated += 1
-            start_time = time.time()
-            st.rerun()
-            duration = time.time() - start_time
+        try:
+            # First validate config values exist
+            estimated_multiplier = self._get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER')
+            minimum_price = self._get_config_value('STORE_PRICE_MINIMUM')
+            
+            updated_count = self._update_single_store_price(record_id, estimated_multiplier, minimum_price)
+            
+            if updated_count > 0:
+                st.session_state.records_updated += 1
+                start_time = time.time()
+                st.rerun()
+                duration = time.time() - start_time
+                
+        except ValueError as e:
+            st.error(f"❌ Cannot calculate store price: {e}")
 
-    def _update_all_store_prices(self):
+    def _update_all_store_prices(self, estimated_multiplier, minimum_price):
         """Update store prices for all inventory records using current configuration"""
         # Get all records using API
         records_df = st.session_state.db_manager.get_all_records()
         
-        # Get current configuration
-        estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
-        minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
+        if records_df.empty:
+            st.info("No records found to update")
+            return 0
         
         updated_count = 0
         failed_count = 0
@@ -169,17 +200,13 @@ class StorePricingTab:
             
         return updated_count
 
-    def _update_single_store_price(self, record_id):
+    def _update_single_store_price(self, record_id, estimated_multiplier, minimum_price):
         """Update store price for a single record using current configuration"""
         # Get single record using API
         record = st.session_state.db_manager.get_record_by_id(record_id)
         if record is None:
             st.error(f"Record ID {record_id} not found")
             return 0
-        
-        # Get current configuration
-        estimated_multiplier = float(st.session_state.db_manager.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '0.9'))
-        minimum_price = float(st.session_state.db_manager.get_config_value('STORE_PRICE_MINIMUM', '4.99'))
         
         artist = record.get('artist', '')
         title = record.get('title', '')

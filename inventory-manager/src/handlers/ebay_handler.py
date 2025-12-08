@@ -16,6 +16,16 @@ class EbayHandler:
         self.token = None
         self.token_expiry = 0
 
+    def _get_config_value(self, config_key):
+        """Get config value and throw exception if not found"""
+        value = st.session_state.db_manager.get_config_value(config_key, None)
+        if value is None:
+            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+
     def get_access_token(self):
         if self.token and time.time() < self.token_expiry:
             return self.token
@@ -83,11 +93,7 @@ class EbayHandler:
         condition_groups = {}
         
         # Get shipping cost from config for CALC items
-        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
-        try:
-            shipping_cost = float(shipping_cost)
-        except (ValueError, TypeError):
-            shipping_cost = 5.72
+        shipping_cost = self._get_config_value('SHIPPING_COST')
         
         for item in items:
             if exclude_foreign:

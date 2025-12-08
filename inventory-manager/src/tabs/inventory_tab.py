@@ -25,6 +25,19 @@ class InventoryTab:
         self.display_handler = DisplayHandler(self.youtube_handler)
         self.export_handler = ExportHandler(self.price_handler, self.genre_handler)
 
+    def _get_config_value(self, config_key):
+        """Get config value and throw exception if not found"""
+        value = st.session_state.db_manager.get_config_value(config_key, None)
+        if value is None:
+            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+        try:
+            if config_key == 'STORE_CAPACITY':
+                return int(value)
+            else:
+                return float(value)
+        except ValueError:
+            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+
     def render(self):
         """Render the combined inventory, check-in, and checkout functionality"""
         
@@ -32,24 +45,29 @@ class InventoryTab:
         stats = self._get_user_database_stats()
         
         # Calculate store fill fraction and consignment rate
-        store_fill_info = self._get_store_fill_info()
-        consignment_rate = self._calculate_consignment_rate(store_fill_info['fill_fraction'])
-        
-        # Top row: Stats
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col1:
-            st.metric("Inventory Records", stats['records_count'])
-        with col2:
-            st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
-        with col3:
-            st.metric("Consignment Rate", f"{consignment_rate:.1%}")
-        
-        # Show warning if store is over capacity
-        if store_fill_info['fill_fraction'] > 1.10:
-            st.error("🚨 Store is over capacity! Cannot add new items.")
-        
-        # Inventory Controls (NO EXPANDER)
-        self._render_unified_operations(store_fill_info['fill_fraction'])
+        try:
+            store_fill_info = self._get_store_fill_info()
+            consignment_rate = self._calculate_consignment_rate(store_fill_info['fill_fraction'])
+            
+            # Top row: Stats
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                st.metric("Inventory Records", stats['records_count'])
+            with col2:
+                st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
+            with col3:
+                st.metric("Consignment Rate", f"{consignment_rate:.1%}")
+            
+            # Show warning if store is over capacity
+            if store_fill_info['fill_fraction'] > 1.10:
+                st.error("🚨 Store is over capacity! Cannot add new items.")
+            
+            # Inventory Controls (NO EXPANDER)
+            self._render_unified_operations(store_fill_info['fill_fraction'])
+            
+        except ValueError as e:
+            st.error(f"❌ Configuration Error: {e}")
+            st.warning("Please go to Admin Config tab to set up configuration values.")
 
     def _render_unified_operations(self, store_fill_fraction):
         """Render the unified search/add/checkout operations"""
@@ -165,7 +183,7 @@ class InventoryTab:
     def _get_store_fill_info(self):
         """Calculate store fill fraction based on total inventory and store capacity"""
         # Get store capacity from config
-        store_capacity = int(st.session_state.db_manager.get_config_value('STORE_CAPACITY', '1000'))
+        store_capacity = self._get_config_value('STORE_CAPACITY')
         
         # Get total inventory count using API
         records_df = st.session_state.db_manager.get_all_records()

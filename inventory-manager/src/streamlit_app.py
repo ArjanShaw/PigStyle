@@ -17,7 +17,6 @@ from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.ebay_tab import EBayTab
 from tabs.store_pricing_tab import StorePricingTab
-from tabs.tools_sync_tab import ToolsSyncTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
@@ -157,7 +156,6 @@ def render_main_app():
     statistics_tab = StatisticsTab()
     ebay_tab = EBayTab(ebay_handler)
     store_pricing_tab = StorePricingTab()
-    tools_sync_tab = ToolsSyncTab()  # Removed GitHubSyncHandler parameter
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
     admin_config_tab = AdminConfigTab()
@@ -168,7 +166,7 @@ def render_main_app():
     
     # Create tabs based on user permissions
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, 
+                                   ebay_tab, statistics_tab, consignment_tab, 
                                    admin_config_tab, votes_tab)  # Added votes_tab
 
 def render_header(user, session_manager):
@@ -235,7 +233,7 @@ def render_change_password_form(session_manager):
                         st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, tools_sync_tab, 
+                                   ebay_tab, statistics_tab, consignment_tab,  
                                    admin_config_tab, votes_tab):  # Added votes_tab parameter
     """Render tabs based on user permissions"""
     user_role = user['role']
@@ -268,8 +266,6 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_p
     if PermissionManager.has_permission(user_role, 'consignment', 'view'):
         tab_configs.append(("🤝 Consignment", consignment_tab.render))
     
-    if PermissionManager.has_permission(user_role, 'system', 'view'):
-        tab_configs.append(("🛠️ Tools & Sync", tools_sync_tab.render))
     
     # Admin-only tabs
     if user_role == 'admin':

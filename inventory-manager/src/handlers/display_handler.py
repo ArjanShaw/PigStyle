@@ -204,6 +204,10 @@ class DisplayHandler:
             st.divider()
 
     def render_selected_record_only(self, selected_record):
+        # Don't render if record_added flag is set
+        if st.session_state.get('record_added'):
+            return
+            
         record = selected_record['data']
         result_type = "Database" if selected_record['type'] == 'database' else "Discogs"
         
@@ -287,6 +291,10 @@ class DisplayHandler:
             st.rerun()
 
     def render_edit_section(self, selected_record, add_callback, update_callback, discogs_handler=None, ebay_handler=None, store_fill_fraction=0.0):
+        # Don't render if record_added flag is set
+        if st.session_state.get('record_added'):
+            return
+            
         record_data = selected_record['data']
         
         if selected_record['type'] == 'discogs' and not record_data.get('pricing_fetched'):
@@ -392,7 +400,7 @@ class DisplayHandler:
         # Store discogs_genre for later use in mapping
         record_data['discogs_genre'] = discogs_genre
         
-        self._render_pricing_information(record_data)
+        self._render_consolidated_pricing_information(record_data)
         
         with st.expander("🎵 YouTube Integration", expanded=False):
             self._render_youtube_integration(record_data)
@@ -408,12 +416,65 @@ class DisplayHandler:
             if selected_record['type'] == 'discogs':
                 success, record_id = add_callback(genre)
                 if success:
-                    st.success(f"✅ Record added successfully!\n**Artist:** {record_data['artist']}\n**Title:** {record_data['title']}")
-                    st.session_state.record_added = True
+                    # The success handling is now in the callback
+                    pass
             else:
                 success = update_callback(genre)
                 if success:
                     st.success(f"✅ Record updated successfully!")
+
+    def _render_consolidated_pricing_information(self, record_data):
+        """Simplified Discogs pricing section - just a dropdown"""
+        has_discogs_data = 'price_suggestions' in record_data
+        
+        if has_discogs_data:
+            st.write("### 📀 Discogs Pricing")
+            
+            price_suggestions = record_data.get('price_suggestions', {})
+            
+            if price_suggestions:
+                # Create dropdown options with condition and price
+                condition_options = []
+                condition_descriptions = {}
+                
+                for condition, price in price_suggestions.items():
+                    description = self._get_condition_description(condition)
+                    condition_options.append(f"{condition} - ${price:.2f}")
+                    condition_descriptions[condition] = description
+                
+                # Default selection
+                default_condition = "Good Plus (G+)"
+                default_index = 0
+                for i, option in enumerate(condition_options):
+                    if default_condition in option:
+                        default_index = i
+                        break
+                
+                # Simple dropdown
+                selected_option = st.selectbox(
+                    "Select Discogs condition:",
+                    options=condition_options,
+                    index=default_index,
+                    key="discogs_condition_select"
+                )
+                
+                # Extract selected condition and price
+                for condition, price in price_suggestions.items():
+                    if f"{condition} - ${price:.2f}" == selected_option:
+                        record_data['selected_condition'] = condition
+                        record_data['selected_price'] = price
+                        
+                        # Show description below dropdown
+                        description = self._get_condition_description(condition)
+                        st.caption(f"{description}")
+                        break
+            else:
+                st.write("No Discogs pricing data available")
+            
+            st.divider()
+        else:
+            st.write("### 📀 Discogs Pricing")
+            st.info("Discogs pricing data loading...")
 
     def _check_for_duplicate_simple(self, record_data):
         artist = record_data.get('artist', '')
@@ -573,32 +634,10 @@ class DisplayHandler:
             if indicator in artist_lower:
                 return True
         
-        # REMOVED: Artist history check for compilation detection
-        # if self._is_artist_mostly_compilation(artist):
-        #     return True
-        
         if record_data.get('compilation'):
             return True
             
         return False
-
-    # REMOVED: _is_artist_mostly_compilation method entirely
-    # def _is_artist_mostly_compilation(self, artist):
-    #     all_records = st.session_state.db_manager.get_all_records()
-    #     if all_records.empty:
-    #         return False
-    #     
-    #     artist_records = all_records[all_records['artist'] == artist]
-    #     if artist_records.empty:
-    #         return False
-    #     
-    #     total_records = len(artist_records)
-    #     compilation_count = len(artist_records[artist_records['compilation'] == True])
-    #     
-    #     if total_records > 0 and (compilation_count / total_records) > 0.5:
-    #         return True
-    #         
-    #     return False
 
     def _fetch_all_data_sync(self, record_data, discogs_handler, ebay_handler):
         release_id = record_data.get('discogs_id')
@@ -633,23 +672,6 @@ class DisplayHandler:
         
         # NO FALLBACK TO ARTIST HISTORY
         return ""
-
-    # REMOVED: _get_genre_from_artist_history method entirely
-    # def _get_genre_from_artist_history(self, artist):
-    #     all_records = st.session_state.db_manager.get_all_records()
-    #     if all_records.empty:
-    #         return ""
-    #     
-    #     artist_exists = len(all_records[all_records['artist'] == artist]) > 0
-    #     if not artist_exists:
-    #         return ""
-    #     
-    #     artist_records = all_records[all_records['artist'] == artist]
-    #     if not artist_records.empty:
-    #         genre_counts = artist_records['genre_name'].value_counts()
-    #         if not genre_counts.empty:
-    #             return genre_counts.index[0]
-    #     return ""
 
     def _get_suggestion_source(self, record_data, suggested_genre):
         discogs_genre = record_data.get('genre', '')
@@ -763,55 +785,6 @@ class DisplayHandler:
         
         with col4:
             st.markdown(f'<a href="{video["url"]}" target="_blank"><button style="width: 100%;">👀 View</button></a>', unsafe_allow_html=True)
-
-    def _render_pricing_information(self, record_data):
-        has_discogs_data = 'price_suggestions' in record_data
-        
-        if has_discogs_data:
-            st.write("### 📀 Discogs Pricing")
-            
-            price_suggestions = record_data.get('price_suggestions', {})
-            total_conditions = record_data.get('total_conditions', 0)
-            
-            if price_suggestions:
-                st.write("**Select a condition:**")
-                
-                conditions_data = []
-                for condition, price in price_suggestions.items():
-                    description = self._get_condition_description(condition)
-                    conditions_data.append({
-                        'Condition': condition,
-                        'Description': description,
-                        'Price': f"${price:.2f}"
-                    })
-                
-                if conditions_data:
-                    df = pd.DataFrame(conditions_data)
-                    st.dataframe(df, width='stretch', hide_index=True)
-                    
-                    condition_options = list(price_suggestions.keys())
-                    default_condition = "Good Plus (G+)"
-                    if default_condition not in condition_options and condition_options:
-                        default_condition = condition_options[0]
-                    
-                    selected_condition = st.selectbox(
-                        "Choose Discogs condition:",
-                        options=condition_options,
-                        index=condition_options.index(default_condition) if default_condition in condition_options else 0,
-                        key="discogs_condition_select"
-                    )
-                    
-                    if selected_condition:
-                        record_data['selected_condition'] = selected_condition
-                        record_data['selected_price'] = price_suggestions[selected_condition]
-                        st.success(f"✅ Selected: {selected_condition} - ${price_suggestions[selected_condition]:.2f}")
-            else:
-                st.write("No Discogs pricing data available")
-            
-            st.divider()
-        else:
-            st.write("### 📀 Discogs Pricing")
-            st.info("Discogs pricing data loading...")
 
     def _delete_record(self, record_id):
         success = st.session_state.db_manager.delete_record(record_id)

@@ -52,6 +52,13 @@ class DatabaseManager:
             return pd.DataFrame(result['records'])
         return pd.DataFrame()
     
+    def get_recent_records(self, limit: int = 100) -> pd.DataFrame:
+        result = self._make_request('GET', f'/records?limit={limit}&order_by=created_at&order=desc')
+        if result and 'records' in result:
+            return pd.DataFrame(result['records'])
+        
+        return pd.DataFrame()
+    
     def get_record_by_id(self, record_id: int) -> Optional[pd.Series]:
         result = self._make_request('GET', f'/records/{record_id}')
         if result:
@@ -293,13 +300,6 @@ class DatabaseManager:
         
         success = result is not None and result.get('status') == 'success'
         return success
-
-    def get_recent_records(self, limit: int = 100) -> pd.DataFrame:
-        result = self._make_request('GET', f'/records?limit={limit}')
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        
-        return pd.DataFrame()
 
     def get_artist_genre(self, artist_name: str) -> Optional[pd.Series]:
         result = self._make_request('GET', f'/genre-assignments/artist/{artist_name}')

@@ -38,7 +38,7 @@ class InventoryTab:
         store_fill_info = self._get_store_fill_info()
         consignment_rate = self._calculate_consignment_rate(store_fill_info['fill_fraction'])
         
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
         with col1:
             st.metric("Inventory Records", stats['records_count'])
         with col2:
@@ -46,10 +46,30 @@ class InventoryTab:
         with col3:
             st.metric("Consignment Rate", f"{consignment_rate:.1%}")
         
+        # Display last added record - single line, no image
+        self._render_last_added_record_simple()
+        
         if store_fill_info['fill_fraction'] > 1.10:
             st.error("🚨 Store is over capacity! Cannot add new items.")
         
         self._render_unified_operations(store_fill_info['fill_fraction'])
+
+    def _render_last_added_record_simple(self):
+        """Display the last record added to the database - simple single line"""
+        # Get the most recent record using API
+        recent_records = st.session_state.db_manager.get_recent_records(limit=1)
+        
+        if not recent_records.empty:
+            last_record = recent_records.iloc[0]
+            
+            artist = last_record.get('artist', 'Unknown Artist')
+            title = last_record.get('title', 'Unknown Title')
+            store_price = last_record.get('store_price', 0.0)
+            
+            # Single line display with minimal styling
+            st.markdown(f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})")
+        else:
+            st.markdown("**📝 Last Added:** No records yet")
 
     def _render_unified_operations(self, store_fill_fraction):
         if 'search_type' not in st.session_state:
@@ -67,6 +87,14 @@ class InventoryTab:
         if 'search_triggered' not in st.session_state:
             st.session_state.search_triggered = False
         if 'search_query' not in st.session_state:
+            st.session_state.search_query = ""
+        
+        # Clear selected record after successful addition
+        if st.session_state.get('record_added'):
+            st.session_state.selected_record = None
+            st.session_state.record_added = None
+            st.session_state.search_results = {}
+            st.session_state.current_search = ""
             st.session_state.search_query = ""
         
         col1, col2 = st.columns([1, 3])
@@ -185,17 +213,14 @@ class InventoryTab:
             import time
             time.sleep(0.5)
             
-            record = st.session_state.db_manager.get_record_by_id(record_id)
-            if record is not None:
-                st.session_state.record_added = record.to_dict() if hasattr(record, 'to_dict') else record
-            else:
-                st.session_state.record_added = {
-                    'file_at': '',
-                }
-            
-            st.session_state.selected_record = None
+            # Set flag to clear UI
+            st.session_state.record_added = True
             st.session_state.records_updated += 1
             
+            # Show success message
+            st.success(f"✅ Record added successfully!")
+            
+            # Force a rerun to clear the UI
             st.rerun()
         else:
             st.error("Failed to add record to database")

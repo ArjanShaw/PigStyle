@@ -90,16 +90,59 @@ class PriceTagTab:
         total_count = len(all_records)
         st.metric("Printed", f"{printed_count}/{total_count}")
         
+        # Get last printed batch size from database config
+        last_batch_size = st.session_state.db_manager.get_config_value('LAST_PRINT_BATCH_SIZE', '0')
+        try:
+            last_batch_size = int(last_batch_size)
+        except:
+            last_batch_size = 0
+        
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🗑️ Clear Recent Price Tags (last 24 hours)", width='stretch', 
-                       help="Remove barcodes from records created in the last 24 hours"):
-                cleared_count = self.price_tag_handler.clear_recent_barcodes()
+            # Clear barcodes section with last batch size
+            st.write("**Clear Recent Price Tags**")
+            
+            # Show last batch size info
+            if last_batch_size > 0:
+                st.info(f"Last printed batch: {last_batch_size} tags")
+            
+            # Input for number of tags to clear with default from last batch
+            clear_count = st.number_input(
+                "Number of tags to clear:",
+                min_value=0,
+                max_value=1000,
+                value=last_batch_size if last_batch_size > 0 else 10,
+                step=1,
+                key="clear_tag_count"
+            )
+            
+            if st.button("🗑️ Clear Price Tags", width='stretch', 
+                       help=f"Remove barcodes from {clear_count} most recent printed records"):
+                cleared_count = self.price_tag_handler.clear_recent_barcodes(clear_count)
                 if cleared_count > 0:
                     st.success(f"✅ Cleared {cleared_count} recent price tags!")
                     st.rerun()
                 else:
                     st.info("No recent price tags to clear")
+        
+        with col2:
+            # Other buttons remain
+            if st.button("🗑️ Clear ALL Price Tags", width='stretch', 
+                       help="Remove barcodes from ALL records (use with caution!)", type="secondary"):
+                if st.checkbox("I understand this will remove ALL barcodes from ALL records"):
+                    all_records = self.db_manager.get_all_records()
+                    records_with_barcodes = all_records[
+                        (all_records['barcode'].notna()) & 
+                        (all_records['barcode'] != '') & 
+                        (all_records['barcode'] != 'None')
+                    ]
+                    clear_count = len(records_with_barcodes)
+                    
+                    if st.button(f"CONFIRM: Clear ALL {clear_count} barcodes", type="primary"):
+                        for _, record in records_with_barcodes.iterrows():
+                            st.session_state.db_manager.update_record(record['id'], {'barcode': None})
+                        st.success(f"✅ Cleared ALL {clear_count} price tags!")
+                        st.rerun()
         
         if not records:
             st.info("All records have price tags printed.")
@@ -373,8 +416,12 @@ class PriceTagTab:
                 
                 os.unlink(result_data)
                 
+                # Save the batch size to config for future clearing
+                batch_size = len(record_ids)
+                st.session_state.db_manager.set_config_value('LAST_PRINT_BATCH_SIZE', str(batch_size))
+                
                 st.session_state.print_status = "completed"
-                st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
+                st.session_state.print_message = f"✅ Successfully generated price tags for {batch_size} records (batch size saved)"
                 st.session_state.print_success = True
             else:
                 st.session_state.print_status = "error"

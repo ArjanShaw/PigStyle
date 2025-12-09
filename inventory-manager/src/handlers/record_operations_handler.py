@@ -102,8 +102,8 @@ class RecordOperationsHandler:
         if pricing_data:
             record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
         
-        # CALCULATE STORE PRICE USING CONFIGURABLE PARAMETERS
-        store_price = self._calculate_store_price(selected_price)
+        # CALCULATE STORE PRICE USING CONSOLIDATED FUNCTION
+        store_price = self.calculate_store_price(selected_price)
         
         # Get eBay sell price from record_data if available
         ebay_sell_at = record_data.get('ebay_sell_at', 0.0)
@@ -140,6 +140,46 @@ class RecordOperationsHandler:
         
         return True, record_id
 
+    def calculate_store_price(self, discogs_suggested_price):
+        """CONSOLIDATED: Calculate store price using configurable parameters"""
+        try:
+            # Get current configuration with validation
+            config_keys = ['STORE_PRICE_ESTIMATED_MULTIPLIER', 'STORE_PRICE_MINIMUM']
+            
+            config_values = {}
+            for key in config_keys:
+                value = st.session_state.db_manager.get_config_value(key, None)
+                if value is None:
+                    raise ValueError(f"Configuration key '{key}' not found in app_config table")
+                try:
+                    config_values[key] = float(value)
+                except ValueError:
+                    raise ValueError(f"Configuration key '{key}' has invalid value: '{value}'. Must be a number.")
+            
+            estimated_multiplier = config_values['STORE_PRICE_ESTIMATED_MULTIPLIER']
+            minimum_price = config_values['STORE_PRICE_MINIMUM']
+            
+            candidates = []
+            
+            if discogs_suggested_price and discogs_suggested_price > 0:
+                # Use the selected price with the estimated multiplier
+                candidates.append(discogs_suggested_price * estimated_multiplier)
+            
+            if candidates:
+                raw_price = max(candidates)
+                raw_price = max(raw_price, minimum_price)
+            else:
+                raw_price = minimum_price
+            
+            # Round to nearest .49 or .99
+            store_price = self._round_to_49_or_99(raw_price)
+            
+            return store_price
+            
+        except Exception as e:
+            st.error(f"Error calculating store price: {e}")
+            return minimum_price if 'minimum_price' in locals() else 0.0
+
     def _check_for_duplicate(self, record_data):
         """Check for duplicates using ONLY artist, title, and catalog number"""
         # Get the data to check
@@ -175,42 +215,6 @@ class RecordOperationsHandler:
                         duplicates.append(record_id)
         
         return len(duplicates) > 0
-
-    def _calculate_store_price(self, selected_price):
-        """Calculate store price using configurable parameters"""
-        # Get current configuration with validation
-        config_keys = ['STORE_PRICE_LOWEST_MULTIPLIER', 'STORE_PRICE_ESTIMATED_MULTIPLIER', 'STORE_PRICE_MINIMUM']
-        
-        config_values = {}
-        for key in config_keys:
-            value = st.session_state.db_manager.get_config_value(key, None)
-            if value is None:
-                raise ValueError(f"Configuration key '{key}' not found in app_config table")
-            try:
-                config_values[key] = float(value)
-            except ValueError:
-                raise ValueError(f"Configuration key '{key}' has invalid value: '{value}'. Must be a number.")
-        
-        lowest_multiplier = config_values['STORE_PRICE_LOWEST_MULTIPLIER']
-        estimated_multiplier = config_values['STORE_PRICE_ESTIMATED_MULTIPLIER']
-        minimum_price = config_values['STORE_PRICE_MINIMUM']
-        
-        candidates = []
-        
-        if selected_price and selected_price > 0:
-            # Use the selected price with the estimated multiplier
-            candidates.append(selected_price * estimated_multiplier)
-        
-        if candidates:
-            raw_price = max(candidates)
-            raw_price = max(raw_price, minimum_price)
-        else:
-            raw_price = minimum_price
-        
-        # Round to nearest .49 or .99
-        store_price = self._round_to_49_or_99(raw_price)
-        
-        return store_price
 
     def _round_to_49_or_99(self, price):
         """Round to nearest .49 or .99"""

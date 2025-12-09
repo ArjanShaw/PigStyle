@@ -46,16 +46,6 @@ class StorePricingTab:
                     else:
                         self._calculate_all_store_prices()
 
-    def _get_config_value(self, config_key):
-        """Get config value and throw exception if not found"""
-        value = st.session_state.db_manager.get_config_value(config_key, None)
-        if value is None:
-            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
-        try:
-            return float(value)
-        except ValueError:
-            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
-    
     def _render_pricing_configuration(self):
         """Render store pricing configuration settings"""
         try:
@@ -94,10 +84,20 @@ class StorePricingTab:
             st.error(f"❌ Configuration Error: {e}")
             st.warning("Please go to Admin Config tab to set up configuration values.")
 
+    def _get_config_value(self, config_key):
+        """Get config value and throw exception if not found"""
+        value = st.session_state.db_manager.get_config_value(config_key, None)
+        if value is None:
+            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+
     def _calculate_all_store_prices(self):
         """Calculate store prices for all inventory records using current configuration"""
         try:
-            # First validate config values exist
+            # Get configuration values
             estimated_multiplier = self._get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER')
             minimum_price = self._get_config_value('STORE_PRICE_MINIMUM')
             
@@ -105,9 +105,7 @@ class StorePricingTab:
             
             if updated_count > 0:
                 st.session_state.records_updated += 1
-                start_time = time.time()
                 st.rerun()
-                duration = time.time() - start_time
                 
         except ValueError as e:
             st.error(f"❌ Cannot calculate store prices: {e}")
@@ -115,7 +113,7 @@ class StorePricingTab:
     def _calculate_single_store_price(self, record_id):
         """Calculate store price for a single record using current configuration"""
         try:
-            # First validate config values exist
+            # Get configuration values
             estimated_multiplier = self._get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER')
             minimum_price = self._get_config_value('STORE_PRICE_MINIMUM')
             
@@ -123,9 +121,7 @@ class StorePricingTab:
             
             if updated_count > 0:
                 st.session_state.records_updated += 1
-                start_time = time.time()
                 st.rerun()
-                duration = time.time() - start_time
                 
         except ValueError as e:
             st.error(f"❌ Cannot calculate store price: {e}")
@@ -233,23 +229,20 @@ class StorePricingTab:
             return 0
 
     def _calculate_store_price(self, discogs_suggested_price, estimated_multiplier, minimum_price):
-        """Calculate store price using the current formula"""
-        candidates = []
+        """Use the consolidated calculation function from RecordOperationsHandler"""
+        # Import and use the consolidated function
+        from handlers.record_operations_handler import RecordOperationsHandler
         
-        if discogs_suggested_price and discogs_suggested_price > 0:
-            # Use the selected Discogs condition price with the estimated multiplier
-            candidates.append(discogs_suggested_price * estimated_multiplier)
+        # Create a temporary instance to use the calculation method
+        # Note: This could be refactored to make calculate_store_price a static method
+        temp_handler = RecordOperationsHandler()
         
-        if candidates:
-            raw_price = max(candidates)
-            raw_price = max(raw_price, minimum_price)
-        else:
-            raw_price = minimum_price
+        # Set the parameters in session state for the calculation function to access
+        st.session_state.db_manager.set_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', str(estimated_multiplier))
+        st.session_state.db_manager.set_config_value('STORE_PRICE_MINIMUM', str(minimum_price))
         
-        # Round to nearest .49 or .99
-        store_price = self._round_to_49_or_99(raw_price)
-        
-        return store_price
+        # Use the consolidated calculation function
+        return temp_handler.calculate_store_price(discogs_suggested_price)
 
     def _round_to_49_or_99(self, price):
         """Round to nearest .49 or .99"""

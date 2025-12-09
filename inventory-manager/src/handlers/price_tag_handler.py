@@ -33,26 +33,34 @@ class PriceTagHandler:
         
         return records_without_barcodes.to_dict('records')
     
-    def clear_recent_barcodes(self):
-        cutoff_time = datetime.now() - timedelta(hours=24)
-        
+    def clear_recent_barcodes(self, count):
+        """
+        Clear barcodes from the most recent X records that have barcodes
+        """
         all_records = self.db_manager.get_all_records()
         
         if all_records.empty:
             return 0
         
-        recent_records = all_records[
+        # Get records with barcodes, sorted by creation date (most recent first)
+        records_with_barcodes = all_records[
             (all_records['barcode'].notna()) & 
             (all_records['barcode'] != '') & 
-            (all_records['barcode'] != 'None') &
-            (pd.to_datetime(all_records['created_at']) >= cutoff_time)
+            (all_records['barcode'] != 'None')
         ]
         
-        if recent_records.empty:
+        # Sort by created_at to get most recent first
+        if 'created_at' in records_with_barcodes.columns:
+            records_with_barcodes = records_with_barcodes.sort_values('created_at', ascending=False)
+        
+        # Get the most recent X records
+        records_to_clear = records_with_barcodes.head(count)
+        
+        if records_to_clear.empty:
             return 0
         
         cleared_count = 0
-        for _, record in recent_records.iterrows():
+        for _, record in records_to_clear.iterrows():
             success = self.db_manager.update_record(record['id'], {'barcode': None})
             if success:
                 cleared_count += 1

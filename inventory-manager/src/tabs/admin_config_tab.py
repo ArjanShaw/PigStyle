@@ -99,7 +99,6 @@ class AdminConfigTab:
         config_descriptions = {
             'SHIPPING_COST': 'Default shipping cost for eBay price calculations ($)',
             'MIN_STORE_PRICE': 'Minimum price for any record in the store ($)',
-            'STORE_PRICE_LOWEST_MULTIPLIER': 'Multiplier for lowest price when calculating store price',
             'STORE_PRICE_ESTIMATED_MULTIPLIER': 'Multiplier for estimated price when calculating store price',
             'STORE_PRICE_MINIMUM': 'Absolute minimum store price regardless of calculations ($)',
             'DEFAULT_COMMISSION_RATE': 'Default commission rate for new consignment records (0.0-1.0)',
@@ -125,7 +124,7 @@ class AdminConfigTab:
         config_data = []
         
         known_config_keys = [
-            'SHIPPING_COST', 'MIN_STORE_PRICE', 'STORE_PRICE_LOWEST_MULTIPLIER',
+            'SHIPPING_COST', 'MIN_STORE_PRICE',
             'STORE_PRICE_ESTIMATED_MULTIPLIER', 'STORE_PRICE_MINIMUM', 
             'DEFAULT_COMMISSION_RATE', 'DEFAULT_STORE_RETURN_DAYS',
             'CUSTOMER_RETURN_DAYS', 'CONSIGNOR_PICKUP_DAYS', 'STORE_CAPACITY'
@@ -146,7 +145,6 @@ class AdminConfigTab:
         config_descriptions = {
             'SHIPPING_COST': 'Default shipping cost for eBay price calculations ($)',
             'MIN_STORE_PRICE': 'Minimum price for any record in the store ($)',
-            'STORE_PRICE_LOWEST_MULTIPLIER': 'Multiplier for lowest price when calculating store price',
             'STORE_PRICE_ESTIMATED_MULTIPLIER': 'Multiplier for estimated price when calculating store price',
             'STORE_PRICE_MINIMUM': 'Absolute minimum store price regardless of calculations ($)',
             'DEFAULT_COMMISSION_RATE': 'Default commission rate for new consignment records (0.0-1.0)',

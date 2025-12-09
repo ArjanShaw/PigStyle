@@ -19,7 +19,7 @@ class InventoryTab:
         self.search_handler = SearchHandler(discogs_handler)
         self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler)
         self.display_handler = DisplayHandler(self.youtube_handler)
-        self.export_handler = ExportHandler(self.price_handler, self.genre_handler)
+        self.export_handler = ExportHandler(self.price_handler)
 
     def _get_config_value(self, config_key):
         value = st.session_state.db_manager.get_config_value(config_key, None)

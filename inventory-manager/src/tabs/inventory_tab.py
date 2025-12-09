@@ -7,7 +7,6 @@ from handlers.record_operations_handler import RecordOperationsHandler
 from handlers.display_handler import DisplayHandler
 from handlers.export_handler import ExportHandler
 from handlers.price_handler import PriceHandler
-from handlers.genre_handler import GenreHandler
 from handlers.youtube_handler import YouTubeHandler
 
 class InventoryTab:
@@ -16,7 +15,6 @@ class InventoryTab:
         self.ebay_handler = ebay_handler
         self.youtube_handler = youtube_handler
         self.price_handler = PriceHandler()
-        self.genre_handler = GenreHandler()
         
         self.search_handler = SearchHandler(discogs_handler)
         self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler)

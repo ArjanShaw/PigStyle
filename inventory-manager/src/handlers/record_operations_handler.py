@@ -27,8 +27,6 @@ class RecordOperationsHandler:
         """Add inventory record to database with Discogs condition selection"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
-            
-        print(f"🔴 DEBUG add_inventory_record: genre={genre}")
         
         # Check for duplicates BEFORE adding
         duplicates_found = self._check_for_duplicate(record_data)
@@ -55,13 +53,9 @@ class RecordOperationsHandler:
         # Get Discogs pricing information - USE PRICE SUGGESTIONS
         pricing_data = None
         
-        print(f"🔴 DEBUG: BEFORE Discogs pricing API call for release_id: {release_id}")
-        
         if self.discogs_handler:
             with st.spinner("Fetching Discogs price suggestions..."):
                 pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
-            
-            print(f"🔴 DEBUG: AFTER Discogs pricing API call - pricing_data: {pricing_data}")
         else:
             st.error("Discogs handler not available")
             return False, None
@@ -85,18 +79,21 @@ class RecordOperationsHandler:
         commission_rate = record_data.get('commission_rate')
         store_return_days = record_data.get('store_return_days')
         
+        # Get discogs_genre for mapping
+        discogs_genre = record_data.get('discogs_genre', '')
+        
         # Get genre_id for the genre using API
         genre_id = None
         if genre:
             genres_df = st.session_state.db_manager.get_all_genres()
             genre_row = genres_df[genres_df['genre_name'] == genre]
             if not genre_row.empty:
-                genre_id = genre_row.iloc[0]['id']
+                genre_id = int(genre_row.iloc[0]['id'])  # Convert to regular Python int
             else:
                 # Create new genre using API
                 success, new_genre_id = st.session_state.db_manager.add_genre(genre)
                 if success:
-                    genre_id = new_genre_id
+                    genre_id = int(new_genre_id)  # Convert to regular Python int
                 else:
                     st.error(f"Failed to create new genre: {genre}")
                     return False, None
@@ -131,12 +128,15 @@ class RecordOperationsHandler:
             'compilation': compilation  # Include compilation status
         }
         
-        print(f"🔴 DEBUG: BEFORE database save_record call")
-        print(f"🔴 DEBUG: Saving record data: {result_data}")
-        
         record_id = st.session_state.db_manager.save_record(result_data)
         
-        print(f"🔴 DEBUG: AFTER database save_record call - record_id: {record_id}")
+        # Save Discogs genre mapping if available
+        if discogs_genre and genre_id:
+            success = st.session_state.db_manager.save_discogs_genre_mapping(discogs_genre, genre_id)
+            if success:
+                st.success(f"📝 Saved genre mapping: {discogs_genre} → {genre}")
+            else:
+                st.warning(f"⚠️ Could not save genre mapping for {discogs_genre}")
         
         return True, record_id
 
@@ -231,8 +231,6 @@ class RecordOperationsHandler:
         """Update database record"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
-            
-        print(f"🔴 DEBUG update_database_record: genre={genre}")
         
         record_id = record_data['id']
         
@@ -250,7 +248,7 @@ class RecordOperationsHandler:
             genres_df = st.session_state.db_manager.get_all_genres()
             genre_row = genres_df[genres_df['genre_name'] == genre]
             if not genre_row.empty:
-                genre_id = genre_row.iloc[0]['id']
+                genre_id = int(genre_row.iloc[0]['id'])  # Convert to regular Python int
         
         updates = {
             'genre_id': genre_id,

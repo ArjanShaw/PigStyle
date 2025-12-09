@@ -33,20 +33,11 @@ class EbayHandler:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"}
 
-        # Log token API call to terminal
-        print(f"🔴 DEBUG: Starting eBay Token API call")
-        start_time = time.time()
-        
         resp = requests.post(self.EBAY_TOKEN_URL, headers=headers, data=data, auth=(self.client_id, self.client_secret))
         resp.raise_for_status()
         token_data = resp.json()
         self.token = token_data["access_token"]
         self.token_expiry = time.time() + token_data["expires_in"] - 60
-        
-        duration = round(time.time() - start_time, 2)
-        
-        # Log token response to terminal
-        print(f"🔴 DEBUG: eBay Token API SUCCESS - Duration: {duration}s")
         
         return self.token
 
@@ -66,26 +57,14 @@ class EbayHandler:
             "fieldgroups": "EXTENDED"  # Get more detailed info including shipping
         }
 
-        # Log search API call to terminal
-        print(f"🔴 DEBUG: Starting eBay Search API for query: {query}")
-        start_time = time.time()
-
         resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
         
         # Handle API errors gracefully
         if resp.status_code != 200:
-            duration = round(time.time() - start_time, 2)
             error_msg = f'Status {resp.status_code}: {resp.text}'
-            print(f"🔴 DEBUG: eBay Search API ERROR: {error_msg}")
             return None
             
         data = resp.json()
-
-        duration = round(time.time() - start_time, 2)
-
-        # Log successful response to terminal
-        print(f"🔴 DEBUG: eBay Search API SUCCESS - Duration: {duration}s")
-        print(f"🔴 DEBUG: Found {len(data.get('itemSummaries', []))} items")
 
         items = data.get("itemSummaries", [])
         
@@ -246,7 +225,6 @@ class EbayHandler:
             return {'type': 'CALC', 'cost': None}
                 
         except Exception as e:
-            print(f"Error extracting shipping info: {e}")
             # Default to calculated shipping on error
             return {'type': 'CALC', 'cost': None}
 
@@ -292,23 +270,11 @@ class EbayHandler:
         headers = {"Authorization": f"Bearer {self.token}"}
         url = f"{self.EBAY_ITEM_URL}{item_id}"
 
-        # Log item API call to terminal
-        print(f"🔴 DEBUG: Starting eBay Item API for item_id: {item_id}")
-        start_time = time.time()
-
         try:
             resp = requests.get(url, headers=headers, timeout=10)
             resp.raise_for_status()
             item_data = resp.json()
             
-            duration = round(time.time() - start_time, 2)
-            
-            # Log successful response to terminal
-            print(f"🔴 DEBUG: eBay Item API SUCCESS - Duration: {duration}s")
-            
             return item_data
         except Exception as e:
-            duration = round(time.time() - start_time, 2)
-            error_msg = f"Exception: {str(e)}"
-            print(f"🔴 DEBUG: eBay Item API ERROR: {error_msg}")
             return None

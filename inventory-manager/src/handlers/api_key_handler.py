@@ -3,14 +3,11 @@ import streamlit as st
 from pathlib import Path
 
 class APIKeyHandler:
-    """Handles loading and validation of API keys from both .env file and Streamlit secrets"""
-    
     def __init__(self):
         self.env_vars = {}
         self.env_vars_loaded = False
     
     def get_environment_variables(self):
-        """Get environment variables from Streamlit secrets (production) or .env file (local development)"""
         if self.env_vars_loaded:
             return self.env_vars
             
@@ -22,24 +19,17 @@ class APIKeyHandler:
             "YOUTUBE_API_KEY"
         ]
         
-        # First try: Streamlit Secrets (for Streamlit Cloud)
-        try:
-            if hasattr(st, 'secrets'):
-                # Check if all required variables are in secrets
-                secrets_available = all(var in st.secrets for var in required_vars)
-                if secrets_available:
-                    for var in required_vars:
-                        self.env_vars[var] = st.secrets[var]
-                    self.env_vars_loaded = True
-                    return self.env_vars
-        except Exception as e:
-            print(f"Error accessing Streamlit secrets: {e}")
+        if hasattr(st, 'secrets'):
+            secrets_available = all(var in st.secrets for var in required_vars)
+            if secrets_available:
+                for var in required_vars:
+                    self.env_vars[var] = st.secrets[var]
+                self.env_vars_loaded = True
+                return self.env_vars
         
-        # Second try: .env file (for local development)
         current_dir = os.getcwd()
         env_file_path = os.path.join(current_dir, '.env')
         
-        # Check if .env file exists
         if not os.path.exists(env_file_path):
             error_msg = f"""
             ❌ API keys not found!
@@ -57,24 +47,17 @@ class APIKeyHandler:
             """
             raise Exception(error_msg)
         
-        # Load environment variables from .env file
-        try:
-            with open(env_file_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        key = key.strip()
-                        value = value.strip()
-                        # Remove quotes if present
-                        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-                            value = value[1:-1]
-                        self.env_vars[key] = value
-        except Exception as e:
-            error_msg = f"❌ Error reading .env file: {str(e)}"
-            raise Exception(error_msg)
+        with open(env_file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+                        value = value[1:-1]
+                    self.env_vars[key] = value
         
-        # Validate all required variables are present
         missing_vars = []
         for var in required_vars:
             if var not in self.env_vars or not self.env_vars[var]:
@@ -94,13 +77,11 @@ class APIKeyHandler:
         return self.env_vars
     
     def get_api_key(self, key_name, default=None):
-        """Get a specific API key by name"""
         if not self.env_vars_loaded:
             self.get_environment_variables()
         return self.env_vars.get(key_name, default)
     
     def validate_required_keys(self, required_keys=None):
-        """Validate that all required API keys are available"""
         if not self.env_vars_loaded:
             self.get_environment_variables()
             
@@ -118,7 +99,6 @@ class APIKeyHandler:
         return True, []
     
     def get_available_sources(self):
-        """Get information about available API key sources"""
         current_dir = os.getcwd()
         env_file_path = os.path.join(current_dir, '.env')
         

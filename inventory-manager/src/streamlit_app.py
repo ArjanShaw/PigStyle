@@ -11,7 +11,7 @@ from auth.session_manager import SessionManager
 from auth.permissions import PermissionManager
 
 # Import existing modules
-from database_manager import DatabaseManager  # Changed from database_manager_api
+from database_manager import DatabaseManager
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
@@ -20,7 +20,7 @@ from tabs.store_pricing_tab import StorePricingTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
-from tabs.votes_tab import VotesTab  # New import
+from tabs.votes_tab import VotesTab
 from handlers.ebay_handler import EbayHandler
 from handlers.api_key_handler import APIKeyHandler
 from config import AppConfig
@@ -64,7 +64,6 @@ def render_login_page(auth_manager, session_manager):
                 st.error("Please enter both username and password")
         
         if demo_button:
-            # Demo mode with viewer permissions
             st.session_state.authenticated = True
             st.session_state.user = {
                 'username': 'demo_user',
@@ -80,7 +79,6 @@ def render_login_page(auth_manager, session_manager):
 
 def render_main_app():
     """Render the main application after authentication"""
-    # Initialize session manager and check existing session
     auth_manager = AuthManager()
     session_manager = SessionManager(auth_manager)
     
@@ -88,23 +86,24 @@ def render_main_app():
         render_login_page(auth_manager, session_manager)
         return
     
-    # User is authenticated, render main app
     user = session_manager.get_current_user()
     
-    # Set page config for main app
     st.set_page_config(
         page_title="PigStyle Inventory Manager",
         page_icon="🎵",
         layout="wide"
     )
     
-    # Initialize configuration
-    config = AppConfig()
+    # Initialize config - this will throw error if config file is missing or incomplete
+    try:
+        config = AppConfig()
+    except Exception as e:
+        st.error(f"Configuration error: {e}")
+        st.info("Please ensure app_config.json exists with all required values")
+        st.stop()
     
-    # Initialize API Key Handler
     api_key_handler = APIKeyHandler()
     
-    # Get environment variables
     env_vars = api_key_handler.get_environment_variables()
 
     IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
@@ -113,7 +112,6 @@ def render_main_app():
     EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
     YOUTUBE_API_KEY = env_vars.get("YOUTUBE_API_KEY")
 
-    # Initialize session state defaults with API-based database manager
     if "db_manager" not in st.session_state:
         api_base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
         st.session_state.db_manager = DatabaseManager(api_base_url)
@@ -134,24 +132,20 @@ def render_main_app():
     if "selected_records" not in st.session_state:
         st.session_state.selected_records = []
 
-    # Initialize Discogs handler
     discogs_handler = None
     if DISCOGS_USER_TOKEN:
         discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN)
     
-    # Initialize eBay handler
     ebay_handler = None
     if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
         ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET)
     
-    # Initialize YouTube handler
     youtube_handler = None
     if YOUTUBE_API_KEY:
         youtube_handler = YouTubeHandler(YOUTUBE_API_KEY)
     else:
         st.warning("YouTube API key not found. YouTube integration will be disabled.")
  
-    # Initialize all tabs
     inventory_tab = InventoryTab(discogs_handler, ebay_handler, youtube_handler)
     statistics_tab = StatisticsTab()
     ebay_tab = EBayTab(ebay_handler)
@@ -159,23 +153,19 @@ def render_main_app():
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(st.session_state.db_manager)
     admin_config_tab = AdminConfigTab()
-    votes_tab = VotesTab()  # New tab
+    votes_tab = VotesTab()
 
-    # Render header with user info
     render_header(user, session_manager)
     
-    # Create tabs based on user permissions
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
                                    ebay_tab, statistics_tab, consignment_tab, 
-                                   admin_config_tab, votes_tab)  # Added votes_tab
+                                   admin_config_tab, votes_tab)
 
 def render_header(user, session_manager):
     """Render application header with user information"""
-    # Compact header in single row
     col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     
     with col1:
-        # Removed "PigStyle Inventory Manager" header as requested
         pass
     
     with col2:
@@ -191,7 +181,6 @@ def render_header(user, session_manager):
         if st.button("🚪", help="Logout"):
             session_manager.logout()
     
-    # Show change password form if triggered
     if st.session_state.get('show_change_password', False):
         render_change_password_form(session_manager)
 
@@ -234,54 +223,40 @@ def render_change_password_form(session_manager):
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
                                    ebay_tab, statistics_tab, consignment_tab,  
-                                   admin_config_tab, votes_tab):  # Added votes_tab parameter
+                                   admin_config_tab, votes_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
     
     tab_configs = []
     
-    # Always show these tabs for authenticated users with basic view permissions
     if PermissionManager.has_permission(user_role, 'inventory', 'view'):
         tab_configs.append(("📦 Inventory", inventory_tab.render))
     
     if PermissionManager.has_permission(user_role, 'inventory', 'add'):
         tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render))
     
-    # Store Pricing tab removed for all users as requested
-    # if PermissionManager.has_permission(user_role, 'pricing', 'view'):
-    #     tab_configs.append(("🏪 Store Pricing", store_pricing_tab.render))
-    
-    # eBay tab only for admin
     if user_role == 'admin' and PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    # Statistics tab only for admin
     if user_role == 'admin' and PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("📊 Statistics", statistics_tab.render))
     
-    # Votes tab only for admin
     if user_role == 'admin' and PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("🗳️ Votes", votes_tab.render))
     
     if PermissionManager.has_permission(user_role, 'consignment', 'view'):
         tab_configs.append(("🤝 Consignment", consignment_tab.render))
     
-    
-    # Admin-only tabs
     if user_role == 'admin':
         tab_configs.append(("⚙️ Admin Config", admin_config_tab.render))
     
-    # Create tabs
     if tab_configs:
         tab_names = [config[0] for config in tab_configs]
         tabs = st.tabs(tab_names)
         
         for i, (tab_name, render_function) in enumerate(tab_configs):
             with tabs[i]:
-                try:
-                    render_function()
-                except Exception as e:
-                    st.error(f"Error loading {tab_name}: {str(e)}")
+                render_function()
 
 def main():
     """Main application entry point"""

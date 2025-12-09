@@ -1,4 +1,3 @@
-# FILE: inventory-manager/src/handlers/discogs_handler.py
 import requests
 import json
 import re
@@ -18,72 +17,44 @@ class DiscogsHandler:
         }
     
     def get_release_statistics_pricing(self, release_id: str):
-        """Get all price suggestions for a release using marketplace price_suggestions endpoint"""
         endpoint_url = f"{self.base_url}/marketplace/price_suggestions/{release_id}"
-        
-        # Log the API call to terminal
-        print(f"🔴 DEBUG: Starting Discogs Price Suggestions API call for release_id: {release_id}")
-        print(f"🔴 DEBUG: Endpoint: {endpoint_url}")
-        start_time = time.time()
 
-        try:
-            response = requests.get(
-                endpoint_url,
-                headers=self.headers,
-                timeout=15
-            )
-            
-            duration = round(time.time() - start_time, 2)
-            
-            if response.status_code != 200:
-                error_msg = f'Status {response.status_code}: {response.text}'
-                print(f"🔴 DEBUG: Discogs API ERROR: {error_msg}")
-                return None
-            
-            data = response.json()
-            
-            # Log successful response to terminal
-            print(f"🔴 DEBUG: Discogs API SUCCESS - Duration: {duration}s")
-            print(f"🔴 DEBUG: Price suggestions keys: {list(data.keys()) if data else 'No data'}")
-            
-            # Return all conditions and their prices
-            price_suggestions = {}
-            for condition, price_data in data.items():
-                price_value = self._parse_price_from_suggestion(price_data)
-                if price_value:
-                    price_suggestions[condition] = price_value
-            
-            print(f"🔴 DEBUG: Parsed price suggestions: {price_suggestions}")
-            
-            return {
-                'price_suggestions': price_suggestions,
-                'success': True,
-                'total_conditions': len(price_suggestions)
-            }
-            
-        except Exception as e:
-            duration = round(time.time() - start_time, 2)
-            error_msg = f"Exception: {str(e)}"
-            print(f"🔴 DEBUG: Discogs API EXCEPTION: {error_msg} - Duration: {duration}s")
+        response = requests.get(
+            endpoint_url,
+            headers=self.headers,
+            timeout=15
+        )
+        
+        if response.status_code != 200:
             return None
+        
+        data = response.json()
+        
+        price_suggestions = {}
+        for condition, price_data in data.items():
+            price_value = self._parse_price_from_suggestion(price_data)
+            if price_value:
+                price_suggestions[condition] = price_value
+        
+        return {
+            'price_suggestions': price_suggestions,
+            'success': True,
+            'total_conditions': len(price_suggestions)
+        }
 
     def _parse_price_from_suggestion(self, price_data):
-        """Parse price from Discogs price suggestion data"""
         if not price_data:
             return None
         
-        # Price suggestions typically have a 'value' key
         if isinstance(price_data, dict):
             if 'value' in price_data:
                 price_float = float(price_data['value'])
                 if 0.1 <= price_float <= 10000:
                     return round(price_float, 2)
         
-        # Fallback to general price parsing
         return self._parse_price(price_data)
 
     def search_multiple_results(self, query: str, filename_base: str = None):
-        """Search Discogs and return multiple results for user selection"""
         endpoint_url = f"{self.base_url}/database/search"
         params = {
             'q': query,
@@ -92,10 +63,6 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        # Log to terminal
-        print(f"🔴 DEBUG: Starting Discogs Search API for query: {query}")
-        start_time = time.time()
-        
         response = requests.get(
             endpoint_url,
             params=params,
@@ -103,32 +70,21 @@ class DiscogsHandler:
             timeout=15
         )
         
-        duration = round(time.time() - start_time, 2)
-        
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
-            print(f"🔴 DEBUG: Discogs Search API ERROR: {error_msg}")
             raise Exception(error_msg)
         
         data = response.json()
         
-        # Log successful search
-        print(f"🔴 DEBUG: Discogs Search API SUCCESS - Duration: {duration}s")
-        print(f"🔴 DEBUG: Found {len(data.get('results', []))} results")
-        
         return data
 
     def get_release_data(self, release_id: str, query: str):
-        """Get release data including pricing information - NOW USES PRICE SUGGESTIONS"""
-        # First try to get basic release info for images
         release_info = self._get_basic_release_info(release_id)
         image_url = release_info.get('image_url', '')
         
-        # Use price suggestions for pricing
         pricing_data = self.get_release_statistics_pricing(release_id)
         
         if pricing_data:
-            # Use price suggestions data
             return {
                 'price_suggestions': pricing_data.get('price_suggestions', {}),
                 'image_url': image_url,
@@ -137,7 +93,6 @@ class DiscogsHandler:
                 'total_conditions': pricing_data.get('total_conditions', 0)
             }
         else:
-            # No pricing data available
             return {
                 'price_suggestions': {},
                 'image_url': image_url,
@@ -146,12 +101,7 @@ class DiscogsHandler:
             }
 
     def _get_basic_release_info(self, release_id: str):
-        """Get basic release info for images and metadata"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
-        
-        # Log to terminal
-        print(f"🔴 DEBUG: Starting Discogs Release API for release_id: {release_id}")
-        start_time = time.time()
 
         response = requests.get(
             endpoint_url,
@@ -159,11 +109,8 @@ class DiscogsHandler:
             timeout=10
         )
         
-        duration = round(time.time() - start_time, 2)
-        
         if response.status_code == 200:
             release_data = response.json()
-            print(f"🔴 DEBUG: Discogs Release API SUCCESS - Duration: {duration}s")
             
             image_url = self._extract_image_from_release(release_data)
             return {
@@ -171,56 +118,34 @@ class DiscogsHandler:
                 'release_data': release_data
             }
         else:
-            error_msg = f'Status {response.status_code}: {response.text}'
-            print(f"🔴 DEBUG: Discogs Release API ERROR: {error_msg}")
             return {'image_url': '', 'release_data': {}}
 
     def get_release_tracklist(self, release_id: str):
-        """Get tracklist from Discogs release data"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
-        
-        # Log to terminal
-        print(f"🔴 DEBUG: Starting Discogs Tracklist API for release_id: {release_id}")
-        start_time = time.time()
 
-        try:
-            response = requests.get(
-                endpoint_url,
-                headers=self.headers,
-                timeout=10
-            )
+        response = requests.get(
+            endpoint_url,
+            headers=self.headers,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            release_data = response.json()
             
-            duration = round(time.time() - start_time, 2)
+            tracklist = release_data.get('tracklist', [])
+            track_titles = []
             
-            if response.status_code == 200:
-                release_data = response.json()
-                print(f"🔴 DEBUG: Discogs Tracklist API SUCCESS - Duration: {duration}s")
-                
-                # Extract tracklist
-                tracklist = release_data.get('tracklist', [])
-                track_titles = []
-                
-                for track in tracklist:
-                    if track.get('type') == 'track':  # Only include actual tracks, not headings
-                        title = track.get('title', '').strip()
-                        if title and title not in track_titles:
-                            track_titles.append(title)
-                
-                print(f"🔴 DEBUG: Found {len(track_titles)} tracks")
-                return track_titles
-            else:
-                error_msg = f'Status {response.status_code}: {response.text}'
-                print(f"🔴 DEBUG: Discogs Tracklist API ERROR: {error_msg}")
-                return []
-                
-        except Exception as e:
-            duration = round(time.time() - start_time, 2)
-            error_msg = f"Exception: {str(e)}"
-            print(f"🔴 DEBUG: Discogs Tracklist API EXCEPTION: {error_msg}")
+            for track in tracklist:
+                if track.get('type') == 'track':
+                    title = track.get('title', '').strip()
+                    if title and title not in track_titles:
+                        track_titles.append(title)
+            
+            return track_titles
+        else:
             return []
 
     def get_simple_search_results(self, query: str, filename_base: str = None):
-        """Get simple search results with basic info - NO EXTRA API CALLS"""
         endpoint_url = f"{self.base_url}/database/search"
         params = {
             'q': query,
@@ -228,10 +153,6 @@ class DiscogsHandler:
             'per_page': 50,
             'currency': 'USD'
         }
-        
-        # Log to terminal
-        print(f"🔴 DEBUG: Starting Discogs Simple Search API for query: {query}")
-        start_time = time.time()
 
         response = requests.get(
             endpoint_url,
@@ -240,31 +161,21 @@ class DiscogsHandler:
             timeout=15
         )
         
-        duration = round(time.time() - start_time, 2)
-        
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
-            print(f"🔴 DEBUG: Discogs Simple Search API ERROR: {error_msg}")
             raise Exception(error_msg)
         
         search_data = response.json()
         
-        # Log successful search
-        print(f"🔴 DEBUG: Discogs Simple Search API SUCCESS - Duration: {duration}s")
-        print(f"🔴 DEBUG: Found {len(search_data.get('results', []))} results")
-        
-        # Process results - just basic info, no pricing calls
         formatted_results = []
         seen_masters = set()
         
         for result in search_data.get('results', []):
             master_id = result.get('master_id')
             
-            # Skip if we've already seen this master release
             if master_id and master_id in seen_masters:
                 continue
                 
-            # Add to seen masters
             if master_id:
                 seen_masters.add(master_id)
             
@@ -292,35 +203,26 @@ class DiscogsHandler:
                 'country': country,
                 'master_id': master_id,
                 'genre': genre,
-                # Note: No pricing data here - that will be fetched later when user selects a record
             }
             formatted_results.append(formatted_result)
         
         return formatted_results
 
     def _extract_genre_from_result(self, result):
-        """Extract genre from Discogs search result"""
-        try:
-            if not isinstance(result, dict):
-                return ""
-            
-            # Check for genres in the result
-            genres = result.get('genre', [])
-            if genres and isinstance(genres, list) and len(genres) > 0:
-                return genres[0]
-            
-            # Check for styles as fallback
-            styles = result.get('style', [])
-            if styles and isinstance(styles, list) and len(styles) > 0:
-                return styles[0]
-                
-        except Exception as e:
-            print(f"Error extracting genre from Discogs result: {e}")
+        if not isinstance(result, dict):
+            return ""
         
+        genres = result.get('genre', [])
+        if genres and isinstance(genres, list) and len(genres) > 0:
+            return genres[0]
+        
+        styles = result.get('style', [])
+        if styles and isinstance(styles, list) and len(styles) > 0:
+            return styles[0]
+                
         return ""
 
     def _extract_image_from_release(self, release_data):
-        """Extract image URL from release data"""
         image_fields = [
             release_data.get('images', [{}])[0].get('uri'),
             release_data.get('images', [{}])[0].get('uri150'),
@@ -335,7 +237,6 @@ class DiscogsHandler:
         return ""
 
     def _extract_image_from_result(self, result):
-        """Extract image URL from search result"""
         image_fields = [
             result.get('cover_image'),
             result.get('thumb'),
@@ -350,7 +251,6 @@ class DiscogsHandler:
         return ""
     
     def _create_no_results_response(self, query: str):
-        """Create response when no pricing data is found"""
         return {
             'price_suggestions': {},
             'success': False,
@@ -358,11 +258,9 @@ class DiscogsHandler:
         }
     
     def _parse_price(self, price_data):
-        """Parse price from Discogs listing data"""
         if not price_data:
             return None
         
-        # Handle different price formats from Discogs API
         if isinstance(price_data, (int, float)):
             price_float = float(price_data)
             if 0.1 <= price_float <= 10000:
@@ -370,14 +268,12 @@ class DiscogsHandler:
             return None
         
         if isinstance(price_data, dict):
-            # Try different keys that might contain the price
             for key in ['value', 'amount', 'price']:
                 if key in price_data:
                     return self._parse_price(price_data[key])
             return None
         
         if isinstance(price_data, str):
-            # Clean string price
             cleaned = re.sub(r'[^\d.,]', '', str(price_data))
             
             if not cleaned:
@@ -402,7 +298,6 @@ class DiscogsHandler:
         return None
     
     def _extract_artist_from_result(self, result):
-        """Extract artist name from Discogs result"""
         if isinstance(result, dict):
             if result.get('artists') and isinstance(result['artists'], list):
                 for artist in result['artists']:
@@ -426,7 +321,6 @@ class DiscogsHandler:
         return 'Unknown Artist'
 
     def _extract_title_from_result(self, result):
-        """Extract title from Discogs result"""
         if isinstance(result, dict):
             if result.get('title'):
                 title_text = result['title']
@@ -437,74 +331,61 @@ class DiscogsHandler:
         return 'Unknown Title'
 
     def _extract_catalog_number(self, result):
-        """Extract catalog number from Discogs result"""
-        try:
-            if not isinstance(result, dict):
-                return ''
-                
-            if result.get('catno'):
-                return result['catno']
-            
-            if result.get('label'):
-                labels = result['label']
-                if isinstance(labels, list):
-                    for label in labels:
-                        if isinstance(label, dict) and label.get('catno'):
-                            return label['catno']
-                        elif isinstance(label, str):
-                            if any(char.isdigit() for char in label):
-                                return label
-                elif isinstance(labels, str):
-                    if any(char.isdigit() for char in labels):
-                        return labels
-            
-            if result.get('format') and isinstance(result['format'], list):
-                for format_item in result['format']:
-                    if isinstance(format_item, str) and any(char.isdigit() for char in format_item):
-                        return format_item
-            
+        if not isinstance(result, dict):
             return ''
-        except Exception as e:
-            return ''
+            
+        if result.get('catno'):
+            return result['catno']
+        
+        if result.get('label'):
+            labels = result['label']
+            if isinstance(labels, list):
+                for label in labels:
+                    if isinstance(label, dict) and label.get('catno'):
+                        return label['catno']
+                    elif isinstance(label, str):
+                        if any(char.isdigit() for char in label):
+                            return label
+            elif isinstance(labels, str):
+                if any(char.isdigit() for char in labels):
+                    return labels
+        
+        if result.get('format') and isinstance(result['format'], list):
+            for format_item in result['format']:
+                if isinstance(format_item, str) and any(char.isdigit() for char in format_item):
+                    return format_item
+        
+        return ''
 
     def _extract_format_info(self, result):
-        """Extract format information from Discogs result"""
-        try:
-            if not isinstance(result, dict):
-                return ''
-                
-            format_list = result.get('format', [])
-            if isinstance(format_list, list):
-                return ', '.join([str(f) for f in format_list])
-            elif isinstance(format_list, str):
-                return format_list
+        if not isinstance(result, dict):
             return ''
-        except Exception as e:
-            return ''
+            
+        format_list = result.get('format', [])
+        if isinstance(format_list, list):
+            return ', '.join([str(f) for f in format_list])
+        elif isinstance(format_list, str):
+            return format_list
+        return ''
 
     def _extract_label_info(self, result):
-        """Extract label information from Discogs result"""
-        try:
-            if not isinstance(result, dict):
-                return ''
-                
-            label_list = result.get('label', [])
-            if isinstance(label_list, list):
-                labels = []
-                for label in label_list:
-                    if isinstance(label, str):
-                        labels.append(label)
-                    elif isinstance(label, dict) and label.get('name'):
-                        labels.append(label['name'])
-                return ', '.join(labels)
-            elif isinstance(label_list, str):
-                return label_list
+        if not isinstance(result, dict):
             return ''
-        except Exception as e:
-            return ''
+            
+        label_list = result.get('label', [])
+        if isinstance(label_list, list):
+            labels = []
+            for label in label_list:
+                if isinstance(label, str):
+                    labels.append(label)
+                elif isinstance(label, dict) and label.get('name'):
+                    labels.append(label['name'])
+            return ', '.join(labels)
+        elif isinstance(label_list, str):
+            return label_list
+        return ''
 
     def _save_payload(self, filename, data):
-        """Save payload data to JSON file"""
         payloads_folder = Path("payloads")
         payloads_folder.mkdir(parents=True, exist_ok=True)
         file_path = payloads_folder / filename

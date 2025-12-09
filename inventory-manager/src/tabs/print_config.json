@@ -1,8 +1,0 @@
-{
-  "price_font_size": 10,
-  "price_y_pos": 12.0,
-  "text_font_size": 6,
-  "barcode_y_pos": 2.0,
-  "barcode_height": 6.0,
-  "print_borders": true
-}

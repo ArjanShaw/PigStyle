@@ -17,21 +17,28 @@ class DisplayHandler:
             st.warning("No results found on Discogs")
             return
         
-        self._render_unified_results(results, search_type)
+        self._render_unified_results(results, search_type, None)
 
-    def render_database_results(self, results, search_type):
+    def render_database_results(self, results, search_type, user=None):
         if not results:
             st.warning("No records found in database")
             return
         
-        self._render_editable_database_results(results)
+        self._render_editable_database_results(results, search_type, user)
 
-    def _render_editable_database_results(self, results):
+    def _render_editable_database_results(self, results, search_type, user=None):
         for i, record in enumerate(results):
-            with st.expander(f"{record.get('artist', '')} - {record.get('title', '')}", expanded=False):
-                self._render_editable_record(record, i)
+            # Show consignor name in the expander title for admin users
+            expander_title = f"{record.get('artist', '')} - {record.get('title', '')}"
+            user_role = user.get('role', 'consignor') if user else 'consignor'
+            
+            if user_role == 'admin' and record.get('consignor_name'):
+                expander_title += f" 👤 {record.get('consignor_name')}"
+            
+            with st.expander(expander_title, expanded=False):
+                self._render_editable_record(record, i, search_type, user)
 
-    def _render_editable_record(self, record, index):
+    def _render_editable_record(self, record, index, search_type, user=None):
         col1, col2 = st.columns([1, 3])
         
         with col1:
@@ -42,6 +49,12 @@ class DisplayHandler:
                 st.write("No image")
         
         with col2:
+            user_role = user.get('role', 'consignor') if user else 'consignor'
+            
+            # Show consignor info for admin users
+            if user_role == 'admin' and record.get('consignor_name'):
+                st.write(f"**👤 Consignor:** {record.get('consignor_name', '')}")
+            
             st.write(f"**ID:** {record.get('id', '')}")
             st.write(f"**Barcode:** {record.get('barcode', '')}")
             st.write(f"**Catalog:** {record.get('catalog_number', '')}")
@@ -111,7 +124,7 @@ class DisplayHandler:
         success = st.session_state.db_manager.update_record(record_id, {'barcode': None})
         return success
 
-    def _render_unified_results(self, results, result_type):
+    def _render_unified_results(self, results, result_type, user=None):
         for i, record in enumerate(results):
             col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
                 
@@ -125,7 +138,13 @@ class DisplayHandler:
                 artist = record.get('artist', '')
                 title = record.get('title', '')
                 
-                st.write(f"**{artist} - {title}**")
+                # Show consignor name for admin users
+                user_role = user.get('role', 'consignor') if user else 'consignor'
+                consignor_info = ""
+                if user_role == 'admin' and record.get('consignor_name'):
+                    consignor_info = f" 👤 {record.get('consignor_name')}"
+                
+                st.write(f"**{artist} - {title}{consignor_info}**")
                 
                 if result_type == "Edit or Delete item":
                     store_price = record.get('store_price')
@@ -140,11 +159,23 @@ class DisplayHandler:
                     catalog_number = record.get('catalog_number', '')
                     genre = record.get('genre', '')
                     
+                    # FIXED: Always show consignor information for admin, show only for own records for consignor
+                    user_role = user.get('role', 'consignor') if user else 'consignor'
+                    user_id = user.get('id') if user else None
+                    record_consignor_id = record.get('consignor_id')
+                    
+                    # Determine if we should show consignor info
+                    show_consignor_info = False
+                    if user_role == 'admin':
+                        show_consignor_info = True  # Admin sees all consignor info
+                    elif user_role == 'consignor' and user_id and record_consignor_id and str(user_id) == str(record_consignor_id):
+                        show_consignor_info = True  # Consignor sees their own info
+                    
                     st.write(f"**ID:** {record_id} | **Barcode:** {barcode}")
                     st.write(f"**Catalog:** {catalog_number}" if catalog_number else "**Catalog:** N/A")
                     st.write(f"**Genre:** {genre}" if genre else "**Genre:** N/A")
                     st.write(f"**Compilation:** {'✅ Yes' if compilation else '❌ No'}")
-                    if consignor_name:
+                    if show_consignor_info and consignor_name:
                         st.write(f"**Consignor:** {consignor_name} ({commission_rate*100 if commission_rate else 0}%)")
                     st.write(f"**Store Price:** ${store_price:.2f}" if store_price is not None else "**Store Price:** N/A")
                     st.write(f"**Discogs Price:** ${discogs_suggested_price:.2f}" if discogs_suggested_price and discogs_suggested_price > 0 else "**Discogs Price:** N/A")
@@ -195,11 +226,20 @@ class DisplayHandler:
             
             with col4:
                 if result_type == "Edit or Delete item":
-                    if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", width='stretch', type="secondary"):
-                        record_id = record.get('id')
-                        if self._delete_record(record_id):
-                            st.success("Record deleted successfully!")
-                            st.rerun()
+                    # Only show delete button for admin or if user owns the record
+                    user_role = user.get('role', 'consignor') if user else 'consignor'
+                    user_id = user.get('id') if user else None
+                    record_consignor_id = record.get('consignor_id')
+                    
+                    # Allow delete if: user is admin OR record has no consignor OR user is the consignor
+                    show_delete = (user_role == 'admin') or (not record_consignor_id) or (user_id and str(record_consignor_id) == str(user_id))
+                    
+                    if show_delete:
+                        if st.button("🗑️ Delete", key=f"delete_{result_type}_{i}", width='stretch', type="secondary"):
+                            record_id = record.get('id')
+                            if self._delete_record(record_id):
+                                st.success("Record deleted successfully!")
+                                st.rerun()
             
             st.divider()
 
@@ -477,9 +517,9 @@ class DisplayHandler:
             st.info("Discogs pricing data loading...")
 
     def _check_for_duplicate_simple(self, record_data):
-        artist = record_data.get('artist', '')
-        title = record_data.get('title', '')
-        catalog_number = record_data.get('catalog_number', '')
+        artist = record.get('artist', '')
+        title = record.get('title', '')
+        catalog_number = record.get('catalog_number', '')
         
         all_records = st.session_state.db_manager.get_all_records()
         

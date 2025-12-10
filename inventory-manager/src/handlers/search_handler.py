@@ -45,11 +45,27 @@ class SearchHandler:
                 st.error(f"Error searching Discogs: {str(e)}")
                 return []
 
-    def perform_database_search(self, search_term):
-        """Perform database search - NOW INCLUDES CATALOG NUMBER SEARCH"""
+    def perform_database_search(self, search_term, user=None):
+        """Perform database search - NOW INCLUDES CATALOG NUMBER SEARCH AND FILTERS BY CONSIGNOR"""
         try:
-            # Use API-based search instead of SQL connection
-            df = st.session_state.db_manager.search_records(search_term)
+            # Get user role and ID
+            user_role = user.get('role', 'consignor') if user else 'consignor'
+            user_id = user.get('id') if user else None
+            
+            # Build query parameters
+            params = f"q={search_term}"
+            
+            # If user is a consignor, only show their own records
+            if user_role == 'consignor' and user_id:
+                params += f"&consignor_id={user_id}"
+            
+            # Use API-based search with consignor filter if applicable
+            response = st.session_state.db_manager._make_request('GET', f'/search?{params}')
+            
+            if response and 'records' in response:
+                df = pd.DataFrame(response['records'])
+            else:
+                return []
             
             # Convert database results to same format
             formatted_results = []
@@ -70,7 +86,8 @@ class SearchHandler:
                     'condition': record.get('condition', ''),
                     'genre': record.get('genre_name', record.get('genre', '')),  # FIXED: API returns 'genre_name'
                     'youtube_url': record.get('youtube_url', ''),
-                    'consignor_name': record.get('consignor_name', ''),
+                    'consignor_id': record.get('consignor_id', ''),  # ADDED: Include consignor_id
+                    'consignor_name': record.get('consignor_name', ''),  # Add consignor name
                     'commission_rate': record.get('commission_rate', ''),
                     'compilation': record.get('compilation', False)
                 }

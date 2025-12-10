@@ -89,8 +89,13 @@ class DatabaseManager:
         success = result is not None and result.get('status') == 'success'
         return success
     
-    def search_records(self, search_term: str) -> pd.DataFrame:
-        result = self._make_request('GET', f'/search?q={search_term}')
+    def search_records(self, search_term: str, consignor_id: str = None) -> pd.DataFrame:
+        """Search records with optional consignor filtering"""
+        endpoint = f'/search?q={search_term}'
+        if consignor_id:
+            endpoint += f'&consignor_id={consignor_id}'
+        
+        result = self._make_request('GET', endpoint)
         if result and 'records' in result:
             return pd.DataFrame(result['records'])
         return pd.DataFrame()

@@ -143,7 +143,9 @@ class InventoryTab:
                 results = self.search_handler.perform_discogs_search(search_term)
                 st.session_state.search_results[search_term] = results
             else:
-                results = self.search_handler.perform_database_search(search_term)
+                # Pass user information to filter by consignor
+                user = st.session_state.get('user', {})
+                results = self.search_handler.perform_database_search(search_term, user)
                 st.session_state.search_results[search_term] = results
             
             st.session_state.search_triggered = False
@@ -162,7 +164,7 @@ class InventoryTab:
                 if search_type == "Add item":
                     self.display_handler.render_discogs_results(results, search_type)
                 else:
-                    self.display_handler.render_database_results(results, search_type)
+                    self.display_handler.render_database_results(results, search_type, st.session_state.get('user', {}))
         
         if (st.session_state.selected_record and 
             st.session_state.record_added is None):

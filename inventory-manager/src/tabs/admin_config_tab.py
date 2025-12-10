@@ -20,7 +20,7 @@ class AdminConfigTab:
             self._render_config_editor()
         
         with col2:
-            self._render_config_help()
+            self._render_user_creation()
             
         st.subheader("👥 User Management")
         self._render_user_management()
@@ -32,10 +32,6 @@ class AdminConfigTab:
         
         if not config_data:
             st.info("No configuration values found. Add some configuration values first.")
-            
-            if st.button("➕ Add Configuration", width='stretch'):
-                self._add_configuration()
-                st.rerun()
             return
         
         config_df = pd.DataFrame(config_data)
@@ -71,55 +67,66 @@ class AdminConfigTab:
             
             if changes_made:
                 st.rerun()
-        
-        st.subheader("Add New Configuration")
-        with st.form("add_config_form"):
+    
+    def _render_user_creation(self):
+        st.subheader("Create New User")
+        with st.form("create_user_form"):
             col1, col2 = st.columns(2)
             with col1:
-                new_key = st.text_input("Configuration Key", placeholder="e.g., NEW_SETTING")
+                username = st.text_input("Username", placeholder="Enter username")
+                email = st.text_input("Email", placeholder="Enter email address")
+                full_name = st.text_input("Full Name", placeholder="Enter full name")
+            
             with col2:
-                new_value = st.text_input("Configuration Value", placeholder="e.g., 100")
+                password = st.text_input("Password", type="password", placeholder="Enter password")
+                confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm password")
+                role = st.selectbox("Role", options=["consignor", "admin"])
             
-            new_description = st.text_area("Description", placeholder="What does this setting control?")
-            
-            if st.form_submit_button("➕ Add Configuration", width='stretch'):
-                if new_key and new_value:
-                    success = st.session_state.db_manager.set_config_value(new_key, new_value)
+            if st.form_submit_button("➕ Create User", width='stretch'):
+                if not all([username, email, password, confirm_password]):
+                    st.error("Please fill all required fields")
+                elif password != confirm_password:
+                    st.error("Passwords do not match")
+                elif len(password) < 8:
+                    st.error("Password must be at least 8 characters long")
+                else:
+                    # Check if user already exists
+                    users_df = st.session_state.db_manager.get_all_users()
+                    if not users_df.empty:
+                        existing_users = users_df[users_df['username'] == username]
+                        if not existing_users.empty:
+                            st.error(f"Username '{username}' already exists")
+                            return
+                    
+                    # Create user via API
+                    success = self._create_user_api(username, email, password, role, full_name)
                     if success:
-                        st.success(f"✅ Added configuration key: {new_key}")
+                        st.success(f"✅ User '{username}' created successfully!")
                         st.rerun()
                     else:
-                        st.error(f"❌ Failed to add configuration key: {new_key}")
-                else:
-                    st.error("Please provide both key and value")
+                        st.error("❌ Failed to create user")
     
-    def _render_config_help(self):
-        st.subheader("Configuration Help")
-        
-        config_descriptions = {
-            'SHIPPING_COST': 'Default shipping cost for eBay price calculations ($)',
-            'MIN_STORE_PRICE': 'Minimum price for any record in the store ($)',
-            'STORE_PRICE_ESTIMATED_MULTIPLIER': 'Multiplier for estimated price when calculating store price',
-            'STORE_PRICE_MINIMUM': 'Absolute minimum store price regardless of calculations ($)',
-            'DEFAULT_COMMISSION_RATE': 'Default commission rate for new consignment records (0.0-1.0)',
-            'DEFAULT_STORE_RETURN_DAYS': 'Default number of days before unsold consignment records are returned',
-            'CUSTOMER_RETURN_DAYS': 'Number of days before sold consignment records can be paid out',
-            'CONSIGNOR_PICKUP_DAYS': 'Number of days consignors have to pick up returned records',
-            'STORE_CAPACITY': 'Maximum number of records the store can hold'
-        }
-        
-        for key, description in config_descriptions.items():
-            with st.expander(f"**{key}**", expanded=False):
-                st.write(description)
-        
-        st.subheader("Quick Actions")
-        
-        if st.button("🗑️ Clear All Config", width='stretch', type="secondary"):
-            if st.checkbox("I understand this will delete ALL configuration"):
-                if st.button("CONFIRM DELETE ALL CONFIG", type="primary", width='stretch'):
-                    self._clear_all_config()
-                    st.rerun()
-    
+    def _create_user_api(self, username, email, password, role, full_name):
+        """Create a new user via API"""
+        try:
+            result = st.session_state.db_manager._make_request(
+                'POST', 
+                '/users',
+                json={
+                    'username': username,
+                    'email': email,
+                    'password': password,
+                    'role': role,
+                    'full_name': full_name
+                }
+            )
+            
+            success = result is not None and result.get('status') == 'success'
+            return success
+        except Exception as e:
+            st.error(f"Error creating user: {e}")
+            return False
+
     def _get_all_config_values(self):
         config_data = []
         
@@ -154,15 +161,6 @@ class AdminConfigTab:
             'STORE_CAPACITY': 'Maximum number of records the store can hold'
         }
         return config_descriptions.get(config_key, 'No description available')
-
-    def _add_configuration(self):
-        st.info("Use the 'Add New Configuration' form above to add individual configuration values.")
-    
-    def _clear_all_config(self):
-        # Note: This would require additional API endpoint to clear all config
-        st.error("Configuration clearing requires additional API support. Contact administrator.")
-        # For now, we'll just inform the user
-        st.info("Please delete configuration values individually using the editor above.")
 
     def _render_user_management(self):
         users_df = st.session_state.db_manager.get_all_users()

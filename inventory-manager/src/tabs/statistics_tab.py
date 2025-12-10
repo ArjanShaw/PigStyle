@@ -16,28 +16,13 @@ class StatisticsTab:
             st.error("❌ Access denied. Administrator privileges required to view statistics.")
             return
         
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "📈 Overview",
-            "🎵 Genres",
-            "💰 Pricing",
-            "🗳️ Votes"
-        ])
-        
-        with tab1:
-            self._render_overview_stats()
-        
-        with tab2:
-            self._render_genre_chart()
-        
-        with tab3:
-            self._render_price_comparison_chart()
-        
-        with tab4:
-            self._render_vote_statistics()
-
-    def _render_overview_stats(self):
+        self._render_combined_stats()
+    
+    def _render_combined_stats(self):
+        # Get database stats
         stats = st.session_state.db_manager.get_database_stats()
         
+        # Display metrics in columns
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total Records", stats['records_count'])
@@ -48,8 +33,12 @@ class StatisticsTab:
         with col4:
             st.metric("Database", stats['db_path'])
         
+        # Get vote statistics
         vote_stats = st.session_state.db_manager.get_vote_statistics()
+        
         if not vote_stats.empty:
+            st.subheader("🗳️ Vote Statistics")
+            
             total_votes = vote_stats['total_votes'].sum()
             avg_votes_per_record = vote_stats['total_votes'].mean()
             most_voted = vote_stats.sort_values('total_votes', ascending=False).head(1)
@@ -64,7 +53,8 @@ class StatisticsTab:
                     record = most_voted.iloc[0]
                     st.metric("Most Voted", f"{record['total_votes']} votes")
             
-            st.subheader("🏆 Top 5 Most Voted Records")
+            # Top 5 most voted records
+            st.write("**🏆 Top 5 Most Voted Records**")
             top_records = vote_stats.sort_values('total_votes', ascending=False).head(5)
             
             for i, (_, record) in enumerate(top_records.iterrows()):
@@ -76,6 +66,32 @@ class StatisticsTab:
                         st.metric("👎 Downvotes", record['downvotes'])
                     with col3:
                         st.metric("📊 Total", record['total_votes'])
+        
+        # Genre statistics
+        st.subheader("🎵 Genre Distribution")
+        self._render_genre_chart()
+        
+        # Price statistics
+        st.subheader("💰 Price Statistics")
+        self._render_price_comparison_chart()
+        
+        # All votes table
+        if not vote_stats.empty:
+            st.subheader("📋 All Votes Summary")
+            
+            display_df = vote_stats[['artist', 'title', 'upvotes', 'downvotes', 'total_votes']].copy()
+            st.dataframe(
+                display_df,
+                width='stretch',
+                hide_index=True,
+                column_config={
+                    'artist': st.column_config.TextColumn('Artist'),
+                    'title': st.column_config.TextColumn('Title'),
+                    'upvotes': st.column_config.NumberColumn('👍 Upvotes'),
+                    'downvotes': st.column_config.NumberColumn('👎 Downvotes'),
+                    'total_votes': st.column_config.NumberColumn('📊 Total Votes')
+                }
+            )
 
     def _render_genre_chart(self):
         records_df = st.session_state.db_manager.get_all_records()
@@ -176,127 +192,3 @@ class StatisticsTab:
                         
         else:
             st.info("No price data available for comparison charts. Update prices using the Pricing section.")
-
-    def _render_vote_statistics(self):
-        st.subheader("📈 Vote Statistics")
-        
-        result = st.session_state.db_manager._make_request('GET', '/votes/statistics')
-        
-        if result and 'statistics' in result:
-            stats_df = pd.DataFrame(result['statistics'])
-            
-            if not stats_df.empty:
-                st.write("### 🏆 Most Voted Records")
-                
-                top_records = stats_df.sort_values('total_votes', ascending=False).head(20)
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    fig = px.bar(
-                        top_records,
-                        x='total_votes',
-                        y='title',
-                        orientation='h',
-                        title='Top 20 Most Voted Records',
-                        color='total_votes',
-                        color_continuous_scale='viridis'
-                    )
-                    fig.update_layout(
-                        yaxis_title='Record Title',
-                        xaxis_title='Total Votes',
-                        height=500,
-                        showlegend=False
-                    )
-                    st.plotly_chart(fig, width='stretch')
-                
-                with col2:
-                    display_df = top_records[['artist', 'title', 'upvotes', 'downvotes', 'total_votes']].copy()
-                    st.dataframe(
-                        display_df,
-                        width='stretch',
-                        hide_index=True,
-                        column_config={
-                            'artist': st.column_config.TextColumn('Artist'),
-                            'title': st.column_config.TextColumn('Title'),
-                            'upvotes': st.column_config.NumberColumn('👍 Upvotes'),
-                            'downvotes': st.column_config.NumberColumn('👎 Downvotes'),
-                            'total_votes': st.column_config.NumberColumn('📊 Total Votes')
-                        }
-                    )
-                
-                st.write("### 📊 Vote Distribution")
-                
-                all_votes_result = st.session_state.db_manager._make_request('GET', '/votes/all')
-                if all_votes_result and 'votes' in all_votes_result:
-                    all_votes_df = pd.DataFrame(all_votes_result['votes'])
-                    
-                    if not all_votes_df.empty:
-                        vote_counts = all_votes_df['vote_type'].value_counts()
-                        
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            fig = px.pie(
-                                names=vote_counts.index,
-                                values=vote_counts.values,
-                                title='Vote Type Distribution',
-                                color_discrete_sequence=px.colors.qualitative.Set3
-                            )
-                            st.plotly_chart(fig, width='stretch')
-                        
-                        with col2:
-                            total_votes = len(all_votes_df)
-                            upvote_percentage = (len(all_votes_df[all_votes_df['vote_type'] == 'upvote']) / total_votes * 100) if total_votes > 0 else 0
-                            downvote_percentage = (len(all_votes_df[all_votes_df['vote_type'] == 'downvote']) / total_votes * 100) if total_votes > 0 else 0
-                            
-                            st.metric("Total Votes", total_votes)
-                            st.metric("Upvote Rate", f"{upvote_percentage:.1f}%")
-                            st.metric("Downvote Rate", f"{downvote_percentage:.1f}%")
-                
-                st.write("### ⭐ Best Rated Records")
-                
-                qualified_records = stats_df[stats_df['total_votes'] >= 5].copy()
-                if not qualified_records.empty:
-                    qualified_records['upvote_ratio'] = qualified_records['upvotes'] / qualified_records['total_votes'] * 100
-                    best_rated = qualified_records.sort_values('upvote_ratio', ascending=False).head(10)
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        fig = px.bar(
-                            best_rated,
-                            x='upvote_ratio',
-                            y='title',
-                            orientation='h',
-                            title='Top 10 Best Rated Records (min 5 votes)',
-                            color='upvote_ratio',
-                            color_continuous_scale='greens'
-                        )
-                        fig.update_layout(
-                            yaxis_title='Record Title',
-                            xaxis_title='Upvote Ratio (%)',
-                            height=400,
-                            showlegend=False
-                        )
-                        st.plotly_chart(fig, width='stretch')
-                    
-                    with col2:
-                        display_df = best_rated[['artist', 'title', 'upvotes', 'total_votes', 'upvote_ratio']].copy()
-                        display_df['upvote_ratio'] = display_df['upvote_ratio'].round(1)
-                        st.dataframe(
-                            display_df,
-                            width='stretch',
-                            hide_index=True,
-                            column_config={
-                                'artist': st.column_config.TextColumn('Artist'),
-                                'title': st.column_config.TextColumn('Title'),
-                                'upvotes': st.column_config.NumberColumn('👍 Upvotes'),
-                                'total_votes': st.column_config.NumberColumn('📊 Total Votes'),
-                                'upvote_ratio': st.column_config.NumberColumn('⭐ Upvote Ratio (%)', format="%.1f")
-                            }
-                        )
-            else:
-                st.info("No vote statistics available.")
-        else:
-            st.error("Unable to fetch vote statistics from API.")

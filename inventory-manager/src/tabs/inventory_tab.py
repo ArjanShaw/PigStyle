@@ -119,7 +119,14 @@ class InventoryTab:
             with col1:
                 search_submitted = st.form_submit_button("🔍 Search", width='stretch', disabled=search_disabled)
         
+        # CRITICAL FIX: Clear old search results when new search is submitted
         if search_submitted:
+            # Clear previous search results to prevent caching issues
+            st.session_state.search_results = {}
+            st.session_state.current_search = ""
+            st.session_state.selected_record = None
+            st.session_state.record_added = None
+            
             st.session_state.search_query = search_input
             st.session_state.search_triggered = True
         

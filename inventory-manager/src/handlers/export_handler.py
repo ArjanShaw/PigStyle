@@ -6,10 +6,9 @@ from handlers.draft_csv_handler import DraftCSVHandler
 import math
 
 class ExportHandler:
-    def __init__(self, price_handler, genre_handler):
+    def __init__(self, price_handler):
         self.price_handler = price_handler
-        self.genre_handler = genre_handler
-
+ 
     def export_ebay_list(self):
         """Export selected records as eBay draft listings"""
         if not st.session_state.selected_records:

@@ -58,7 +58,7 @@ const pigstyleAPI = {
         }
     },
     
-    // NEW: Get catalog grouped records for catalog.html
+    // Get catalog grouped records for catalog.html
     loadCatalogGroupedRecords: async function() {
         try {
             console.log('Loading catalog grouped records...');
@@ -68,6 +68,7 @@ const pigstyleAPI = {
             });
             
             if (!response.ok) {
+                console.error('HTTP error:', response.status, response.statusText);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
@@ -77,6 +78,7 @@ const pigstyleAPI = {
                 console.log(`Loaded ${data.count} records in ${data.groups.length} price groups`);
                 return data;
             } else {
+                console.error('API error:', data.error);
                 throw new Error(data.error || 'Failed to load catalog records');
             }
         } catch (error) {

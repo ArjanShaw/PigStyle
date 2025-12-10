@@ -14,15 +14,10 @@ class AdminConfigTab:
             st.error("❌ Access denied. Administrator privileges required to view configuration.")
             return
         
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            self._render_config_editor()
-        
-        with col2:
-            self._render_user_creation()
+        self._render_config_editor()
             
         st.subheader("👥 User Management")
+        self._render_user_creation()
         self._render_user_management()
     
     def _render_config_editor(self):
@@ -67,7 +62,7 @@ class AdminConfigTab:
             
             if changes_made:
                 st.rerun()
-    
+
     def _render_user_creation(self):
         st.subheader("Create New User")
         with st.form("create_user_form"):
@@ -90,14 +85,6 @@ class AdminConfigTab:
                 elif len(password) < 8:
                     st.error("Password must be at least 8 characters long")
                 else:
-                    # Check if user already exists
-                    users_df = st.session_state.db_manager.get_all_users()
-                    if not users_df.empty:
-                        existing_users = users_df[users_df['username'] == username]
-                        if not existing_users.empty:
-                            st.error(f"Username '{username}' already exists")
-                            return
-                    
                     # Create user via API
                     success = self._create_user_api(username, email, password, role, full_name)
                     if success:

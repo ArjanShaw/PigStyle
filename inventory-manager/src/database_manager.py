@@ -377,3 +377,16 @@ class DatabaseManager:
         if result and 'mappings' in result:
             return result['mappings']
         return []
+    
+
+    def get_dropoff_records(self, user_id: int = None) -> pd.DataFrame:
+        """Get consignment records ready for dropoff (records without barcodes)"""
+        endpoint = '/consignment/dropoff-ready'
+        if user_id:
+            endpoint += f'?user_id={user_id}'
+        
+        result = self._make_request('GET', endpoint)
+        if result and 'records' in result:
+            return pd.DataFrame(result['records'])
+        
+        return pd.DataFrame()

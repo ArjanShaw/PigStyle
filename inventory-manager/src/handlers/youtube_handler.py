@@ -49,14 +49,24 @@ class YouTubeHandler:
         album_results = []
         
         for item in response.get('items', []):
-            video_id = item['id']['videoId']
-            snippet = item['snippet']
-            video_title = snippet['title']
+            # FIX: Safely get video ID
+            video_id = item.get('id', {}).get('videoId')
+            if not video_id:
+                # Skip items without video ID
+                continue
+                
+            snippet = item.get('snippet', {})
+            if not snippet:
+                continue
+                
+            video_title = snippet.get('title', '')
+            channel_title = snippet.get('channelTitle', '')
+            thumbnails = snippet.get('thumbnails', {})
             
             video_data = {
-                'title': snippet['title'],
-                'channel': snippet['channelTitle'],
-                'thumbnail': snippet['thumbnails']['default']['url'],
+                'title': video_title,
+                'channel': channel_title,
+                'thumbnail': thumbnails.get('default', {}).get('url', ''),
                 'url': f"https://www.youtube.com/watch?v={video_id}",
                 'video_id': video_id
             }

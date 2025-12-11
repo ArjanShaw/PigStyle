@@ -70,7 +70,9 @@ class DisplayHandler:
             
             compilation = st.checkbox("Compilation", value=record.get('compilation', False), key=f"compilation_{index}")
             
-            store_price = st.number_input("Store Price", value=float(record.get('store_price', 0.0)), min_value=0.0, step=0.5, key=f"store_price_{index}")
+            # REMOVED: Store price editable field - users should not be able to edit store price here
+            store_price = record.get('store_price', 0.0)
+            st.write(f"**Store Price:** ${store_price:.2f}")
             
             youtube_url = st.text_input("YouTube URL", value=record.get('youtube_url', ''), key=f"youtube_{index}")
             
@@ -109,8 +111,8 @@ class DisplayHandler:
             'title': title,
             'genre_id': genre_id,
             'compilation': compilation,
-            'store_price': store_price,
             'youtube_url': youtube_url
+            # REMOVED: store_price from updates - users should not be able to edit store price here
         }
         
         success = st.session_state.db_manager.update_record(original_record['id'], updates)
@@ -138,7 +140,7 @@ class DisplayHandler:
                 artist = record.get('artist', '')
                 title = record.get('title', '')
                 
-                # Show consignor name for admin users
+                # Show consignor name for admin users - ALWAYS SHOW IN SEARCH RESULTS FOR ADMINS
                 user_role = user.get('role', 'consignor') if user else 'consignor'
                 consignor_info = ""
                 if user_role == 'admin' and record.get('consignor_name'):
@@ -516,10 +518,21 @@ class DisplayHandler:
             st.write("### 📀 Discogs Pricing")
             st.info("Discogs pricing data loading...")
 
+    def _calculate_consignment_rate(self, fill_fraction):
+        """Calculate consignment rate based on store fill fraction"""
+        if fill_fraction < 0.60:
+            return 0.10
+        elif fill_fraction <= 1.10:
+            slope = (0.40 - 0.10) / (1.10 - 0.60)
+            return 0.10 + slope * (fill_fraction - 0.60)
+        else:
+            return 0.40
+
     def _check_for_duplicate_simple(self, record_data):
-        artist = record.get('artist', '')
-        title = record.get('title', '')
-        catalog_number = record.get('catalog_number', '')
+        """Check for duplicates using ONLY artist, title, and catalog number"""
+        artist = record_data.get('artist', '')
+        title = record_data.get('title', '')
+        catalog_number = record_data.get('catalog_number', '')
         
         all_records = st.session_state.db_manager.get_all_records()
         
@@ -543,54 +556,44 @@ class DisplayHandler:
         
         return False
 
-    def _calculate_consignment_rate(self, fill_fraction):
-        if fill_fraction < 0.60:
-            return 0.10
-        elif fill_fraction <= 1.10:
-            slope = (0.40 - 0.10) / (1.10 - 0.60)
-            return 0.10 + slope * (fill_fraction - 0.60)
-        else:
-            return 0.40
-
     def _render_consignment_section(self, record_data=None, current_consignment_rate=0.10):
         current_user = st.session_state.get('user', {})
         user_role = current_user.get('role', 'consignor')
         current_user_id = current_user.get('id')
         
+        # If user is consignor, they should NOT see commission rate or store return days fields
+        # They should only be able to select that they are consigning
         if user_role == 'consignor' and current_user_id:
             user_id = current_user_id
             
-            current_commission_rate = record_data.get('commission_rate')
-            if current_commission_rate is None:
-                current_commission_rate = current_consignment_rate
+            # Consignors get the current consignment rate automatically
+            commission_rate = current_consignment_rate
             
-            commission_rate = st.number_input(
-                "Commission Rate:",
-                min_value=0.0,
-                max_value=1.0,
-                value=current_commission_rate,
-                step=0.05,
-                format="%.2f",
-                key="commission_rate_input"
-            )
-            
+            # Consignors get default store return days from config
             current_store_return_days = record_data.get('store_return_days')
             if current_store_return_days is None:
                 current_store_return_days = int(st.session_state.db_manager.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
             
-            store_return_days = st.number_input(
-                "Store Return Days:",
-                min_value=1,
-                max_value=365,
-                value=current_store_return_days,
-                step=1,
-                key="store_return_days_input"
+            store_return_days = current_store_return_days
+            
+            # Show info to consignor but NOT editable fields
+            st.info(f"🔒 Consignor: {current_user.get('username', 'You')} (Consignor account)")
+            st.info(f"📊 Commission Rate: {commission_rate:.1%} (auto-applied based on store fill)")
+            st.info(f"📅 Store Return Days: {store_return_days} days (default)")
+            
+            # Consignor should have a simple checkbox to consign or not
+            wants_to_consign = st.checkbox(
+                "I want to consign this record",
+                value=(record_data.get('consignor_id') == current_user_id),
+                key="consignor_checkbox"
             )
             
-            st.info(f"🔒 Consignor automatically set to: {current_user.get('username', 'You')} (Consignor account)")
-            
-            return user_id, commission_rate, store_return_days
+            if wants_to_consign:
+                return user_id, commission_rate, store_return_days
+            else:
+                return None, None, None
         
+        # Admin flow - show all options
         users_df = st.session_state.db_manager.get_all_users()
         
         if len(users_df) == 0:

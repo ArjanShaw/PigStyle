@@ -348,24 +348,18 @@ class DatabaseManager:
 
     # NEW METHODS FOR DISCOGS GENRE MAPPINGS
     def get_discogs_genre_mapping(self, discogs_genre):
-        """Get local genre mapping for a Discogs genre"""
         result = self._make_request('GET', f'/discogs-genre-mappings/{discogs_genre}')
         
-        if result and 'mappings' in result and result['mappings']:
-            # The API returns an array in 'mappings', take the first one
-            mapping_data = result['mappings'][0]
-            
-            if mapping_data and 'local_genre_name' in mapping_data:
-                return {
-                    'mapping': {
-                        'local_genre_name': mapping_data['local_genre_name'],
-                        'discogs_genre': mapping_data['discogs_genre'],
-                        'local_genre_id': mapping_data['local_genre_id']
-                    }
+        if result and 'mapping' in result and result['mapping']:
+            mapping_data = result['mapping']
+            return {
+                'mapping': {
+                    'local_genre_name': mapping_data['local_genre_name'],
+                    'discogs_genre': mapping_data['discogs_genre'],
+                    'local_genre_id': mapping_data['local_genre_id']
                 }
-        
+            }
         return {'mapping': None}
- 
     def save_discogs_genre_mapping(self, discogs_genre, local_genre_id):
         """Save a mapping between Discogs genre and local genre"""
         # Ensure local_genre_id is a regular Python int, not numpy.int64

@@ -165,51 +165,43 @@
             to { transform: translateY(0); opacity: 1; }
         }
         
-        /* Condition badge styling - UPDATED for bottom placement */
-        .condition-badge {
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            display: inline-block;
-            margin-top: 8px;
-            margin-bottom: 8px;
+        /* Condition styling - UPDATED: plain text like other info */
+        .condition {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #7f8c8d; /* Same color as genre */
         }
         
-        /* Different colors for different conditions */
+        /* Different colors for different conditions - UPDATED: text colors instead of badges */
         .condition-mint,
         .condition-near-mint,
         .condition-nm {
-            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: #27ae60 !important; /* Green for mint/near mint */
+            font-weight: bold;
         }
         
         .condition-very-good,
         .condition-vg {
-            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: #3498db !important; /* Blue for very good */
+            font-weight: bold;
         }
         
         .condition-good,
         .condition-g {
-            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: #f39c12 !important; /* Orange for good */
+            font-weight: bold;
         }
         
         .condition-fair,
         .condition-poor {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: #e74c3c !important; /* Red for fair/poor */
+            font-weight: bold;
         }
         
         .condition-new,
         .condition-sealed {
-            background: linear-gradient(135deg, #9b59b6, #8e44ad);
-        }
-        
-        /* Default for unknown conditions */
-        .condition-badge:not([class*='condition-']) {
-            background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+            color: #9b59b6 !important; /* Purple for new/sealed */
+            font-weight: bold;
         }
         
         /* YouTube link styling */
@@ -234,7 +226,7 @@
             box-shadow: 0 4px 8px rgba(255, 51, 102, 0.3);
         }
         
-        /* Card info styling - UPDATED for better layout */
+        /* Card info styling */
         .card-info {
             padding: 15px;
         }
@@ -265,19 +257,10 @@
             color: #7f8c8d;
         }
         
-        .card-info .condition-container {
-            margin: 10px 0 5px 0;
-        }
-        
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .group-gallery {
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            }
-            
-            .condition-badge {
-                font-size: 11px;
-                padding: 6px 10px;
             }
         }
         
@@ -440,6 +423,13 @@
             const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
             const hasCondition = recordCondition && recordCondition.trim() !== '';
             
+            // Create condition class based on condition value
+            let conditionClass = 'condition';
+            if (hasCondition) {
+                const conditionSlug = recordCondition.toLowerCase().replace(/\s+/g, '-');
+                conditionClass += ` condition-${conditionSlug}`;
+            }
+            
             card.innerHTML = `
                 <div class="card-image">
                     <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
@@ -450,11 +440,7 @@
                     <p class="price">${price}</p>
                     <p class="genre">${pigstyleAPI.escapeHtml(genre)}</p>
                     ${hasCondition ? `
-                        <div class="condition-container">
-                            <div class="condition-badge condition-${recordCondition.toLowerCase().replace(/\s+/g, '-')}">
-                                ${recordCondition}
-                            </div>
-                        </div>
+                        <p class="${conditionClass}">Condition: ${recordCondition}</p>
                     ` : ''}
                     ${hasYouTube ? `
                         <a href="#" class="youtube-link" onclick="openYouTubeModal('${youtubeUrl.replace(/'/g, "\\'")}', '${pigstyleAPI.escapeHtml(artist)} - ${pigstyleAPI.escapeHtml(title)}'); return false;">

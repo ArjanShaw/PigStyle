@@ -165,19 +165,19 @@
             to { transform: translateY(0); opacity: 1; }
         }
         
-        /* Condition badge styling */
+        /* Condition badge styling - UPDATED for bottom placement */
         .condition-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: inline-block;
+            margin-top: 8px;
+            margin-bottom: 8px;
         }
         
         /* Different colors for different conditions */
@@ -234,10 +234,50 @@
             box-shadow: 0 4px 8px rgba(255, 51, 102, 0.3);
         }
         
+        /* Card info styling - UPDATED for better layout */
+        .card-info {
+            padding: 15px;
+        }
+        
+        .card-info h3 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .card-info .artist {
+            margin: 0 0 8px 0;
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 16px;
+        }
+        
+        .card-info .price {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #27ae60;
+        }
+        
+        .card-info .genre {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .card-info .condition-container {
+            margin: 10px 0 5px 0;
+        }
+        
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .group-gallery {
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+            
+            .condition-badge {
+                font-size: 11px;
+                padding: 6px 10px;
             }
         }
         
@@ -403,13 +443,19 @@
             card.innerHTML = `
                 <div class="card-image">
                     <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
-                    ${hasCondition ? `<div class="condition-badge condition-${recordCondition.toLowerCase().replace(/\s+/g, '-')}">${recordCondition}</div>` : ''}
                 </div>
                 <div class="card-info">
                     <h3>${pigstyleAPI.escapeHtml(title)}</h3>
                     <p class="artist">${pigstyleAPI.escapeHtml(artist)}</p>
                     <p class="price">${price}</p>
                     <p class="genre">${pigstyleAPI.escapeHtml(genre)}</p>
+                    ${hasCondition ? `
+                        <div class="condition-container">
+                            <div class="condition-badge condition-${recordCondition.toLowerCase().replace(/\s+/g, '-')}">
+                                ${recordCondition}
+                            </div>
+                        </div>
+                    ` : ''}
                     ${hasYouTube ? `
                         <a href="#" class="youtube-link" onclick="openYouTubeModal('${youtubeUrl.replace(/'/g, "\\'")}', '${pigstyleAPI.escapeHtml(artist)} - ${pigstyleAPI.escapeHtml(title)}'); return false;">
                             🎵 Watch Video

@@ -21,30 +21,10 @@
         /* Additional styles for price groups */
         .price-group {
             margin-bottom: 40px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
         
         .group-header {
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #ff3366;
-        }
-        
-        .group-title {
-            color: #ff3366;
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
-        
-        .group-count {
-            color: #aaa;
-            font-size: 14px;
-            margin-top: 5px;
+            display: none; /* Remove the red line and header */
         }
         
         .group-gallery {
@@ -57,13 +37,6 @@
             max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
-        }
-        
-        .no-price-warning {
-            color: #ff9900;
-            font-style: italic;
-            font-size: 14px;
-            margin-top: 5px;
         }
         
         /* Loading animation */
@@ -154,18 +127,117 @@
             font-size: 18px;
         }
         
+        /* YouTube modal styles */
+        .youtube-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .youtube-modal {
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid #ff3366;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* Condition badge styling */
+        .condition-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        /* Different colors for different conditions */
+        .condition-mint,
+        .condition-near-mint,
+        .condition-nm {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+        }
+        
+        .condition-very-good,
+        .condition-vg {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+        
+        .condition-good,
+        .condition-g {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+        
+        .condition-fair,
+        .condition-poor {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .condition-new,
+        .condition-sealed {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        }
+        
+        /* Default for unknown conditions */
+        .condition-badge:not([class*='condition-']) {
+            background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+        }
+        
+        /* YouTube link styling */
+        .youtube-link {
+            display: inline-block;
+            background: #ff3366;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 10px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+        
+        .youtube-link:hover {
+            background: transparent;
+            border-color: #ff3366;
+            color: #ff3366;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 51, 102, 0.3);
+        }
+        
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .group-gallery {
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            }
-            
-            .price-group {
-                padding: 15px;
-            }
-            
-            .group-title {
-                font-size: 20px;
             }
         }
         
@@ -289,19 +361,7 @@
             groupDiv.dataset.minPrice = group.min || 0;
             groupDiv.dataset.maxPrice = group.max || 99999;
             
-            const header = document.createElement('div');
-            header.className = 'group-header';
-            
-            const title = document.createElement('h2');
-            title.className = 'group-title';
-            title.textContent = group.label;
-            
-            const count = document.createElement('div');
-            count.className = 'group-count';
-            count.textContent = `${group.records.length} record${group.records.length !== 1 ? 's' : ''}`;
-            
-            header.appendChild(title);
-            header.appendChild(count);
+            // NO HEADER - removed as requested
             
             const gallery = document.createElement('div');
             gallery.className = 'group-gallery';
@@ -312,7 +372,6 @@
                 gallery.appendChild(card);
             });
             
-            groupDiv.appendChild(header);
             groupDiv.appendChild(gallery);
             
             return groupDiv;
@@ -328,28 +387,138 @@
             const imageUrl = record.image_url || 'images/default-record.jpg';
             const genre = record.genre_name || 'Unknown Genre';
             const price = record.store_price ? pigstyleAPI.formatPrice(record.store_price) : 'Price N/A';
-            const youtubeUrl = record.youtube_url;
+            const youtubeUrl = record.youtube_url || '';
+            const recordCondition = record.condition || '';
             
             card.setAttribute('data-artist', artist.toLowerCase());
             card.setAttribute('data-title', title.toLowerCase());
             card.setAttribute('data-price', parseFloat(record.store_price) || 0);
+            if (recordCondition) {
+                card.setAttribute('data-condition', recordCondition.toLowerCase());
+            }
             
             const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
+            const hasCondition = recordCondition && recordCondition.trim() !== '';
             
             card.innerHTML = `
                 <div class="card-image">
                     <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
+                    ${hasCondition ? `<div class="condition-badge condition-${recordCondition.toLowerCase().replace(/\s+/g, '-')}">${recordCondition}</div>` : ''}
                 </div>
                 <div class="card-info">
                     <h3>${pigstyleAPI.escapeHtml(title)}</h3>
                     <p class="artist">${pigstyleAPI.escapeHtml(artist)}</p>
                     <p class="price">${price}</p>
                     <p class="genre">${pigstyleAPI.escapeHtml(genre)}</p>
-                    ${hasYouTube ? '<div class="youtube-badge">🎵 Video Available</div>' : ''}
+                    ${hasYouTube ? `
+                        <a href="#" class="youtube-link" onclick="openYouTubeModal('${youtubeUrl.replace(/'/g, "\\'")}', '${pigstyleAPI.escapeHtml(artist)} - ${pigstyleAPI.escapeHtml(title)}'); return false;">
+                            🎵 Watch Video
+                        </a>
+                    ` : ''}
                 </div>
             `;
             
             return card;
+        }
+
+        // YouTube modal function
+        function openYouTubeModal(youtubeUrl, title) {
+            // Extract YouTube video ID
+            const videoId = extractYouTubeId(youtubeUrl);
+            if (!videoId) {
+                alert('Invalid YouTube URL');
+                return;
+            }
+            
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'youtube-modal-overlay';
+            
+            // Create modal content
+            modal.innerHTML = `
+                <div class="youtube-modal">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: white; font-size: 1.2rem;">${title}</h3>
+                        <button onclick="this.closest('.youtube-modal-overlay').remove()" style="
+                            background: #ff3366;
+                            color: white;
+                            border: none;
+                            width: 30px;
+                            height: 30px;
+                            border-radius: 50%;
+                            cursor: pointer;
+                            font-size: 1rem;
+                        ">×</button>
+                    </div>
+                    <div style="position: relative; padding-bottom: 56.25%; height: 0;">
+                        <iframe 
+                            src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
+                            style="
+                                position: absolute;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                border: none;
+                                border-radius: 8px;
+                            " 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                    <div style="margin-top: 15px; text-align: center;">
+                        <a href="${youtubeUrl}" target="_blank" style="
+                            color: #ff3366;
+                            text-decoration: none;
+                            font-size: 0.9rem;
+                        ">Open in YouTube ↗</a>
+                    </div>
+                </div>
+            `;
+            
+            // Add click outside to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+            
+            // Add escape key to close
+            const closeOnEsc = function(e) {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                    document.removeEventListener('keydown', closeOnEsc);
+                }
+            };
+            document.addEventListener('keydown', closeOnEsc);
+            
+            document.body.appendChild(modal);
+            
+            // Remove event listener when modal closes
+            modal.addEventListener('DOMNodeRemoved', function() {
+                document.removeEventListener('keydown', closeOnEsc);
+            });
+        }
+
+        // Helper function to extract YouTube ID
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            
+            const patterns = [
+                /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+                /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+                /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+                /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+            
+            return null;
         }
 
         // Populate artist filter dropdown
@@ -405,11 +574,13 @@
                     const artist = card.getAttribute('data-artist');
                     const title = card.getAttribute('data-title');
                     const price = parseFloat(card.getAttribute('data-price'));
+                    const condition = card.getAttribute('data-condition') || '';
                     
                     // Check search term match
                     const searchMatch = !searchTerm || 
                         artist.includes(searchTerm) || 
-                        title.includes(searchTerm);
+                        title.includes(searchTerm) ||
+                        condition.includes(searchTerm);
                     
                     // Check artist filter match
                     const artistMatch = !selectedArtist || 
@@ -433,12 +604,6 @@
                 if (visibleCardsInGroup > 0) {
                     group.style.display = 'block';
                     visibleGroupCount++;
-                    
-                    // Update group count
-                    const countElement = group.querySelector('.group-count');
-                    if (countElement) {
-                        countElement.textContent = `${visibleCardsInGroup} record${visibleCardsInGroup !== 1 ? 's' : ''} visible`;
-                    }
                 } else {
                     group.style.display = 'none';
                 }

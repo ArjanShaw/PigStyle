@@ -150,6 +150,7 @@ h1 {
     width: 100%;
     height: 200px;
     overflow: hidden;
+    position: relative;
 }
 
 .card-image img {
@@ -185,16 +186,6 @@ h1 {
     margin: 0;
     font-size: 14px;
     color: #7f8c8d;
-}
-
-.youtube-badge {
-    display: inline-block;
-    background: #e74c3c;
-    color: white;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    margin-top: 8px;
 }
 
 /* Loading animation */

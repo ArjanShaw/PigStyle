@@ -170,22 +170,61 @@ h1 {
 }
 
 .card-info .artist {
-    margin: 0 0 5px 0;
+    margin: 0 0 8px 0;
     font-weight: bold;
     color: #e74c3c;
+    font-size: 16px;
 }
 
 .card-info .price {
-    margin: 0 0 5px 0;
-    font-size: 16px;
+    margin: 0 0 8px 0;
+    font-size: 18px;
     font-weight: bold;
     color: #27ae60;
 }
 
 .card-info .genre {
-    margin: 0;
+    margin: 0 0 8px 0;
     font-size: 14px;
     color: #7f8c8d;
+}
+
+.card-info .condition {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #7f8c8d;
+}
+
+/* Different colors for different conditions */
+.card-info .condition-mint,
+.card-info .condition-near-mint,
+.card-info .condition-nm {
+    color: #27ae60; /* Green for mint/near mint */
+    font-weight: bold;
+}
+
+.card-info .condition-very-good,
+.card-info .condition-vg {
+    color: #3498db; /* Blue for very good */
+    font-weight: bold;
+}
+
+.card-info .condition-good,
+.card-info .condition-g {
+    color: #f39c12; /* Orange for good */
+    font-weight: bold;
+}
+
+.card-info .condition-fair,
+.card-info .condition-poor {
+    color: #e74c3c; /* Red for fair/poor */
+    font-weight: bold;
+}
+
+.card-info .condition-new,
+.card-info .condition-sealed {
+    color: #9b59b6; /* Purple for new/sealed */
+    font-weight: bold;
 }
 
 /* Loading animation */
@@ -255,5 +294,18 @@ h1 {
     .price-filter-group {
         width: 100%;
         justify-content: space-between;
+    }
+    
+    .card-info .artist {
+        font-size: 15px;
+    }
+    
+    .card-info .price {
+        font-size: 16px;
+    }
+    
+    .card-info .genre,
+    .card-info .condition {
+        font-size: 13px;
     }
 }

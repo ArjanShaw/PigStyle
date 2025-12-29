@@ -1,35 +1,39 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import re
 import threading
 import subprocess
 from pathlib import Path
 import math
+import requests
 
 class RecordOperationsHandler:
-    def __init__(self, discogs_handler=None, ebay_handler=None):
+    def __init__(self, discogs_handler=None, ebay_handler=None, api_client=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
+        self.api_client = api_client
     
     def _get_config_value(self, config_key):
-        """Get config value and throw exception if not found"""
-        value = st.session_state.db_manager.get_config_value(config_key, None)
-        if value is None:
-            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+        """Get config value from API client"""
         try:
+            value = self.api_client.get_config_value(config_key, None)
+            if value is None:
+                raise ValueError(f"Configuration key '{config_key}' not found")
             return float(value)
-        except ValueError:
-            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+        except Exception as e:
+            raise ValueError(f"Error getting config '{config_key}': {e}")
     
-    def add_inventory_record(self, record_data, genre, search_term):
-        """Add inventory record to database with Discogs condition selection"""
+    def add_inventory_record(self, record_data, genre, search_term, store_credit_option=False, consignor_id=None):
+        """Add inventory record to database via API with enhanced consignment features"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
         
         # Check for duplicates BEFORE adding
-        duplicates_found = self._check_for_duplicate(record_data)
+        from handlers.pricing_validator import PricingValidator
+        pricing_validator = PricingValidator(self.api_client, self.discogs_handler, self.ebay_handler)
+        duplicates_found = pricing_validator.check_for_duplicates(record_data)
         
         if duplicates_found:
             user = st.session_state.get('user', {})
@@ -69,15 +73,38 @@ class RecordOperationsHandler:
         
         # Get selected condition and price from record_data
         selected_condition = record_data.get('selected_condition')
-        selected_price = record_data.get('selected_price')
+        user_price = record_data.get('user_price')
         
         # Get compilation status from record_data
         compilation = record_data.get('compilation', False)
         
-        # Get consignment info from record_data
-        consignor_id = record_data.get('consignor_id')
-        commission_rate = record_data.get('commission_rate')
-        store_return_days = record_data.get('store_return_days')
+        # Get consignor_id - use provided parameter or from record_data
+        if consignor_id is None:
+            consignor_id = record_data.get('consignor_id')
+        
+        # Get commission info from user's master agreement if consignor_id exists
+        commission_rate = None
+        store_return_days = None
+        
+        if consignor_id:
+            # Try to get user's master agreement details
+            user_data = self.api_client.get_user(consignor_id)
+            if user_data and user_data.get('agreement_details'):
+                commission_rate = user_data['agreement_details'].get('commission_rate')
+                store_return_days = user_data['agreement_details'].get('store_return_days')
+        
+        # If no agreement details, use defaults
+        if commission_rate is None:
+            try:
+                commission_rate = float(self.api_client.get_config_value('DEFAULT_COMMISSION_RATE', '0.20'))
+            except:
+                commission_rate = 0.20
+        
+        if store_return_days is None:
+            try:
+                store_return_days = int(self.api_client.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
+            except:
+                store_return_days = 90
         
         # Get discogs_genre for mapping
         discogs_genre = record_data.get('discogs_genre', '')
@@ -85,79 +112,172 @@ class RecordOperationsHandler:
         # Get genre_id for the genre using API
         genre_id = None
         if genre:
-            genres_df = st.session_state.db_manager.get_all_genres()
-            genre_row = genres_df[genres_df['genre_name'] == genre]
-            if not genre_row.empty:
-                genre_id = int(genre_row.iloc[0]['id'])  # Convert to regular Python int
-            else:
-                # Create new genre using API
-                success, new_genre_id = st.session_state.db_manager.add_genre(genre)
-                if success:
-                    genre_id = int(new_genre_id)  # Convert to regular Python int
+            genres_df = self.api_client.get_all_genres()
+            if not genres_df.empty:
+                genre_rows = genres_df[genres_df['genre_name'] == genre]
+                if not genre_rows.empty:
+                    genre_id = int(genre_rows.iloc[0]['id'])
                 else:
-                    st.error(f"Failed to create new genre: {genre}")
-                    return False, None
+                    # Create new genre using API
+                    success, new_genre_id = self.api_client.add_genre(genre)
+                    if success:
+                        genre_id = int(new_genre_id)
+                    else:
+                        st.error(f"Failed to create new genre: {genre}")
+                        return False, None
         
         # Store pricing data in record_data for display
         if pricing_data:
             record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
         
-        # CALCULATE STORE PRICE USING CONSOLIDATED FUNCTION
-        store_price = self.calculate_store_price(selected_price)
+        # Get advised price if available
+        advised_price = record_data.get('advised_price')
+        
+        # CALCULATE STORE PRICE
+        # Use user price if provided and validated, otherwise use advised price
+        if user_price is not None and user_price > 0:
+            store_price = user_price
+        elif advised_price is not None and advised_price > 0:
+            store_price = self.calculate_store_price(advised_price)
+        else:
+            # Fallback: calculate from Discogs price suggestions
+            store_price = self.calculate_store_price_from_suggestions(record_data, selected_condition)
         
         # Get eBay sell price from record_data if available
         ebay_sell_at = record_data.get('ebay_sell_at', 0.0)
         
-        # Save to database
-        result_data = {
-            'artist': artist,  # Use the edited artist name
-            'title': title,    # Use the edited title
-            'barcode': '',  # Will be generated by trigger
-            'genre_id': genre_id,
-            'image_url': image_url,
-            'discogs_suggested_price': selected_price,
-            'catalog_number': catalog_number,
-            'format': format_selected,
-            'condition': selected_condition,  # Store the Discogs condition text
-            'store_price': store_price,  # CALCULATED STORE PRICE
-            'ebay_sell_at': ebay_sell_at,  # CALCULATED EBAY SELL PRICE
-            'youtube_url': youtube_url,  # Include YouTube URL
-            'consignor_id': consignor_id,  # Include consignor directly
-            'commission_rate': commission_rate,  # Include commission rate directly
-            'store_return_days': store_return_days,  # Include store return days directly
-            'compilation': compilation  # Include compilation status
+        # Set consignment dates if consigning
+        consignment_start_date = None
+        discount_eligible_date = None
+        original_consignor_price = None
+        
+        if consignor_id:
+            consignment_start_date = datetime.now().date()
+            try:
+                full_price_days = int(self.api_client.get_config_value('CONSIGNMENT_FULL_PRICE_DAYS', '90'))
+            except:
+                full_price_days = 90
+            discount_eligible_date = consignment_start_date + timedelta(days=full_price_days)
+            original_consignor_price = store_price
+        
+        # Save to database via API - SIMPLIFIED VERSION
+        try:
+            # Prepare data for API
+            record_data_to_save = {
+                'artist': artist,
+                'title': title,
+                'barcode': '',
+                'genre_id': genre_id,
+                'image_url': image_url,
+                'catalog_number': catalog_number,
+                'format': format_selected,
+                'condition': selected_condition,
+                'store_price': float(store_price),
+                'ebay_sell_at': float(ebay_sell_at) if ebay_sell_at else 0.0,
+                'youtube_url': youtube_url,
+                'compilation': bool(compilation)
+            }
+            
+            # Add consignor fields only if consignor_id exists
+            if consignor_id:
+                record_data_to_save['consignor_id'] = int(consignor_id)
+                record_data_to_save['commission_rate'] = float(commission_rate)
+                record_data_to_save['store_return_days'] = int(store_return_days)
+                record_data_to_save['store_credit_option'] = bool(store_credit_option)
+                record_data_to_save['consignment_start_date'] = consignment_start_date.isoformat() if consignment_start_date else None
+                record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
+                record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
+            
+            # Call API to create record
+            base_url = "https://arjanshaw.pythonanywhere.com"
+            response = requests.post(
+                f"{base_url}/records",
+                json=record_data_to_save,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                if response_data.get('status') == 'success':
+                    record_id = response_data.get('record_id')
+                    
+                    # Save Discogs genre mapping if available
+                    if discogs_genre and genre_id:
+                        mapping_data = {
+                            'discogs_genre': discogs_genre,
+                            'local_genre_id': genre_id
+                        }
+                        mapping_response = requests.post(
+                            f"{base_url}/discogs-genre-mappings",
+                            json=mapping_data,
+                            timeout=5
+                        )
+                        if mapping_response.status_code == 200:
+                            mapping_data = mapping_response.json()
+                            if mapping_data.get('status') == 'success':
+                                pass  # Success, no need to show message
+                    
+                    return True, record_id
+                else:
+                    error_msg = response_data.get('error', 'Unknown error from API')
+                    st.error(f"Failed to save record: {error_msg}")
+                    return False, None
+            else:
+                st.error(f"API request failed with status {response.status_code}")
+                return False, None
+                
+        except requests.exceptions.Timeout:
+            st.error("API request timed out. Please try again.")
+            return False, None
+        except Exception as e:
+            st.error(f"Error saving record: {str(e)}")
+            return False, None
+
+    def calculate_store_price_from_suggestions(self, record_data, selected_condition):
+        """Calculate store price from Discogs price suggestions for selected condition"""
+        price_suggestions = record_data.get('price_suggestions', {})
+        
+        if not price_suggestions:
+            return 0.0
+        
+        # Try to find price for selected condition
+        condition_map = {
+            'Mint (M)': ['Mint (M)', 'M', 'Mint'],
+            'Near Mint (NM or M-)': ['Near Mint (NM or M-)', 'NM', 'M-', 'Near Mint'],
+            'Very Good Plus (VG+)': ['Very Good Plus (VG+)', 'VG+'],
+            'Very Good (VG)': ['Very Good (VG)', 'VG'],
+            'Good Plus (G+)': ['Good Plus (G+)', 'G+'],
+            'Good (G)': ['Good (G)', 'G'],
+            'Fair (F)': ['Fair (F)', 'F'],
+            'Poor (P)': ['Poor (P)', 'P']
         }
         
-        record_id = st.session_state.db_manager.save_record(result_data)
+        # Check for exact or partial matches
+        for discogs_condition, price in price_suggestions.items():
+            if price and price > 0:
+                # Check if this Discogs condition matches our selected condition
+                for pattern in condition_map.get(selected_condition, []):
+                    if pattern.lower() in discogs_condition.lower():
+                        return self.calculate_store_price(float(price))
         
-        # Save Discogs genre mapping if available
-        if discogs_genre and genre_id:
-            success = st.session_state.db_manager.save_discogs_genre_mapping(discogs_genre, genre_id)
-            if success:
-                st.success(f"📝 Saved genre mapping: {discogs_genre} → {genre}")
-            else:
-                st.warning(f"⚠️ Could not save genre mapping for {discogs_genre}")
+        # If no match found, use the lowest price suggestion
+        valid_prices = [float(p) for p in price_suggestions.values() if p]
+        if valid_prices:
+            lowest_price = min(valid_prices)
+            return self.calculate_store_price(lowest_price)
         
-        return True, record_id
+        return 0.0
 
     def calculate_store_price(self, discogs_suggested_price):
         """CONSOLIDATED: Calculate store price using configurable parameters"""
         try:
-            # Get current configuration with validation
-            config_keys = ['STORE_PRICE_ESTIMATED_MULTIPLIER', 'STORE_PRICE_MINIMUM']
+            # Get current configuration
+            estimated_multiplier = self.api_client.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '2.0')
+            minimum_price = self.api_client.get_config_value('STORE_PRICE_MINIMUM', '5.0')
             
-            config_values = {}
-            for key in config_keys:
-                value = st.session_state.db_manager.get_config_value(key, None)
-                if value is None:
-                    raise ValueError(f"Configuration key '{key}' not found in app_config table")
-                try:
-                    config_values[key] = float(value)
-                except ValueError:
-                    raise ValueError(f"Configuration key '{key}' has invalid value: '{value}'. Must be a number.")
-            
-            estimated_multiplier = config_values['STORE_PRICE_ESTIMATED_MULTIPLIER']
-            minimum_price = config_values['STORE_PRICE_MINIMUM']
+            # Ensure they are floats
+            estimated_multiplier = float(estimated_multiplier)
+            minimum_price = float(minimum_price)
             
             candidates = []
             
@@ -177,44 +297,101 @@ class RecordOperationsHandler:
             return store_price
             
         except Exception as e:
-            st.error(f"Error calculating store price: {e}")
-            return minimum_price if 'minimum_price' in locals() else 0.0
+            # Return minimum price or default
+            try:
+                minimum_price = float(self.api_client.get_config_value('STORE_PRICE_MINIMUM', '5.0'))
+                return minimum_price
+            except:
+                return 5.0
 
-    def _check_for_duplicate(self, record_data):
-        """Check for duplicates using ONLY artist, title, and catalog number"""
-        # Get the data to check
-        artist = record_data.get('artist', '')
-        title = record_data.get('title', '')
-        catalog_number = record_data.get('catalog_number', '')
+    def update_database_record(self, record_data, genre, store_credit_option=None, user_price=None):
+        """Update database record with enhanced consignment features via API"""
+        if genre is None:
+            raise Exception("genre parameter is required but was None")
         
-        # Get all records from database
-        all_records = st.session_state.db_manager.get_all_records()
+        record_id = record_data.get('id')
         
-        if all_records.empty:
+        if not record_id:
+            st.error("No record ID provided")
             return False
         
-        duplicates = []
+        # Get compilation status from record_data
+        compilation = record_data.get('compilation', False)
         
-        # Check artist/title combination
-        if artist and title:
-            artist_title_match = all_records[
-                (all_records['artist'].str.lower() == artist.lower()) & 
-                (all_records['title'].str.lower() == title.lower())
-            ]
-            if not artist_title_match.empty:
-                duplicates.extend(artist_title_match['id'].tolist())
+        # Get consignment info from record_data
+        consignor_id = record_data.get('consignor_id')
+        commission_rate = record_data.get('commission_rate')
+        store_return_days = record_data.get('store_return_days')
         
-        # Check catalog number
-        if catalog_number:
-            catalog_match = all_records[
-                (all_records['catalog_number'].str.lower() == catalog_number.lower())
-            ]
-            if not catalog_match.empty:
-                for record_id in catalog_match['id'].tolist():
-                    if record_id not in duplicates:
-                        duplicates.append(record_id)
+        # Get genre_id for the genre using API
+        genre_id = None
+        if genre:
+            genres_df = self.api_client.get_all_genres()
+            if not genres_df.empty:
+                genre_rows = genres_df[genres_df['genre_name'] == genre]
+                if not genre_rows.empty:
+                    genre_id = int(genre_rows.iloc[0]['id'])
         
-        return len(duplicates) > 0
+        updates = {
+            'genre_id': genre_id,
+            'compilation': compilation
+        }
+        
+        # Add consignor fields if provided
+        if consignor_id is not None:
+            updates['consignor_id'] = int(consignor_id) if consignor_id else None
+        
+        if commission_rate is not None:
+            updates['commission_rate'] = float(commission_rate)
+        
+        if store_return_days is not None:
+            updates['store_return_days'] = int(store_return_days)
+        
+        # Update store credit option if provided
+        if store_credit_option is not None:
+            updates['store_credit_option'] = bool(store_credit_option)
+        
+        # Update price if provided
+        if user_price is not None:
+            updates['store_price'] = float(user_price)
+            updates['original_consignor_price'] = float(user_price)
+        
+        # If consignor is being added, set consignment dates
+        if consignor_id and not record_data.get('consignment_start_date'):
+            updates['consignment_start_date'] = datetime.now().date().isoformat()
+            try:
+                full_price_days = int(self.api_client.get_config_value('CONSIGNMENT_FULL_PRICE_DAYS', '90'))
+            except:
+                full_price_days = 90
+            updates['discount_eligible_date'] = (datetime.now().date() + timedelta(days=full_price_days)).isoformat()
+        
+        # Call API to update record
+        try:
+            base_url = "https://arjanshaw.pythonanywhere.com"
+            response = requests.put(
+                f"{base_url}/records/{record_id}",
+                json=updates,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                if response_data.get('status') == 'success':
+                    return True
+                else:
+                    error_msg = response_data.get('error', 'Unknown error')
+                    st.error(f"API returned error: {error_msg}")
+                    return False
+            else:
+                st.error(f"API request failed with status {response.status_code}")
+                return False
+                
+        except requests.exceptions.Timeout:
+            st.error("API request timed out")
+            return False
+        except Exception as e:
+            st.error(f"Error updating record: {str(e)}")
+            return False
 
     def _round_to_49_or_99(self, price):
         """Round to nearest .49 or .99"""
@@ -230,38 +407,3 @@ class RecordOperationsHandler:
             return base_price + 0.49
         else:
             return base_price + 0.99
-
-    def update_database_record(self, record_data, genre):
-        """Update database record"""
-        if genre is None:
-            raise Exception("genre parameter is required but was None")
-        
-        record_id = record_data['id']
-        
-        # Get compilation status from record_data
-        compilation = record_data.get('compilation', False)
-        
-        # Get consignment info from record_data
-        consignor_id = record_data.get('consignor_id')
-        commission_rate = record_data.get('commission_rate')
-        store_return_days = record_data.get('store_return_days')
-        
-        # Get genre_id for the genre using API
-        genre_id = None
-        if genre:
-            genres_df = st.session_state.db_manager.get_all_genres()
-            genre_row = genres_df[genres_df['genre_name'] == genre]
-            if not genre_row.empty:
-                genre_id = int(genre_row.iloc[0]['id'])  # Convert to regular Python int
-        
-        updates = {
-            'genre_id': genre_id,
-            'compilation': compilation,
-            'consignor_id': consignor_id,
-            'commission_rate': commission_rate,
-            'store_return_days': store_return_days
-        }
-        
-        success = st.session_state.db_manager.update_record(record_id, updates)
-        
-        return success

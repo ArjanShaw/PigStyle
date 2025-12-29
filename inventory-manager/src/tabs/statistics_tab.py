@@ -23,15 +23,13 @@ class StatisticsTab:
         stats = st.session_state.db_manager.get_database_stats()
         
         # Display metrics in columns
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Records", stats['records_count'])
         with col2:
             st.metric("Latest Record", stats['latest_record'][:16] if stats['latest_record'] != "None" else "None")
         with col3:
             st.metric("Users", stats['users_count'])
-        with col4:
-            st.metric("Database", stats['db_path'])
         
         # Get vote statistics
         vote_stats = st.session_state.db_manager.get_vote_statistics()
@@ -137,21 +135,36 @@ class StatisticsTab:
             st.info("No price data available for comparison charts. Update prices using the Pricing section.")
             return
         
-        price_columns = ['ebay_sell_at', 'store_price', 'discogs_suggested_price']
-        valid_price_records = records_df[
-            (records_df['ebay_sell_at'].notna() & (records_df['ebay_sell_at'] > 0)) |
-            (records_df['store_price'].notna() & (records_df['store_price'] > 0)) |
-            (records_df['discogs_suggested_price'].notna() & (records_df['discogs_suggested_price'] > 0))
-        ]
+        # Get price columns that actually exist in the database
+        available_price_columns = []
+        for col in ['ebay_sell_at', 'store_price']:
+            if col in records_df.columns:
+                available_price_columns.append(col)
+        
+        if not available_price_columns:
+            st.info("No price columns found in database.")
+            return
+        
+        # Filter records with valid prices
+        filter_conditions = []
+        for col in available_price_columns:
+            filter_conditions.append(f"(records_df['{col}'].notna() & (records_df['{col}'] > 0))")
+        
+        filter_str = " | ".join(filter_conditions)
+        valid_price_records = records_df[eval(filter_str)]
         
         if len(valid_price_records) > 0:
-            avg_prices = {
-                'eBay': valid_price_records['ebay_sell_at'].mean() if 'ebay_sell_at' in valid_price_records.columns and valid_price_records['ebay_sell_at'].notna().any() else 0,
-                'Store': valid_price_records['store_price'].mean() if 'store_price' in valid_price_records.columns and valid_price_records['store_price'].notna().any() else 0,
-                'Discogs': valid_price_records['discogs_suggested_price'].mean() if 'discogs_suggested_price' in valid_price_records.columns and valid_price_records['discogs_suggested_price'].notna().any() else 0
-            }
+            avg_prices = {}
             
-            avg_prices = {k: v for k, v in avg_prices.items() if v > 0}
+            if 'ebay_sell_at' in available_price_columns:
+                ebay_avg = valid_price_records['ebay_sell_at'].mean() 
+                if ebay_avg > 0:
+                    avg_prices['eBay'] = ebay_avg
+            
+            if 'store_price' in available_price_columns:
+                store_avg = valid_price_records['store_price'].mean()
+                if store_avg > 0:
+                    avg_prices['Store'] = store_avg
             
             if avg_prices:
                 fig = px.bar(
@@ -173,19 +186,11 @@ class StatisticsTab:
                 
                 st.plotly_chart(fig, width='stretch')
                 
-                col1, col2, col3 = st.columns(3)
-                
-                if 'eBay' in avg_prices:
-                    with col1:
-                        st.metric("Avg eBay Price", f"${avg_prices['eBay']:.2f}")
-                
-                if 'Store' in avg_prices:
-                    with col2:
-                        st.metric("Avg Store Price", f"${avg_prices['Store']:.2f}")
-                
-                if 'Discogs' in avg_prices:
-                    with col3:
-                        st.metric("Avg Discogs Price", f"${avg_prices['Discogs']:.2f}")
+                # Display metrics
+                cols = st.columns(len(avg_prices))
+                for i, (price_type, price_value) in enumerate(avg_prices.items()):
+                    with cols[i]:
+                        st.metric(f"Avg {price_type} Price", f"${price_value:.2f}")
                         
             else:
                 st.info("No valid price data available for comparison chart.")

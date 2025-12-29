@@ -4,58 +4,342 @@ from datetime import datetime
 import time
 from handlers.search_handler import SearchHandler
 from handlers.record_operations_handler import RecordOperationsHandler
-from handlers.display_handler import DisplayHandler
-# from handlers.export_handler import ExportHandler
-from handlers.price_handler import PriceHandler
-from handlers.youtube_handler import YouTubeHandler
+from handlers.commission_calculator import CommissionCalculator
+from handlers.pricing_validator import PricingValidator
+import re
+import math
+import requests
+
+class APIClient:
+    """API client to replace db_manager functionality"""
+    
+    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+        self.base_url = base_url
+        
+    # Record operations
+    def delete_record(self, record_id):
+        """Delete a record via API"""
+        try:
+            response = requests.delete(f"{self.base_url}/records/{record_id}")
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"API Error deleting record: {e}")
+            return False
+    
+    def get_all_records(self):
+        """Get all records via API - returns DataFrame"""
+        try:
+            response = requests.get(f"{self.base_url}/records?limit=1000")
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
+                # Convert to DataFrame for compatibility
+                return pd.DataFrame(records) if records else pd.DataFrame()
+            return pd.DataFrame()
+        except Exception as e:
+            st.error(f"API Error getting records: {e}")
+            return pd.DataFrame()
+    
+    def get_recent_records(self, limit=10):
+        """Get recent records via API - returns DataFrame"""
+        try:
+            response = requests.get(f"{self.base_url}/records?limit={limit}&order_by=id&order=desc")
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
+                return pd.DataFrame(records) if records else pd.DataFrame()
+            return pd.DataFrame()
+        except Exception as e:
+            st.error(f"API Error getting recent records: {e}")
+            return pd.DataFrame()
+    
+    def get_record(self, record_id):
+        """Get single record via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records/{record_id}")
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            st.error(f"API Error getting record: {e}")
+            return None
+    
+    def update_record(self, record_id, updates):
+        """Update a record via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/records/{record_id}",
+                json=updates
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"API Error updating record: {e}")
+            return False
+    
+    def search_records(self, search_term):
+        """Search records via API - ROBUST VERSION"""
+        try:
+            # Clean search term
+            search_term = search_term.strip()
+            if not search_term:
+                return []
+            
+            # Try the API search endpoint first
+            response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # Check if we got a valid response
+                if isinstance(data, dict) and data.get('status') == 'success':
+                    records = data.get('records', [])
+                    if records:
+                        return records
+                
+                # If no results or wrong format, try the fallback
+                return self._fallback_search(search_term)
+            else:
+                # If API fails, use fallback
+                return self._fallback_search(search_term)
+                
+        except requests.exceptions.Timeout:
+            st.warning("Search timeout - using local search")
+            return self._fallback_search(search_term)
+        except Exception as e:
+            st.error(f"API Error searching records: {e}")
+            return self._fallback_search(search_term)
+    
+    def _fallback_search(self, search_term):
+        """Fallback search by getting all records and filtering locally"""
+        try:
+            # Get all records once and cache
+            if not hasattr(self, '_cached_records'):
+                self._cached_records = self.get_all_records()
+            
+            all_records = self._cached_records
+            
+            if all_records.empty:
+                return []
+            
+            # Convert search term to lowercase for case-insensitive search
+            search_lower = search_term.lower()
+            
+            # Filter records that match search term
+            filtered = []
+            
+            for idx, record in all_records.iterrows():
+                artist = str(record.get('artist', '')).lower()
+                title = str(record.get('title', '')).lower()
+                catalog = str(record.get('catalog_number', '')).lower()
+                barcode = str(record.get('barcode', '')).lower()
+                
+                # Check if search term appears in any field
+                if (search_lower in artist or 
+                    search_lower in title or 
+                    search_lower in catalog or 
+                    search_lower in barcode):
+                    filtered.append(record.to_dict())
+            
+            return filtered
+        except Exception as e:
+            st.error(f"Fallback search error: {e}")
+            return []
+    
+    def get_records_by_user(self, user_id):
+        """Get records for specific user via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records/user/{user_id}")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
+            return []
+        except Exception as e:
+            st.error(f"API Error getting user records: {e}")
+            return []
+    
+    # Config operations
+    def get_config_value(self, config_key, default=None):
+        """Get config value via API"""
+        try:
+            response = requests.get(f"{self.base_url}/config/{config_key}")
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('config_value', default)
+            return default
+        except Exception as e:
+            st.error(f"API Error getting config: {e}")
+            return default
+    
+    def get_all_config(self):
+        """Get all config values via API"""
+        try:
+            response = requests.get(f"{self.base_url}/config")
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('configs', {})
+            return {}
+        except Exception as e:
+            st.error(f"API Error getting all config: {e}")
+            return {}
+    
+    # Genre operations
+    def get_all_genres(self):
+        """Get all genres via API - returns DataFrame"""
+        try:
+            response = requests.get(f"{self.base_url}/genres")
+            if response.status_code == 200:
+                data = response.json()
+                genres = data.get('genres', [])
+                # Convert to DataFrame for compatibility
+                return pd.DataFrame(genres) if genres else pd.DataFrame()
+            return pd.DataFrame()
+        except Exception as e:
+            st.error(f"API Error getting genres: {e}")
+            return pd.DataFrame()
+    
+    def add_genre(self, genre_name):
+        """Add new genre via API"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/genres",
+                json={'genre_name': genre_name}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return True, data.get('genre_id')
+            return False, None
+        except Exception as e:
+            st.error(f"API Error adding genre: {e}")
+            return False, None
+    
+    def get_discogs_genre_mapping(self, discogs_genre):
+        """Get Discogs genre mapping via API"""
+        try:
+            response = requests.get(f"{self.base_url}/discogs-genre-mappings/{discogs_genre}")
+            if response.status_code == 200:
+                return response.json()
+            return {'mapping': None, 'status': 'error'}
+        except Exception as e:
+            st.error(f"API Error getting genre mapping: {e}")
+            return {'mapping': None, 'status': 'error'}
+    
+    # Stats operations
+    def get_database_stats(self):
+        """Get database statistics via API"""
+        try:
+            response = requests.get(f"{self.base_url}/stats")
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'records_count': data.get('records_count', 0),
+                    'users_count': data.get('users_count', 0),
+                    'votes_count': data.get('votes_count', 0),
+                    'latest_record': data.get('latest_record'),
+                    'db_path': data.get('db_path', 'API-based')
+                }
+            return {'records_count': 0, 'db_path': 'API-based'}
+        except Exception as e:
+            st.error(f"API Error getting stats: {e}")
+            return {'records_count': 0, 'db_path': 'API-based'}
+    
+    def get_user(self, user_id):
+        """Get user by ID"""
+        try:
+            response = requests.get(f"{self.base_url}/users/{user_id}")
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            st.error(f"API Error getting user: {e}")
+            return None
+
+class FixedCommissionCalculator(CommissionCalculator):
+    """Fixed CommissionCalculator that handles API data properly"""
+    
+    def get_current_commission_rate(self):
+        """Get current commission rate - FIXED to handle API response"""
+        try:
+            # Get current user
+            user = st.session_state.get('user', {})
+            user_id = user.get('id')
+            
+            if not user_id:
+                # Return default commission rate
+                default_rate = st.session_state.db_manager.get_config_value('DEFAULT_COMMISSION_RATE', '0.20')
+                return float(default_rate)
+            
+            # Get user details from API
+            user_data = self.db_manager.get_user(user_id)
+            if not user_data:
+                return 0.20
+            
+            # Check if user has a signed agreement
+            if user_data.get('master_agreement_signed') and user_data.get('current_master_agreement_id'):
+                # Get agreement details
+                if user_data.get('agreement_details'):
+                    return float(user_data['agreement_details'].get('commission_rate', 0.20))
+            
+            # Return default
+            default_rate = self.db_manager.get_config_value('DEFAULT_COMMISSION_RATE', '0.20')
+            return float(default_rate)
+            
+        except Exception as e:
+            st.error(f"Error calculating commission rate: {e}")
+            return 0.20  # Default fallback
 
 class InventoryTab:
     def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
         self.youtube_handler = youtube_handler
-        self.price_handler = PriceHandler()
         
+        # Initialize API client
+        self.api_client = APIClient()
+        
+        # Update handlers to use API client
         self.search_handler = SearchHandler(discogs_handler)
-        self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler)
-        self.display_handler = DisplayHandler(self.youtube_handler)
-        # self.export_handler = ExportHandler(self.price_handler)
+        self.record_ops_handler = RecordOperationsHandler(discogs_handler, ebay_handler, self.api_client)
+        self.commission_calculator = FixedCommissionCalculator(self.api_client)
+        self.pricing_validator = PricingValidator(self.api_client, discogs_handler, ebay_handler)
 
     def _get_config_value(self, config_key):
-        value = st.session_state.db_manager.get_config_value(config_key, None)
-        if value is None:
-            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
-        if config_key == 'STORE_CAPACITY':
-            return int(value)
-        else:
-            return float(value)
+        """Get config value using API client"""
+        value = self.api_client.get_config_value(config_key, None)
+        if value is not None:
+            if config_key == 'STORE_CAPACITY':
+                return int(value)
+            else:
+                return float(value)
+        return None
 
     def render(self):
         stats = self._get_user_database_stats()
         
         store_fill_info = self._get_store_fill_info()
-        consignment_rate = self._calculate_consignment_rate(store_fill_info['fill_fraction'])
+        current_commission_rate = self.commission_calculator.get_current_commission_rate()
         
-        col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Inventory Records", stats['records_count'])
         with col2:
             st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
         with col3:
-            st.metric("Consignment Rate", f"{consignment_rate:.1%}")
+            st.metric("Commission Rate", f"{current_commission_rate*100:.1f}%")
         
-        # Display last added record - single line, no image
-        self._render_last_added_record_simple()
-        
+        # Show store capacity warning
         if store_fill_info['fill_fraction'] > 1.10:
             st.error("🚨 Store is over capacity! Cannot add new items.")
+        elif store_fill_info['fill_fraction'] > 0.90:
+            st.warning("⚠️ Store is near capacity ({:.1f}%)".format(store_fill_info['fill_percentage']))
+        
+        # Display last added record
+        self._render_last_added_record_simple()
         
         self._render_unified_operations(store_fill_info['fill_fraction'])
 
     def _render_last_added_record_simple(self):
         """Display the last record added to the database - simple single line"""
-        # Get the most recent record using API
-        recent_records = st.session_state.db_manager.get_recent_records(limit=1)
+        recent_records = self.api_client.get_recent_records(limit=1)
         
         if not recent_records.empty:
             last_record = recent_records.iloc[0]
@@ -64,8 +348,9 @@ class InventoryTab:
             title = last_record.get('title', 'Unknown Title')
             store_price = last_record.get('store_price', 0.0)
             
-            # Single line display with minimal styling
-            st.markdown(f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})")
+            display_text = f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
+            
+            st.markdown(display_text)
         else:
             st.markdown("**📝 Last Added:** No records yet")
 
@@ -86,14 +371,22 @@ class InventoryTab:
             st.session_state.search_triggered = False
         if 'search_query' not in st.session_state:
             st.session_state.search_query = ""
+        if 'last_search_term' not in st.session_state:
+            st.session_state.last_search_term = ""
         
         # Clear selected record after successful addition
         if st.session_state.get('record_added'):
+            # Clear ALL record-related session state
+            keys_to_clear = [key for key in st.session_state.keys() if key.startswith('discogs_result_')]
+            for key in keys_to_clear:
+                del st.session_state[key]
+            
             st.session_state.selected_record = None
             st.session_state.record_added = None
             st.session_state.search_results = {}
             st.session_state.current_search = ""
             st.session_state.search_query = ""
+            st.rerun()
         
         col1, col2 = st.columns([1, 3])
         with col1:
@@ -119,17 +412,26 @@ class InventoryTab:
             with col1:
                 search_submitted = st.form_submit_button("🔍 Search", width='stretch', disabled=search_disabled)
         
-        # CRITICAL FIX: Clear old search results when new search is submitted
+        # CRITICAL FIX: Only clear results when a new search is actually submitted
+        # Don't clear them just because of widget interactions
         if search_submitted:
-            # Clear previous search results to prevent caching issues
-            st.session_state.search_results = {}
-            st.session_state.current_search = ""
-            st.session_state.selected_record = None
-            st.session_state.record_added = None
-            
-            st.session_state.search_query = search_input
-            st.session_state.search_triggered = True
+            # Only clear if the search term actually changed
+            if search_input != st.session_state.get('last_search_term', ''):
+                # Clear ALL record-related session state for the old search
+                keys_to_clear = [key for key in st.session_state.keys() if key.startswith('discogs_result_')]
+                for key in keys_to_clear:
+                    del st.session_state[key]
+                
+                st.session_state.search_results = {}
+                st.session_state.current_search = ""
+                st.session_state.selected_record = None
+                st.session_state.record_added = None
+                
+                st.session_state.search_query = search_input
+                st.session_state.search_triggered = True
+                st.session_state.last_search_term = search_input  # Store the search term
         
+        # Check if we should show results
         if (st.session_state.search_triggered and 
             st.session_state.search_query and 
             st.session_state.search_query.strip()):
@@ -141,52 +443,763 @@ class InventoryTab:
             
             if search_type == "Add item":
                 results = self.search_handler.perform_discogs_search(search_term)
+                # Store results with a persistent key
+                st.session_state[f"discogs_search_{search_term}"] = results
                 st.session_state.search_results[search_term] = results
+                
+                # Use the new display method for Discogs results
+                self._render_discogs_results(results, search_type)
+                
             else:
-                # Pass user information to filter by consignor
                 user = st.session_state.get('user', {})
-                results = self.search_handler.perform_database_search(search_term, user)
+                results = self._perform_database_search(search_term, user)
                 st.session_state.search_results[search_term] = results
+                
+                # Use the existing display method for database results
+                self._render_database_results(results, search_type, st.session_state.get('user', {}))
             
             st.session_state.search_triggered = False
             st.session_state.last_search = search_term
-            st.rerun()
         
-        if (st.session_state.current_search and 
-            st.session_state.current_search in st.session_state.search_results and
-            st.session_state.record_added is None):
+        # If we have existing results (from previous search), show them
+        elif search_type == "Add item" and st.session_state.get('last_search_term'):
+            search_term = st.session_state.get('last_search_term', '')
+            results = st.session_state.get(f"discogs_search_{search_term}", [])
+            if results:
+                self._render_discogs_results(results, search_type)
+        
+        elif search_type == "Edit or Delete item" and st.session_state.get('last_search_term'):
+            search_term = st.session_state.get('last_search_term', '')
+            results = st.session_state.get('search_results', {}).get(search_term, [])
+            if results:
+                user = st.session_state.get('user', {})
+                self._render_database_results(results, search_type, user)
+    
+    def _perform_database_search(self, search_term, user=None):
+        """Perform database search using API client"""
+        try:
+            # Use the improved API client search
+            results = self.api_client.search_records(search_term)
             
-            results = st.session_state.search_results[st.session_state.current_search]
+            # Add consignor name if available
+            for record in results:
+                consignor_id = record.get('consignor_id')
+                if consignor_id and not record.get('consignor_name'):
+                    # Try to get consignor name from API
+                    user_data = self.api_client.get_user(consignor_id)
+                    if user_data:
+                        record['consignor_name'] = user_data.get('username', f"User {consignor_id}")
             
-            if st.session_state.selected_record:
-                self.display_handler.render_selected_record_only(st.session_state.selected_record)
+            return results
+        except Exception as e:
+            st.error(f"Database search error: {e}")
+            return []
+
+    def _render_discogs_results(self, results, search_type):
+        if not results:
+            st.warning("No results found on Discogs")
+            return
+        
+        # Show results count
+        st.write(f"**Found {len(results)} results**")
+        
+        # Process each result
+        for i, record in enumerate(results):
+            self._render_discogs_result_item(record, i)
+
+    def _render_discogs_result_item(self, record, index):
+        """Render individual Discogs search result with condition selection and price research"""
+        # Create a stable key for this record
+        record_key = f"discogs_result_{record.get('discogs_id', '')}_{record.get('artist', '')}_{record.get('title', '')}"
+        
+        # Initialize session state for this record if not exists
+        if f"{record_key}_data" not in st.session_state:
+            st.session_state[f"{record_key}_data"] = {
+                'record_data': record.copy(),
+                'selected_condition': None,
+                'price_research': None,
+                'advised_price': None,
+                'user_price': None,
+                'last_researched_condition': None,
+                'selected_genre': None
+            }
+        
+        # Get stored data
+        stored_data = st.session_state[f"{record_key}_data"]
+        
+        col1, col2, col3, col4, col5 = st.columns([1, 3, 2, 2, 1])
+        
+        with col1:
+            image_url = stored_data['record_data'].get('image_url', '')
+            if image_url:
+                st.image(image_url, width=80)
             else:
-                if search_type == "Add item":
-                    self.display_handler.render_discogs_results(results, search_type)
-                else:
-                    self.display_handler.render_database_results(results, search_type, st.session_state.get('user', {}))
+                st.write("No image")
         
-        if (st.session_state.selected_record and 
-            st.session_state.record_added is None):
-            self.display_handler.render_edit_section(
-                st.session_state.selected_record, 
-                self._handle_add_record, 
-                self._handle_update_record, 
-                self.discogs_handler, 
-                self.ebay_handler,
-                store_fill_fraction
+        with col2:
+            artist = stored_data['record_data'].get('artist', '')
+            title = stored_data['record_data'].get('title', '')
+            
+            st.write(f"**{artist} - {title}**")
+            
+            catalog = stored_data['record_data'].get('catalog_number', '')
+            year = stored_data['record_data'].get('year', '')
+            format_info = stored_data['record_data'].get('format', '')
+            label_info = stored_data['record_data'].get('label', '')
+            country = stored_data['record_data'].get('country', '')
+            discogs_genre = stored_data['record_data'].get('genre', '')
+            
+            info_lines = []
+            if catalog:
+                info_lines.append(f"**Catalog:** {catalog}")
+            if year:
+                info_lines.append(f"**Year:** {year}")
+            if format_info:
+                info_lines.append(f"**Format:** {format_info}")
+            if label_info:
+                info_lines.append(f"**Label:** {label_info}")
+            if country:
+                info_lines.append(f"**Country:** {country}")
+            if discogs_genre:
+                info_lines.append(f"**Discogs Genre:** {discogs_genre}")
+            
+            if info_lines:
+                for line in info_lines:
+                    st.write(line)
+            else:
+                st.write("*No additional info*")
+            
+            # Genre selection
+            all_genres = self._get_all_genres()
+            if not isinstance(all_genres, list):
+                all_genres = []
+            
+            # Get suggested genre
+            suggested_genre = self._get_suggested_genre(stored_data['record_data'])
+            
+            default_index = 0
+            if suggested_genre and suggested_genre in all_genres:
+                default_index = all_genres.index(suggested_genre) + 1
+            elif stored_data.get('selected_genre') and stored_data['selected_genre'] in all_genres:
+                default_index = all_genres.index(stored_data['selected_genre']) + 1
+            
+            genre_key = f"genre_select_{record_key}"
+            selected_genre = st.selectbox(
+                "Genre:",
+                options=["Select genre..."] + all_genres,
+                index=default_index,
+                key=genre_key
             )
+            
+            # Update stored genre
+            if selected_genre != "Select genre...":
+                stored_data['selected_genre'] = selected_genre
+            else:
+                stored_data['selected_genre'] = None
         
-        if (search_type == "Edit or Delete item" and 
-            st.session_state.checkout_records and
-            st.session_state.record_added is None):
-            self.display_handler.render_checkout_section(st.session_state.checkout_records, self._process_checkout)
+        with col3:
+            # Condition selection
+            user = st.session_state.get('user', {})
+            user_role = user.get('role', 'consignor')
+            
+            discogs_conditions = [
+                "Mint (M)",
+                "Near Mint (NM or M-)", 
+                "Very Good Plus (VG+)",
+                "Very Good (VG)",
+                "Good Plus (G+)",
+                "Good (G)",
+                "Fair (F)",
+                "Poor (P)"
+            ]
+            
+            if user_role == 'consignor':
+                # Consignor sees Mint, Near Mint, VG+, VG
+                available_conditions = ["Mint (M)", "Near Mint (NM or M-)", "Very Good Plus (VG+)", "Very Good (VG)"]
+            else:
+                # Admin sees all conditions
+                available_conditions = discogs_conditions
+            
+            # Get the current selection from stored data
+            previous_selection = stored_data['selected_condition']
+            
+            # Options - empty placeholder as first option
+            options = ["Select condition..."] + available_conditions
+            
+            # Set default index based on stored value
+            default_index = 0
+            if previous_selection and previous_selection in available_conditions:
+                default_index = available_conditions.index(previous_selection) + 1
+            
+            # Create a unique key for each selectbox
+            selectbox_key = f"condition_select_{record_key}"
+            
+            # Render selectbox
+            selected_condition = st.selectbox(
+                "Condition",
+                options=options,
+                index=default_index,
+                key=selectbox_key
+            )
+            
+            # Update stored condition if changed - AUTO RESEARCH
+            if selected_condition != "Select condition...":
+                if selected_condition != stored_data['selected_condition']:
+                    stored_data['selected_condition'] = selected_condition
+                    stored_data['last_researched_condition'] = None
+                    
+                    # AUTO RESEARCH when condition changes
+                    with st.spinner(f"Researching {selected_condition} prices..."):
+                        # Get Discogs price for selected condition
+                        discogs_price = self._get_discogs_price_for_condition(
+                            stored_data['record_data'], 
+                            selected_condition
+                        )
+                        
+                        # Get eBay prices
+                        ebay_prices = self._get_ebay_prices_for_condition(
+                            stored_data['record_data'].get('artist', ''), 
+                            stored_data['record_data'].get('title', ''),
+                            selected_condition
+                        )
+                        
+                        # Calculate advised price
+                        advised_price = self._calculate_advised_price(discogs_price, ebay_prices, selected_condition)
+                        
+                        # Store results
+                        stored_data['price_research'] = {
+                            'discogs_price': discogs_price,
+                            'ebay_prices': ebay_prices,
+                            'advised_price': advised_price,
+                            'selected_condition': selected_condition
+                        }
+                        stored_data['advised_price'] = advised_price
+                        stored_data['last_researched_condition'] = selected_condition
+                        
+                        # Auto-set user price to advised price initially
+                        if advised_price and advised_price > 0:
+                            stored_data['user_price'] = advised_price
+                        
+                        # Update session state
+                        st.session_state[f"{record_key}_data"] = stored_data
+                        
+                        # Rerun to update UI with new price
+                        st.rerun()
+        
+        with col4:
+            # Price input field - only show if condition is selected AND we have research
+            if (stored_data['selected_condition'] and 
+                stored_data['selected_condition'] != "Select condition..." and
+                stored_data.get('price_research')):
+                
+                # Get advised price from research
+                advised_price = stored_data.get('advised_price')
+                
+                # Get max ratio from config
+                max_ratio_value = self.api_client.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3')
+                max_ratio = float(max_ratio_value) if max_ratio_value else 1.3
+                
+                # Calculate max allowed price
+                max_allowed = advised_price * max_ratio if advised_price and advised_price > 0 else 0
+                
+                # Get current price from stored data - ensure it's not None
+                current_price = stored_data.get('user_price')
+                if current_price is None and advised_price:
+                    current_price = advised_price
+                elif current_price is None:
+                    current_price = 0.0
+                
+                # Create price input field with unique key
+                price_input_key = f"price_input_{record_key}"
+                user_price = st.number_input(
+                    "Price ($)",
+                    min_value=0.0,
+                    max_value=float(max_allowed * 1.5),  # Allow some room
+                    value=float(current_price),
+                    step=0.01,
+                    format="%.2f",
+                    key=price_input_key,
+                    help=f"Max: ${max_allowed:.2f}" if max_allowed > 0 else "Enter price"
+                )
+                
+                # Update stored user price if changed
+                if user_price != stored_data.get('user_price'):
+                    stored_data['user_price'] = user_price
+                    st.session_state[f"{record_key}_data"] = stored_data
+                
+                # Show price research details in expandable
+                if stored_data.get('price_research'):
+                    with st.expander("📊 Price Details", expanded=False):
+                        self._render_price_research_details(stored_data['price_research'], stored_data['record_data'])
+            elif stored_data['selected_condition'] and stored_data['selected_condition'] != "Select condition...":
+                st.info("Researching prices...")
+            else:
+                st.info("Select condition first")
+        
+        with col5:
+            # Add button - only enable if condition is selected, price is set, and genre is selected
+            add_enabled = (
+                stored_data['selected_condition'] and 
+                stored_data['selected_condition'] != "Select condition..." and
+                stored_data.get('user_price') and 
+                stored_data.get('user_price', 0) > 0 and
+                stored_data.get('selected_genre') and
+                stored_data['selected_genre'] != "Select genre..."
+            )
+            
+            add_button_key = f"add_{record_key}"
+            if add_enabled:
+                if st.button("➕ Add", key=add_button_key, type="primary", use_container_width=True):
+                    # Prepare record data for adding
+                    record_to_add = stored_data['record_data'].copy()
+                    record_to_add['selected_condition'] = stored_data['selected_condition']
+                    record_to_add['user_price'] = stored_data['user_price']
+                    record_to_add['advised_price'] = stored_data.get('advised_price')
+                    record_to_add['price_research'] = stored_data.get('price_research')
+                    record_to_add['genre'] = stored_data['selected_genre']
+                    record_to_add['discogs_genre'] = record_to_add.get('genre', '')
+                    
+                    # Get current user ID for consignor_id
+                    user = st.session_state.get('user', {})
+                    consignor_id = user.get('id')
+                    
+                    # ADD RECORD DIRECTLY TO DATABASE
+                    success, record_id = self._handle_add_record_direct(
+                        record_to_add, 
+                        stored_data['selected_genre'], 
+                        False,  # store_credit_option
+                        stored_data['user_price'],
+                        consignor_id  # Pass consignor_id
+                    )
+                    
+                    if success:
+                        # Clear this record's session state
+                        del st.session_state[f"{record_key}_data"]
+                        st.session_state.record_added = True
+                        st.success(f"✅ Record added successfully! ID: {record_id}")
+                        st.rerun()
+                    else:
+                        st.error("Failed to add record to database")
+            else:
+                st.button("➕ Add", key=f"add_disabled_{record_key}", disabled=True, use_container_width=True)
+        
+        st.divider()
+        
+        # Update the session state with the stored data
+        st.session_state[f"{record_key}_data"] = stored_data
+
+    def _handle_add_record_direct(self, record_data, genre, store_credit_option=False, user_price=None, consignor_id=None):
+        """Handle adding a record directly to the database WITH CONSIGNOR ID"""
+        # Store credit option and user price from session state
+        record_data['store_credit_option'] = store_credit_option
+        
+        # Add consignor_id to record data
+        if consignor_id:
+            record_data['consignor_id'] = consignor_id
+        
+        # If user specified a price, validate it
+        if user_price is not None:
+            validation = self.pricing_validator.validate_user_price(user_price, record_data)
+            if not validation['is_valid']:
+                st.error(f"❌ Price validation failed: {validation['reason']}")
+                st.info(f"Maximum allowed price: ${validation['max_allowed']:.2f} (based on advised price: ${validation['advised_price']:.2f})")
+                return False, None
+            
+            # Use validated user price
+            record_data['selected_price'] = user_price
+            record_data['original_consignor_price'] = user_price
+        
+        success, record_id = self.record_ops_handler.add_inventory_record(
+            record_data, 
+            genre, 
+            st.session_state.current_search,
+            store_credit_option,
+            consignor_id  # Pass consignor_id to handler
+        )
+        
+        return success, record_id
+
+    def _get_discogs_price_for_condition(self, record, selected_condition):
+        """Get Discogs price for selected condition"""
+        try:
+            if not self.discogs_handler or 'discogs_id' not in record:
+                return None
+            
+            release_id = record.get('discogs_id')
+            if not release_id:
+                return None
+            
+            # Get pricing data from Discogs
+            pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
+            if not pricing_data or 'price_suggestions' not in pricing_data:
+                return None
+            
+            price_suggestions = pricing_data.get('price_suggestions', {})
+            
+            # Try to match condition
+            condition_map = {
+                'Mint (M)': ['Mint (M)', 'M', 'Mint'],
+                'Near Mint (NM or M-)': ['Near Mint (NM or M-)', 'NM', 'M-', 'Near Mint'],
+                'Very Good Plus (VG+)': ['Very Good Plus (VG+)', 'VG+'],
+                'Very Good (VG)': ['Very Good (VG)', 'VG'],
+                'Good Plus (G+)': ['Good Plus (G+)', 'G+'],
+                'Good (G)': ['Good (G)', 'G'],
+                'Fair (F)': ['Fair (F)', 'F'],
+                'Poor (P)': ['Poor (P)', 'P']
+            }
+            
+            # Check for exact or partial matches
+            for discogs_condition, price in price_suggestions.items():
+                if price and price > 0:
+                    # Check if this Discogs condition matches our selected condition
+                    for pattern in condition_map.get(selected_condition, []):
+                        if pattern.lower() in discogs_condition.lower():
+                            return float(price)
+            
+            # If no match, try to get any available price
+            for discogs_condition, price in price_suggestions.items():
+                if price and price > 0:
+                    return float(price)
+            
+            return None
+            
+        except Exception as e:
+            st.error(f"Error getting Discogs price: {e}")
+            return None
+
+    def _get_ebay_prices_for_condition(self, artist, title, selected_condition):
+        """Get eBay prices with condition filtering"""
+        try:
+            if not self.ebay_handler:
+                return None
+            
+            # Get eBay pricing data
+            ebay_data = self.ebay_handler.get_ebay_pricing(artist, title)
+            if not ebay_data:
+                return None
+            
+            # Get all listings
+            all_listings = []
+            for condition_group in ebay_data.get('condition_pricing', {}).values():
+                all_listings.extend(condition_group.get('listings', []))
+            
+            # Calculate median of all listings
+            all_prices = [listing.get('base_price', 0) for listing in all_listings if listing.get('base_price', 0) > 0]
+            generic_median = self._calculate_median(all_prices) if all_prices else 0
+            
+            # Filter listings by condition
+            condition_patterns = {
+                'Mint (M)': [r'\bmint\b', r'\bm\b', r'\bstill sealed\b'],
+                'Near Mint (NM or M-)': [r'\bnear mint\b', r'\bnm\b', r'\bm-\b'],
+                'Very Good Plus (VG+)': [r'\bvery good plus\b', r'\bvg\+\b', r'\bvg\s*\+\s*'],
+                'Very Good (VG)': [r'\bvery good\b', r'\bvg\b'],
+                'Good Plus (G+)': [r'\bgood plus\b', r'\bg\+\b', r'\bg\s*\+\s*'],
+                'Good (G)': ['Good (G)', 'G'],
+                'Fair (F)': ['Fair (F)', 'F'],
+                'Poor (P)': ['Poor (P)', 'P']
+            }
+            
+            condition_listings = []
+            patterns = condition_patterns.get(selected_condition, [])
+            
+            for listing in all_listings:
+                item_data = listing.get('item_data', {})
+                title_text = item_data.get('title', '').lower()
+                
+                for pattern in patterns:
+                    if re.search(pattern, title_text, re.IGNORECASE):
+                        condition_listings.append(listing)
+                        break
+            
+            # Calculate median of condition-specific listings
+            condition_prices = [listing.get('base_price', 0) for listing in condition_listings if listing.get('base_price', 0) > 0]
+            condition_median = self._calculate_median(condition_prices) if condition_prices else 0
+            
+            return {
+                'generic_median': generic_median,
+                'condition_median': condition_median,
+                'generic_count': len(all_prices),
+                'condition_count': len(condition_prices),
+                'all_listings': all_listings,
+                'condition_listings': condition_listings,
+                'search_query': f"{artist} {title}",
+                'condition': selected_condition,
+                'raw_data': ebay_data  # Include raw data for debugging
+            }
+            
+        except Exception as e:
+            st.error(f"Error getting eBay prices: {e}")
+            return None
+
+    def _calculate_advised_price(self, discogs_price, ebay_prices, selected_condition):
+        """Calculate advised price as min of Discogs and eBay"""
+        candidates = []
+        
+        # Add Discogs price if available
+        if discogs_price and discogs_price > 0:
+            candidates.append(discogs_price)
+        
+        # Add eBay prices if available
+        if ebay_prices:
+            # Use condition-specific median if we have at least 3 listings
+            if ebay_prices['condition_count'] >= 3 and ebay_prices['condition_median'] > 0:
+                candidates.append(ebay_prices['condition_median'])
+            # Otherwise use generic median
+            elif ebay_prices['generic_median'] > 0:
+                candidates.append(ebay_prices['generic_median'])
+        
+        # Return minimum price or 0 if no candidates
+        return min(candidates) if candidates else 0.0
+
+    def _calculate_median(self, prices):
+        """Calculate median of price list"""
+        if not prices:
+            return 0.0
+        
+        valid_prices = [p for p in prices if p is not None and p > 0]
+        if not valid_prices:
+            return 0.0
+        
+        sorted_prices = sorted(valid_prices)
+        n = len(sorted_prices)
+        
+        if n % 2 == 1:
+            return float(sorted_prices[n // 2])
+        else:
+            return float((sorted_prices[n // 2 - 1] + sorted_prices[n // 2]) / 2)
+
+    def _render_price_research_details(self, research, record):
+        """Render detailed price research results"""
+        st.write(f"**Research for:** {record.get('artist', '')} - {record.get('title', '')}")
+        st.write(f"**Selected Condition:** {research['selected_condition']}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Discogs Price Research:**")
+            if research.get('discogs_price'):
+                st.write(f"Price found: ${research['discogs_price']:.2f}")
+            else:
+                st.write("No price found for this condition")
+                
+            # Show debug info
+            with st.expander("Discogs Debug Info", expanded=False):
+                st.write(f"Artist: {record.get('artist')}")
+                st.write(f"Title: {record.get('title')}")
+                st.write(f"Discogs ID: {record.get('discogs_id')}")
+                st.write(f"Condition searched: {research['selected_condition']}")
+                if 'discogs_id' in record:
+                    st.write(f"API URL: https://api.discogs.com/releases/{record['discogs_id']}")
+        
+        with col2:
+            st.write("**eBay Research:**")
+            if research.get('ebay_prices'):
+                ebay = research['ebay_prices']
+                st.write(f"Generic median: ${ebay['generic_median']:.2f} ({ebay['generic_count']} listings)")
+                st.write(f"Condition median: ${ebay['condition_median']:.2f} ({ebay['condition_count']} listings)")
+                
+                # Show debug info
+                with st.expander("eBay Debug Info", expanded=False):
+                    st.write(f"Search query: {ebay.get('search_query', 'N/A')}")
+                    st.write(f"Raw listings found: {len(ebay.get('all_listings', []))}")
+                    st.write(f"Condition listings: {ebay.get('condition_count', 0)}")
+                    if ebay.get('raw_data'):
+                        st.write(f"Raw eBay data keys: {list(ebay['raw_data'].keys())}")
+                        if 'search_stats' in ebay['raw_data']:
+                            st.write(f"Search stats: {ebay['raw_data']['search_stats']}")
+            else:
+                st.write("No eBay data found")
+        
+        st.write(f"**Advised Price:** ${research['advised_price']:.2f}")
+
+    def _render_database_results(self, results, search_type, user=None):
+        if not results:
+            st.warning("No records found in database")
+            return
+        
+        self._render_editable_database_results(results, search_type, user)
+
+    def _render_editable_database_results(self, results, search_type, user=None):
+        for i, record in enumerate(results):
+            # Show consignor name and store credit status
+            expander_title = f"{record.get('artist', '')} - {record.get('title', '')}"
+            user_role = user.get('role', 'consignor') if user else 'consignor'
+            
+            if user_role == 'admin' and record.get('consignor_name'):
+                expander_title += f" 👤 {record.get('consignor_name')}"
+            
+            # Add store credit indicator
+            if record.get('store_credit_option'):
+                expander_title += " 💳"
+            
+            with st.expander(expander_title, expanded=False):
+                self._render_editable_record(record, i, search_type, user)
+
+    def _render_editable_record(self, record, index, search_type, user=None):
+        col1, col2 = st.columns([1, 3])
+        
+        with col1:
+            image_url = record.get('image_url', '')
+            if image_url:
+                st.image(image_url, width=80)
+            else:
+                st.write("No image")
+        
+        with col2:
+            user_role = user.get('role', 'consignor') if user else 'consignor'
+            
+            # Show consignor info for admin users
+            if user_role == 'admin' and record.get('consignor_name'):
+                st.write(f"**👤 Consignor:** {record.get('consignor_name', '')}")
+                st.write(f"**Consignor ID:** {record.get('consignor_id', 'N/A')}")
+            
+            st.write(f"**ID:** {record.get('id', '')}")
+            st.write(f"**Barcode:** {record.get('barcode', '')}")
+            st.write(f"**Catalog:** {record.get('catalog_number', '')}")
+            st.write(f"**Genre:** {record.get('genre', '')}")
+            
+            # Show consignment dates if available
+            if record.get('consignment_start_date'):
+                st.write(f"**Consigned:** {record.get('consignment_start_date')}")
+            
+            if record.get('discount_eligible_date'):
+                st.write(f"**Discount Eligible:** {record.get('discount_eligible_date')}")
+            
+            artist = st.text_input("Artist", value=record.get('artist', ''), key=f"artist_edit_{index}")
+            title = st.text_input("Title", value=record.get('title', ''), key=f"title_edit_{index}")
+            
+            all_genres = self._get_all_genres()
+            if not isinstance(all_genres, list):
+                all_genres = []
+                
+            current_genre = record.get('genre', '')
+            genre_index = all_genres.index(current_genre) + 1 if current_genre in all_genres else 0
+            genre = st.selectbox("Genre", options=[""] + all_genres, index=genre_index, key=f"genre_edit_{index}")
+            
+            compilation = st.checkbox("Compilation", value=record.get('compilation', False), key=f"compilation_{index}")
+            
+            # Price editing with validation
+            store_price = record.get('store_price', 0.0)
+            st.write(f"**Current Store Price:** ${store_price:.2f}")
+            
+            # Show price override status
+            if record.get('price_override_requested'):
+                st.warning("⚠️ Price override requested")
+            
+            youtube_url = st.text_input("YouTube URL", value=record.get('youtube_url', ''), key=f"youtube_{index}")
+            
+            # Consignor ID editing (admin only)
+            consignor_id = None
+            if user_role == 'admin':
+                consignor_id = st.number_input(
+                    "Consignor ID",
+                    min_value=0,
+                    value=record.get('consignor_id', 0),
+                    key=f"consignor_id_{index}"
+                )
+            
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                if st.button("💾 Save", key=f"save_{index}", width='stretch'):
+                    updates = {
+                        'artist': artist,
+                        'title': title,
+                        'genre': genre,
+                        'compilation': compilation,
+                        'youtube_url': youtube_url
+                    }
+                    
+                    # Add consignor_id if admin is editing it
+                    if user_role == 'admin' and consignor_id is not None:
+                        updates['consignor_id'] = consignor_id if consignor_id > 0 else None
+                    
+                    self._save_record_changes(record, updates)
+            
+            with col_btn2:
+                if st.button("🗑️ Delete", key=f"delete_{index}", width='stretch', type="secondary"):
+                    if self._delete_record(record.get('id')):
+                        st.success("Record deleted successfully!")
+                        st.rerun()
+            
+            with col_btn3:
+                if record.get('barcode'):
+                    if st.button("🗑️ Clear Barcode", key=f"clear_barcode_{index}", width='stretch', type="secondary"):
+                        if self._clear_barcode(record.get('id')):
+                            st.success("Barcode cleared!")
+                            st.rerun()
+
+    def _save_record_changes(self, original_record, updates):
+        """Save record changes via API"""
+        # Handle genre conversion to genre_id
+        if 'genre' in updates:
+            genre = updates.pop('genre')
+            if genre:
+                genres_df = self.api_client.get_all_genres()
+                if not genres_df.empty:
+                    genre_rows = genres_df[genres_df['genre_name'] == genre]
+                    if not genre_rows.empty:
+                        updates['genre_id'] = genre_rows.iloc[0]['id']
+                    else:
+                        # Add new genre
+                        success, new_genre_id = self.api_client.add_genre(genre)
+                        if success:
+                            updates['genre_id'] = new_genre_id
+        
+        success = self.api_client.update_record(original_record['id'], updates)
+        if success:
+            st.success("Record updated successfully!")
+            st.rerun()
+        else:
+            st.error("Failed to update record")
+
+    def _clear_barcode(self, record_id):
+        updates = {'barcode': None}
+        success = self.api_client.update_record(record_id, updates)
+        return success
+
+    def _delete_record(self, record_id):
+        """Delete a record from the database via API"""
+        try:
+            success = self.api_client.delete_record(record_id)
+            return success
+        except Exception as e:
+            st.error(f"Error deleting record: {e}")
+            return False
+
+    def _get_all_genres(self):
+        """Get all genres from API"""
+        try:
+            genres_df = self.api_client.get_all_genres()
+            if genres_df.empty:
+                return []
+            
+            # Ensure we have a list of genre names
+            if 'genre_name' in genres_df.columns:
+                return genres_df['genre_name'].tolist()
+            else:
+                return []
+        except Exception as e:
+            st.error(f"Error getting genres: {e}")
+            return []
+
+    def _get_suggested_genre(self, record_data):
+        """Get suggested genre from mapping via API"""
+        discogs_genre = record_data.get('genre', '')
+        if not discogs_genre:
+            return None
+        
+        # Check for existing mapping
+        mapping_result = self.api_client.get_discogs_genre_mapping(discogs_genre)
+        if mapping_result and mapping_result.get('mapping'):
+            return mapping_result['mapping'].get('local_genre_name')
+        
+        return None
 
     def _get_store_fill_info(self):
         store_capacity = self._get_config_value('STORE_CAPACITY')
         
-        records_df = st.session_state.db_manager.get_all_records()
-        total_inventory = len(records_df)
+        records_df = self.api_client.get_all_records()
+        total_inventory = len(records_df) if not records_df.empty else 0
         
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
         fill_percentage = fill_fraction * 100
@@ -198,64 +1211,8 @@ class InventoryTab:
             'fill_percentage': fill_percentage
         }
 
-    def _calculate_consignment_rate(self, fill_fraction):
-        if fill_fraction < 0.60:
-            return 0.10
-        elif fill_fraction <= 1.10:
-            slope = (0.40 - 0.10) / (1.10 - 0.60)
-            return 0.10 + slope * (fill_fraction - 0.60)
-        else:
-            return 0.40
-
-    def _handle_add_record(self, genre):
-        record_data = st.session_state.selected_record['data']
-        
-        success, record_id = self.record_ops_handler.add_inventory_record(
-            record_data, 
-            genre, 
-            st.session_state.current_search
-        )
-        
-        if success:
-            import time
-            time.sleep(0.5)
-            
-            # Set flag to clear UI
-            st.session_state.record_added = True
-            st.session_state.records_updated += 1
-            
-            # Show success message
-            st.success(f"✅ Record added successfully!")
-            
-            # Force a rerun to clear the UI
-            st.rerun()
-        else:
-            st.error("Failed to add record to database")
-
-    def _handle_update_record(self, genre):
-        record_data = st.session_state.selected_record['data']
-        
-        success = self.record_ops_handler.update_database_record(record_data, genre)
-        
-        if success:
-            st.success("✅ Record updated successfully!")
-            st.session_state.records_updated += 1
-            st.session_state.selected_record = None
-            
-            st.rerun()
-        else:
-            st.error("❌ Failed to update record")
-
-    def _process_checkout(self):
-        st.warning("Checkout functionality is not available. The status column has been removed from the database.")
-        return 0
-
     def _get_user_database_stats(self) -> dict:
-        user = st.session_state.get('user', {})
-        user_role = user.get('role', 'consignor')
-        user_id = user.get('id')
-        
-        stats = st.session_state.db_manager.get_user_database_stats(user_id) if user_role == 'consignor' and user_id else st.session_state.db_manager.get_database_stats()
+        stats = self.api_client.get_database_stats()
         
         return {
             'records_count': stats.get('records_count', 0)

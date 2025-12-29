@@ -4,10 +4,62 @@ from datetime import datetime
 import time
 import io
 import csv
+import requests
 
 class EBayTab:
-    def __init__(self, ebay_handler):
+    def __init__(self, ebay_handler, base_url="https://arjanshaw.pythonanywhere.com"):
         self.ebay_handler = ebay_handler
+        self.base_url = base_url
+    
+    def _get_config_value(self, config_key, default=None):
+        """Get config value via API"""
+        try:
+            response = requests.get(f"{self.base_url}/config/{config_key}")
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('config_value', default)
+            return default
+        except Exception as e:
+            st.error(f"API Error getting config: {e}")
+            return default
+    
+    def _get_all_records(self):
+        """Get all records via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records?limit=1000")
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
+                return pd.DataFrame(records) if records else pd.DataFrame()
+            return pd.DataFrame()
+        except Exception as e:
+            st.error(f"API Error getting records: {e}")
+            return pd.DataFrame()
+    
+    def _update_record(self, record_id, updates):
+        """Update a record via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/records/{record_id}",
+                json=updates
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"API Error updating record: {e}")
+            return False
+    
+    def _search_records(self, search_term):
+        """Search records via API"""
+        try:
+            response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
+            return []
+        except Exception as e:
+            st.error(f"Search error: {e}")
+            return []
 
     def render(self):
         st.header("🛒 eBay Management")
@@ -124,7 +176,7 @@ class EBayTab:
         updated_count = self._update_all_ebay_prices_internal()
         
         if updated_count > 0:
-            st.session_state.records_updated += 1
+            st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
             st.rerun()
 
     def _update_single_ebay_prices(self, record_id):
@@ -135,21 +187,21 @@ class EBayTab:
         updated_count = self._update_single_ebay_prices_internal(record_id)
         
         if updated_count > 0:
-            st.session_state.records_updated += 1
+            st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
             st.rerun()
 
     def _update_all_ebay_sell_at(self):
         updated_count = self._update_all_ebay_sell_at_internal()
         
         if updated_count > 0:
-            st.session_state.records_updated += 1
+            st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
             st.rerun()
 
     def _update_single_ebay_sell_at(self, record_id):
         updated_count = self._update_single_ebay_sell_at_internal(record_id)
         
         if updated_count > 0:
-            st.session_state.records_updated += 1
+            st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
             st.rerun()
 
     def _process_ebay_listings(self, listings_data):
@@ -189,7 +241,7 @@ class EBayTab:
             
             if record:
                 matched_count += 1
-                success = st.session_state.db_manager.update_record(
+                success = self._update_record(
                     record['id'], 
                     {'ebay_item_number': item_number}
                 )
@@ -279,16 +331,16 @@ class EBayTab:
                     )
     
     def _find_record_by_artist_title(self, artist, title):
-        search_results = st.session_state.db_manager.search_records(f"{artist} {title}")
+        search_results = self._search_records(f"{artist} {title}")
         
-        if not search_results.empty:
-            return search_results.iloc[0].to_dict()
+        if search_results:
+            return search_results[0]
         return None
 
     def _export_ebay_draft_csv(self, num_listings):
         st.subheader("Generating eBay Draft Listings")
         
-        all_records = st.session_state.db_manager.get_all_records()
+        all_records = self._get_all_records()
         
         if all_records.empty:
             st.warning("No records found")
@@ -407,9 +459,10 @@ class EBayTab:
         with st.expander("📊 Individual eBay Listings Analysis", expanded=False):
             st.subheader("Individual Listings Analysis")
             
-            shipping_cost_str = st.session_state.db_manager.get_config_value('SHIPPING_COST')
+            shipping_cost_str = self._get_config_value('SHIPPING_COST')
             if shipping_cost_str is None:
-                raise ValueError("SHIPPING_COST config value not found in database")
+                st.error("SHIPPING_COST config value not found")
+                return
             shipping_cost = float(shipping_cost_str)
             
             item_summaries = recent_ebay_response.get('itemSummaries', [])
@@ -516,7 +569,7 @@ class EBayTab:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
-        records_df = st.session_state.db_manager.get_all_records()
+        records_df = self._get_all_records()
         
         if records_df.empty:
             st.info("No records found to update")
@@ -554,7 +607,7 @@ class EBayTab:
                     'ebay_low_shipping': ebay_low_shipping,
                     'ebay_low_url': ebay_pricing.get('ebay_search_url', '')
                 }
-                success = st.session_state.db_manager.update_record(record_id, updates)
+                success = self._update_record(record_id, updates)
                 if success:
                     updated_count += 1
                     results.append(f"✅ {artist} - {title}: {ebay_pricing.get('ebay_listings_count', 0)} listings")
@@ -570,7 +623,7 @@ class EBayTab:
                     'ebay_low_shipping': None,
                     'ebay_low_url': None
                 }
-                success = st.session_state.db_manager.update_record(record_id, updates)
+                success = self._update_record(record_id, updates)
                 if success:
                     updated_count += 1
                     results.append(f"✅ {artist} - {title}: No eBay data found")
@@ -600,9 +653,16 @@ class EBayTab:
             st.error("eBay handler not available. Check your eBay API credentials.")
             return 0
         
-        record = st.session_state.db_manager.get_record_by_id(record_id)
-        if record is None:
-            st.error(f"Record ID {record_id} not found")
+        # Get single record using API
+        try:
+            response = requests.get(f"{self.base_url}/records/{record_id}")
+            if response.status_code == 200:
+                record = response.json()
+            else:
+                st.error(f"Record ID {record_id} not found")
+                return 0
+        except Exception as e:
+            st.error(f"API Error getting record: {e}")
             return 0
         
         artist = record.get('artist', '')
@@ -621,7 +681,7 @@ class EBayTab:
                 'ebay_low_shipping': ebay_low_shipping,
                 'ebay_low_url': ebay_pricing.get('ebay_search_url', '')
             }
-            success = st.session_state.db_manager.update_record(record_id, updates)
+            success = self._update_record(record_id, updates)
             if success:
                 st.success(f"✅ Updated eBay prices for {artist} - {title}")
                 return 1
@@ -637,7 +697,7 @@ class EBayTab:
                 'ebay_low_shipping': None,
                 'ebay_low_url': None
             }
-            success = st.session_state.db_manager.update_record(record_id, updates)
+            success = self._update_record(record_id, updates)
             if success:
                 st.success(f"✅ Updated {artist} - {title}: No eBay data found")
                 return 1
@@ -646,7 +706,7 @@ class EBayTab:
                 return 0
 
     def _update_all_ebay_sell_at_internal(self):
-        records_df = st.session_state.db_manager.get_all_records()
+        records_df = self._get_all_records()
         
         if records_df.empty:
             st.info("No records found to update")
@@ -676,7 +736,7 @@ class EBayTab:
             
             ebay_sell_at = self._calculate_ebay_sell_at(ebay_lowest_price, ebay_low_shipping, discogs_median_price)
             
-            success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})
+            success = self._update_record(record_id, {'ebay_sell_at': ebay_sell_at})
             if success:
                 updated_count += 1
                 results.append(f"✅ {artist} - {title}")
@@ -702,9 +762,16 @@ class EBayTab:
         return updated_count
 
     def _update_single_ebay_sell_at_internal(self, record_id):
-        record = st.session_state.db_manager.get_record_by_id(record_id)
-        if record is None:
-            st.error(f"Record ID {record_id} not found")
+        # Get single record using API
+        try:
+            response = requests.get(f"{self.base_url}/records/{record_id}")
+            if response.status_code == 200:
+                record = response.json()
+            else:
+                st.error(f"Record ID {record_id} not found")
+                return 0
+        except Exception as e:
+            st.error(f"API Error getting record: {e}")
             return 0
         
         artist = record.get('artist', '')
@@ -715,7 +782,7 @@ class EBayTab:
         
         ebay_sell_at = self._calculate_ebay_sell_at(ebay_lowest_price, ebay_low_shipping, discogs_median_price)
         
-        success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})
+        success = self._update_record(record_id, {'ebay_sell_at': ebay_sell_at})
         if success:
             st.success(f"✅ Updated eBay sell price for {artist} - {title}")
             return 1
@@ -724,7 +791,7 @@ class EBayTab:
             return 0
 
     def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping, discogs_median_price):
-        shipping_cost_str = st.session_state.db_manager.get_config_value('SHIPPING_COST')
+        shipping_cost_str = self._get_config_value('SHIPPING_COST')
         if shipping_cost_str is None:
             raise ValueError("SHIPPING_COST config value not found in database")
         shipping_cost = float(shipping_cost_str)

@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import requests
+import os
 
 class AdminConfigTab:
     def __init__(self):
-        pass
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
     
     def render(self):
         st.header("⚙️ Admin Configuration")
@@ -53,10 +55,7 @@ class AdminConfigTab:
             for _, row in edited_df.iterrows():
                 original_row = config_df[config_df['config_key'] == row['config_key']].iloc[0]
                 if original_row['config_value'] != row['config_value']:
-                    success = st.session_state.db_manager.set_config_value(
-                        row['config_key'], 
-                        row['config_value']
-                    )
+                    success = self._set_config_value(row['config_key'], row['config_value'])
                     if success:
                         changes_made = True
                         st.success(f"✅ Updated {row['config_key']}")
@@ -66,12 +65,52 @@ class AdminConfigTab:
             if changes_made:
                 st.rerun()
 
+    def _get_all_config_values(self):
+        """Get all config values via API - includes descriptions from database"""
+        try:
+            response = requests.get(f"{self.base_url}/config")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    configs = data.get('configs', {})
+                    
+                    # Convert to list for display
+                    config_data = []
+                    for key, config_info in configs.items():
+                        # Handle both old format (string) and new format (dict with value/description)
+                        if isinstance(config_info, dict):
+                            config_value = config_info.get('value', '')
+                            description = config_info.get('description', 'No description available')
+                        else:
+                            config_value = config_info
+                            description = 'No description available'
+                        
+                        config_data.append({
+                            'config_key': key,
+                            'config_value': config_value,
+                            'description': description
+                        })
+                    return config_data
+            return []
+        except Exception as e:
+            st.error(f"Error getting config values: {e}")
+            return []
+    
+    def _set_config_value(self, config_key, config_value):
+        """Set config value via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/config/{config_key}",
+                json={'config_value': config_value}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error setting config value: {e}")
+            return False
+
     def _render_email_config(self):
         """Render email configuration section"""
         st.write("**Email Service Settings**")
-        
-        # Note: In production, these would be stored in app_config or secrets
-        # For now, show environment variables status
         
         col1, col2 = st.columns(2)
         with col1:
@@ -105,116 +144,6 @@ class AdminConfigTab:
             else:
                 st.warning("⚠️ Email service requires configuration")
 
-    def _get_all_config_values(self):
-        config_data = []
-        
-        # Get all config from database
-        all_config = st.session_state.db_manager.get_all_config()
-        
-        # Check what type of data we got back
-        if isinstance(all_config, list):
-            # It's a list of dictionaries
-            for config in all_config:
-                if isinstance(config, dict):
-                    config_data.append({
-                        'config_key': config.get('config_key'),
-                        'config_value': config.get('config_value'),
-                        'description': config.get('description', 'No description available')
-                    })
-                elif isinstance(config, str):
-                    # It might be a string representation, try to parse it
-                    try:
-                        # Try to extract key-value pairs from string
-                        if '=' in config:
-                            parts = config.split('=', 1)
-                            config_data.append({
-                                'config_key': parts[0].strip(),
-                                'config_value': parts[1].strip(),
-                                'description': 'Parsed from string'
-                            })
-                    except:
-                        continue
-        elif isinstance(all_config, dict):
-            # It's a dictionary
-            for key, value in all_config.items():
-                config_data.append({
-                    'config_key': key,
-                    'config_value': str(value),
-                    'description': 'From dictionary'
-                })
-        else:
-            # Fallback to known config keys
-            known_config_keys = [
-                'SHIPPING_COST', 'MIN_STORE_PRICE',
-                'STORE_PRICE_ESTIMATED_MULTIPLIER', 'STORE_PRICE_MINIMUM', 
-                'DEFAULT_COMMISSION_RATE', 'DEFAULT_STORE_RETURN_DAYS',
-                'CUSTOMER_RETURN_DAYS', 'CONSIGNOR_PICKUP_DAYS', 'STORE_CAPACITY',
-                'MAX_PRICE_TO_ADV_RATIO', 'COMMISSION_MIN_RATE', 'COMMISSION_MIN_CAPACITY',
-                'COMMISSION_MAX_RATE', 'COMMISSION_MAX_CAPACITY', 'COMMISSION_STORE_CREDIT_BONUS',
-                'PAYOUT_MINIMUM_AMOUNT', 'CONSIGNMENT_TOTAL_DAYS', 'CONSIGNMENT_FULL_PRICE_DAYS',
-                'CONSIGNMENT_DISCOUNT_DAYS', 'DISCOUNT_PERCENTAGE', 'EMAIL_NOTIFICATION_DAYS',
-                'PAYOUT_FREQUENCY_DAYS'
-            ]
-            
-            for config_key in known_config_keys:
-                config_value = st.session_state.db_manager.get_config_value(config_key)
-                if config_value is not None:
-                    config_data.append({
-                        'config_key': config_key,
-                        'config_value': config_value,
-                        'description': self._get_config_description(config_key)
-                    })
-        
-        return config_data
-
-    def _get_config_description(self, config_key):
-        config_descriptions = {
-            'SHIPPING_COST': 'Default shipping cost for eBay price calculations ($)',
-            'MIN_STORE_PRICE': 'Minimum price for any record in the store ($)',
-            'STORE_PRICE_ESTIMATED_MULTIPLIER': 'Multiplier for estimated price when calculating store price',
-            'STORE_PRICE_MINIMUM': 'Absolute minimum store price regardless of calculations ($)',
-            'DEFAULT_COMMISSION_RATE': 'Default commission rate for new consignment records (0.0-1.0)',
-            'DEFAULT_STORE_RETURN_DAYS': 'Default number of days before unsold consignment records are returned',
-            'CUSTOMER_RETURN_DAYS': 'Number of days before sold consignment records can be paid out',
-            'CONSIGNOR_PICKUP_DAYS': 'Number of days consignors have to pick up returned records',
-            'STORE_CAPACITY': 'Maximum number of records the store can hold',
-            'MAX_PRICE_TO_ADV_RATIO': 'Maximum allowed price multiplier (user can enter up to this ratio times advised price)',
-            'COMMISSION_MIN_RATE': 'Minimum commission rate (percentage) at low capacity',
-            'COMMISSION_MIN_CAPACITY': 'Capacity threshold (percentage) for minimum commission rate',
-            'COMMISSION_MAX_RATE': 'Maximum commission rate (percentage) at high capacity',
-            'COMMISSION_MAX_CAPACITY': 'Capacity threshold (percentage) for maximum commission rate',
-            'COMMISSION_STORE_CREDIT_BONUS': 'Additional commission bonus (percentage) for choosing store credit',
-            'PAYOUT_MINIMUM_AMOUNT': 'Minimum balance required to request a payout ($)',
-            'CONSIGNMENT_TOTAL_DAYS': 'Total consignment period in days',
-            'CONSIGNMENT_FULL_PRICE_DAYS': 'Days items remain at consignor\'s set price',
-            'CONSIGNMENT_DISCOUNT_DAYS': 'Days items may be subject to discount after initial period',
-            'DISCOUNT_PERCENTAGE': 'Maximum discount percentage after full price period',
-            'EMAIL_NOTIFICATION_DAYS': 'Days between email reminders for pickup',
-            'PAYOUT_FREQUENCY_DAYS': 'Minimum days between payout requests'
-        }
-        return config_descriptions.get(config_key, 'No description available')
-
-    def _create_user_api(self, username, email, password, role, full_name):
-        """Create a new user via API"""
-        try:
-            result = st.session_state.db_manager._make_request(
-                'POST', 
-                '/users',
-                json={
-                    'username': username,
-                    'email': email,
-                    'password': password,
-                    'role': role,
-                    'full_name': full_name
-                }
-            )
-            
-            success = result is not None and result.get('status') == 'success'
-            return success
-        except Exception as e:
-            st.error(f"Error creating user: {e}")
-            return False
-
     def _render_user_creation(self):
         st.subheader("Create New User")
         with st.form("create_user_form"):
@@ -241,7 +170,6 @@ class AdminConfigTab:
                 elif '@' not in email or '.' not in email:
                     st.error("Please enter a valid email address")
                 else:
-                    # Create user via API
                     success = self._create_user_api(username, email, password, role, full_name)
                     if success:
                         st.success(f"✅ User '{username}' created successfully!")
@@ -250,12 +178,12 @@ class AdminConfigTab:
                         st.error("❌ Failed to create user")
     
     def _render_user_management(self):
-        users_df = st.session_state.db_manager.get_all_users()
+        users = self._get_all_users()
 
-        if not users_df.empty:
+        if users:
             st.write("**Reset User Passwords:**")
             
-            for _, user in users_df.iterrows():
+            for user in users:
                 with st.expander(f"User: {user['username']} ({user['full_name'] or 'No name'}) - {user['role']} | Email: {user['email']}", expanded=False):
                     col1, col2, col3 = st.columns([2, 1, 1])
                     
@@ -279,18 +207,12 @@ class AdminConfigTab:
                                 elif not any(c.isdigit() for c in new_password):
                                     st.error("Password must contain at least one number")
                                 else:
-                                    success = st.session_state.db_manager._make_request(
-                                        'POST', 
-                                        f"/users/{user['id']}/reset-password",
-                                        json={'new_password': new_password}
-                                    )
-                                    
-                                    if success and success.get('status') == 'success':
+                                    success = self._reset_password_api(user['id'], new_password)
+                                    if success:
                                         st.success(f"✅ Password reset for {user['username']}")
                                         st.rerun()
                                     else:
-                                        error_msg = success.get('error', 'Unknown error') if success else 'API request failed'
-                                        st.error(f"❌ Failed to reset password: {error_msg}")
+                                        st.error(f"❌ Failed to reset password for {user['username']}")
                             else:
                                 st.error("Please enter a new password")
                     
@@ -304,14 +226,64 @@ class AdminConfigTab:
                         )
                         
                         if st.button("Update Credit", key=f"credit_btn_{user['id']}", width='stretch'):
-                            success = st.session_state.db_manager._make_request(
-                                'PUT',
-                                f"/users/{user['id']}",
-                                json={'store_credit_balance': store_credit}
-                            )
-                            
-                            if success and success.get('status') == 'success':
+                            success = self._update_store_credit_api(user['id'], store_credit)
+                            if success:
                                 st.success(f"✅ Store credit updated for {user['username']}")
                                 st.rerun()
         else:
             st.info("No users found")
+    
+    def _get_all_users(self):
+        """Get all users via API"""
+        try:
+            response = requests.get(f"{self.base_url}/users")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('users', [])
+            return []
+        except Exception as e:
+            st.error(f"Error getting users: {e}")
+            return []
+    
+    def _create_user_api(self, username, email, password, role, full_name):
+        """Create a new user via API"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/users",
+                json={
+                    'username': username,
+                    'email': email,
+                    'password': password,
+                    'role': role,
+                    'full_name': full_name
+                }
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error creating user: {e}")
+            return False
+    
+    def _reset_password_api(self, user_id, new_password):
+        """Reset user password via API"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/users/{user_id}/reset-password",
+                json={'new_password': new_password}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error resetting password: {e}")
+            return False
+    
+    def _update_store_credit_api(self, user_id, store_credit):
+        """Update user store credit via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/users/{user_id}",
+                json={'store_credit_balance': store_credit}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error updating store credit: {e}")
+            return False

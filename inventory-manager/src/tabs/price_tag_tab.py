@@ -1,445 +1,503 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+import requests
+from datetime import datetime
 import tempfile
 import os
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+import io
+from PIL import Image
 import time
-import threading
-import queue
-import json
-from pathlib import Path
 
 class PriceTagTab:
-    def __init__(self, db_manager):
-        self.db_manager = db_manager
-        from handlers.price_tag_handler import PriceTagHandler
-        self.price_tag_handler = PriceTagHandler(db_manager)
-        
-        # Initialize config values - will throw errors if config file doesn't exist or values are missing
-        self._validate_configuration()
-    
-    def _validate_configuration(self):
-        """Validate that all required configuration values exist"""
-        from config import AppConfig
-        
-        try:
-            config = AppConfig()
-            
-            # Load all required config values
-            required_keys = [
-                'label_width_mm', 'label_height_mm', 'left_margin_mm',
-                'gutter_spacing_mm', 'top_margin_mm', 'font_size',
-                'price_font_size', 'price_y_pos', 'text_font_size',
-                'barcode_y_pos', 'barcode_height', 'print_borders'
-            ]
-            
-            for key in required_keys:
-                st.session_state[key] = config.get(key)
-                
-        except Exception as e:
-            st.error(f"Configuration error: {e}")
-            st.stop()
-    
-    def _save_page_layout_config(self, key, value):
-        """Save page layout configuration to config file"""
-        from config import AppConfig
-        
-        try:
-            config = AppConfig()
-            current_config = config.get_all()
-            current_config[key] = value
-            config.update(current_config)
-            st.session_state[key] = value
-        except Exception as e:
-            st.error(f"Error saving configuration: {e}")
-    
-    def _save_tag_design_config(self, key, value):
-        """Save tag design configuration to config file"""
-        # Both page layout and tag design are in the same config file now
-        self._save_page_layout_config(key, value)
+    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+        """Initialize with API base URL"""
+        self.base_url = base_url
+        self.api_client = APIClient(base_url)
     
     def render(self):
-        st.header("🏷️ Print Price Tags")
+        st.title("🏷️ Price Tag Printer")
         
-        if hasattr(st.session_state, 'print_status') and st.session_state.print_status:
-            if hasattr(st.session_state, 'print_success') and st.session_state.print_success:
-                st.success(st.session_state.print_message)
-            else:
-                st.error(st.session_state.print_message)
+        # Initialize session state for selected records
+        if 'selected_records_for_printing' not in st.session_state:
+            st.session_state.selected_records_for_printing = []
         
-        import barcode
-        import reportlab
-        st.success("✅ Printing dependencies available")
+        if 'search_results_price_tags' not in st.session_state:
+            st.session_state.search_results_price_tags = []
         
-        col1, col2 = st.columns(2)
+        # Two column layout for search and selection
+        col1, col2 = st.columns([2, 1])
         
         with col1:
-            with st.expander("📐 Page/Layout Configuration", expanded=True):
-                self._render_page_layout_configuration()
+            self._render_search_section()
         
         with col2:
-            with st.expander("⚙️ Price Tag Design", expanded=True):
-                self._render_price_tag_design_configuration()
+            self._render_selection_section()
         
-        records = self.price_tag_handler.get_records_without_barcodes()
+        # Print button and options
+        if st.session_state.selected_records_for_printing:
+            st.divider()
+            self._render_print_options()
+
+    def _render_search_section(self):
+        """Render the search section"""
+        st.subheader("🔍 Search Records")
         
-        st.subheader("Manage Printed Tags")
-        
-        all_records = self.db_manager.get_all_records()
-        printed_count = len(all_records[all_records['barcode'].notna() & (all_records['barcode'] != '')])
-        total_count = len(all_records)
-        st.metric("Printed", f"{printed_count}/{total_count}")
-        
-        # Get last printed batch size from database config
-        last_batch_size = st.session_state.db_manager.get_config_value('LAST_PRINT_BATCH_SIZE', '0')
-        try:
-            last_batch_size = int(last_batch_size)
-        except:
-            last_batch_size = 0
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            # Clear barcodes section with last batch size
-            st.write("**Clear Recent Price Tags**")
-            
-            # Show last batch size info
-            if last_batch_size > 0:
-                st.info(f"Last printed batch: {last_batch_size} tags")
-            
-            # Input for number of tags to clear with default from last batch
-            clear_count = st.number_input(
-                "Number of tags to clear:",
-                min_value=0,
-                max_value=1000,
-                value=last_batch_size if last_batch_size > 0 else 10,
-                step=1,
-                key="clear_tag_count"
+        with st.form(key="price_tag_search_form"):
+            search_input = st.text_input(
+                "Search by artist, title, or catalog number:",
+                placeholder="Enter search term..."
             )
             
-            if st.button("🗑️ Clear Price Tags", width='stretch', 
-                       help=f"Remove barcodes from {clear_count} most recent printed records"):
-                cleared_count = self.price_tag_handler.clear_recent_barcodes(clear_count)
-                if cleared_count > 0:
-                    st.success(f"✅ Cleared {cleared_count} recent price tags!")
+            col1, col2 = st.columns(2)
+            with col1:
+                search_button = st.form_submit_button("🔍 Search", use_container_width=True)
+            with col2:
+                if st.form_submit_button("🗑️ Clear Results", type="secondary", use_container_width=True):
+                    st.session_state.search_results_price_tags = []
                     st.rerun()
-                else:
-                    st.info("No recent price tags to clear")
+        
+        if search_button and search_input:
+            with st.spinner("Searching records..."):
+                results = self._search_records(search_input)
+                st.session_state.search_results_price_tags = results
+        
+        # Display search results
+        if st.session_state.search_results_price_tags:
+            st.write(f"**Found {len(st.session_state.search_results_price_tags)} records:**")
+            
+            for record in st.session_state.search_results_price_tags:
+                self._render_search_result_item(record)
+
+    def _render_search_result_item(self, record):
+        """Render individual search result item"""
+        col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
+        
+        with col1:
+            if record.get('image_url'):
+                try:
+                    st.image(record['image_url'], width=50)
+                except:
+                    st.write("📷")
+            else:
+                st.write("📷")
         
         with col2:
-            # Other buttons remain
-            if st.button("🗑️ Clear ALL Price Tags", width='stretch', 
-                       help="Remove barcodes from ALL records (use with caution!)", type="secondary"):
-                if st.checkbox("I understand this will remove ALL barcodes from ALL records"):
-                    all_records = self.db_manager.get_all_records()
-                    records_with_barcodes = all_records[
-                        (all_records['barcode'].notna()) & 
-                        (all_records['barcode'] != '') & 
-                        (all_records['barcode'] != 'None')
-                    ]
-                    clear_count = len(records_with_barcodes)
-                    
-                    if st.button(f"CONFIRM: Clear ALL {clear_count} barcodes", type="primary"):
-                        for _, record in records_with_barcodes.iterrows():
-                            st.session_state.db_manager.update_record(record['id'], {'barcode': None})
-                        st.success(f"✅ Cleared ALL {clear_count} price tags!")
-                        st.rerun()
+            st.write(f"**{record.get('artist', 'Unknown')}**")
+            st.write(f"*{record.get('title', 'Unknown')}*")
+            st.write(f"Cat: {record.get('catalog_number', 'N/A')}")
         
-        if not records:
-            st.info("All records have price tags printed.")
+        with col3:
+            price = record.get('store_price', 0)
+            st.write(f"**${price:.2f}**")
+        
+        with col4:
+            # Check if already selected
+            is_selected = any(r.get('id') == record.get('id') for r in st.session_state.selected_records_for_printing)
+            
+            if is_selected:
+                if st.button("✅ Added", key=f"added_{record['id']}", disabled=True, use_container_width=True):
+                    pass
+            else:
+                if st.button("➕ Add", key=f"add_{record['id']}", use_container_width=True):
+                    st.session_state.selected_records_for_printing.append(record)
+                    st.success(f"Added {record.get('artist', 'Unknown')} - {record.get('title', 'Unknown')}")
+                    st.rerun()
+        
+        st.divider()
+
+    def _render_selection_section(self):
+        """Render the selection section"""
+        st.subheader("🛒 Selected for Printing")
+        
+        selected_count = len(st.session_state.selected_records_for_printing)
+        
+        if selected_count == 0:
+            st.info("No records selected. Search and add records to print price tags.")
             return
         
-        st.subheader(f"Records Needing Price Tags ({len(records)} found)")
+        st.success(f"**{selected_count} records selected**")
+        
+        # Calculate total value
+        total_value = sum(float(r.get('store_price', 0)) for r in st.session_state.selected_records_for_printing)
+        st.write(f"**Total Value:** ${total_value:.2f}")
+        
+        # Show selected items with remove option
+        for i, record in enumerate(st.session_state.selected_records_for_printing):
+            col1, col2, col3 = st.columns([3, 2, 1])
+            
+            with col1:
+                st.write(f"{record.get('artist', 'Unknown')}")
+                st.write(f"*{record.get('title', 'Unknown')[:20]}...*")
+            
+            with col2:
+                st.write(f"${record.get('store_price', 0):.2f}")
+            
+            with col3:
+                if st.button("❌", key=f"remove_{record['id']}", help="Remove"):
+                    st.session_state.selected_records_for_printing.pop(i)
+                    st.rerun()
+        
+        # Clear all button
+        if st.button("🗑️ Clear All", type="secondary", use_container_width=True):
+            st.session_state.selected_records_for_printing = []
+            st.rerun()
+
+    def _render_print_options(self):
+        """Render printing options"""
+        st.subheader("🖨️ Print Options")
         
         col1, col2 = st.columns(2)
+        
         with col1:
-            select_all = getattr(st.session_state, 'select_all', False)
-            if select_all:
-                if st.button("❌ Deselect All", width='stretch'):
-                    st.session_state.select_all = False
-                    st.rerun()
-            else:
-                if st.button("✅ Select All", width='stretch'):
-                    st.session_state.select_all = True
-                    st.rerun()
+            tag_size = st.selectbox(
+                "Tag Size:",
+                ["Small (2\" x 3\")", "Medium (2.5\" x 3.5\")", "Large (3\" x 4\")"],
+                index=1
+            )
+            
+            include_barcode = st.checkbox("Include Barcode", value=True)
+            include_image = st.checkbox("Include Album Art", value=True)
         
         with col2:
-            print_first_x = getattr(st.session_state, 'print_first_x', 0)
-            st.number_input("Print First X Labels", min_value=0, value=print_first_x, key="print_first_x")
-        
-        display_data = []
-        for i, record in enumerate(records):
-            current_select_all = getattr(st.session_state, 'select_all', False)
-            current_print_first_x = getattr(st.session_state, 'print_first_x', 0)
-            auto_select = current_select_all or (current_print_first_x > 0 and i < current_print_first_x)
+            copies_per_record = st.number_input("Copies per record:", min_value=1, max_value=10, value=1)
             
-            display_data.append({
-                'Select': auto_select,
-                'ID': record['id'],
-                'Artist': record['artist'],
-                'Title': record['title'],
-                'Genre': record.get('genre_name', 'Unknown'),
-                'Price': f"${record.get('store_price', 0):.2f}",
-                'Added Date': record.get('created_at', '')
-            })
+            paper_size = st.selectbox(
+                "Paper Size:",
+                ["Letter (8.5\" x 11\")", "A4 (210mm x 297mm)"],
+                index=0
+            )
         
-        df = pd.DataFrame(display_data)
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "Select": st.column_config.CheckboxColumn("Select", default=False),
-                "ID": st.column_config.NumberColumn("ID", disabled=True),
-                "Artist": st.column_config.TextColumn("Artist", disabled=True),
-                "Title": st.column_config.TextColumn("Title", disabled=True),
-                "Genre": st.column_config.TextColumn("Genre", disabled=True),
-                "Price": st.column_config.TextColumn("Price", disabled=True),
-                "Added Date": st.column_config.DatetimeColumn("Added Date", disabled=True)
-            },
-            hide_index=True,
-            width='stretch',
-            key="price_tag_editor"
+        # Layout options
+        layout = st.radio(
+            "Layout:",
+            ["Single column", "Two columns", "Auto-fit"],
+            index=2,
+            horizontal=True
         )
         
-        selected_records = edited_df[edited_df['Select'] == True]
-        
-        if len(selected_records) > 0:
-            st.subheader(f"Selected for Printing ({len(selected_records)} records)")
-            st.dataframe(selected_records[['ID', 'Artist', 'Title', 'Genre', 'Price']], hide_index=True)
-            
-            if st.button("🖨️ Print Price Tags", type="primary", width='stretch'):
-                self._print_tags(selected_records['ID'].tolist())
-    
-    def _render_page_layout_configuration(self):
-        st.write("**Page Layout Settings**")
-        
+        # Preview and print buttons
         col1, col2 = st.columns(2)
         
         with col1:
-            label_width_mm = st.number_input(
-                "Label Width (mm)",
-                min_value=10.0,
-                max_value=100.0,
-                value=st.session_state.label_width_mm,
-                step=0.5,
-                key="widget_label_width_mm",
-                on_change=lambda: self._save_page_layout_config('label_width_mm', st.session_state.widget_label_width_mm)
-            )
-            
-            label_height_mm = st.number_input(
-                "Label Height (mm)",
-                min_value=10.0,
-                max_value=100.0,
-                value=st.session_state.label_height_mm,
-                step=0.5,
-                key="widget_label_height_mm",
-                on_change=lambda: self._save_page_layout_config('label_height_mm', st.session_state.widget_label_height_mm)
-            )
-            
-            left_margin_mm = st.number_input(
-                "Left Margin (mm)",
-                min_value=0.0,
-                max_value=50.0,
-                value=st.session_state.left_margin_mm,
-                step=0.5,
-                key="widget_left_margin_mm",
-                on_change=lambda: self._save_page_layout_config('left_margin_mm', st.session_state.widget_left_margin_mm)
-            )
+            if st.button("👁️ Preview PDF", use_container_width=True, type="secondary"):
+                self._generate_preview_pdf()
         
         with col2:
-            gutter_spacing_mm = st.number_input(
-                "Gutter Spacing (mm)",
-                min_value=0.0,
-                max_value=50.0,
-                value=st.session_state.gutter_spacing_mm,
-                step=0.5,
-                key="widget_gutter_spacing_mm",
-                on_change=lambda: self._save_page_layout_config('gutter_spacing_mm', st.session_state.widget_gutter_spacing_mm)
-            )
-            
-            top_margin_mm = st.number_input(
-                "Top Margin (mm)",
-                min_value=0.0,
-                max_value=50.0,
-                value=st.session_state.top_margin_mm,
-                step=0.5,
-                key="widget_top_margin_mm",
-                on_change=lambda: self._save_page_layout_config('top_margin_mm', st.session_state.widget_top_margin_mm)
-            )
-            
-            font_size = st.number_input(
-                "Base Font Size",
-                min_value=4,
-                max_value=20,
-                value=st.session_state.font_size,
-                key="widget_font_size",
-                on_change=lambda: self._save_page_layout_config('font_size', st.session_state.widget_font_size)
-            )
-    
-    def _render_price_tag_design_configuration(self):
-        st.write("**Price Tag Design Settings**")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            price_font_size = st.number_input(
-                "Price Font Size",
-                min_value=6,
-                max_value=20,
-                value=st.session_state.price_font_size,
-                key="widget_price_font_size",
-                on_change=lambda: self._save_tag_design_config('price_font_size', st.session_state.widget_price_font_size)
-            )
-            
-            price_y_pos = st.number_input(
-                "Price Y Position (mm)",
-                min_value=0.0,
-                max_value=20.0,
-                value=st.session_state.price_y_pos,
-                step=0.5,
-                key="widget_price_y_pos",
-                on_change=lambda: self._save_tag_design_config('price_y_pos', st.session_state.widget_price_y_pos)
-            )
-            
-            text_font_size = st.number_input(
-                "Text Font Size",
-                min_value=4,
-                max_value=12,
-                value=st.session_state.text_font_size,
-                key="widget_text_font_size",
-                on_change=lambda: self._save_tag_design_config('text_font_size', st.session_state.widget_text_font_size)
-            )
+            if st.button("🖨️ Generate PDF", type="primary", use_container_width=True):
+                pdf_bytes = self._generate_pdf(
+                    st.session_state.selected_records_for_printing,
+                    tag_size,
+                    include_barcode,
+                    include_image,
+                    copies_per_record,
+                    paper_size,
+                    layout
+                )
                 
-        with col2:
-            barcode_y_pos = st.number_input(
-                "Barcode Y Position (mm)",
-                min_value=0.0,
-                max_value=20.0,
-                value=st.session_state.barcode_y_pos,
-                step=0.5,
-                key="widget_barcode_y_pos",
-                on_change=lambda: self._save_tag_design_config('barcode_y_pos', st.session_state.widget_barcode_y_pos)
-            )
-            
-            barcode_height = st.number_input(
-                "Barcode Height (mm)",
-                min_value=0.0,
-                max_value=12.0,
-                value=st.session_state.barcode_height,
-                step=0.5,
-                key="widget_barcode_height",
-                on_change=lambda: self._save_tag_design_config('barcode_height', st.session_state.widget_barcode_height)
-            )
-            
-            print_borders = st.checkbox(
-                "Print Borders Around Labels",
-                value=st.session_state.print_borders,
-                key="widget_print_borders",
-                on_change=lambda: self._save_tag_design_config('print_borders', st.session_state.widget_print_borders)
-            )
-    
-    def _print_tags(self, record_ids):
-        if not record_ids:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ No records selected"
-            st.session_state.print_success = False
-            st.rerun()
-            return
-        
-        st.session_state.print_status = "processing"
-        st.session_state.print_message = f"🔄 Starting price tag generation for {len(record_ids)} records..."
-        st.session_state.print_success = False
+                # Offer download
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        status_text.text("Step 1/3: Assigning barcodes...")
-        barcode_mapping = self.price_tag_handler.assign_barcodes(record_ids)
-        progress_bar.progress(33)
-        
-        if not barcode_mapping:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ Failed to assign barcodes"
-            st.session_state.print_success = False
-            progress_bar.empty()
-            status_text.empty()
-            st.rerun()
-            return
-        
-        status_text.text("Step 2/3: Loading record data...")
-        all_records = self.db_manager.get_all_records()
-        records_to_print = all_records[all_records['id'].isin(record_ids)]
-        progress_bar.progress(66)
-        
-        status_text.text("Step 3/3: Generating PDF...")
-        result_queue = queue.Queue()
-        
-        layout_params = {
-            'price_font_size': st.session_state.price_font_size,
-            'price_y_pos': st.session_state.price_y_pos,
-            'text_font_size': st.session_state.text_font_size,
-            'barcode_y_pos': st.session_state.barcode_y_pos,
-            'barcode_height': st.session_state.barcode_height,
-            'print_borders': st.session_state.print_borders
-        }
-        
-        page_layout_params = {
-            'label_width_mm': st.session_state.label_width_mm,
-            'label_height_mm': st.session_state.label_height_mm,
-            'left_margin_mm': st.session_state.left_margin_mm,
-            'gutter_spacing_mm': st.session_state.gutter_spacing_mm,
-            'top_margin_mm': st.session_state.top_margin_mm,
-            'font_size': st.session_state.font_size
-        }
-        
-        def generate_pdf_thread():
-            pdf_path = self.price_tag_handler.generate_pdf(records_to_print, barcode_mapping, layout_params, page_layout_params)
-            result_queue.put(('success', pdf_path))
-        
-        pdf_thread = threading.Thread(target=generate_pdf_thread)
-        pdf_thread.daemon = True
-        pdf_thread.start()
-        
-        pdf_thread.join(timeout=20)
-        
-        progress_bar.progress(100)
-        
-        if pdf_thread.is_alive():
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ PDF generation timed out after 20 seconds"
-            st.session_state.print_success = False
-        else:
-            result_type, result_data = result_queue.get_nowait()
+    def _search_records(self, search_term):
+        """Search records via API"""
+        try:
+            response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
             
-            if result_type == 'success' and result_data and os.path.exists(result_data):
-                with open(result_data, "rb") as f:
-                    st.session_state.pdf_data = f.read()
-                st.session_state.pdf_filename = f"price_tags_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
+            
+            # Fallback: get all records and filter
+            response = requests.get(f"{self.base_url}/records?limit=1000")
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
                 
-                os.unlink(result_data)
+                # Filter locally
+                search_lower = search_term.lower()
+                filtered = []
                 
-                # Save the batch size to config for future clearing
-                batch_size = len(record_ids)
-                st.session_state.db_manager.set_config_value('LAST_PRINT_BATCH_SIZE', str(batch_size))
+                for record in records:
+                    artist = str(record.get('artist', '')).lower()
+                    title = str(record.get('title', '')).lower()
+                    catalog = str(record.get('catalog_number', '')).lower()
+                    
+                    if (search_lower in artist or 
+                        search_lower in title or 
+                        search_lower in catalog):
+                        filtered.append(record)
                 
-                st.session_state.print_status = "completed"
-                st.session_state.print_message = f"✅ Successfully generated price tags for {batch_size} records (batch size saved)"
-                st.session_state.print_success = True
+                return filtered
+            
+            return []
+            
+        except Exception as e:
+            st.error(f"Search error: {e}")
+            return []
+
+    def _generate_preview_pdf(self):
+        """Generate a preview of the price tags"""
+        with st.spinner("Generating preview..."):
+            try:
+                # Create a simple preview
+                preview_html = self._generate_preview_html()
+                st.components.v1.html(preview_html, height=400, scrolling=True)
+                
+                st.success("Preview generated successfully!")
+                
+            except Exception as e:
+                st.error(f"Error generating preview: {e}")
+
+    def _generate_preview_html(self):
+        """Generate HTML preview of price tags"""
+        html = """
+        <style>
+            .preview-container {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                padding: 20px;
+                background: #f5f5f5;
+                border-radius: 10px;
+            }
+            .price-tag {
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 10px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .artist {
+                font-weight: bold;
+                font-size: 12px;
+                margin: 0;
+            }
+            .title {
+                font-size: 10px;
+                color: #666;
+                margin: 2px 0;
+            }
+            .price {
+                font-size: 14px;
+                font-weight: bold;
+                color: #e74c3c;
+                margin: 5px 0;
+            }
+            .barcode {
+                font-family: monospace;
+                font-size: 8px;
+                letter-spacing: 1px;
+                background: #f8f8f8;
+                padding: 2px;
+                border-radius: 2px;
+            }
+        </style>
+        <div class="preview-container">
+        """
+        
+        # Add preview items (first 6 records or all if less)
+        records_to_preview = st.session_state.selected_records_for_printing[:6]
+        
+        for record in records_to_preview:
+            artist = record.get('artist', 'Unknown')[:20]
+            title = record.get('title', 'Unknown')[:30]
+            price = record.get('store_price', 0)
+            barcode = record.get('barcode', '1234567890')
+            
+            html += f"""
+            <div class="price-tag">
+                <p class="artist">{artist}</p>
+                <p class="title">{title}</p>
+                <p class="price">${price:.2f}</p>
+                <div class="barcode">{barcode}</div>
+            </div>
+            """
+        
+        html += "</div>"
+        return html
+
+    def _generate_pdf(self, records, tag_size, include_barcode, include_image, copies, paper_size, layout):
+        """Generate PDF with price tags"""
+        try:
+            # Create PDF in memory
+            buffer = io.BytesIO()
+            
+            # Set up PDF canvas
+            if paper_size == "A4 (210mm x 297mm)":
+                pagesize = (595, 842)  # A4 in points
             else:
-                st.session_state.print_status = "error"
-                st.session_state.print_message = f"❌ PDF generation failed: {result_data}"
-                st.session_state.print_success = False
-        
-        progress_bar.empty()
-        status_text.empty()
-        
-        if hasattr(st.session_state, 'print_success') and st.session_state.print_success and 'pdf_data' in st.session_state:
-            st.download_button(
-                label="📄 Download Price Tags PDF",
-                data=st.session_state.pdf_data,
-                file_name=st.session_state.pdf_filename,
-                mime="application/pdf",
-                width='stretch',
-                key=f"download_pdf_{datetime.now().strftime('%H%M%S')}"
-            )
-        
-        if hasattr(st.session_state, 'print_success') and not st.session_state.print_success:
-            st.rerun()
+                pagesize = letter
+            
+            c = canvas.Canvas(buffer, pagesize=pagesize)
+            
+            # Calculate positions based on layout
+            width, height = pagesize
+            
+            if layout == "Single column":
+                cols = 1
+                rows = 8
+            elif layout == "Two columns":
+                cols = 2
+                rows = 12
+            else:  # Auto-fit
+                if tag_size == "Small (2\" x 3\")":
+                    cols = 3
+                    rows = 15
+                elif tag_size == "Medium (2.5\" x 3.5\")":
+                    cols = 2
+                    rows = 10
+                else:  # Large
+                    cols = 2
+                    rows = 8
+            
+            # Calculate cell dimensions
+            cell_width = width / cols
+            cell_height = height / rows
+            
+            # Current position
+            current_col = 0
+            current_row = 0
+            
+            # Generate tags
+            for record in records:
+                for copy_num in range(copies):
+                    # Calculate position
+                    x = current_col * cell_width
+                    y = height - ((current_row + 1) * cell_height)
+                    
+                    # Draw price tag
+                    self._draw_price_tag(
+                        c, record, 
+                        x + 10, y + 10, 
+                        cell_width - 20, cell_height - 20,
+                        include_barcode, include_image
+                    )
+                    
+                    # Move to next position
+                    current_col += 1
+                    if current_col >= cols:
+                        current_col = 0
+                        current_row += 1
+                        
+                        if current_row >= rows:
+                            # New page
+                            c.showPage()
+                            current_row = 0
+            
+            # Save PDF
+            c.save()
+            
+            # Get PDF bytes
+            buffer.seek(0)
+            pdf_bytes = buffer.getvalue()
+            buffer.close()
+            
+            return pdf_bytes
+            
+        except Exception as e:
+            st.error(f"Error generating PDF: {e}")
+            return b""
+
+    def _draw_price_tag(self, canvas, record, x, y, width, height, include_barcode, include_image):
+        """Draw a single price tag"""
+        try:
+            # Draw border
+            canvas.setStrokeColorRGB(0.8, 0.8, 0.8)
+            canvas.setLineWidth(1)
+            canvas.rect(x, y, width, height)
+            
+            # Set up text
+            canvas.setFont("Helvetica", 9)
+            canvas.setFillColorRGB(0, 0, 0)
+            
+            # Artist (bold)
+            artist = record.get('artist', 'Unknown Artist')
+            if len(artist) > 25:
+                artist = artist[:22] + "..."
+            
+            canvas.setFont("Helvetica-Bold", 10)
+            canvas.drawString(x + 5, y + height - 15, artist)
+            
+            # Title
+            title = record.get('title', 'Unknown Title')
+            if len(title) > 30:
+                title = title[:27] + "..."
+            
+            canvas.setFont("Helvetica", 8)
+            canvas.drawString(x + 5, y + height - 30, title)
+            
+            # Price (large and red)
+            price = float(record.get('store_price', 0))
+            canvas.setFont("Helvetica-Bold", 16)
+            canvas.setFillColorRGB(0.9, 0.2, 0.2)  # Red
+            canvas.drawString(x + 5, y + 20, f"${price:.2f}")
+            
+            # Barcode (if available)
+            if include_barcode:
+                barcode = record.get('barcode', '')
+                if barcode:
+                    canvas.setFont("Courier", 7)
+                    canvas.setFillColorRGB(0, 0, 0)
+                    canvas.drawString(x + width - 60, y + 15, f"#{barcode}")
+            
+            # Catalog number
+            catalog = record.get('catalog_number', '')
+            if catalog:
+                canvas.setFont("Helvetica", 7)
+                canvas.setFillColorRGB(0.4, 0.4, 0.4)
+                canvas.drawString(x + 5, y + 10, f"Cat: {catalog}")
+            
+            # Try to add image if requested
+            if include_image and record.get('image_url'):
+                try:
+                    # This is simplified - in production you'd fetch and resize the image
+                    canvas.setFont("Helvetica", 6)
+                    canvas.setFillColorRGB(0.7, 0.7, 0.7)
+                    canvas.drawString(x + width - 40, y + height - 15, "[IMG]")
+                except:
+                    pass
+                    
+        except Exception as e:
+            # If there's an error drawing, just skip this tag
+            pass
+
+class APIClient:
+    """API client for price tag operations"""
+    
+    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+        self.base_url = base_url
+    
+    def search_records(self, search_term):
+        """Search records via API"""
+        try:
+            response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
+            
+            return []
+        except Exception as e:
+            st.error(f"Search error: {e}")
+            return []
+    
+    def get_record(self, record_id):
+        """Get single record via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records/{record_id}")
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            st.error(f"API Error getting record: {e}")
+            return None

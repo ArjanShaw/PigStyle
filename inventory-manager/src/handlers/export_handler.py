@@ -4,10 +4,12 @@ from datetime import datetime
 import time
 from handlers.draft_csv_handler import DraftCSVHandler
 import math
+import requests
 
 class ExportHandler:
-    def __init__(self, price_handler):
+    def __init__(self, price_handler, base_url="https://arjanshaw.pythonanywhere.com"):
         self.price_handler = price_handler
+        self.base_url = base_url
  
     def export_ebay_list(self):
         """Export selected records as eBay draft listings"""
@@ -17,17 +19,15 @@ class ExportHandler:
         
         # Get selected records data using API
         selected_ids = st.session_state.selected_records
-        records_df = st.session_state.db_manager.get_records_by_ids(selected_ids)
+        records = self._get_records_by_ids(selected_ids)
         
-        if records_df.empty:
+        if not records:
             st.warning("No records found for the selected IDs")
             return
         
-        records_list = records_df.to_dict('records')
-        
         # Generate eBay formatted TXT
         draft_handler = DraftCSVHandler()
-        ebay_content = draft_handler.generate_ebay_txt_from_records(records_list, self.price_handler)
+        ebay_content = draft_handler.generate_ebay_txt_from_records(records, self.price_handler)
         
         # Create download button
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -41,7 +41,7 @@ class ExportHandler:
             key=f"download_ebay_{timestamp}"
         )
         
-        st.success(f"✅ eBay draft file ready! {len(records_list)} records formatted for eBay import.")
+        st.success(f"✅ eBay draft file ready! {len(records)} records formatted for eBay import.")
 
     def _round_down_to_49_or_99(self, price):
         """Round down to nearest .49 or .99 that is less than or equal to original price"""
@@ -69,8 +69,8 @@ class ExportHandler:
 
     def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping, discogs_median_price):
         """Calculate eBay sell price with all rules applied"""
-        # Get SHIPPING_COST from config
-        shipping_cost = st.session_state.db_manager.get_config_value('SHIPPING_COST', '5.72')
+        # Get SHIPPING_COST from config via API
+        shipping_cost = self._get_config_value('SHIPPING_COST', '5.72')
         try:
             shipping_cost = float(shipping_cost)
         except (ValueError, TypeError):
@@ -118,9 +118,9 @@ class ExportHandler:
             return 0
         
         # Get all records using API
-        records_df = st.session_state.db_manager.get_all_records()
+        records = self._get_all_records()
         
-        if records_df.empty:
+        if not records:
             st.info("No records found to update")
             return 0
         
@@ -136,12 +136,12 @@ class ExportHandler:
         
         results = []
         
-        for i, (_, record) in enumerate(records_df.iterrows()):
+        for i, record in enumerate(records):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
             
-            status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
+            status_text.text(f"Updating {i+1}/{len(records)}: {artist} - {title}")
             
             try:
                 ebay_pricing = ebay_handler.get_ebay_pricing(artist, title)
@@ -150,7 +150,7 @@ class ExportHandler:
                     ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
                     ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
                     
-                    # Use update_record to track changes properly - NO ebay_sell_at update
+                    # Update record via API - NO ebay_sell_at update
                     updates = {
                         'ebay_median_price': ebay_pricing.get('ebay_median_price'),
                         'ebay_lowest_price': ebay_lowest_price,
@@ -159,7 +159,7 @@ class ExportHandler:
                         'ebay_low_shipping': ebay_low_shipping,
                         'ebay_low_url': ebay_pricing.get('ebay_search_url', '')
                     }
-                    success = st.session_state.db_manager.update_record(record_id, updates)
+                    success = self._update_record(record_id, updates)
                     if success:
                         updated_count += 1
                         results.append(f"✅ {artist} - {title}: {ebay_pricing.get('ebay_listings_count', 0)} listings")
@@ -176,7 +176,7 @@ class ExportHandler:
                         'ebay_low_shipping': None,
                         'ebay_low_url': None
                     }
-                    success = st.session_state.db_manager.update_record(record_id, updates)
+                    success = self._update_record(record_id, updates)
                     if success:
                         updated_count += 1
                         results.append(f"✅ {artist} - {title}: No eBay data found")
@@ -189,10 +189,10 @@ class ExportHandler:
                 results.append(f"❌ {artist} - {title}: {str(e)}")
             
             # Update progress
-            progress_bar.progress((i + 1) / len(records_df))
+            progress_bar.progress((i + 1) / len(records))
             
             # Update results display every 5 records or at the end
-            if (i + 1) % 5 == 0 or (i + 1) == len(records_df):
+            if (i + 1) % 5 == 0 or (i + 1) == len(records):
                 with results_placeholder:
                     # Show last 10 results
                     display_results = results[-10:] if len(results) > 10 else results
@@ -216,8 +216,8 @@ class ExportHandler:
             return 0
         
         # Get single record using API
-        record = st.session_state.db_manager.get_record_by_id(record_id)
-        if record is None:
+        record = self._get_record_by_id(record_id)
+        if not record:
             st.error(f"Record ID {record_id} not found")
             return 0
         
@@ -231,7 +231,7 @@ class ExportHandler:
                 ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
                 ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
                 
-                # Use update_record to track changes properly - NO ebay_sell_at update
+                # Update record via API - NO ebay_sell_at update
                 updates = {
                     'ebay_median_price': ebay_pricing.get('ebay_median_price'),
                     'ebay_lowest_price': ebay_lowest_price,
@@ -240,7 +240,7 @@ class ExportHandler:
                     'ebay_low_shipping': ebay_low_shipping,
                     'ebay_low_url': ebay_pricing.get('ebay_search_url', '')
                 }
-                success = st.session_state.db_manager.update_record(record_id, updates)
+                success = self._update_record(record_id, updates)
                 if success:
                     st.success(f"✅ Updated eBay prices for {artist} - {title}")
                     return 1
@@ -257,7 +257,7 @@ class ExportHandler:
                     'ebay_low_shipping': None,
                     'ebay_low_url': None
                 }
-                success = st.session_state.db_manager.update_record(record_id, updates)
+                success = self._update_record(record_id, updates)
                 if success:
                     st.success(f"✅ Updated {artist} - {title}: No eBay data found")
                     return 1
@@ -272,9 +272,9 @@ class ExportHandler:
     def update_all_ebay_sell_at(self):
         """Update eBay sell prices for all inventory records using existing lowest prices"""
         # Get all records using API
-        records_df = st.session_state.db_manager.get_all_records()
+        records = self._get_all_records()
         
-        if records_df.empty:
+        if not records:
             st.info("No records found to update")
             return 0
         
@@ -290,7 +290,7 @@ class ExportHandler:
         
         results = []
         
-        for i, (_, record) in enumerate(records_df.iterrows()):
+        for i, record in enumerate(records):
             artist = record.get('artist', '')
             title = record.get('title', '')
             record_id = record.get('id')
@@ -298,14 +298,14 @@ class ExportHandler:
             ebay_low_shipping = record.get('ebay_low_shipping')
             discogs_median_price = record.get('discogs_median_price')
             
-            status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
+            status_text.text(f"Updating {i+1}/{len(records)}: {artist} - {title}")
             
             try:
                 # Use the unified calculation function
                 ebay_sell_at = self._calculate_ebay_sell_at(ebay_lowest_price, ebay_low_shipping, discogs_median_price)
                 
                 # Update only the ebay_sell_at field
-                success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})
+                success = self._update_record(record_id, {'ebay_sell_at': ebay_sell_at})
                 if success:
                     updated_count += 1
                     results.append(f"✅ {artist} - {title}")
@@ -318,10 +318,10 @@ class ExportHandler:
                 results.append(f"❌ {artist} - {title}: {str(e)}")
             
             # Update progress
-            progress_bar.progress((i + 1) / len(records_df))
+            progress_bar.progress((i + 1) / len(records))
             
             # Update results display every 5 records or at the end
-            if (i + 1) % 5 == 0 or (i + 1) == len(records_df):
+            if (i + 1) % 5 == 0 or (i + 1) == len(records):
                 with results_placeholder:
                     # Show last 10 results
                     display_results = results[-10:] if len(results) > 10 else results
@@ -341,8 +341,8 @@ class ExportHandler:
     def update_single_ebay_sell_at(self, record_id):
         """Update eBay sell price for a single record using existing lowest price"""
         # Get single record using API
-        record = st.session_state.db_manager.get_record_by_id(record_id)
-        if record is None:
+        record = self._get_record_by_id(record_id)
+        if not record:
             st.error(f"Record ID {record_id} not found")
             return 0
         
@@ -357,7 +357,7 @@ class ExportHandler:
             ebay_sell_at = self._calculate_ebay_sell_at(ebay_lowest_price, ebay_low_shipping, discogs_median_price)
             
             # Update only the ebay_sell_at field
-            success = st.session_state.db_manager.update_record(record_id, {'ebay_sell_at': ebay_sell_at})
+            success = self._update_record(record_id, {'ebay_sell_at': ebay_sell_at})
             if success:
                 st.success(f"✅ Updated eBay sell price for {artist} - {title}")
                 return 1
@@ -368,3 +368,67 @@ class ExportHandler:
         except Exception as e:
             st.error(f"❌ Error updating {artist} - {title}: {str(e)}")
             return 0
+    
+    def _get_all_records(self):
+        """Get all records via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records?limit=1000")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
+            return []
+        except Exception as e:
+            st.error(f"Error getting all records: {e}")
+            return []
+    
+    def _get_record_by_id(self, record_id):
+        """Get single record via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records/{record_id}")
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            st.error(f"Error getting record: {e}")
+            return None
+    
+    def _get_records_by_ids(self, record_ids):
+        """Get records by IDs via API"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/records/by-ids",
+                json={'record_ids': record_ids}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
+            return []
+        except Exception as e:
+            st.error(f"Error getting records by IDs: {e}")
+            return []
+    
+    def _update_record(self, record_id, updates):
+        """Update record via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/records/{record_id}",
+                json=updates
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error updating record: {e}")
+            return False
+    
+    def _get_config_value(self, config_key, default=None):
+        """Get config value via API"""
+        try:
+            response = requests.get(f"{self.base_url}/config/{config_key}")
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('config_value', default)
+            return default
+        except Exception as e:
+            st.error(f"Error getting config: {e}")
+            return default

@@ -1,4 +1,3 @@
-import sqlite3
 import os
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -12,74 +11,76 @@ import pandas as pd
 import streamlit as st
 import json
 from pathlib import Path
+import requests
 
 class PriceTagHandler:
-    def __init__(self, db_manager):
-        self.db_manager = db_manager
+    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+        self.base_url = base_url
     
     def get_records_without_barcodes(self):
-        records_df = self.db_manager.get_all_records()
-        
-        if records_df.empty:
+        """Get records without barcodes via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records/no-barcodes")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
             return []
-        
-        records_without_barcodes = records_df[
-            (records_df['barcode'].isna()) | 
-            (records_df['barcode'] == '') | 
-            (records_df['barcode'] == 'None')
-        ]
-        
-        records_without_barcodes = records_without_barcodes.sort_values('id', ascending=False)
-        
-        return records_without_barcodes.to_dict('records')
+        except Exception as e:
+            st.error(f"Error getting records without barcodes: {e}")
+            return []
     
     def clear_recent_barcodes(self, count):
         """
         Clear barcodes from the most recent X records that have barcodes
         """
-        all_records = self.db_manager.get_all_records()
-        
-        if all_records.empty:
+        # Note: This would need a dedicated API endpoint
+        # For now, we'll implement a workaround
+        try:
+            # Get all records
+            response = requests.get(f"{self.base_url}/records?limit=1000")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    records = data.get('records', [])
+                    
+                    # Filter records with barcodes and sort by ID (most recent first)
+                    records_with_barcodes = [
+                        r for r in records 
+                        if r.get('barcode') and r['barcode'] not in [None, '', 'None']
+                    ]
+                    records_with_barcodes.sort(key=lambda x: x.get('id', 0), reverse=True)
+                    
+                    # Clear barcodes for the most recent records
+                    cleared_count = 0
+                    for record in records_with_barcodes[:count]:
+                        success = self._clear_barcode(record['id'])
+                        if success:
+                            cleared_count += 1
+                    
+                    return cleared_count
             return 0
-        
-        # Get records with barcodes, sorted by creation date (most recent first)
-        records_with_barcodes = all_records[
-            (all_records['barcode'].notna()) & 
-            (all_records['barcode'] != '') & 
-            (all_records['barcode'] != 'None')
-        ]
-        
-        # Sort by created_at to get most recent first
-        if 'created_at' in records_with_barcodes.columns:
-            records_with_barcodes = records_with_barcodes.sort_values('created_at', ascending=False)
-        
-        # Get the most recent X records
-        records_to_clear = records_with_barcodes.head(count)
-        
-        if records_to_clear.empty:
+        except Exception as e:
+            st.error(f"Error clearing barcodes: {e}")
             return 0
-        
-        cleared_count = 0
-        for _, record in records_to_clear.iterrows():
-            success = self.db_manager.update_record(record['id'], {'barcode': None})
-            if success:
-                cleared_count += 1
-        
-        return cleared_count
     
     def assign_barcodes(self, record_ids):
+        """Assign barcodes to records via API"""
         if not record_ids:
             return {}
         
-        result = self.db_manager._make_request(
-            'POST', 
-            '/barcodes/assign',
-            json={'record_ids': record_ids}
-        )
-        
-        if result and 'barcode_mapping' in result:
-            return result['barcode_mapping']
-        else:
+        try:
+            response = requests.post(
+                f"{self.base_url}/barcodes/assign",
+                json={'record_ids': record_ids}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('barcode_mapping', {})
+            return {}
+        except Exception as e:
+            st.error(f"Error assigning barcodes: {e}")
             return {}
     
     def generate_barcode(self, barcode_number):
@@ -108,20 +109,20 @@ class PriceTagHandler:
         if not barcode_mapping:
             return None, "Failed to assign barcodes"
         
-        all_records = self.db_manager.get_all_records()
-        records_to_print = all_records[all_records['id'].isin(record_ids)]
+        # Get records via API
+        records = self._get_records_by_ids(record_ids)
         
-        if records_to_print.empty:
+        if not records:
             return None, "No records found for the selected IDs"
         
-        pdf_path = self.generate_pdf(records_to_print, barcode_mapping)
+        pdf_path = self.generate_pdf(records, barcode_mapping)
         
         if pdf_path and os.path.exists(pdf_path):
             return pdf_path, f"✅ Printed {len(record_ids)} price tags"
         else:
             return None, "❌ Failed to generate PDF"
     
-    def generate_pdf(self, df, barcode_mapping, layout_params=None, page_layout_params=None):
+    def generate_pdf(self, records, barcode_mapping, layout_params=None, page_layout_params=None):
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         output_path = temp_file.name
         temp_file.close()
@@ -129,30 +130,50 @@ class PriceTagHandler:
         c = canvas.Canvas(output_path, pagesize=letter)
         
         # Get params from config if not provided
+        if not layout_params or not page_layout_params:
+            # Try to get config from session state
+            config = st.session_state.get('config')
+            if config:
+                if not layout_params:
+                    layout_params = {
+                        'price_font_size': config.get('price_font_size'),
+                        'price_y_pos': config.get('price_y_pos'),
+                        'text_font_size': config.get('text_font_size'),
+                        'barcode_y_pos': config.get('barcode_y_pos'),
+                        'barcode_height': config.get('barcode_height'),
+                        'print_borders': config.get('print_borders')
+                    }
+                if not page_layout_params:
+                    page_layout_params = {
+                        'label_width_mm': config.get('label_width_mm'),
+                        'label_height_mm': config.get('label_height_mm'),
+                        'left_margin_mm': config.get('left_margin_mm'),
+                        'gutter_spacing_mm': config.get('gutter_spacing_mm'),
+                        'top_margin_mm': config.get('top_margin_mm'),
+                        'font_size': config.get('font_size')
+                    }
+        
+        # Default values if config not available
         if not layout_params:
-            from config import AppConfig
-            config = AppConfig()
             layout_params = {
-                'price_font_size': config.get('price_font_size'),
-                'price_y_pos': config.get('price_y_pos'),
-                'text_font_size': config.get('text_font_size'),
-                'barcode_y_pos': config.get('barcode_y_pos'),
-                'barcode_height': config.get('barcode_height'),
-                'print_borders': config.get('print_borders')
+                'price_font_size': 10,
+                'price_y_pos': 2.0,
+                'text_font_size': 6,
+                'barcode_y_pos': 2.0,
+                'barcode_height': 6.0,
+                'print_borders': False
             }
         
         if not page_layout_params:
-            from config import AppConfig
-            config = AppConfig()
             page_layout_params = {
-                'label_width_mm': config.get('label_width_mm'),
-                'label_height_mm': config.get('label_height_mm'),
-                'left_margin_mm': config.get('left_margin_mm'),
-                'gutter_spacing_mm': config.get('gutter_spacing_mm'),
-                'top_margin_mm': config.get('top_margin_mm'),
-                'font_size': config.get('font_size')
+                'label_width_mm': 45.0,
+                'label_height_mm': 16.8,
+                'left_margin_mm': 6.5,
+                'gutter_spacing_mm': 6.5,
+                'top_margin_mm': 14.0,
+                'font_size': 7
             }
-        
+
         label_width = page_layout_params.get('label_width_mm', 45.0) * mm
         label_height = page_layout_params.get('label_height_mm', 16.8) * mm
         left_margin = page_layout_params.get('left_margin_mm', 6.5) * mm
@@ -166,7 +187,7 @@ class PriceTagHandler:
         
         errors = []
         
-        for idx, (_, record) in enumerate(df.iterrows()):
+        for idx, record in enumerate(records):
             if current_label % labels_per_page == 0 and current_label > 0:
                 c.showPage()
             
@@ -195,14 +216,14 @@ class PriceTagHandler:
         left_bound = x + 2 * mm
         right_bound = x + label_width - 2 * mm
         printable_width = label_width - 4 * mm
-        
+
         if params.get('print_borders', True):
             c.setStrokeColorRGB(0, 0, 0)
             c.setLineWidth(0.5)
             c.rect(x, y, label_width, label_height, stroke=1, fill=0)
         
         top_start = y + label_height - 2 * mm
-        
+
         price = record.get('store_price', 0.0)
         price_text = f"${price:.2f}"
         c.setFont("Helvetica-Bold", params['price_font_size'])
@@ -264,3 +285,31 @@ class PriceTagHandler:
                 os.unlink(temp_path)
         
         return None
+    
+    def _get_records_by_ids(self, record_ids):
+        """Get records by IDs via API"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/records/by-ids",
+                json={'record_ids': record_ids}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('records', [])
+            return []
+        except Exception as e:
+            st.error(f"Error getting records by IDs: {e}")
+            return []
+    
+    def _clear_barcode(self, record_id):
+        """Clear barcode for a record via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/records/{record_id}",
+                json={'barcode': None}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error clearing barcode: {e}")
+            return False

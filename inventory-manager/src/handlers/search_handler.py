@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 import re
+import requests
 
 class SearchHandler:
-    def __init__(self, discogs_handler):
+    def __init__(self, discogs_handler, base_url="https://arjanshaw.pythonanywhere.com"):
         self.discogs_handler = discogs_handler
+        self.base_url = base_url
 
     def clean_artist_name(self, artist_name):
         """
@@ -60,10 +62,15 @@ class SearchHandler:
                 params += f"&consignor_id={user_id}"
             
             # Use API-based search with consignor filter if applicable
-            response = st.session_state.db_manager._make_request('GET', f'/search?{params}')
+            response = requests.get(f"{self.base_url}/search?{params}", timeout=10)
             
-            if response and 'records' in response:
-                df = pd.DataFrame(response['records'])
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    records = data.get('records', [])
+                    df = pd.DataFrame(records) if records else pd.DataFrame()
+                else:
+                    return []
             else:
                 return []
             
@@ -72,7 +79,7 @@ class SearchHandler:
             for _, record in df.iterrows():
                 formatted_result = {
                     'type': 'database',
-                    'id': record['id'],
+                    'id': record.get('id', ''),
                     'artist': record.get('artist', ''),
                     'title': record.get('title', ''),
                     'image_url': record.get('image_url', ''),

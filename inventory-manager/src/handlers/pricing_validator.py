@@ -1,211 +1,164 @@
-"""
-Pricing Validator for Consignment System
-Validates user prices against advised prices from Discogs/eBay
-"""
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 
 class PricingValidator:
-    def __init__(self, db_manager, discogs_handler=None, ebay_handler=None):
-        self.db_manager = db_manager
+    """Validate pricing against Discogs and eBay data"""
+    
+    def __init__(self, api_client, discogs_handler, ebay_handler):
+        self.api_client = api_client
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
     
-    def calculate_advised_price(self, record_data):
-        """
-        Calculate advised price from Discogs and eBay data
-        Returns the lower of Discogs median or eBay lowest+shipping
-        """
-        try:
-            advised_price = None
-            
-            # Get Discogs price if available
-            discogs_price = record_data.get('discogs_suggested_price')
-            if discogs_price and discogs_price > 0:
-                advised_price = float(discogs_price)
-            
-            # Get eBay price if available
-            ebay_lowest = record_data.get('ebay_lowest_price')
-            ebay_shipping = record_data.get('ebay_low_shipping')
-            
-            if ebay_lowest and ebay_shipping:
-                ebay_total = float(ebay_lowest) + float(ebay_shipping)
-                shipping_cost = self._get_shipping_cost()
-                ebay_net = ebay_total - shipping_cost
-                
-                if advised_price is None or ebay_net < advised_price:
-                    advised_price = ebay_net
-            
-            # Apply catalog weighting if available
-            catalog_weight = self.db_manager.get_config_value('CATALOG_PRICE_WEIGHTING', '0.3')
-            try:
-                catalog_weight = float(catalog_weight)
-                if 0 <= catalog_weight <= 1:
-                    # In a real system, you might have catalog pricing data
-                    # For now, just return the calculated price
-                    pass
-            except:
-                pass
-            
-            return max(advised_price, 0) if advised_price is not None else 0
-            
-        except Exception as e:
-            st.error(f"Error calculating advised price: {e}")
-            return 0
-    
     def validate_user_price(self, user_price, record_data):
-        """
-        Validate user price against maximum allowed ratio
-        """
+        """Validate user-entered price against advised price"""
         try:
-            max_ratio = float(self.db_manager.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3'))
+            # Get max price ratio from config
+            max_ratio_value = self.api_client.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3')
+            max_ratio = float(max_ratio_value) if max_ratio_value else 1.3
             
-            advised_price = self.calculate_advised_price(record_data)
-            if advised_price <= 0:
+            # Get advised price from record data
+            advised_price = record_data.get('advised_price')
+            if not advised_price or advised_price <= 0:
+                # Try to calculate advised price
+                advised_price = self._calculate_advised_price(record_data)
+            
+            if not advised_price or advised_price <= 0:
+                # If we can't get an advised price, accept the user price
                 return {
                     'is_valid': True,
-                    'user_price': user_price,
-                    'advised_price': advised_price,
-                    'max_allowed': user_price,
-                    'reason': 'No advised price available'
+                    'reason': 'No advised price available',
+                    'advised_price': 0,
+                    'max_allowed': user_price * 2,  # Arbitrary high limit
+                    'user_price': user_price
                 }
             
+            # Calculate maximum allowed price
             max_allowed = advised_price * max_ratio
             
-            is_valid = user_price <= max_allowed
+            # Validate
+            if user_price <= 0:
+                return {
+                    'is_valid': False,
+                    'reason': 'Price must be greater than 0',
+                    'advised_price': advised_price,
+                    'max_allowed': max_allowed,
+                    'user_price': user_price
+                }
+            
+            if user_price > max_allowed:
+                return {
+                    'is_valid': False,
+                    'reason': f'Price exceeds maximum allowed (max: ${max_allowed:.2f})',
+                    'advised_price': advised_price,
+                    'max_allowed': max_allowed,
+                    'user_price': user_price
+                }
             
             return {
-                'is_valid': is_valid,
-                'user_price': user_price,
-                'advised_price': round(advised_price, 2),
-                'max_allowed': round(max_allowed, 2),
-                'max_ratio': max_ratio,
-                'reason': f'Price exceeds maximum allowed ({max_ratio}x advised price)' if not is_valid else 'Price is valid'
+                'is_valid': True,
+                'reason': 'Price is within acceptable range',
+                'advised_price': advised_price,
+                'max_allowed': max_allowed,
+                'user_price': user_price
             }
             
         except Exception as e:
             st.error(f"Error validating price: {e}")
+            # Return valid in case of error to not block user
             return {
-                'is_valid': False,
-                'user_price': user_price,
-                'reason': f'Validation error: {str(e)}'
+                'is_valid': True,
+                'reason': f'Validation error: {str(e)}',
+                'advised_price': 0,
+                'max_allowed': user_price * 2,
+                'user_price': user_price
             }
     
+    def _calculate_advised_price(self, record_data):
+        """Calculate advised price from Discogs and eBay data"""
+        try:
+            selected_condition = record_data.get('selected_condition')
+            if not selected_condition:
+                return 0
+            
+            # Get Discogs price
+            discogs_price = None
+            if self.discogs_handler and record_data.get('discogs_id'):
+                pricing_data = self.discogs_handler.get_release_statistics_pricing(
+                    str(record_data['discogs_id'])
+                )
+                if pricing_data and 'price_suggestions' in pricing_data:
+                    # Try to find price for selected condition
+                    price_suggestions = pricing_data['price_suggestions']
+                    for condition, price in price_suggestions.items():
+                        if price and selected_condition.lower() in condition.lower():
+                            discogs_price = float(price)
+                            break
+            
+            # Get eBay price
+            ebay_price = None
+            if self.ebay_handler:
+                artist = record_data.get('artist', '')
+                title = record_data.get('title', '')
+                ebay_data = self.ebay_handler.get_ebay_pricing(artist, title)
+                if ebay_data:
+                    # Use median price from eBay
+                    all_prices = []
+                    for condition_group in ebay_data.get('condition_pricing', {}).values():
+                        for listing in condition_group.get('listings', []):
+                            if listing.get('base_price', 0) > 0:
+                                all_prices.append(listing['base_price'])
+                    
+                    if all_prices:
+                        ebay_price = float(sorted(all_prices)[len(all_prices) // 2])
+            
+            # Calculate advised price as minimum of available prices
+            candidates = []
+            if discogs_price and discogs_price > 0:
+                candidates.append(discogs_price)
+            if ebay_price and ebay_price > 0:
+                candidates.append(ebay_price)
+            
+            if candidates:
+                return min(candidates)
+            else:
+                return 0
+                
+        except Exception as e:
+            st.error(f"Error calculating advised price: {e}")
+            return 0
+    
     def check_for_duplicates(self, record_data):
-        """
-        Enhanced duplicate checking against existing inventory
-        """
+        """Check if similar record already exists in database"""
         try:
-            artist = record_data.get('artist', '')
-            title = record_data.get('title', '')
-            catalog = record_data.get('catalog_number', '')
+            artist = record_data.get('artist', '').lower()
+            title = record_data.get('title', '').lower()
+            catalog = record_data.get('catalog_number', '').lower()
             
-            all_records = self.db_manager.get_all_records()
-            
-            duplicates = []
-            
-            # Check artist/title match
-            if artist and title:
-                artist_title_match = all_records[
-                    (all_records['artist'].str.lower() == artist.lower()) & 
-                    (all_records['title'].str.lower() == title.lower())
-                ]
-                if not artist_title_match.empty:
-                    for _, dup in artist_title_match.iterrows():
-                        duplicates.append({
-                            'record_id': dup['id'],
-                            'artist': dup['artist'],
-                            'title': dup['title'],
-                            'match_type': 'artist/title',
-                            'catalog': dup.get('catalog_number', '')
-                        })
-            
-            # Check catalog number match
-            if catalog:
-                catalog_match = all_records[
-                    (all_records['catalog_number'].str.lower() == catalog.lower())
-                ]
-                if not catalog_match.empty:
-                    for _, dup in catalog_match.iterrows():
-                        # Avoid duplicate entries
-                        if dup['id'] not in [d['record_id'] for d in duplicates]:
-                            duplicates.append({
-                                'record_id': dup['id'],
-                                'artist': dup['artist'],
-                                'title': dup['title'],
-                                'match_type': 'catalog',
-                                'catalog': dup.get('catalog_number', '')
-                            })
-            
-            # Log duplicate check
-            if duplicates:
-                self._log_duplicate_check(record_data, duplicates)
-            
-            return duplicates
-            
-        except Exception as e:
-            st.error(f"Error checking duplicates: {e}")
-            return []
-    
-    def apply_time_based_discount(self, record_id):
-        """
-        Apply discount after full price period
-        """
-        try:
-            record = self.db_manager.get_record_by_id(record_id)
-            if record is None:
+            if not artist or not title:
                 return False
             
-            consignment_start = record.get('consignment_start_date')
-            if not consignment_start:
-                return False
+            # Search for similar records
+            search_results = self.api_client.search_records(f"{artist} {title}")
             
-            # Check if in discount period
-            from datetime import datetime, timedelta
-            
-            start_date = datetime.strptime(str(consignment_start), '%Y-%m-%d').date()
-            full_price_days = int(self.db_manager.get_config_value('CONSIGNMENT_FULL_PRICE_DAYS', '90'))
-            discount_days = int(self.db_manager.get_config_value('CONSIGNMENT_DISCOUNT_DAYS', '90'))
-            discount_percent = int(self.db_manager.get_config_value('DISCOUNT_PERCENTAGE', '50'))
-            
-            today = datetime.now().date()
-            days_in_consignment = (today - start_date).days
-            
-            if days_in_consignment > full_price_days and days_in_consignment <= (full_price_days + discount_days):
-                # Apply discount
-                current_price = record.get('store_price', 0)
-                original_price = record.get('original_consignor_price', current_price)
-                discounted_price = original_price * (1 - discount_percent/100)
+            for record in search_results:
+                record_artist = record.get('artist', '').lower()
+                record_title = record.get('title', '').lower()
+                record_catalog = record.get('catalog_number', '').lower()
                 
-                # Update record
-                success = self.db_manager.update_record(record_id, {
-                    'store_price': round(discounted_price, 2),
-                    'discount_eligible_date': today
-                })
-                
-                return success
+                # Check for close matches
+                if (artist in record_artist or record_artist in artist) and \
+                   (title in record_title or record_title in title):
+                    # Check if catalog numbers match (if both have them)
+                    if catalog and record_catalog:
+                        if catalog == record_catalog:
+                            return True
+                    else:
+                        # If no catalog numbers, still flag as potential duplicate
+                        return True
             
             return False
             
         except Exception as e:
-            st.error(f"Error applying discount: {e}")
+            st.error(f"Error checking for duplicates: {e}")
             return False
-    
-    def _get_shipping_cost(self):
-        """Get shipping cost from config"""
-        try:
-            shipping_cost = self.db_manager.get_config_value('SHIPPING_COST', '5.72')
-            return float(shipping_cost)
-        except:
-            return 5.72
-    
-    def _log_duplicate_check(self, record_data, duplicates):
-        """Log duplicate check results"""
-        try:
-            # This would save to duplicate_check_log table
-            # For now, just log to console
-            if duplicates:
-                st.warning(f"Found {len(duplicates)} potential duplicates")
-        except:
-            pass

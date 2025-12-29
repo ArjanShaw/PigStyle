@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
+import requests
 
 class VotesTab:
-    def __init__(self):
-        pass
+    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+        self.base_url = base_url
     
     def render(self):
         st.header("🗳️ All Votes")
@@ -18,7 +19,8 @@ class VotesTab:
     def _render_all_votes(self):
         st.subheader("🗳️ All Votes")
         
-        result = st.session_state.db_manager._make_request('GET', '/votes/all')
+        # Make direct API call
+        result = self._make_request('GET', '/votes/all')
         
         if result and 'votes' in result:
             votes_df = pd.DataFrame(result['votes'])
@@ -33,10 +35,10 @@ class VotesTab:
                         'record_id': st.column_config.NumberColumn('Record ID'),
                         'artist': st.column_config.TextColumn('Artist'),
                         'title': st.column_config.TextColumn('Title'),
-                        'voter_hash': st.column_config.TextColumn('Voter Hash'),
+                        'voter_ip': st.column_config.TextColumn('Voter IP'),
                         'vote_type': st.column_config.TextColumn('Vote Type'),
                         'vote_type_name': st.column_config.TextColumn('Vote Type Name'),
-                        'created_at': st.column_config.DatetimeColumn('Voted At')
+                        'voted_at': st.column_config.DatetimeColumn('Voted At')
                     }
                 )
                 
@@ -44,12 +46,29 @@ class VotesTab:
                 with col1:
                     st.metric("Total Votes", len(votes_df))
                 with col2:
-                    upvotes = len(votes_df[votes_df['vote_type'] == 'upvote'])
+                    upvotes = len(votes_df[votes_df['vote_type'] == 'up'])
                     st.metric("Upvotes", upvotes)
                 with col3:
-                    downvotes = len(votes_df[votes_df['vote_type'] == 'downvote'])
+                    downvotes = len(votes_df[votes_df['vote_type'] == 'down'])
                     st.metric("Downvotes", downvotes)
             else:
                 st.info("No votes found in the database.")
         else:
             st.error("Unable to fetch votes data from API.")
+    
+    def _make_request(self, method, endpoint, **kwargs):
+        """Make API request with error handling"""
+        url = f"{self.base_url}{endpoint}"
+        
+        try:
+            response = requests.request(method, url, **kwargs)
+            
+            if 200 <= response.status_code < 300:
+                return response.json()
+            else:
+                st.error(f"API Error {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            st.error(f"Network error: {str(e)}")
+            return None

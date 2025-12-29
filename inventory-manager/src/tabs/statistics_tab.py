@@ -3,10 +3,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import requests
 
 class StatisticsTab:
-    def __init__(self):
-        pass
+    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+        self.base_url = base_url
     
     def render(self):
         st.header("📊 Statistics")
@@ -18,21 +19,69 @@ class StatisticsTab:
         
         self._render_combined_stats()
     
+    def _get_database_stats(self):
+        """Get database statistics via API"""
+        try:
+            response = requests.get(f"{self.base_url}/stats")
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'records_count': data.get('records_count', 0),
+                    'users_count': data.get('users_count', 0),
+                    'votes_count': data.get('votes_count', 0),
+                    'latest_record': data.get('latest_record'),
+                    'db_path': data.get('db_path', 'API-based')
+                }
+            return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
+        except Exception as e:
+            st.error(f"API Error getting stats: {e}")
+            return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
+    
+    def _get_vote_statistics(self):
+        """Get vote statistics via API"""
+        try:
+            response = requests.get(f"{self.base_url}/votes/statistics")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return pd.DataFrame(data.get('statistics', []))
+            return pd.DataFrame()
+        except Exception as e:
+            st.error(f"API Error getting vote statistics: {e}")
+            return pd.DataFrame()
+    
+    def _get_all_records(self):
+        """Get all records via API"""
+        try:
+            response = requests.get(f"{self.base_url}/records?limit=1000")
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
+                return pd.DataFrame(records) if records else pd.DataFrame()
+            return pd.DataFrame()
+        except Exception as e:
+            st.error(f"API Error getting records: {e}")
+            return pd.DataFrame()
+    
     def _render_combined_stats(self):
         # Get database stats
-        stats = st.session_state.db_manager.get_database_stats()
+        stats = self._get_database_stats()
         
         # Display metrics in columns
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Records", stats['records_count'])
         with col2:
-            st.metric("Latest Record", stats['latest_record'][:16] if stats['latest_record'] != "None" else "None")
+            latest = stats['latest_record']
+            if latest and latest != "N/A":
+                st.metric("Latest Record", latest[:16])
+            else:
+                st.metric("Latest Record", "None")
         with col3:
             st.metric("Users", stats['users_count'])
         
         # Get vote statistics
-        vote_stats = st.session_state.db_manager.get_vote_statistics()
+        vote_stats = self._get_vote_statistics()
         
         if not vote_stats.empty:
             st.subheader("🗳️ Vote Statistics")
@@ -92,7 +141,7 @@ class StatisticsTab:
             )
 
     def _render_genre_chart(self):
-        records_df = st.session_state.db_manager.get_all_records()
+        records_df = self._get_all_records()
         
         if records_df.empty:
             st.info("No records available for genre chart.")
@@ -129,7 +178,7 @@ class StatisticsTab:
             st.info("No genre data available for chart.")
 
     def _render_price_comparison_chart(self):
-        records_df = st.session_state.db_manager.get_all_records()
+        records_df = self._get_all_records()
         
         if records_df.empty:
             st.info("No price data available for comparison charts. Update prices using the Pricing section.")

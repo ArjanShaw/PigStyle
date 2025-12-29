@@ -21,11 +21,11 @@ from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
 from tabs.ebay_tab import EBayTab
-from tabs.store_pricing_tab import StorePricingTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
 from tabs.votes_tab import VotesTab
+from tabs.checkout_tab import CheckoutTab
 from handlers.ebay_handler import EbayHandler
 from handlers.api_key_handler import APIKeyHandler
 from config import AppConfig
@@ -39,397 +39,6 @@ IMAGE_FOLDER = Path("images")
 IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
-
-class DatabaseManager:
-    """Unified API-based database manager that replaces all direct SQLite access"""
-    
-    def __init__(self, api_base_url: str = None):
-        if api_base_url is None:
-            api_base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
-        
-        self.api_base_url = api_base_url
-        self.session = requests.Session()
-    
-    def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
-        url = f"{self.api_base_url}{endpoint}"
-        
-        response = self.session.request(method, url, **kwargs)
-        
-        if 200 <= response.status_code < 300:
-            return response.json()
-        else:
-            st.error(f"API Error {response.status_code}: {response.text}")
-            return None
-    
-    def _make_json_serializable(self, data):
-        if isinstance(data, dict):
-            return {k: self._make_json_serializable(v) for k, v in data.items()}
-        elif isinstance(data, list):
-            return [self._make_json_serializable(v) for v in data]
-        elif isinstance(data, np.integer):
-            return int(data)
-        elif isinstance(data, np.floating):
-            return float(data)
-        elif isinstance(data, np.ndarray):
-            return data.tolist()
-        elif pd.isna(data):
-            return None
-        elif isinstance(data, (int, float, str, bool)) or data is None:
-            return data
-        else:
-            return str(data)
-
-    def get_all_records(self) -> pd.DataFrame:
-        result = self._make_request('GET', '/records?limit=1000')
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        return pd.DataFrame()
-    
-    def get_recent_records(self, limit: int = 100) -> pd.DataFrame:
-        result = self._make_request('GET', f'/records?limit={limit}&order_by=created_at&order=desc')
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        
-        return pd.DataFrame()
-    
-    def get_record_by_id(self, record_id: int) -> Optional[pd.Series]:
-        result = self._make_request('GET', f'/records/{record_id}')
-        if result:
-            return pd.Series(result)
-        return None
-    
-    def save_record(self, result_data: Dict) -> int:
-        serializable_data = self._make_json_serializable(result_data)
-        
-        result = self._make_request('POST', '/records', json=serializable_data)
-        
-        if result and 'record_id' in result:
-            return result['record_id']
-        
-        return None
-    
-    def update_record(self, record_id: int, updates: Dict) -> bool:
-        serializable_updates = self._make_json_serializable(updates)
-        
-        result = self._make_request('PUT', f'/records/{record_id}', json=serializable_updates)
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-    
-    def delete_record(self, record_id: int) -> bool:
-        result = self._make_request('DELETE', f'/records/{record_id}')
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-    
-    def search_records(self, search_term: str, consignor_id: str = None) -> pd.DataFrame:
-        """Search records with optional consignor filtering"""
-        endpoint = f'/search?q={search_term}'
-        if consignor_id:
-            endpoint += f'&consignor_id={consignor_id}'
-        
-        result = self._make_request('GET', endpoint)
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        return pd.DataFrame()
-    
-    def get_record_by_barcode(self, barcode: str) -> Optional[pd.Series]:
-        result = self._make_request('GET', f'/records/barcode/{barcode}')
-        if result:
-            return pd.Series(result)
-        return None
-
-    def record_vote(self, record_id: int, voter_hash: str, vote_type: str) -> bool:
-        result = self._make_request('POST', f'/vote/{record_id}/{voter_hash}/{vote_type}')
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-    
-    def get_vote_counts(self, record_id: int = None):
-        if record_id:
-            result = self._make_request('GET', f'/votes/{record_id}')
-            if result:
-                return {record_id: {
-                    'upvotes': result.get('upvotes', 0),
-                    'downvotes': result.get('downvotes', 0)
-                }}
-        return {}
-    
-    def get_user_vote(self, record_id: int, voter_hash: str) -> Optional[str]:
-        result = self._make_request('GET', f'/user-vote/{record_id}/{voter_hash}')
-        if result:
-            return result.get('vote_type')
-        return None
-
-    def get_all_genres(self) -> pd.DataFrame:
-        result = self._make_request('GET', '/genres')
-        if result and 'genres' in result:
-            return pd.DataFrame(result['genres'])
-        return pd.DataFrame(columns=['id', 'genre_name'])
-    
-    def add_genre(self, genre_name: str):
-        result = self._make_request('POST', '/genres', json={'genre_name': genre_name})
-        
-        if result and 'genre_id' in result:
-            genre_id = result['genre_id']
-            return True, genre_id
-        
-        return False, None
-    
-    def assign_genre_to_artist(self, artist_name: str, genre_id: int) -> bool:
-        result = self._make_request('POST', '/genre-assignments', json={
-            'artist_name': artist_name,
-            'genre_id': genre_id
-        })
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-    
-    def remove_genre_from_artist_by_name(self, artist_name: str) -> bool:
-        result = self._make_request('DELETE', f'/genre-assignments/artist/{artist_name}')
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-
-    def get_all_users(self) -> pd.DataFrame:
-        result = self._make_request('GET', '/users')
-        if result and 'users' in result:
-            return pd.DataFrame(result['users'])
-        return pd.DataFrame()
-    
-    def get_user_by_id(self, user_id: int) -> Optional[pd.Series]:
-        result = self._make_request('GET', f'/users/{user_id}')
-        if result:
-            return pd.Series(result)
-        return None
-
-    def get_config_value(self, config_key: str, default: Any = None) -> Any:
-        result = self._make_request('GET', f'/config/{config_key}')
-        if result and 'config_value' in result:
-            return result['config_value']
-        
-        return default
-    
-    def set_config_value(self, config_key: str, config_value: str) -> bool:
-        result = self._make_request('POST', '/config', json={
-            'config_key': config_key,
-            'config_value': config_value
-        })
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-
-    def get_all_config(self):
-        result = self._make_request('GET', '/config')
-        if result and 'configs' in result:
-            return result['configs']
-        return []
-
-    def reset_user_password(self, user_id: int, new_password: str) -> bool:
-        result = self._make_request('POST', f'/users/{user_id}/reset-password', json={
-            'new_password': new_password
-        })
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-
-    def change_user_password(self, user_id: int, current_password: str, new_password: str) -> bool:
-        result = self._make_request('POST', f'/users/{user_id}/change-password', json={
-            'current_password': current_password,
-            'new_password': new_password
-        })
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-
-    def get_database_stats(self) -> Dict:
-        result = self._make_request('GET', '/stats')
-        if result:
-            return result
-        
-        return {
-            'records_count': 0,
-            'users_count': 0,
-            'latest_record': 'N/A',
-            'db_path': 'API-based'
-        }
-    
-    def get_user_database_stats(self, user_id: int) -> Dict:
-        result = self._make_request('GET', f'/stats/user/{user_id}')
-        if result:
-            return result
-        
-        return {
-            'records_count': 0,
-            'db_path': 'API-based'
-        }
-
-    def get_consignment_records_ready_for_payment(self, user_id: int = None) -> pd.DataFrame:
-        endpoint = '/consignment/payment-ready'
-        if user_id:
-            endpoint += f'?user_id={user_id}'
-        
-        result = self._make_request('GET', endpoint)
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        
-        return pd.DataFrame()
-    
-    def get_user_consignment_records_ready_for_payment(self, user_id: int) -> pd.DataFrame:
-        return self.get_consignment_records_ready_for_payment(user_id)
-    
-    def get_consignment_records_ready_for_pickup(self, user_id: int = None) -> pd.DataFrame:
-        endpoint = '/consignment/pickup-ready'
-        if user_id:
-            endpoint += f'?user_id={user_id}'
-        
-        result = self._make_request('GET', endpoint)
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        
-        return pd.DataFrame()
-    
-    def get_user_consignment_records_ready_for_pickup(self, user_id: int) -> pd.DataFrame:
-        return self.get_consignment_records_ready_for_pickup(user_id)
-    
-    def mark_records_for_return(self) -> int:
-        result = self._make_request('POST', '/consignment/mark-for-return')
-        
-        if result and 'updated_count' in result:
-            return result['updated_count']
-        
-        return 0
-    
-    def mark_abandoned_records_as_store_owned(self) -> int:
-        result = self._make_request('POST', '/consignment/mark-abandoned')
-        
-        if result and 'updated_count' in result:
-            return result['updated_count']
-        
-        return 0
-
-    def get_records_without_barcodes(self) -> pd.DataFrame:
-        result = self._make_request('GET', '/records/no-barcodes')
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        
-        return pd.DataFrame()
-    
-    def assign_barcodes(self, record_ids: List[int]) -> Dict:
-        serializable_ids = self._make_json_serializable(record_ids)
-        
-        result = self._make_request('POST', '/barcodes/assign', json={'record_ids': serializable_ids})
-        
-        if result and 'barcode_mapping' in result:
-            return result['barcode_mapping']
-        
-        return {}
-
-    def update_file_at_for_all_records(self) -> int:
-        result = self._make_request('POST', '/records/update-file-locations')
-        
-        if result and 'updated_count' in result:
-            return result['updated_count']
-        
-        return 0
-
-    def clear_database(self):
-        result = self._make_request('POST', '/database/clear')
-        
-        success = result is not None and result.get('status') == 'success'
-        return success
-
-    def get_artist_genre(self, artist_name: str) -> Optional[pd.Series]:
-        result = self._make_request('GET', f'/genre-assignments/artist/{artist_name}')
-        if result:
-            return pd.Series(result)
-        
-        return None
-    
-    def get_genre_statistics(self) -> pd.DataFrame:
-        result = self._make_request('GET', '/stats/genres')
-        if result and 'genre_stats' in result:
-            return pd.DataFrame(result['genre_stats'])
-        
-        return pd.DataFrame(columns=['genre_name', 'record_count'])
-
-    def get_all_artists_with_genres(self, search_term: str = None) -> pd.DataFrame:
-        endpoint = '/artists/with-genres'
-        if search_term:
-            endpoint += f'?search={search_term}'
-        
-        result = self._make_request('GET', endpoint)
-        if result and 'artists' in result:
-            return pd.DataFrame(result['artists'])
-        
-        return pd.DataFrame(columns=['artist_name', 'genre_name'])
-
-    def _get_connection(self):
-        raise Exception("Direct database connections are disabled. Use API methods instead.")
-    
-    def get_all_votes(self) -> pd.DataFrame:
-        result = self._make_request('GET', '/votes/all')
-        if result and 'votes' in result:
-            return pd.DataFrame(result['votes'])
-        return pd.DataFrame()
-    
-    def get_vote_statistics(self) -> pd.DataFrame:
-        result = self._make_request('GET', '/votes/statistics')
-        if result and 'statistics' in result:
-            return pd.DataFrame(result['statistics'])
-        return pd.DataFrame(columns=['record_id', 'artist', 'title', 'upvotes', 'downvotes', 'total_votes'])
-
-    # NEW METHODS FOR DISCOGS GENRE MAPPINGS
-    def get_discogs_genre_mapping(self, discogs_genre):
-        result = self._make_request('GET', f'/discogs-genre-mappings/{discogs_genre}')
-        
-        if result and 'mapping' in result and result['mapping']:
-            mapping_data = result['mapping']
-            return {
-                'mapping': {
-                    'local_genre_name': mapping_data['local_genre_name'],
-                    'discogs_genre': mapping_data['discogs_genre'],
-                    'local_genre_id': mapping_data['local_genre_id']
-                }
-            }
-        return {'mapping': None}
-    def save_discogs_genre_mapping(self, discogs_genre, local_genre_id):
-        """Save a mapping between Discogs genre and local genre"""
-        # Ensure local_genre_id is a regular Python int, not numpy.int64
-        local_genre_id = int(local_genre_id)
-        
-        result = self._make_request('POST', '/discogs-genre-mappings', 
-                                  json={'discogs_genre': discogs_genre, 'local_genre_id': local_genre_id})
-        success = result is not None and result.get('status') == 'success'
-        return success
-
-    def get_all_discogs_genre_mappings(self):
-        """Get all Discogs genre mappings"""
-        result = self._make_request('GET', '/discogs-genre-mappings')
-        if result and 'mappings' in result:
-            return result['mappings']
-        return []
-    
-
-    def get_dropoff_records(self, user_id: int = None) -> pd.DataFrame:
-        """Get consignment records ready for dropoff (records without barcodes)"""
-        endpoint = '/consignment/dropoff-ready'
-        if user_id:
-            endpoint += f'?user_id={user_id}'
-        
-        result = self._make_request('GET', endpoint)
-        if result and 'records' in result:
-            return pd.DataFrame(result['records'])
-        
-        return pd.DataFrame()
-
-    def get_records_by_ids(self, record_ids: List[int]) -> pd.DataFrame:
-        """Get records by multiple IDs"""
-        # For now, get all records and filter
-        all_records = self.get_all_records()
-        if not all_records.empty:
-            return all_records[all_records['id'].isin(record_ids)]
-        return pd.DataFrame()
 
 def render_login_page(auth_manager, session_manager):
     """Render login page"""
@@ -513,21 +122,74 @@ def render_main_app():
     EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
     YOUTUBE_API_KEY = env_vars.get("YOUTUBE_API_KEY")
 
-    if "db_manager" not in st.session_state:
-        api_base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
-        st.session_state.db_manager = DatabaseManager(api_base_url)
+    if "config" not in st.session_state:
         st.session_state.config = config
     
     # Initialize new services
     if "email_service" not in st.session_state:
-        st.session_state.email_service = EmailService(st.session_state.db_manager)
+        # Create a simple API client for email service
+        class SimpleAPIClient:
+            def __init__(self):
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+            
+            def get_user_by_id(self, user_id):
+                try:
+                    response = requests.get(f"{self.base_url}/users/{user_id}")
+                    if response.status_code == 200:
+                        return response.json()
+                    return None
+                except:
+                    return None
+                    
+            def update_record(self, record_id, updates):
+                try:
+                    response = requests.put(f"{self.base_url}/records/{record_id}", json=updates)
+                    return response.status_code == 200
+                except:
+                    return False
+        
+        st.session_state.email_service = EmailService(SimpleAPIClient())
     
     if "commission_calculator" not in st.session_state:
-        st.session_state.commission_calculator = CommissionCalculator(st.session_state.db_manager)
+        # Create a simple API client for commission calculator
+        class SimpleAPIClient2:
+            def __init__(self):
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+            
+            def get_config_value(self, key, default=None):
+                try:
+                    response = requests.get(f"{self.base_url}/config/{key}")
+                    if response.status_code == 200:
+                        data = response.json()
+                        return data.get('config_value', default)
+                    return default
+                except:
+                    return default
+            
+            def get_all_records(self):
+                try:
+                    response = requests.get(f"{self.base_url}/records?limit=1000")
+                    if response.status_code == 200:
+                        data = response.json()
+                        return pd.DataFrame(data.get('records', []))
+                    return pd.DataFrame()
+                except:
+                    return pd.DataFrame()
+            
+            def get_user_by_id(self, user_id):
+                try:
+                    response = requests.get(f"{self.base_url}/users/{user_id}")
+                    if response.status_code == 200:
+                        return response.json()
+                    return None
+                except:
+                    return None
+        
+        st.session_state.commission_calculator = CommissionCalculator(SimpleAPIClient2())
     
     if "pricing_validator" not in st.session_state:
         st.session_state.pricing_validator = PricingValidator(
-            st.session_state.db_manager, 
+            None,  # Will be set if needed
             None,  # Will be set if discogs_handler exists
             None   # Will be set if ebay_handler exists
         )
@@ -547,17 +209,16 @@ def render_main_app():
     if "selected_records" not in st.session_state:
         st.session_state.selected_records = []
 
+    if "checkout_records" not in st.session_state:
+        st.session_state.checkout_records = []
+
     discogs_handler = None
     if DISCOGS_USER_TOKEN:
         discogs_handler = DiscogsHandler(DISCOGS_USER_TOKEN)
-        # Update pricing validator with discogs handler
-        st.session_state.pricing_validator.discogs_handler = discogs_handler
     
     ebay_handler = None
     if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
         ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET)
-        # Update pricing validator with ebay handler
-        st.session_state.pricing_validator.ebay_handler = ebay_handler
     
     youtube_handler = None
     if YOUTUBE_API_KEY:
@@ -568,17 +229,17 @@ def render_main_app():
     inventory_tab = InventoryTab(discogs_handler, ebay_handler, youtube_handler)
     statistics_tab = StatisticsTab()
     ebay_tab = EBayTab(ebay_handler)
-    store_pricing_tab = StorePricingTab()
     consignment_tab = ConsignmentTab()
-    price_tag_tab = PriceTagTab(st.session_state.db_manager)
+    price_tag_tab = PriceTagTab()
     admin_config_tab = AdminConfigTab()
     votes_tab = VotesTab()
+    checkout_tab = CheckoutTab()
 
     render_header(user, session_manager)
     
-    render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
+    render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, statistics_tab, consignment_tab, 
-                                   admin_config_tab, votes_tab)
+                                   admin_config_tab, votes_tab, checkout_tab)
 
 def render_header(user, session_manager):
     """Render application header with user information"""
@@ -595,11 +256,16 @@ def render_header(user, session_manager):
     with col3:
         # Show store credit balance for consignors
         if user['role'] == 'consignor':
-            user_info = st.session_state.db_manager.get_user_by_id(user['id'])
-            if user_info is not None and not user_info.empty:
-                store_credit = user_info.get('store_credit_balance', 0)
-                if store_credit > 0:
-                    st.metric("Store Credit", f"${store_credit:.2f}")
+            try:
+                base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                response = requests.get(f"{base_url}/users/{user['id']}")
+                if response.status_code == 200:
+                    user_info = response.json()
+                    store_credit = user_info.get('store_credit_balance', 0)
+                    if store_credit > 0:
+                        st.metric("Store Credit", f"${store_credit:.2f}")
+            except:
+                pass
     
     with col4:
         if st.button("🔐 PW", help="Change Password"):
@@ -649,32 +315,46 @@ def render_change_password_form(session_manager):
                     else:
                         st.error(message)
 
-def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, store_pricing_tab, 
+def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, statistics_tab, consignment_tab,  
-                                   admin_config_tab, votes_tab):
+                                   admin_config_tab, votes_tab, checkout_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
     
     tab_configs = []
     
+    # Show checkout to users with checkout view permission - FIRST TAB
+    if PermissionManager.has_permission(user_role, 'checkout', 'view'):
+        tab_configs.append(("💰 Checkout", checkout_tab.render))
+    # Fallback: if permission system doesn't have checkout defined, show for admin
+    elif user_role == 'admin':
+        tab_configs.append(("💰 Checkout", checkout_tab.render))
+    
+    # Show inventory to all users with view permission
     if PermissionManager.has_permission(user_role, 'inventory', 'view'):
         tab_configs.append(("📦 Inventory", inventory_tab.render))
     
+    # Show price tags to users with add permission
     if PermissionManager.has_permission(user_role, 'inventory', 'add'):
         tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render))
     
-    if user_role == 'admin' and PermissionManager.has_permission(user_role, 'ebay', 'view'):
+    # Show eBay to users with eBay view permission
+    if PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    if user_role == 'admin' and PermissionManager.has_permission(user_role, 'reports', 'view'):
+    # Show statistics to users with reports view permission
+    if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("📊 Statistics", statistics_tab.render))
     
-    if user_role == 'admin' and PermissionManager.has_permission(user_role, 'reports', 'view'):
+    # Show votes to users with reports view permission
+    if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("🗳️ Votes", votes_tab.render))
     
+    # Show consignment to users with consignment view permission
     if PermissionManager.has_permission(user_role, 'consignment', 'view'):
         tab_configs.append(("🤝 Consignment", consignment_tab.render))
     
+    # Show admin config to admin users
     if user_role == 'admin':
         tab_configs.append(("⚙️ Admin Config", admin_config_tab.render))
     

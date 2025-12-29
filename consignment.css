@@ -1,3 +1,4 @@
+/* Reset and base styles */
 * {
     margin: 0;
     padding: 0;
@@ -5,16 +6,14 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: url('images/background.png') no-repeat center center fixed;
-    background-size: cover;
-    color: white;
-    margin: 0;
-    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.6;
+    color: #333;
     min-height: 100vh;
+    position: relative;
 }
 
-/* Background Image */
+/* Background styling */
 .background-container {
     position: fixed;
     top: 0;
@@ -28,6 +27,7 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    filter: brightness(0.7);
 }
 
 .background-overlay {
@@ -36,23 +36,32 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.4);
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%);
 }
 
+/* Header styling */
 header {
-    padding: 20px;
-    position: relative;
-    z-index: 10;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 20px;
 }
 
 .logo-container img {
     height: 60px;
+    width: auto;
     transition: transform 0.3s ease;
 }
 
@@ -60,426 +69,199 @@ header {
     transform: scale(1.05);
 }
 
-/* Banner */
-.banner {
-    background: linear-gradient(135deg, #ffcc00, #ff9900);
-    color: #333;
-    text-align: center;
-    padding: 15px;
-    font-weight: bold;
-    font-size: clamp(16px, 4vw, 18px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    z-index: 100;
-    position: relative;
-    margin: 0 20px 20px 20px;
-    border-radius: 8px;
-}
-
-/* Main content container */
+/* Content container */
 .content-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 2rem 1rem;
     position: relative;
-    z-index: 2;
+    z-index: 1;
 }
 
+/* Banner */
+.banner {
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    text-align: center;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+    border-left: 4px solid #ff4757;
+}
+
+/* Page title */
 .page-title {
     text-align: center;
-    margin-bottom: 30px;
-    padding: 0 20px;
+    margin-bottom: 3rem;
 }
 
 .page-title h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
     color: white;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    position: relative;
+    display: inline-block;
 }
 
-/* Tabs */
-.tabs-container {
-    background: rgba(0, 0, 0, 0.8);
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+.page-title h1::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #ff6b6b, #ff8e53);
+    border-radius: 2px;
 }
 
-.tabs {
-    display: flex;
-    background: #111;
-    border-bottom: 2px solid #333;
+/* Policy content */
+.policy-content {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.tab-button {
-    flex: 1;
-    padding: 15px 20px;
-    background: transparent;
-    border: none;
-    color: #ccc;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.tab-button:hover {
-    background: rgba(255, 204, 0, 0.1);
-    color: #ffcc00;
-}
-
-.tab-button.active {
-    background: #ffcc00;
-    color: #333;
-    font-weight: bold;
-}
-
-.tab-content {
-    padding: 0;
-}
-
-.tab-pane {
-    display: none;
-    padding: 0;
-}
-
-.tab-pane.active {
-    display: block;
-}
-
-/* Policy Table - Black background like other pages */
+/* Policy table */
 .policy-table {
     width: 100%;
     border-collapse: collapse;
-    background-color: #000;
-    color: #fff;
-    margin: 0;
-}
-
-.policy-table th, .policy-table td {
-    padding: 15px;
-    text-align: left;
-    vertical-align: top;
-    background-color: #000;
-}
-
-.policy-table th {
-    background-color: #111;
-    font-weight: bold;
-    color: #fff;
-    font-size: 1.1rem;
-}
-
-.policy-table tr:nth-child(even) td {
-    background-color: #111;
+    margin-top: 1rem;
 }
 
 .category-header {
-    background-color: #222 !important;
-    font-weight: bold;
-    color: #fff;
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
 }
 
 .category-header td {
-    font-size: 1.2rem;
-    padding: 20px 15px;
-    border-top: 2px solid #333;
+    padding: 1rem 1.5rem;
+}
+
+.sub-item {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease;
+}
+
+.sub-item:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.sub-item:last-child {
+    border-bottom: none;
+}
+
+.sub-item td {
+    padding: 1.5rem;
+    vertical-align: top;
 }
 
 .sub-item td:first-child {
-    padding-left: 40px;
     font-weight: 600;
-    color: #ffcc00;
+    color: #2c3e50;
+    width: 30%;
+    min-width: 200px;
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.sub-item td:last-child {
-    padding-left: 40px;
-}
-
+/* Conditions list */
 .conditions-list {
-    margin: 0;
-    padding-left: 20px;
-    color: #fff;
+    list-style: none;
+    padding-left: 0;
 }
 
 .conditions-list li {
-    margin-bottom: 8px;
-    line-height: 1.4;
-}
-
-.conditions-list strong {
-    color: #ffcc00;
-}
-
-/* Contract PDF Styles */
-.pdf-container {
-    background: white;
-    color: #333;
-    min-height: 800px;
-    padding: 40px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
     position: relative;
-}
-
-/* Draft Watermark */
-.draft-watermark {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-45deg);
-    font-size: 4rem;
-    color: rgba(255, 0, 0, 0.1);
-    font-weight: bold;
-    pointer-events: none;
-    z-index: 1;
-    white-space: nowrap;
-}
-
-/* Contract Banner */
-.contract-banner {
-    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-    border: 2px solid #ffc107;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 30px;
-    display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
-    position: relative;
-    z-index: 2;
-}
-
-.banner-icon {
-    font-size: 2rem;
-    flex-shrink: 0;
-}
-
-.banner-content h3 {
-    color: #856404;
-    margin: 0 0 10px 0;
-    font-size: 1.3rem;
-}
-
-.banner-content p {
-    color: #856404;
-    margin: 0;
     line-height: 1.5;
 }
 
-.pdf-header {
-    text-align: center;
-    margin-bottom: 40px;
-    border-bottom: 3px solid #ffcc00;
-    padding-bottom: 20px;
-    position: relative;
-    z-index: 2;
+.conditions-list li:last-child {
+    margin-bottom: 0;
 }
 
-.pdf-header h2 {
-    color: #333;
-    font-size: 2rem;
-    margin-bottom: 10px;
-}
-
-.contract-date {
-    color: #666;
-    font-size: 1.1rem;
-}
-
-.contract-content {
-    max-width: 800px;
-    margin: 0 auto;
-    line-height: 1.6;
-    position: relative;
-    z-index: 2;
-}
-
-.contract-section {
-    margin-bottom: 30px;
-    page-break-inside: avoid;
-}
-
-.contract-section h3 {
-    color: #ff9900;
-    margin-bottom: 15px;
-    font-size: 1.3rem;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 5px;
-}
-
-.contract-section p {
-    margin-bottom: 10px;
-}
-
-.contract-section ul {
-    margin: 10px 0 10px 30px;
-}
-
-.contract-section li {
-    margin-bottom: 8px;
-}
-
-.contract-section strong {
-    color: #333;
-}
-
-.signature-section {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 60px;
-    padding-top: 40px;
-    border-top: 2px solid #ccc;
-}
-
-.signature-block {
-    flex: 1;
-    margin: 0 20px;
-}
-
-.signature-line {
-    border-bottom: 1px solid #333;
-    padding-top: 30px;
-    margin-bottom: 10px;
-}
-
-/* Draft Footer */
-.draft-footer {
-    background: #f8f9fa;
-    border: 2px dashed #dc3545;
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    margin-top: 40px;
-}
-
-.draft-footer p {
-    margin: 5px 0;
-    color: #dc3545;
+.conditions-list li::before {
+    content: "•";
+    color: #ff6b6b;
     font-weight: bold;
+    position: absolute;
+    left: 0;
 }
 
-.draft-footer p:last-child {
-    font-weight: normal;
-    font-size: 0.9rem;
+.conditions-list strong {
+    color: #2c3e50;
 }
 
-/* Responsive adjustments */
+/* Responsive design */
 @media (max-width: 768px) {
-    .policy-table {
-        font-size: 0.9rem;
-    }
-    
-    .policy-table th, .policy-table td {
-        padding: 10px;
-    }
-    
-    .sub-item td:first-child,
-    .sub-item td:last-child {
-        padding-left: 20px;
+    .content-container {
+        padding: 1rem;
     }
     
     .page-title h1 {
         font-size: 2rem;
     }
     
-    header {
-        padding: 15px;
+    .policy-content {
+        padding: 1rem;
+    }
+    
+    .sub-item {
+        display: block;
+        margin-bottom: 1.5rem;
+    }
+    
+    .sub-item td {
+        display: block;
+        width: 100% !important;
+        padding: 1rem 0;
+        border: none !important;
+    }
+    
+    .sub-item td:first-child {
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        margin-bottom: 0.5rem;
+    }
+    
+    .category-header td {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-content {
+        padding: 0 0.5rem;
     }
     
     .logo-container img {
         height: 50px;
     }
     
-    .banner {
-        margin: 0 10px 15px 10px;
-        padding: 12px;
-    }
-    
-    .tabs {
-        flex-direction: column;
-    }
-    
-    .pdf-container {
-        padding: 20px;
-    }
-    
-    .pdf-header h2 {
-        font-size: 1.5rem;
-    }
-    
-    .signature-section {
-        flex-direction: column;
-    }
-    
-    .signature-block {
-        margin: 20px 0;
-    }
-    
-    .contract-banner {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .banner-icon {
-        align-self: center;
-    }
-    
-    .draft-watermark {
-        font-size: 2.5rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .content-container {
-        padding: 10px;
-    }
-    
     .page-title h1 {
-        font-size: 1.8rem;
+        font-size: 1.75rem;
     }
     
-    .policy-table {
-        font-size: 0.8rem;
+    .banner {
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
     }
     
-    .policy-table th, .policy-table td {
-        padding: 8px;
-        display: block;
-        width: 100%;
-    }
-    
-    .sub-item td:first-child,
-    .sub-item td:last-child {
-        padding-left: 15px;
-    }
-    
-    .policy-table tr {
-        display: block;
-        margin-bottom: 10px;
-    }
-    
-    .pdf-container {
-        padding: 15px;
-    }
-    
-    .pdf-header h2 {
-        font-size: 1.3rem;
-    }
-    
-    .contract-section h3 {
-        font-size: 1.1rem;
-    }
-    
-    .draft-watermark {
-        font-size: 2rem;
-    }
-    
-    .contract-banner {
-        padding: 15px;
-    }
-    
-    .banner-content h3 {
-        font-size: 1.1rem;
+    .conditions-list li {
+        font-size: 0.9rem;
+        padding-left: 1rem;
     }
 }

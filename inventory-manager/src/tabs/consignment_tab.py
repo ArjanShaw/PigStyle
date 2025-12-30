@@ -16,8 +16,6 @@ class ConsignmentTab:
             st.session_state.select_all_consignment = False
     
     def render(self):
-        st.title("🎵 Consignment Management")
-        
         user = st.session_state.get('user', {})
         user_id = user.get('id')
         user_role = user.get('role', 'consignor')
@@ -29,12 +27,28 @@ class ConsignmentTab:
         # Show consignor's credit balance at the top
         if user_role == 'consignor':
             user_info = self.api_client.get_user(user_id)
-            if user_info and 'store_credit_balance' in user_info:
+            if user_info:
                 credit_balance = user_info.get('store_credit_balance', 0)
+                payout_requested = user_info.get('payout_requested', False)
+                
+                # Display credit balance
                 if credit_balance > 0:
-                    st.success(f"💰 **Your Store Credit Balance: ${credit_balance:.2f}**")
+                    st.success(f"💰 **Your Credit Balance: ${credit_balance:.2f}**")
                 else:
-                    st.info(f"💳 **Your Store Credit Balance: ${credit_balance:.2f}**")
+                    st.info(f"💳 **Your Credit Balance: ${credit_balance:.2f}**")
+                
+                # Request payout button for consignors with positive balance
+                if credit_balance > 0 and not payout_requested:
+                    if st.button("💰 Request Payout", type="primary"):
+                        if self._request_payout(user_id):
+                            st.success("✅ Payout request submitted! It will be processed by admin.")
+                            st.rerun()
+                elif payout_requested:
+                    st.info("⏳ Payout request pending admin approval")
+        
+        # Show payout requests table for admin
+        if user_role == 'admin':
+            self._render_payout_requests()
         
         # Get consignment records
         if user_role == 'admin':
@@ -277,6 +291,87 @@ class ConsignmentTab:
                         st.session_state.selected_consignment_records = []
                         st.rerun()
     
+    def _render_payout_requests(self):
+        """Render payout requests table for admin"""
+        st.subheader("💰 Payout Requests")
+        
+        # Get all users with payout requested
+        users = self.api_client.get_all_users()
+        
+        payout_requests = []
+        for user in users:
+            if user.get('payout_requested') and user.get('store_credit_balance', 0) > 0:
+                payout_requests.append(user)
+        
+        if not payout_requests:
+            st.info("No pending payout requests.")
+            return
+        
+        # Create table
+        st.write(f"**Pending Payouts:** {len(payout_requests)}")
+        
+        for user in payout_requests:
+            with st.expander(f"{user.get('username')} - ${user.get('store_credit_balance', 0):.2f}", expanded=True):
+                col1, col2, col3 = st.columns([2, 2, 1])
+                
+                with col1:
+                    st.write(f"**Name:** {user.get('full_name', 'Not provided')}")
+                    st.write(f"**Email:** {user.get('email', 'Not provided')}")
+                    st.write(f"**Phone:** {user.get('phone', 'Not provided')}")
+                
+                with col2:
+                    st.write(f"**Address:**")
+                    address = user.get('address', 'Not provided')
+                    if address and address != 'Not provided':
+                        st.text(address)
+                    else:
+                        st.write("Not provided")
+                    st.write(f"**Credit Balance:** ${user.get('store_credit_balance', 0):.2f}")
+                
+                with col3:
+                    if st.button("✅ Process Payout", key=f"process_{user['id']}", use_container_width=True):
+                        if self._process_payout(user['id']):
+                            st.success(f"✅ Payout processed for {user.get('username')}")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Failed to process payout")
+    
+    def _request_payout(self, user_id):
+        """Request payout for a user"""
+        try:
+            response = requests.put(
+                f"{self.api_client.base_url}/users/{user_id}/request-payout",
+                json={'payout_requested': True}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error requesting payout: {e}")
+            return False
+    
+    def _process_payout(self, user_id):
+        """Process payout and clear user's credit balance"""
+        try:
+            # Get user info to get current balance
+            user_info = self.api_client.get_user(user_id)
+            if not user_info:
+                return False
+            
+            credit_balance = user_info.get('store_credit_balance', 0)
+            
+            # Update user - clear balance and remove payout request
+            response = requests.put(
+                f"{self.api_client.base_url}/users/{user_id}/process-payout",
+                json={
+                    'store_credit_balance': 0,
+                    'payout_requested': False,
+                    'original_payout_amount': credit_balance
+                }
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error processing payout: {e}")
+            return False
+    
     def _mark_as_removed(self, record_ids):
         """Mark selected records as removed (status_id = 4)"""
         if not record_ids:
@@ -375,6 +470,19 @@ class APIClient:
         except Exception as e:
             st.error(f"API Error getting user: {e}")
             return None
+    
+    def get_all_users(self):
+        """Get all users"""
+        try:
+            response = requests.get(f"{self.base_url}/users")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    return data.get('users', [])
+            return []
+        except Exception as e:
+            st.error(f"API Error getting users: {e}")
+            return []
     
     def update_record_status(self, record_id, status_id):
         """Update a record's status via API"""

@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+from datetime import datetime
 
 class ConsignmentTab:
     def __init__(self):
@@ -14,59 +15,92 @@ class ConsignmentTab:
         # Initialize session state for select all
         if 'select_all_consignment' not in st.session_state:
             st.session_state.select_all_consignment = False
-    
+
     def render(self):
         user = st.session_state.get('user', {})
         user_id = user.get('id')
         user_role = user.get('role', 'consignor')
+        is_demo = user.get('username') == 'demo_user'
         
-        if not user_id:
+        if not user_id and not is_demo:
             st.warning("Please log in to view consignment information.")
             return
         
+        if is_demo:
+            st.info("👀 **Demo Mode**: You can simulate consignment operations in demo mode.")
+            # Use demo user ID
+            user_id = 999
+        
         # Show consignor's credit balance at the top
-        if user_role == 'consignor':
-            user_info = self.api_client.get_user(user_id)
-            if user_info:
-                credit_balance = user_info.get('store_credit_balance', 0)
-                payout_requested = user_info.get('payout_requested', False)
+        if user_role == 'consignor' or is_demo:
+            if is_demo:
+                # Demo user balance - CALCULATE FROM SOLD RECORDS
+                demo_records = self._get_demo_consignment_records()
+                sold_records = [r for r in demo_records if r.get('status_id') == 3]
                 
-                # Display credit balance
+                # Calculate total from sold records
+                total_sales = sum(float(r.get('store_price', 0)) for r in sold_records)
+                commission = total_sales * 0.20  # 20% commission
+                credit_balance = total_sales - commission
+                
+                # Store for use in Last Added display
+                st.session_state.demo_credit_balance = credit_balance
+                
+                st.success(f"💰 **Your Credit Balance: ${credit_balance:.2f}**")
+                st.info("💡 **Demo**: This balance comes from sold consignment items (20% commission).")
+                
+                # Request payout button for demo
                 if credit_balance > 0:
-                    st.success(f"💰 **Your Credit Balance: ${credit_balance:.2f}**")
-                else:
-                    st.info(f"💳 **Your Credit Balance: ${credit_balance:.2f}**")
-                
-                # Request payout button for consignors with positive balance
-                if credit_balance > 0 and not payout_requested:
-                    if st.button("💰 Request Payout", type="primary"):
-                        if self._request_payout(user_id):
-                            st.success("✅ Payout request submitted! It will be processed by admin.")
-                            st.rerun()
-                elif payout_requested:
-                    st.info("⏳ Payout request pending admin approval")
+                    if st.button("💰 Request Payout (Demo)", type="primary"):
+                        st.success("✅ Demo: Payout request submitted! In real operation, this would notify store admin.")
+                        st.info("💡 The store admin would confirm with an email and sent you a check.")
+            else:
+                user_info = self.api_client.get_user(user_id)
+                if user_info:
+                    credit_balance = user_info.get('store_credit_balance', 0)
+                    payout_requested = user_info.get('payout_requested', False)
+                    
+                    # Display credit balance
+                    if credit_balance > 0:
+                        st.success(f"💰 **Your Credit Balance: ${credit_balance:.2f}**")
+                    else:
+                        st.info(f"💳 **Your Credit Balance: ${credit_balance:.2f}**")
+                    
+                    # Request payout button for consignors with positive balance
+                    if credit_balance > 0 and not payout_requested:
+                        if st.button("💰 Request Payout", type="primary"):
+                            if self._request_payout(user_id):
+                                st.success("✅ Payout request submitted! It will be processed by admin.")
+                                st.info("💡 The store admin would confirm with an email and sent you a check.")
+                                st.rerun()
+                    elif payout_requested:
+                        st.info("⏳ Payout request pending admin approval")
         
         # Show payout requests table for admin
-        if user_role == 'admin':
+        if user_role == 'admin' and not is_demo:
             self._render_payout_requests()
         
         # Get consignment records
-        if user_role == 'admin':
-            # Use the new endpoint for consignment records
-            response = requests.get(f"{self.api_client.base_url}/consignment/records")
+        if is_demo:
+            records = self._get_demo_consignment_records()
         else:
-            response = requests.get(f"{self.api_client.base_url}/consignment/records?user_id={user_id}")
+            if user_role == 'admin':
+                # Use the new endpoint for consignment records
+                response = requests.get(f"{self.api_client.base_url}/consignment/records")
+            else:
+                response = requests.get(f"{self.api_client.base_url}/consignment/records?user_id={user_id}")
+            
+            if response.status_code != 200:
+                st.error("Error fetching records")
+                return
+            
+            data = response.json()
+            if data.get('status') != 'success':
+                st.error("Error fetching records")
+                return
+            
+            records = data.get('records', [])
         
-        if response.status_code != 200:
-            st.error("Error fetching records")
-            return
-        
-        data = response.json()
-        if data.get('status') != 'success':
-            st.error("Error fetching records")
-            return
-        
-        records = data.get('records', [])
         if not records:
             st.info("No consignment records found.")
             return
@@ -82,7 +116,7 @@ class ConsignmentTab:
             return
         
         # Add consignor name for admin view
-        if user_role == 'admin':
+        if user_role == 'admin' and not is_demo:
             consignor_names = {}
             for consignor_id in consignment_df['consignor_id'].unique():
                 user_info = self.api_client.get_user(int(consignor_id))
@@ -91,95 +125,73 @@ class ConsignmentTab:
             
             consignment_df['consignor'] = consignment_df['consignor_id'].map(consignor_names)
         
-        # Use display_status from API response
-        if 'display_status' not in consignment_df.columns:
-            # Fallback: determine status based on status_id and barcode
-            def determine_display_status(row):
-                status_id = row.get('status_id', 1)
-                barcode = row.get('barcode')
-                
-                if status_id == 1:  # new
-                    if pd.isna(barcode) or barcode in [None, '', 'None']:
-                        return '🆕 New'
-                    else:
-                        return '✅ Active'
-                elif status_id == 2:  # active
-                    return '✅ Active'
-                elif status_id == 3:  # sold
-                    return '💰 Sold'
-                elif status_id == 4:  # removed
-                    return '🗑️ Removed'
-                else:
-                    return '❓ Unknown'
+        # Determine display status based on status_id
+        def determine_display_status(row):
+            status_id = row.get('status_id', 1)
+            barcode = row.get('barcode')
             
-            consignment_df['display_status'] = consignment_df.apply(determine_display_status, axis=1)
+            if status_id == 1:  # new
+                if pd.isna(barcode) or barcode in [None, '', 'None']:
+                    return '🆕 New'
+                else:
+                    return '✅ Active'
+            elif status_id == 2:  # active
+                return '✅ Active'
+            elif status_id == 3:  # sold
+                return '💰 Sold'
+            elif status_id == 4:  # removed
+                return '🗑️ Removed'
+            else:
+                return '❓ Unknown'
+        
+        consignment_df['display_status'] = consignment_df.apply(determine_display_status, axis=1)
         
         # Add record ID to session state for selection
         consignment_df['record_id'] = consignment_df['id']
         
-        # Filter options
-        st.subheader("Consignment Records")
+        # Split into separate tables
+        new_df = consignment_df[consignment_df['display_status'] == '🆕 New'].copy()
+        active_df = consignment_df[consignment_df['display_status'] == '✅ Active'].copy()
+        sold_df = consignment_df[consignment_df['display_status'] == '💰 Sold'].copy()
+        removed_df = consignment_df[consignment_df['display_status'] == '🗑️ Removed'].copy()
         
-        filter_cols = st.columns(4)
-        with filter_cols[0]:
-            show_new = st.checkbox("🆕 New", value=True, key="show_new")
-        with filter_cols[1]:
-            show_active = st.checkbox("✅ Active", value=True, key="show_active")
-        with filter_cols[2]:
-            show_sold = st.checkbox("💰 Sold", value=False, key="show_sold")
-        with filter_cols[3]:
-            show_removed = st.checkbox("🗑️ Removed", value=True, key="show_removed")
+        # Display tables in order, only if they have records
+        if not new_df.empty:
+            self._render_consignment_table("🆕 New Records", new_df, user_role, is_demo)
         
-        # Apply filters
-        selected_statuses = []
-        if show_new:
-            selected_statuses.append('🆕 New')
-        if show_active:
-            selected_statuses.append('✅ Active')
-        if show_sold:
-            selected_statuses.append('💰 Sold')
-        if show_removed:
-            selected_statuses.append('🗑️ Removed')
+        if not active_df.empty:
+            self._render_consignment_table("✅ Active Records", active_df, user_role, is_demo)
         
-        filtered_df = consignment_df[consignment_df['display_status'].isin(selected_statuses)] if selected_statuses else consignment_df
+        if not sold_df.empty:
+            self._render_sold_table("💰 Sold Records", sold_df, user_role, is_demo)
         
-        st.info(f"Showing {len(filtered_df)} of {len(consignment_df)} records")
+        if not removed_df.empty:
+            self._render_removed_table("🗑️ Removed Records - Ready for Pickup", removed_df, user_role, is_demo)
+    
+    def _render_consignment_table(self, title, df, user_role, is_demo):
+        """Render a consignment table with selection and actions"""
+        st.subheader(title)
         
-        if filtered_df.empty:
-            st.warning("No records match the selected filters.")
-            return
-        
-        # Selection controls
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
-            if st.button("✅ Select All", key="select_all_btn"):
-                st.session_state.select_all_consignment = True
-                st.session_state.selected_consignment_records = filtered_df['record_id'].tolist()
-                st.rerun()
-        
-        with col2:
-            if st.button("❌ Deselect All", key="deselect_all_btn"):
-                st.session_state.select_all_consignment = False
-                st.session_state.selected_consignment_records = []
-                st.rerun()
-        
-        with col3:
-            selected_count = len(st.session_state.selected_consignment_records)
-            if selected_count > 0:
-                # Check if selected records have mixed statuses
-                selected_records_data = filtered_df[filtered_df['record_id'].isin(st.session_state.selected_consignment_records)]
-                selected_statuses_set = set(selected_records_data['display_status'].unique())
-                
-                if len(selected_statuses_set) > 1:
-                    st.error(f"❌ {selected_count} records selected - Cannot select records with mixed statuses!")
-                else:
-                    status = list(selected_statuses_set)[0] if selected_statuses_set else None
-                    st.write(f"**{selected_count} {status} records selected**")
+        # Only show selection controls for active/new records (not for removed records)
+        # Consignors can remove their own active/new records
+        if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+            # Selection controls
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                if st.button(f"✅ Select All {title.split()[0]}", key=f"select_all_{title}"):
+                    st.session_state.select_all_consignment = True
+                    st.session_state.selected_consignment_records = df['record_id'].tolist()
+                    st.rerun()
+            
+            with col2:
+                selected_count = len([r for r in st.session_state.selected_consignment_records if r in df['record_id'].tolist()])
+                if selected_count > 0:
+                    st.write(f"**{selected_count} records selected**")
         
         # Create editable DataFrame with checkboxes
         display_data = []
         
-        for idx, record in filtered_df.iterrows():
+        for idx, record in df.iterrows():
             record_id = record['record_id']
             
             # Determine if this record should be selected
@@ -191,7 +203,7 @@ class ConsignmentTab:
                 'Status': record['display_status']
             }
             
-            if user_role == 'admin':
+            if user_role == 'admin' and not is_demo:
                 display_row['Consignor'] = record.get('consignor', f"ID: {record.get('consignor_id')}")
             
             display_row['Artist'] = record['artist']
@@ -203,7 +215,7 @@ class ConsignmentTab:
         # Create DataFrame for display
         display_df = pd.DataFrame(display_data)
         
-        # Display the editable table
+        # Configure columns - disable select column for admin viewing other users' records
         column_config = {
             "Select": st.column_config.CheckboxColumn("Select", default=False),
             "ID": st.column_config.NumberColumn("ID", disabled=True),
@@ -213,83 +225,367 @@ class ConsignmentTab:
             "Price": st.column_config.TextColumn("Price", disabled=True),
         }
         
-        if user_role == 'admin':
+        if user_role == 'admin' and not is_demo:
             column_config["Consignor"] = st.column_config.TextColumn("Consignor", disabled=True)
+        
+        # Determine if select column should be disabled
+        disabled_columns = [col for col in column_config.keys() if col != "Select"]
+        
+        # If user is consignor and this is active/new records table, allow selection
+        if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+            # Keep select column enabled for consignors
+            pass
+        else:
+            # Disable select column for all other cases
+            disabled_columns.append("Select")
         
         edited_df = st.data_editor(
             display_df,
             column_config=column_config,
             hide_index=True,
             width='stretch',
-            key="consignment_table_editor",
-            disabled=["ID", "Status", "Artist", "Title", "Price", "Consignor"]
+            key=f"consignment_table_{title}",
+            disabled=disabled_columns
         )
         
-        # Update selected records based on user selection
-        new_selected_records = []
-        for idx, row in edited_df.iterrows():
-            if row['Select']:
-                record_id = row['ID']
-                new_selected_records.append(record_id)
-        
-        # Check if newly selected records would create mixed statuses
-        if new_selected_records:
-            new_selected_data = filtered_df[filtered_df['record_id'].isin(new_selected_records)]
-            new_statuses_set = set(new_selected_data['display_status'].unique())
+        # Update selected records based on user selection (only for consignors on active/new records)
+        if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+            new_selected_records = []
+            for idx, row in edited_df.iterrows():
+                if row['Select']:
+                    record_id = row['ID']
+                    new_selected_records.append(record_id)
             
-            if len(new_statuses_set) > 1:
-                st.error("❌ Cannot select records with mixed statuses. Please select records with the same status only.")
-                # Revert to previous selection
-                new_selected_records = st.session_state.selected_consignment_records.copy()
+            # Update session state for records in this table
+            current_table_ids = df['record_id'].tolist()
+            other_selected = [r for r in st.session_state.selected_consignment_records if r not in current_table_ids]
+            st.session_state.selected_consignment_records = other_selected + new_selected_records
         
-        # Update session state if selection changed
-        if set(new_selected_records) != set(st.session_state.selected_consignment_records):
-            st.session_state.selected_consignment_records = new_selected_records
-            st.rerun()
+        # Check if we have selected records in this table
+        table_selected_records = [r for r in st.session_state.selected_consignment_records if r in current_table_ids]
         
-        # Check if we have selected records
-        if st.session_state.selected_consignment_records:
-            # Get status of selected records
-            selected_records_data = filtered_df[filtered_df['record_id'].isin(st.session_state.selected_consignment_records)]
-            selected_status = selected_records_data['display_status'].iloc[0] if not selected_records_data.empty else None
+        if table_selected_records:
+            selected_count = len(table_selected_records)
             
-            if selected_status:
-                selected_count = len(st.session_state.selected_consignment_records)
+            # Show remove from consignment option for active/new records (only for consignors)
+            if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+                st.warning(f"You are about to remove {selected_count} record(s) from consignment.")
                 
-                if selected_status == '🗑️ Removed':
-                    # Show delete option for removed records
-                    st.warning(f"You are about to permanently delete {selected_count} record(s) marked as 'Removed'.")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("🗑️ Delete", type="primary", use_container_width=True):
-                            self._delete_selected_records(st.session_state.selected_consignment_records)
-                    
-                    with col2:
-                        if st.button("❌ Cancel", type="secondary", use_container_width=True):
-                            st.session_state.selected_consignment_records = []
-                            st.rerun()
-                
-                elif selected_status == '✅ Active' or selected_status == '🆕 New':
-                    # Show mark as removed option for active/new records
-                    action = "deactivate" if selected_status == '✅ Active' else "mark as removed"
-                    st.warning(f"You are about to {action} {selected_count} record(s). This will mark them as 'Removed'.")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("🗑️ Mark as Removed", type="primary", use_container_width=True):
-                            self._mark_as_removed(st.session_state.selected_consignment_records)
-                    
-                    with col2:
-                        if st.button("❌ Cancel", type="secondary", use_container_width=True):
-                            st.session_state.selected_consignment_records = []
-                            st.rerun()
-                
-                elif selected_status == '💰 Sold':
-                    st.info("Sold records cannot be modified.")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🗑️ Remove from Consignment", type="primary", use_container_width=True):
+                        self._mark_as_removed(table_selected_records, is_demo)
+                with col2:
                     if st.button("❌ Clear Selection", type="secondary", use_container_width=True):
-                        st.session_state.selected_consignment_records = []
+                        st.session_state.selected_consignment_records = [
+                            r for r in st.session_state.selected_consignment_records 
+                            if r not in table_selected_records
+                        ]
                         st.rerun()
+    
+    def _render_sold_table(self, title, df, user_role, is_demo):
+        """Render sold records table WITHOUT checkboxes"""
+        st.subheader(title)
+        
+        # Create display data WITHOUT select column
+        display_data = []
+        
+        for idx, record in df.iterrows():
+            display_row = {
+                'ID': record['record_id'],
+                'Status': record['display_status']
+            }
+            
+            if user_role == 'admin' and not is_demo:
+                display_row['Consignor'] = record.get('consignor', f"ID: {record.get('consignor_id')}")
+            
+            display_row['Artist'] = record['artist']
+            display_row['Title'] = record['title']
+            display_row['Price'] = f"${record['store_price']:.2f}"
+            
+            # Add date sold if available
+            if record.get('date_sold'):
+                display_row['Date Sold'] = record['date_sold']
+            
+            display_data.append(display_row)
+        
+        # Create DataFrame for display
+        display_df = pd.DataFrame(display_data)
+        
+        # Configure columns (NO SELECT COLUMN)
+        column_config = {
+            "ID": st.column_config.NumberColumn("ID", disabled=True),
+            "Status": st.column_config.TextColumn("Status", disabled=True),
+            "Artist": st.column_config.TextColumn("Artist", disabled=True),
+            "Title": st.column_config.TextColumn("Title", disabled=True),
+            "Price": st.column_config.TextColumn("Price", disabled=True),
+        }
+        
+        if user_role == 'admin' and not is_demo:
+            column_config["Consignor"] = st.column_config.TextColumn("Consignor", disabled=True)
+        
+        if 'Date Sold' in display_df.columns:
+            column_config["Date Sold"] = st.column_config.DateColumn("Date Sold", disabled=True)
+        
+        st.data_editor(
+            display_df,
+            column_config=column_config,
+            hide_index=True,
+            width='stretch',
+            key=f"sold_table_{title}",
+            disabled=True  # Entire table is disabled
+        )
+    
+    def _render_removed_table(self, title, df, user_role, is_demo):
+        """Render removed records table with special header - NO SELECT COLUMN FOR CONSIGNORS"""
+        st.subheader(title)
+        st.info("ℹ️ These records have been removed from consignment. Please pick up within 30 days.")
+        
+        # Create display data WITHOUT select column for consignors
+        # Only include select column for admin users
+        display_data = []
+        
+        for idx, record in df.iterrows():
+            record_id = record['record_id']
+            
+            # Initialize display row
+            display_row = {
+                'ID': record_id,
+                'Status': record['display_status']
+            }
+            
+            # Only add select column for admin users
+            if user_role == 'admin' and not is_demo:
+                # Determine if this record should be selected
+                is_selected = record_id in st.session_state.selected_consignment_records
+                display_row['Select'] = is_selected
+            
+            if user_role == 'admin' and not is_demo:
+                display_row['Consignor'] = record.get('consignor', f"ID: {record.get('consignor_id')}")
+            
+            display_row['Artist'] = record['artist']
+            display_row['Title'] = record['title']
+            display_row['Price'] = f"${record['store_price']:.2f}"
+            
+            # Add date removed if available
+            if record.get('date_removed'):
+                display_row['Date Removed'] = record['date_removed']
+            
+            display_data.append(display_row)
+        
+        # Create DataFrame for display
+        display_df = pd.DataFrame(display_data)
+        
+        # Configure columns based on user role
+        if user_role == 'admin' and not is_demo:
+            column_config = {
+                "Select": st.column_config.CheckboxColumn("Select", default=False),
+                "ID": st.column_config.NumberColumn("ID", disabled=True),
+                "Status": st.column_config.TextColumn("Status", disabled=True),
+                "Artist": st.column_config.TextColumn("Artist", disabled=True),
+                "Title": st.column_config.TextColumn("Title", disabled=True),
+                "Price": st.column_config.TextColumn("Price", disabled=True),
+            }
+            
+            if 'Consignor' in display_df.columns:
+                column_config["Consignor"] = st.column_config.TextColumn("Consignor", disabled=True)
+            
+            if 'Date Removed' in display_df.columns:
+                column_config["Date Removed"] = st.column_config.DateColumn("Date Removed", disabled=True)
+            
+            # Only disable non-select columns for admin
+            disabled_columns = [col for col in column_config.keys() if col != "Select"]
+        else:
+            # For consignors, don't include select column at all
+            column_config = {
+                "ID": st.column_config.NumberColumn("ID", disabled=True),
+                "Status": st.column_config.TextColumn("Status", disabled=True),
+                "Artist": st.column_config.TextColumn("Artist", disabled=True),
+                "Title": st.column_config.TextColumn("Title", disabled=True),
+                "Price": st.column_config.TextColumn("Price", disabled=True),
+            }
+            
+            if 'Date Removed' in display_df.columns:
+                column_config["Date Removed"] = st.column_config.DateColumn("Date Removed", disabled=True)
+            
+            # Disable all columns for consignors
+            disabled_columns = list(column_config.keys())
+        
+        edited_df = st.data_editor(
+            display_df,
+            column_config=column_config,
+            hide_index=True,
+            width='stretch',
+            key=f"removed_table_{title}",
+            disabled=disabled_columns
+        )
+        
+        # Update selected records based on user selection (only for admin)
+        if user_role == 'admin' and not is_demo:
+            new_selected_records = []
+            for idx, row in edited_df.iterrows():
+                if row['Select']:
+                    record_id = row['ID']
+                    new_selected_records.append(record_id)
+            
+            # Update session state for records in this table
+            current_table_ids = df['record_id'].tolist()
+            other_selected = [r for r in st.session_state.selected_consignment_records if r not in current_table_ids]
+            st.session_state.selected_consignment_records = other_selected + new_selected_records
+        
+        # Check if we have selected records in this table (only for admin)
+        table_selected_records = [r for r in st.session_state.selected_consignment_records if r in df['record_id'].tolist()]
+        
+        if table_selected_records and user_role == 'admin' and not is_demo:
+            selected_count = len(table_selected_records)
+            
+            # Show delete option for removed records (only for admin)
+            st.warning(f"You are about to permanently delete {selected_count} record(s) marked as 'Removed'.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🗑️ Delete", type="primary", use_container_width=True):
+                    self._delete_selected_records(table_selected_records, is_demo)
+            with col2:
+                if st.button("❌ Clear Selection", type="secondary", use_container_width=True):
+                    st.session_state.selected_consignment_records = [
+                        r for r in st.session_state.selected_consignment_records 
+                        if r not in table_selected_records
+                    ]
+                    st.rerun()
+        elif user_role == 'consignor' and 'Select' in display_df.columns:
+            # Clear any accidental selection by consignors
+            st.session_state.selected_consignment_records = [
+                r for r in st.session_state.selected_consignment_records 
+                if r not in df['record_id'].tolist()
+            ]
+    
+    def _get_demo_consignment_records(self):
+        """Create demo consignment records with real artist/title combinations"""
+        # Use session state to persist demo records
+        if 'demo_consignment_records' not in st.session_state or st.session_state.demo_consignment_records is None:
+            # Initial demo records
+            demo_records = [
+                {
+                    'id': 1001,
+                    'artist': 'The Beatles',
+                    'title': 'Abbey Road',
+                    'store_price': 34.99,
+                    'consignor_id': 999,
+                    'commission_rate': 0.20,
+                    'status_id': 1,
+                    'barcode': '077774644121',
+                    'display_status': '✅ Active',
+                    'genre_name': 'Rock',
+                    'catalog_number': 'PCS 7088',
+                    'created_at': '2024-01-15'
+                },
+                {
+                    'id': 1002,
+                    'artist': 'Miles Davis',
+                    'title': 'Kind of Blue',
+                    'store_price': 29.99,
+                    'consignor_id': 999,
+                    'commission_rate': 0.20,
+                    'status_id': 1,
+                    'barcode': '074646300322',
+                    'display_status': '✅ Active',
+                    'genre_name': 'Jazz',
+                    'catalog_number': 'CL 1355',
+                    'created_at': '2024-01-10'
+                },
+                {
+                    'id': 1003,
+                    'artist': 'Pink Floyd',
+                    'title': 'The Dark Side of the Moon',
+                    'store_price': 39.99,
+                    'consignor_id': 999,
+                    'commission_rate': 0.20,
+                    'status_id': 3,  # Sold status
+                    'barcode': '077774644421',
+                    'display_status': '💰 Sold',
+                    'genre_name': 'Progressive Rock',
+                    'catalog_number': 'SHVL 804',
+                    'created_at': '2023-12-20',
+                    'date_sold': '2024-01-05'
+                },
+                {
+                    'id': 1004,
+                    'artist': 'Nirvana',
+                    'title': 'Nevermind',
+                    'store_price': 24.99,
+                    'consignor_id': 999,
+                    'commission_rate': 0.20,
+                    'status_id': 4,  # Removed status
+                    'barcode': '072064244251',
+                    'display_status': '🗑️ Removed',
+                    'genre_name': 'Grunge',
+                    'catalog_number': 'GEF 24425',
+                    'created_at': '2023-11-15',
+                    'date_removed': '2024-01-01'
+                },
+                {
+                    'id': 1005,
+                    'artist': 'Radiohead',
+                    'title': 'OK Computer',
+                    'store_price': 27.99,
+                    'consignor_id': 999,
+                    'commission_rate': 0.20,
+                    'status_id': 4,  # Removed status
+                    'barcode': '724385467421',
+                    'display_status': '🗑️ Removed',
+                    'genre_name': 'Alternative Rock',
+                    'catalog_number': '7243 8 55229 2 6',
+                    'created_at': '2023-10-20',
+                    'date_removed': '2023-12-15'
+                }
+            ]
+            
+            # Store in session state
+            st.session_state.demo_consignment_records = demo_records
+        
+        return st.session_state.demo_consignment_records
+    
+    def _update_demo_record_status(self, record_ids, new_status_id):
+        """Update status of demo records"""
+        if 'demo_consignment_records' not in st.session_state or st.session_state.demo_consignment_records is None:
+            return False
+        
+        updated = False
+        for record in st.session_state.demo_consignment_records:
+            if record['id'] in record_ids:
+                # Update status
+                record['status_id'] = new_status_id
+                
+                # Update display status
+                if new_status_id == 1:
+                    record['display_status'] = '🆕 New'
+                elif new_status_id == 2:
+                    record['display_status'] = '✅ Active'
+                elif new_status_id == 3:
+                    record['display_status'] = '💰 Sold'
+                elif new_status_id == 4:
+                    record['display_status'] = '🗑️ Removed'
+                    # Add removal date if not present
+                    if 'date_removed' not in record:
+                        record['date_removed'] = datetime.now().date().isoformat()
+                
+                updated = True
+        
+        return updated
+    
+    def _delete_demo_records(self, record_ids):
+        """Delete demo records"""
+        if 'demo_consignment_records' not in st.session_state or st.session_state.demo_consignment_records is None:
+            return False
+        
+        # Filter out records to delete
+        st.session_state.demo_consignment_records = [
+            record for record in st.session_state.demo_consignment_records 
+            if record['id'] not in record_ids
+        ]
+        
+        return True
     
     def _render_payout_requests(self):
         """Render payout requests table for admin"""
@@ -332,12 +628,20 @@ class ConsignmentTab:
                     if st.button("✅ Process Payout", key=f"process_{user['id']}", use_container_width=True):
                         if self._process_payout(user['id']):
                             st.success(f"✅ Payout processed for {user.get('username')}")
+                            st.info("💡 Email confirmation sent and check mailed to consignor.")
                             st.rerun()
                         else:
                             st.error(f"❌ Failed to process payout")
     
     def _request_payout(self, user_id):
         """Request payout for a user"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would request payout for user {user_id}")
+            return True
+            
         try:
             response = requests.put(
                 f"{self.api_client.base_url}/users/{user_id}/request-payout",
@@ -350,6 +654,13 @@ class ConsignmentTab:
     
     def _process_payout(self, user_id):
         """Process payout and clear user's credit balance"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would process payout for user {user_id}")
+            return True
+            
         try:
             # Get user info to get current balance
             user_info = self.api_client.get_user(user_id)
@@ -372,11 +683,14 @@ class ConsignmentTab:
             st.error(f"Error processing payout: {e}")
             return False
     
-    def _mark_as_removed(self, record_ids):
+    def _mark_as_removed(self, record_ids, is_demo=False):
         """Mark selected records as removed (status_id = 4)"""
         if not record_ids:
             st.error("No records selected")
             return
+        
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
         
         success_count = 0
         failed_count = 0
@@ -385,15 +699,23 @@ class ConsignmentTab:
         status_text = st.empty()
         
         for i, record_id in enumerate(record_ids):
-            status_text.text(f"Marking record {i+1}/{len(record_ids)} (ID: {record_id}) as removed...")
+            status_text.text(f"Removing record {i+1}/{len(record_ids)} (ID: {record_id}) from consignment...")
             
-            # Make API call to update record status to removed (4)
-            success = self.api_client.update_record_status(record_id, 4)
-            
-            if success:
-                success_count += 1
+            if is_demo:
+                # Demo mode - update demo record status
+                success = self._update_demo_record_status([record_id], 4)
+                if success:
+                    success_count += 1
+                else:
+                    failed_count += 1
             else:
-                failed_count += 1
+                # Make API call to update record status to removed (4)
+                success = self.api_client.update_record_status(record_id, 4)
+                
+                if success:
+                    success_count += 1
+                else:
+                    failed_count += 1
             
             progress_bar.progress((i + 1) / len(record_ids))
         
@@ -401,22 +723,34 @@ class ConsignmentTab:
         status_text.empty()
         
         if success_count > 0:
-            st.success(f"✅ Successfully marked {success_count} record(s) as removed!")
+            st.success(f"✅ Successfully removed {success_count} record(s) from consignment!")
+            st.info("📝 Removed from consignment, please pick up item(s) within 30 days")
         
         if failed_count > 0:
-            st.error(f"❌ Failed to mark {failed_count} record(s) as removed")
+            st.error(f"❌ Failed to remove {failed_count} record(s) from consignment")
         
         # Clear selection
-        st.session_state.selected_consignment_records = []
+        st.session_state.selected_consignment_records = [
+            r for r in st.session_state.selected_consignment_records if r not in record_ids
+        ]
         st.session_state.select_all_consignment = False
         
         # Rerun to refresh data
         st.rerun()
     
-    def _delete_selected_records(self, record_ids):
+    def _delete_selected_records(self, record_ids, is_demo=False):
         """Permanently delete selected records from database"""
         if not record_ids:
             st.error("No records selected")
+            return
+        
+        user = st.session_state.get('user', {})
+        user_role = user.get('role')
+        is_demo = user.get('username') == 'demo_user'
+        
+        # Only admin can delete records
+        if user_role != 'admin' and not is_demo:
+            st.error("❌ Only administrators can delete records.")
             return
         
         success_count = 0
@@ -428,13 +762,21 @@ class ConsignmentTab:
         for i, record_id in enumerate(record_ids):
             status_text.text(f"Deleting record {i+1}/{len(record_ids)} (ID: {record_id})...")
             
-            # Make API call to delete record
-            success = self.api_client.delete_record(record_id)
-            
-            if success:
-                success_count += 1
+            if is_demo:
+                # Demo mode - delete from demo records
+                success = self._delete_demo_records([record_id])
+                if success:
+                    success_count += 1
+                else:
+                    failed_count += 1
             else:
-                failed_count += 1
+                # Make API call to delete record
+                success = self.api_client.delete_record(record_id)
+                
+                if success:
+                    success_count += 1
+                else:
+                    failed_count += 1
             
             progress_bar.progress((i + 1) / len(record_ids))
         
@@ -448,7 +790,9 @@ class ConsignmentTab:
             st.error(f"❌ Failed to delete {failed_count} record(s)")
         
         # Clear selection
-        st.session_state.selected_consignment_records = []
+        st.session_state.selected_consignment_records = [
+            r for r in st.session_state.selected_consignment_records if r not in record_ids
+        ]
         st.session_state.select_all_consignment = False
         
         # Rerun to refresh data
@@ -486,6 +830,13 @@ class APIClient:
     
     def update_record_status(self, record_id, status_id):
         """Update a record's status via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would update record {record_id} status to {status_id}")
+            return True
+            
         try:
             response = requests.put(
                 f"{self.base_url}/records/{record_id}",
@@ -498,6 +849,13 @@ class APIClient:
     
     def delete_record(self, record_id):
         """Delete a record via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would delete record {record_id}")
+            return True
+            
         try:
             response = requests.delete(f"{self.base_url}/records/{record_id}")
             return response.status_code == 200
@@ -507,6 +865,13 @@ class APIClient:
     
     def update_record(self, record_id, updates):
         """Update a record via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would update record {record_id} with {updates}")
+            return True
+            
         try:
             response = requests.put(
                 f"{self.base_url}/records/{record_id}",

@@ -40,7 +40,23 @@ IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
 
-def render_login_page(auth_manager, session_manager):
+def main():
+    """Main application entry point"""
+    # Initialize session state for authentication
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+    if 'user' not in st.session_state:
+        st.session_state.user = None
+    if 'session_token' not in st.session_state:
+        st.session_state.session_token = None
+    
+    # Check if user is authenticated
+    if not st.session_state.authenticated:
+        render_login_page()
+    else:
+        render_main_app()
+
+def render_login_page():
     """Render login page"""
     st.set_page_config(page_title="PigStyle Login", page_icon="🎵", layout="centered")
     
@@ -49,29 +65,8 @@ def render_login_page(auth_manager, session_manager):
         st.title("🎵 PigStyle Records")
         st.subheader("Inventory Manager")
         
-        with st.form("login_form"):
-            username = st.text_input("Username or Email", placeholder="Enter your username or email")
-            password = st.text_input("Password", type="password", placeholder="Enter your password")
-            remember_me = st.checkbox("Remember me", value=True)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                login_button = st.form_submit_button("🚀 Login")
-            with col2:
-                demo_button = st.form_submit_button("👀 Demo Mode")
-        
-        if login_button:
-            if username and password:
-                success, message = session_manager.login(username, password, remember_me)
-                if success:
-                    st.success(message)
-                    st.rerun()
-                else:
-                    st.error(message)
-            else:
-                st.error("Please enter both username and password")
-        
-        if demo_button:
+        # Demo Mode button - SIMPLE AND DIRECT
+        if st.button("👀 Demo Mode", key="demo_button", use_container_width=True, type="primary"):
             st.session_state.authenticated = True
             st.session_state.user = {
                 'username': 'demo_user',
@@ -81,22 +76,48 @@ def render_login_page(auth_manager, session_manager):
                 'email': 'demo@pigstyle.com'
             }
             st.session_state.session_token = None
-            st.success("Entering demo mode with read-only access")
+            
+            # Initialize demo last added record with real artist/title
+            st.session_state.demo_last_added = {
+                'artist': 'Radiohead',
+                'title': 'OK Computer',
+                'store_price': 27.99
+            }
+            
+            # Initialize demo credit balance (calculated from sold records)
+            # Pink Floyd sold at $39.99 - 20% commission = $31.99
+            st.session_state.demo_credit_balance = 31.99
+            
             st.rerun()
+        
+        st.markdown("---")
+        st.write("**Regular Login**")
+        
+        with st.form("login_form"):
+            username = st.text_input("Username or Email", placeholder="Enter your username or email")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            
+            login_button = st.form_submit_button("🚀 Login", use_container_width=True)
+        
+        if login_button:
+            if username and password:
+                auth_manager = AuthManager()
+                session_manager = SessionManager(auth_manager)
+                success, message = session_manager.login(username, password, False)
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+            else:
+                st.error("Please enter both username and password")
         
         st.markdown("---")
         st.caption("💡 Contact administrator for account creation")
 
 def render_main_app():
     """Render the main application after authentication"""
-    auth_manager = AuthManager()
-    session_manager = SessionManager(auth_manager)
-    
-    if not session_manager.check_existing_session():
-        render_login_page(auth_manager, session_manager)
-        return
-    
-    user = session_manager.get_current_user()
+    user = st.session_state.user
     
     st.set_page_config(
         page_title="PigStyle Inventory Manager",
@@ -235,13 +256,13 @@ def render_main_app():
     votes_tab = VotesTab()
     checkout_tab = CheckoutTab()
 
-    render_header(user, session_manager)
+    render_header(user)
     
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, statistics_tab, consignment_tab, 
                                    admin_config_tab, votes_tab, checkout_tab)
 
-def render_header(user, session_manager):
+def render_header(user):
     """Render application header with user information"""
     col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 1])
     
@@ -250,6 +271,8 @@ def render_header(user, session_manager):
     
     with col2:
         role_display = "👑 Admin" if user['role'] == 'admin' else "🤝 Consignor"
+        if user['username'] == 'demo_user':
+            role_display = "👀 Demo User"
         st.write(f"**{user['full_name'] or user['username']}**")
         st.caption(role_display)
     
@@ -263,12 +286,16 @@ def render_header(user, session_manager):
     
     with col5:
         if st.button("🚪", help="Logout"):
-            session_manager.logout()
+            # Clear authentication session state
+            st.session_state.authenticated = False
+            st.session_state.user = None
+            st.session_state.session_token = None
+            st.rerun()
     
     if st.session_state.get('show_change_password', False):
-        render_change_password_form(session_manager)
+        render_change_password_form()
 
-def render_change_password_form(session_manager):
+def render_change_password_form():
     """Render password change form"""
     with st.expander("🔐 Change Password", expanded=True):
         with st.form("change_password_form"):
@@ -297,48 +324,57 @@ def render_change_password_form(session_manager):
                 elif new_password != confirm_password:
                     st.error("New passwords do not match")
                 else:
-                    success, message = session_manager.change_password(current_password, new_password)
-                    if success:
-                        st.success(message)
+                    # For demo user, just show success
+                    if st.session_state.user['username'] == 'demo_user':
+                        st.success("Demo: Password change simulated")
                         st.session_state.show_change_password = False
                         st.rerun()
                     else:
-                        st.error(message)
+                        auth_manager = AuthManager()
+                        session_manager = SessionManager(auth_manager)
+                        success, message = session_manager.change_password(current_password, new_password)
+                        if success:
+                            st.success(message)
+                            st.session_state.show_change_password = False
+                            st.rerun()
+                        else:
+                            st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, statistics_tab, consignment_tab,  
                                    admin_config_tab, votes_tab, checkout_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
+    is_demo = user['username'] == 'demo_user'
     
     tab_configs = []
     
     # Show inventory to all users with view permission
-    if PermissionManager.has_permission(user_role, 'inventory', 'view'):
+    if PermissionManager.has_permission(user_role, 'inventory', 'view') or is_demo:
         tab_configs.append(("📦 Inventory", inventory_tab.render))
     
     # Show consignment to users with consignment view permission
-    if PermissionManager.has_permission(user_role, 'consignment', 'view'):
+    if PermissionManager.has_permission(user_role, 'consignment', 'view') or is_demo:
         tab_configs.append(("🤝 Consignment", consignment_tab.render))
     
-    # Show price tags to users with add permission
-    if PermissionManager.has_permission(user_role, 'inventory', 'add'):
+    # Show price tags to users with add permission - ONLY FOR ADMIN
+    if user_role == 'admin':  # Only admin can print price tags
         tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render))
     
-    # Show eBay to users with eBay view permission
+    # Show eBay to users with eBay view permission (admin only)
     if PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    # Show statistics to users with reports view permission
+    # Show statistics to users with reports view permission (admin only)
     if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("📊 Statistics", statistics_tab.render))
     
-    # Show votes to users with reports view permission
+    # Show votes to users with reports view permission (admin only)
     if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("🗳️ Votes", votes_tab.render))
     
-    # Show checkout to users with checkout view permission
-    if PermissionManager.has_permission(user_role, 'checkout', 'view'):
+    # Show checkout ONLY to admin users - NOT FOR DEMO OR CONSIGNOR
+    if user_role == 'admin':
         tab_configs.append(("💰 Checkout", checkout_tab.render))
     
     # Show admin config to admin users
@@ -352,10 +388,6 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab,
         for i, (tab_name, render_function) in enumerate(tab_configs):
             with tabs[i]:
                 render_function()
-
-def main():
-    """Main application entry point"""
-    render_main_app()
 
 if __name__ == "__main__":
     main()

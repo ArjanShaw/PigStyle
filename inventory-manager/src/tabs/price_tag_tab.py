@@ -78,11 +78,11 @@ class PriceTagTab:
         col1, col2 = st.columns(2)
         
         with col1:
-            with st.expander("📐 Page/Layout Configuration", expanded=True):
+            with st.expander("📐 Page/Layout Configuration", expanded=False):  # Changed to collapsed by default
                 self._render_page_layout_configuration()
         
         with col2:
-            with st.expander("⚙️ Price Tag Design", expanded=True):
+            with st.expander("⚙️ Price Tag Design", expanded=False):  # Changed to collapsed by default
                 self._render_price_tag_design_configuration()
         
         # Get all users for selection
@@ -111,20 +111,26 @@ class PriceTagTab:
                 return
         
         # Get records for the selected user (or all records)
-        records = self._get_records_for_user(selected_user_id)
+        # ONLY get records with status_id = 1 (new records)
+        records = self._get_new_records_for_user(selected_user_id)
         
         # Get all records for statistics
         all_records_response = requests.get(f"{self.api_base_url}/records?limit=1000")
         if all_records_response.status_code == 200:
             all_data = all_records_response.json()
             all_records = all_data.get('records', [])
-            printed_count = len([r for r in all_records if r.get('barcode') and r['barcode'] not in [None, '', 'None']])
-            total_count = len(all_records)
+            
+            # Filter only new records (status_id = 1)
+            new_records = [r for r in all_records if r.get('status_id') == 1]
+            
+            printed_count = len([r for r in new_records if r.get('barcode') and r['barcode'] not in [None, '', 'None']])
+            total_count = len(new_records)
             
             # Filter selected user's printed count
             if selected_user_id:
-                user_printed_count = len([r for r in all_records if r.get('barcode') and r['barcode'] not in [None, '', 'None'] and r.get('consignor_id') == selected_user_id])
-                user_total_count = len([r for r in all_records if r.get('consignor_id') == selected_user_id])
+                user_new_records = [r for r in new_records if r.get('consignor_id') == selected_user_id]
+                user_printed_count = len([r for r in user_new_records if r.get('barcode') and r['barcode'] not in [None, '', 'None']])
+                user_total_count = len(user_new_records)
             else:
                 user_printed_count = printed_count
                 user_total_count = total_count
@@ -171,35 +177,13 @@ class PriceTagTab:
                 else:
                     st.info("No recent price tags to clear")
         
-        with col2:
-            st.write("**Clear ALL Price Tags**")
-            if st.button("🗑️ Clear ALL", width='stretch', 
-                       help="Remove barcodes from ALL records (use with caution!)", type="secondary"):
-                if st.checkbox("I understand this will remove ALL barcodes from ALL records"):
-                    try:
-                        # Get all records with barcodes
-                        response = requests.get(f"{self.api_base_url}/records?limit=1000")
-                        if response.status_code == 200:
-                            data = response.json()
-                            records_with_barcodes = [r for r in data.get('records', []) 
-                                                    if r.get('barcode') and r['barcode'] not in [None, '', 'None']]
-                            clear_count = len(records_with_barcodes)
-                            
-                            if st.button(f"CONFIRM: Clear ALL {clear_count} barcodes", type="primary"):
-                                # Clear barcodes via API
-                                for record in records_with_barcodes:
-                                    requests.put(f"{self.api_base_url}/records/{record['id']}", 
-                                                json={'barcode': None})
-                                st.success(f"✅ Cleared ALL {clear_count} price tags!")
-                                st.rerun()
-                    except Exception as e:
-                        st.error(f"Error clearing barcodes: {e}")
         
         if not records:
-            st.info(f"No records found for {'selected user' if selected_user_id else 'any user'} that need price tags.")
+            st.info(f"No NEW records found for {'selected user' if selected_user_id else 'any user'} that need price tags.")
+            st.info("Only records with status 'New' (status_id = 1) are shown for printing.")
             return
         
-        st.subheader(f"📋 Records Ready for Printing ({len(records)} found)")
+        st.subheader(f"📋 New Records Ready for Printing ({len(records)} found)")
         
         # Selection controls
         col1, col2, col3 = st.columns([1, 1, 1])
@@ -230,7 +214,8 @@ class PriceTagTab:
                 'Price': f"${record.get('store_price', 0):.2f}",
                 'Condition': record.get('condition', 'Unknown'),
                 'Added Date': record.get('created_at', ''),
-                'User': self._get_username_by_id(record.get('consignor_id'), users)
+                'User': self._get_username_by_id(record.get('consignor_id'), users),
+                'Status': '🆕 New'  # All records shown are new
             })
         
         df = pd.DataFrame(display_data)
@@ -245,7 +230,8 @@ class PriceTagTab:
                 "Price": st.column_config.TextColumn("Price", disabled=True),
                 "Condition": st.column_config.TextColumn("Condition", disabled=True),
                 "Added Date": st.column_config.DatetimeColumn("Added Date", disabled=True),
-                "User": st.column_config.TextColumn("User", disabled=True)
+                "User": st.column_config.TextColumn("User", disabled=True),
+                "Status": st.column_config.TextColumn("Status", disabled=True)
             },
             hide_index=True,
             width='stretch',
@@ -561,11 +547,11 @@ class PriceTagTab:
             st.error(f"Error getting users: {e}")
             return []
     
-    def _get_records_for_user(self, user_id=None):
-        """Get records without barcodes for a specific user (or all users)"""
+    def _get_new_records_for_user(self, user_id=None):
+        """Get NEW records (status_id = 1) without barcodes for a specific user (or all users)"""
         try:
             if user_id:
-                # Get all records for this user, then filter those without barcodes
+                # Get all records for this user, then filter those without barcodes and status_id = 1
                 response = requests.get(f"{self.api_base_url}/records/user/{user_id}")
             else:
                 # Get all records without barcodes
@@ -576,11 +562,14 @@ class PriceTagTab:
                 if data.get('status') == 'success':
                     records = data.get('records', [])
                     
-                    if user_id:
-                        # Filter for records without barcodes
-                        records = [r for r in records if not r.get('barcode') or r['barcode'] in [None, '', 'None']]
+                    # Filter for NEW records (status_id = 1) without barcodes
+                    filtered_records = [
+                        r for r in records 
+                        if r.get('status_id') == 1 and 
+                        (not r.get('barcode') or r['barcode'] in [None, '', 'None'])
+                    ]
                     
-                    return records
+                    return filtered_records
             return []
         except Exception as e:
             st.error(f"Error getting records: {e}")

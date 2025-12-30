@@ -13,9 +13,14 @@ class CheckoutTab:
         
         user = st.session_state.get('user', {})
         user_role = user.get('role')
+        is_demo = user.get('username') == 'demo_user'
         
-        # Only admin can view checkout
-        if user_role != 'admin':
+        if is_demo:
+            st.info("👀 **Demo Mode**: In a real store, checkout would be handled by a store employee.")
+            st.info("You can simulate the checkout process in demo mode.")
+        
+        # Only admin can view checkout (demo user cannot see this tab anymore)
+        if user_role != 'admin' and not is_demo:
             st.error("❌ Access denied. Administrator privileges required to view checkout.")
             return
         
@@ -39,6 +44,9 @@ class CheckoutTab:
     def _render_search_section(self):
         """Render search section for adding items to checkout"""
         st.subheader("🔍 Search Items to Checkout")
+        
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
         
         with st.form(key="checkout_search_form"):
             search_input = st.text_input(
@@ -106,6 +114,8 @@ class CheckoutTab:
             
             # Show consignor info if available
             consignor_id = record.get('consignor_id')
+            user = st.session_state.get('user', {})
+            
             if consignor_id:
                 user_info = self.api_client.get_user(consignor_id)
                 if user_info:
@@ -189,6 +199,9 @@ class CheckoutTab:
         st.divider()
         st.subheader("💳 Mark as Paid")
         
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
         # Calculate totals
         record_ids = [record['id'] for record in st.session_state.checkout_records]
         total_sales = sum(float(r.get('store_price', 0)) for r in st.session_state.checkout_records)
@@ -231,8 +244,8 @@ class CheckoutTab:
         if consignor_summary:
             st.write("**Consignor Breakdown:**")
             for consignor_id, summary in consignor_summary.items():
-                user = self.api_client.get_user(consignor_id)
-                username = user.get('username', f"ID: {consignor_id}") if user else f"ID: {consignor_id}"
+                user_info = self.api_client.get_user(consignor_id)
+                username = user_info.get('username', f"ID: {consignor_id}") if user_info else f"ID: {consignor_id}"
                 
                 col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
                 with col1:
@@ -246,14 +259,23 @@ class CheckoutTab:
         
         # Single "Mark Paid" button
         if st.button("💰 Mark Paid", type="primary", use_container_width=True):
-            success = self._mark_as_paid(record_ids)
-            
-            if success:
-                st.success(f"✅ Successfully marked {len(record_ids)} items as paid!")
+            if is_demo:
+                st.success(f"✅ Demo: Would mark {len(record_ids)} items as paid")
+                st.info("💡 Demo: Email confirmation would be sent to consignor and check mailed.")
                 
-                # Clear checkout records
+                # Clear checkout records for demo
                 st.session_state.checkout_records = []
                 st.rerun()
+            else:
+                success = self._mark_as_paid(record_ids)
+                
+                if success:
+                    st.success(f"✅ Successfully marked {len(record_ids)} items as paid!")
+                    st.info("💡 Email confirmation sent to consignor and check mailed.")
+                    
+                    # Clear checkout records
+                    st.session_state.checkout_records = []
+                    st.rerun()
     
     def _search_records_for_checkout(self, search_term):
         """Search records for checkout - only shows unsold items"""
@@ -397,6 +419,13 @@ class APIClient:
     
     def update_record(self, record_id, updates):
         """Update a record via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would update record {record_id} with {updates}")
+            return True
+            
         try:
             response = requests.put(
                 f"{self.base_url}/records/{record_id}",
@@ -409,6 +438,13 @@ class APIClient:
     
     def update_user(self, user_id, updates):
         """Update user via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would update user {user_id} with {updates}")
+            return True
+            
         try:
             response = requests.put(
                 f"{self.base_url}/users/{user_id}",

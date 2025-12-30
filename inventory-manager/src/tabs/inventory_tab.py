@@ -30,6 +30,13 @@ class InventoryTab:
     
     def delete_record(self, record_id):
         """Delete a record via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would delete record {record_id}")
+            return True  # Simulate success
+            
         try:
             response = requests.delete(f"{self.base_url}/records/{record_id}")
             return response.status_code == 200
@@ -77,6 +84,13 @@ class InventoryTab:
     
     def update_record(self, record_id, updates):
         """Update a record via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would update record {record_id} with {updates}")
+            return True  # Simulate success
+            
         try:
             response = requests.put(
                 f"{self.base_url}/records/{record_id}",
@@ -208,6 +222,13 @@ class InventoryTab:
     
     def add_genre(self, genre_name):
         """Add new genre via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would add genre '{genre_name}'")
+            return True, 999  # Simulate success with fake ID
+            
         try:
             response = requests.post(
                 f"{self.base_url}/genres",
@@ -320,20 +341,61 @@ class InventoryTab:
 
     def _render_last_added_record_simple(self):
         """Display the last record added to the database - simple single line"""
-        recent_records = self.get_recent_records(limit=1)
+        user = st.session_state.get('user', {})
+        user_id = user.get('id')
+        user_role = user.get('role')
+        is_demo = user.get('username') == 'demo_user'
+        is_admin = user_role == 'admin'
         
-        if not recent_records.empty:
-            last_record = recent_records.iloc[0]
+        if is_demo:
+            # In demo mode, show simulated last added record
+            # Check if we have a simulated last added record in session state
+            if 'demo_last_added' in st.session_state:
+                last_record = st.session_state.demo_last_added
+                artist = last_record.get('artist', 'Demo Artist')
+                title = last_record.get('title', 'Demo Album')
+                store_price = last_record.get('store_price', 19.99)
+                
+                display_text = f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
+                st.markdown(display_text)
+            else:
+                st.markdown("**📝 Last Added:** No records yet")
             
-            artist = last_record.get('artist', 'Unknown Artist')
-            title = last_record.get('title', 'Unknown Title')
-            store_price = last_record.get('store_price', 0.0)
-            
-            display_text = f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
-            
-            st.markdown(display_text)
+            # Show demo info about credit balance matching
+            if hasattr(st.session_state, 'demo_credit_balance'):
+                credit_balance = st.session_state.demo_credit_balance
+                st.caption(f"💡 Demo Credit Balance: ${credit_balance:.2f} (matches sold records)")
         else:
-            st.markdown("**📝 Last Added:** No records yet")
+            # Original non-demo logic
+            if is_admin:
+                # Admin sees last added by any user
+                recent_records = self.get_recent_records(limit=1)
+            else:
+                # Non-admin users see last added by themselves
+                if user_id:
+                    # Get records for this specific user
+                    user_records = self.get_records_by_user(user_id)
+                    if user_records:
+                        # Sort by ID descending to get most recent
+                        user_records.sort(key=lambda x: x.get('id', 0), reverse=True)
+                        recent_records = pd.DataFrame(user_records[:1]) if user_records else pd.DataFrame()
+                    else:
+                        recent_records = pd.DataFrame()
+                else:
+                    recent_records = pd.DataFrame()
+            
+            if not recent_records.empty:
+                last_record = recent_records.iloc[0]
+                
+                artist = last_record.get('artist', 'Unknown Artist')
+                title = last_record.get('title', 'Unknown Title')
+                store_price = last_record.get('store_price', 0.0)
+                
+                display_text = f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
+                
+                st.markdown(display_text)
+            else:
+                st.markdown("**📝 Last Added:** No records yet")
 
     def _render_unified_operations(self, store_fill_fraction):
         if 'search_type' not in st.session_state:
@@ -734,6 +796,15 @@ class InventoryTab:
                         # Clear this record's session state
                         del st.session_state[f"{record_key}_data"]
                         st.session_state.record_added = True
+                        
+                        # In demo mode, update the last added record
+                        if user.get('username') == 'demo_user':
+                            st.session_state.demo_last_added = {
+                                'artist': record_to_add['artist'],
+                                'title': record_to_add['title'],
+                                'store_price': stored_data['user_price']
+                            }
+                        
                         st.success(f"✅ Record added successfully! ID: {record_id}")
                         st.rerun()
                     else:
@@ -748,7 +819,17 @@ class InventoryTab:
 
     def _handle_add_record_direct(self, record_data, genre, user_price=None, consignor_id=None):
         """Handle adding a record directly to the database WITH CONSIGNOR ID"""
-        # Add consignor_id to record data
+        # ADD DEMO MODE CHECK
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            # Simulate success in demo mode
+            st.success(f"✅ Demo: Record '{record_data.get('artist', '')} - {record_data.get('title', '')}' would be added")
+            st.info("💡 In a real session, this would be saved to the database.")
+            return True, 999  # Return a fake record ID
+            
+        # Original code continues for non-demo users...
         if consignor_id:
             record_data['consignor_id'] = consignor_id
         
@@ -1245,13 +1326,26 @@ class InventoryTab:
             st.warning("No records found in database")
             return
         
-        self._render_editable_database_results(results, search_type, user)
+        # Filter results based on user role
+        filtered_results = results
+        if user and user.get('role') == 'consignor' and search_type == "Edit or Delete item":
+            user_id = user.get('id')
+            # Consignor can only see their own records in edit/delete mode
+            filtered_results = [r for r in results if r.get('consignor_id') == user_id]
+            
+            if not filtered_results:
+                st.info("You don't have any records that match your search.")
+                st.info("Only your own consignment records are shown in edit/delete mode.")
+                return
+        
+        self._render_editable_database_results(filtered_results, search_type, user)
 
     def _render_editable_database_results(self, results, search_type, user=None):
         for i, record in enumerate(results):
             # Show consignor name
             expander_title = f"{record.get('artist', '')} - {record.get('title', '')}"
             user_role = user.get('role', 'consignor') if user else 'consignor'
+            user_id = user.get('id') if user else None
             
             if user_role == 'admin' and record.get('consignor_name'):
                 expander_title += f" 👤 {record.get('consignor_name')}"
@@ -1271,6 +1365,7 @@ class InventoryTab:
         
         with col2:
             user_role = user.get('role', 'consignor') if user else 'consignor'
+            user_id = user.get('id') if user else None
             
             # Show consignor info for admin users
             if user_role == 'admin' and record.get('consignor_id'):
@@ -1280,7 +1375,7 @@ class InventoryTab:
                     user_info = self.get_user(consignor_id)
                     if user_info:
                         consignor_name = user_info.get('username', f"ID: {consignor_id}")
-                        st.write(f"**👤 Consignor:** {consignor_name} (ID: {consignor_id})")
+                        st.write(f"**👤 Consignor:** {consignor_name} (ID: {consignor_id}")
                     else:
                         st.write(f"**👤 Consignor ID:** {consignor_id}")
             
@@ -1296,8 +1391,16 @@ class InventoryTab:
             if record.get('discount_eligible_date'):
                 st.write(f"**Discount Eligible:** {record.get('discount_eligible_date')}")
             
-            artist = st.text_input("Artist", value=record.get('artist', ''), key=f"artist_edit_{index}")
-            title = st.text_input("Title", value=record.get('title', ''), key=f"title_edit_{index}")
+            # Check if user can edit this record
+            can_edit = False
+            if user_role == 'admin':
+                can_edit = True
+            elif user_role == 'consignor' and record.get('consignor_id') == user_id:
+                # Consignor can only edit their own records
+                can_edit = True
+            
+            artist = st.text_input("Artist", value=record.get('artist', ''), key=f"artist_edit_{index}", disabled=not can_edit)
+            title = st.text_input("Title", value=record.get('title', ''), key=f"title_edit_{index}", disabled=not can_edit)
             
             all_genres = self._get_all_genres()
             if not isinstance(all_genres, list):
@@ -1305,9 +1408,9 @@ class InventoryTab:
                 
             current_genre = record.get('genre', '')
             genre_index = all_genres.index(current_genre) + 1 if current_genre in all_genres else 0
-            genre = st.selectbox("Genre", options=[""] + all_genres, index=genre_index, key=f"genre_edit_{index}")
+            genre = st.selectbox("Genre", options=[""] + all_genres, index=genre_index, key=f"genre_edit_{index}", disabled=not can_edit)
             
-            compilation = st.checkbox("Compilation", value=record.get('compilation', False), key=f"compilation_{index}")
+            compilation = st.checkbox("Compilation", value=record.get('compilation', False), key=f"compilation_{index}", disabled=not can_edit)
             
             # Price editing with validation
             store_price = record.get('store_price', 0.0)
@@ -1317,36 +1420,64 @@ class InventoryTab:
             if record.get('price_override_requested'):
                 st.warning("⚠️ Price override requested")
             
-            youtube_url = st.text_input("YouTube URL", value=record.get('youtube_url', ''), key=f"youtube_{index}")
+            youtube_url = st.text_input("YouTube URL", value=record.get('youtube_url', ''), key=f"youtube_{index}", disabled=not can_edit)
             
             col_btn1, col_btn2, col_btn3 = st.columns(3)
             with col_btn1:
-                if st.button("💾 Save", key=f"save_{index}", width='stretch'):
-                    updates = {
-                        'artist': artist,
-                        'title': title,
-                        'genre': genre,
-                        'compilation': compilation,
-                        'youtube_url': youtube_url
-                    }
-                    
-                    self._save_record_changes(record, updates)
+                if can_edit:
+                    if st.button("💾 Save", key=f"save_{index}", width='stretch'):
+                        updates = {
+                            'artist': artist,
+                            'title': title,
+                            'genre': genre,
+                            'compilation': compilation,
+                            'youtube_url': youtube_url
+                        }
+                        
+                        self._save_record_changes(record, updates)
+                else:
+                    st.button("💾 Save", key=f"save_{index}_disabled", width='stretch', disabled=True)
             
             with col_btn2:
-                if st.button("🗑️ Delete", key=f"delete_{index}", width='stretch', type="secondary"):
-                    if self._delete_record(record.get('id')):
-                        st.success("Record deleted successfully!")
-                        st.rerun()
+                # Check if user can delete this record
+                can_delete = False
+                if user_role == 'admin':
+                    can_delete = True
+                elif user_role == 'consignor' and record.get('consignor_id') == user_id:
+                    # Consignor can only delete their own NEW records (status_id = 1)
+                    if record.get('status_id') == 1:
+                        can_delete = True
+                
+                if can_delete:
+                    if st.button("🗑️ Delete", key=f"delete_{index}", width='stretch', type="secondary"):
+                        if self._delete_record(record.get('id')):
+                            st.success("Record deleted successfully!")
+                            st.rerun()
+                else:
+                    st.button("🗑️ Delete", key=f"delete_{index}_disabled", width='stretch', type="secondary", disabled=True)
             
             with col_btn3:
                 if record.get('barcode'):
-                    if st.button("🗑️ Clear Barcode", key=f"clear_barcode_{index}", width='stretch', type="secondary"):
-                        if self._clear_barcode(record.get('id')):
-                            st.success("Barcode cleared!")
-                            st.rerun()
+                    # Only admin can clear barcodes
+                    if user_role == 'admin':
+                        if st.button("🗑️ Clear Barcode", key=f"clear_barcode_{index}", width='stretch', type="secondary"):
+                            if self._clear_barcode(record.get('id')):
+                                st.success("Barcode cleared!")
+                                st.rerun()
+                    else:
+                        st.button("🗑️ Clear Barcode", key=f"clear_barcode_{index}_disabled", width='stretch', type="secondary", disabled=True)
 
     def _save_record_changes(self, original_record, updates):
         """Save record changes via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would update record {original_record['id']} with {updates}")
+            st.success("Demo: Record updated successfully!")
+            st.rerun()
+            return
+        
         # Handle genre conversion to genre_id
         if 'genre' in updates:
             genre = updates.pop('genre')
@@ -1357,7 +1488,7 @@ class InventoryTab:
                     if not genre_rows.empty:
                         updates['genre_id'] = genre_rows.iloc[0]['id']
                     else:
-                        # Add new genre
+                        # Add new genre using API
                         success, new_genre_id = self.add_genre(genre)
                         if success:
                             updates['genre_id'] = new_genre_id
@@ -1370,12 +1501,28 @@ class InventoryTab:
             st.error("Failed to update record")
 
     def _clear_barcode(self, record_id):
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would clear barcode for record {record_id}")
+            st.success("Demo: Barcode cleared!")
+            return True
+            
         updates = {'barcode': None}
         success = self.update_record(record_id, updates)
         return success
 
     def _delete_record(self, record_id):
         """Delete a record from the database via API"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would delete record {record_id}")
+            st.success("Demo: Record deleted successfully!")
+            return True
+            
         try:
             success = self.delete_record(record_id)
             return success
@@ -1384,23 +1531,83 @@ class InventoryTab:
             return False
 
     def _perform_database_search(self, search_term, user=None):
-        """Perform database search using API client"""
+        """Perform database search using API client - CONSIGNORS ONLY SEE THEIR OWN RECORDS"""
         try:
-            # Use the improved API client search
-            results = self.search_records(search_term)
+            user_role = user.get('role', 'consignor') if user else 'consignor'
+            user_id = user.get('id') if user else None
             
-            # Add consignor name if available
-            for record in results:
-                consignor_id = record.get('consignor_id')
-                if consignor_id and not record.get('consignor_name'):
-                    # Try to get consignor name from API
-                    user_data = self.get_user(consignor_id)
-                    if user_data:
-                        record['consignor_name'] = user_data.get('username', f"User {consignor_id}")
+            # Build search URL with parameters
+            if user_role == 'consignor' and user_id:
+                # Consignor searching in edit/delete mode - only search their own records
+                response = requests.get(
+                    f"{self.base_url}/records/user/{user_id}?search={search_term}",
+                    timeout=10
+                )
+            else:
+                # Admin or general search
+                response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
             
-            return results
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    records = data.get('records', [])
+                    
+                    # For consignor searches, we might get all user records, need to filter by search term
+                    if user_role == 'consignor' and user_id:
+                        # Filter records by search term locally
+                        filtered_records = []
+                        search_lower = search_term.lower()
+                        for record in records:
+                            artist = str(record.get('artist', '')).lower()
+                            title = str(record.get('title', '')).lower()
+                            catalog = str(record.get('catalog_number', '')).lower()
+                            barcode = str(record.get('barcode', '')).lower()
+                            
+                            if (search_lower in artist or 
+                                search_lower in title or 
+                                search_lower in catalog or 
+                                search_lower in barcode):
+                                filtered_records.append(record)
+                        records = filtered_records
+                    
+                    df = pd.DataFrame(records) if records else pd.DataFrame()
+                else:
+                    return []
+            else:
+                return []
+            
+            # Convert database results to same format
+            formatted_results = []
+            for _, record in df.iterrows():
+                formatted_result = {
+                    'type': 'database',
+                    'id': record.get('id', ''),
+                    'artist': record.get('artist', ''),
+                    'title': record.get('title', ''),
+                    'image_url': record.get('image_url', ''),
+                    'barcode': record.get('barcode', ''),
+                    'catalog_number': record.get('catalog_number', ''),  # Include catalog number
+                    'file_at': record.get('file_at', ''),
+                    'store_price': record.get('store_price', ''),
+                    'ebay_sell_at': record.get('ebay_sell_at', ''),
+                    'discogs_suggested_price': record.get('discogs_suggested_price', ''),
+                    'ebay_lowest_price': record.get('ebay_lowest_price', ''),
+                    'condition': record.get('condition', ''),
+                    'genre': record.get('genre_name', record.get('genre', '')),  # FIXED: API returns 'genre_name'
+                    'youtube_url': record.get('youtube_url', ''),
+                    'consignor_id': record.get('consignor_id', ''),  # ADDED: Include consignor_id
+                    'consignor_name': record.get('consignor_name', ''),  # Add consignor name
+                    'commission_rate': record.get('commission_rate', ''),
+                    'compilation': record.get('compilation', False),
+                    'status_id': record.get('status_id', 1)  # ADDED: Include status_id
+                }
+                
+                formatted_results.append(formatted_result)
+            
+            return formatted_results
+            
         except Exception as e:
-            st.error(f"Database search error: {e}")
+            st.error(f"Error searching database: {str(e)}")
             return []
 
     def _get_all_genres(self):

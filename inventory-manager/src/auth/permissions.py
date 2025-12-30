@@ -14,11 +14,21 @@ class PermissionManager:
             'system': ['configure', 'maintenance']
         },
         'consignor': {
-            'inventory': ['view'],
+            'inventory': ['view', 'add'],  # Consignors can view and add
+            'pricing': [],
+            'ebay': [],
+            'consignment': ['view'],  # Consignors can only view (no delete permissions)
+            'checkout': [],  # Consignors cannot view checkout
+            'reports': [],
+            'users': [],
+            'system': []
+        },
+        'demo': {
+            'inventory': ['view', 'add'],
             'pricing': [],
             'ebay': [],
             'consignment': ['view'],
-            'checkout': [],
+            'checkout': [],  # Demo users also cannot view checkout
             'reports': [],
             'users': [],
             'system': []
@@ -28,6 +38,11 @@ class PermissionManager:
     @classmethod
     def has_permission(cls, role: str, module: str, action: str) -> bool:
         """Check if role has permission for specific action in module"""
+        # Handle demo user
+        if role == 'demo':
+            # Demo user gets same permissions as consignor
+            role = 'consignor'
+        
         if role not in cls.ROLE_PERMISSIONS:
             return False
         
@@ -47,6 +62,7 @@ class PermissionManager:
         """Get human-readable role description"""
         descriptions = {
             'admin': 'Full system access including user management',
-            'consignor': 'View-only access to consignment data'
+            'consignor': 'View and add consignment items (cannot delete or checkout)',
+            'demo': 'Demo mode with limited functionality for testing'
         }
         return descriptions.get(role, 'Unknown role')

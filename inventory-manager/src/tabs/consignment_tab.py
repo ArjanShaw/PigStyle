@@ -129,7 +129,15 @@ class ConsignmentTab:
         with col3:
             selected_count = len(st.session_state.selected_consignment_records)
             if selected_count > 0:
-                st.write(f"**{selected_count} records selected**")
+                # Check if selected records have mixed statuses
+                selected_records_data = filtered_df[filtered_df['record_id'].isin(st.session_state.selected_consignment_records)]
+                selected_statuses_set = set(selected_records_data['status'].unique())
+                
+                if len(selected_statuses_set) > 1:
+                    st.error(f"❌ {selected_count} records selected - Cannot select records with mixed statuses!")
+                else:
+                    status = list(selected_statuses_set)[0] if selected_statuses_set else None
+                    st.write(f"**{selected_count} {status} records selected**")
         
         # Create editable DataFrame with checkboxes
         display_data = []
@@ -152,9 +160,6 @@ class ConsignmentTab:
             display_row['Artist'] = record['artist']
             display_row['Title'] = record['title']
             display_row['Price'] = f"${record['store_price']:.2f}"
-            
-            # Store original row data for reference
-            display_row['_original_row'] = record
             
             display_data.append(display_row)
         
@@ -190,25 +195,71 @@ class ConsignmentTab:
                 record_id = row['ID']
                 new_selected_records.append(record_id)
         
+        # Check if newly selected records would create mixed statuses
+        if new_selected_records:
+            new_selected_data = filtered_df[filtered_df['record_id'].isin(new_selected_records)]
+            new_statuses_set = set(new_selected_data['status'].unique())
+            
+            if len(new_statuses_set) > 1:
+                st.error("❌ Cannot select records with mixed statuses. Please select records with the same status only.")
+                # Revert to previous selection
+                new_selected_records = st.session_state.selected_consignment_records.copy()
+        
         # Update session state if selection changed
         if set(new_selected_records) != set(st.session_state.selected_consignment_records):
             st.session_state.selected_consignment_records = new_selected_records
             st.rerun()
         
-        # Bulk deactivate button
+        # Check if we have selected records
         if st.session_state.selected_consignment_records:
-            selected_count = len(st.session_state.selected_consignment_records)
-            st.warning(f"You are about to deactivate {selected_count} record(s). This will mark them as 'Removed'.")
+            # Get status of selected records
+            selected_records_data = filtered_df[filtered_df['record_id'].isin(st.session_state.selected_consignment_records)]
+            selected_status = selected_records_data['status'].iloc[0] if not selected_records_data.empty else None
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🗑️ Deactivate", type="primary", use_container_width=True):
-                    self._deactivate_selected_records(st.session_state.selected_consignment_records)
-            
-            with col2:
-                if st.button("❌ Cancel", type="secondary", use_container_width=True):
-                    st.session_state.selected_consignment_records = []
-                    st.rerun()
+            if selected_status:
+                selected_count = len(st.session_state.selected_consignment_records)
+                
+                if selected_status == '🗑️ Removed':
+                    # Show delete option for removed records
+                    st.warning(f"You are about to permanently delete {selected_count} record(s) marked as 'Removed'.")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("🗑️ Delete", type="primary", use_container_width=True):
+                            self._delete_selected_records(st.session_state.selected_consignment_records)
+                    
+                    with col2:
+                        if st.button("❌ Cancel", type="secondary", use_container_width=True):
+                            st.session_state.selected_consignment_records = []
+                            st.rerun()
+                
+                elif selected_status == '✅ Active':
+                    # Show deactivate option for active records
+                    st.warning(f"You are about to deactivate {selected_count} record(s). This will mark them as 'Removed'.")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("🗑️ Deactivate", type="primary", use_container_width=True):
+                            self._deactivate_selected_records(st.session_state.selected_consignment_records)
+                    
+                    with col2:
+                        if st.button("❌ Cancel", type="secondary", use_container_width=True):
+                            st.session_state.selected_consignment_records = []
+                            st.rerun()
+                
+                elif selected_status == '🆕 New':
+                    # Show deactivate option for new records (they become removed)
+                    st.warning(f"You are about to deactivate {selected_count} record(s). This will mark them as 'Removed'.")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("🗑️ Deactivate", type="primary", use_container_width=True):
+                            self._deactivate_selected_records(st.session_state.selected_consignment_records)
+                    
+                    with col2:
+                        if st.button("❌ Cancel", type="secondary", use_container_width=True):
+                            st.session_state.selected_consignment_records = []
+                            st.rerun()
     
     def _deactivate_selected_records(self, record_ids):
         """Deactivate selected records by setting deactivated = 1"""
@@ -243,6 +294,47 @@ class ConsignmentTab:
         
         if failed_count > 0:
             st.error(f"❌ Failed to deactivate {failed_count} record(s)")
+        
+        # Clear selection
+        st.session_state.selected_consignment_records = []
+        st.session_state.select_all_consignment = False
+        
+        # Rerun to refresh data
+        st.rerun()
+    
+    def _delete_selected_records(self, record_ids):
+        """Permanently delete selected records from database"""
+        if not record_ids:
+            st.error("No records selected")
+            return
+        
+        success_count = 0
+        failed_count = 0
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, record_id in enumerate(record_ids):
+            status_text.text(f"Deleting record {i+1}/{len(record_ids)} (ID: {record_id})...")
+            
+            # Make API call to delete record
+            success = self.api_client.delete_record(record_id)
+            
+            if success:
+                success_count += 1
+            else:
+                failed_count += 1
+            
+            progress_bar.progress((i + 1) / len(record_ids))
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        if success_count > 0:
+            st.success(f"✅ Successfully deleted {success_count} record(s)!")
+        
+        if failed_count > 0:
+            st.error(f"❌ Failed to delete {failed_count} record(s)")
         
         # Clear selection
         st.session_state.selected_consignment_records = []
@@ -303,4 +395,13 @@ class APIClient:
             return response.status_code == 200
         except Exception as e:
             st.error(f"API Error updating record: {e}")
+            return False
+    
+    def delete_record(self, record_id):
+        """Delete a record via API"""
+        try:
+            response = requests.delete(f"{self.base_url}/records/{record_id}")
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"API Error deleting record: {e}")
             return False

@@ -2,72 +2,18 @@ import streamlit as st
 import pandas as pd
 import requests
 
-class CommissionCalculator:
-    """Capacity-based commission calculator"""
-    
-    def __init__(self, api_client):
-        self.api_client = api_client
-    
-    def get_current_commission_rate(self):
-        """Get commission rate based ONLY on store capacity"""
-        # Get required configuration values - will throw error if any missing
-        max_capacity = self._get_config_value('COMMISSION_MAX_CAPACITY')
-        min_capacity = self._get_config_value('COMMISSION_MIN_CAPACITY')
-        max_rate = self._get_config_value('COMMISSION_MAX_RATE')
-        min_rate = self._get_config_value('COMMISSION_MIN_RATE')
-        
-        # Get current store fill percentage
-        store_fill_info = self._get_store_fill_info()
-        fill_percentage = store_fill_info['fill_percentage']
-        
-        # Calculate commission rate based on capacity
-        if fill_percentage <= min_capacity:
-            return min_rate / 100.0  # Convert from percentage to decimal
-        elif fill_percentage >= max_capacity:
-            return max_rate / 100.0  # Convert from percentage to decimal
-        else:
-            # Linear interpolation between min and max rates
-            ratio = (fill_percentage - min_capacity) / (max_capacity - min_capacity)
-            commission_rate = min_rate + (max_rate - min_rate) * ratio
-            return commission_rate / 100.0  # Convert from percentage to decimal
-    
-    def _get_config_value(self, config_key):
-        """Get config value via API - throws error if not found"""
-        value = self.api_client.get_config_value(config_key, None)
-        if value is None:
-            raise ValueError(f"Required configuration key '{config_key}' not found")
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'")
-    
-    def _get_store_fill_info(self):
-        """Get store fill information"""
-        store_capacity = self._get_config_value('STORE_CAPACITY')
-        
-        # Get all records via API
-        response = requests.get(f"{self.api_client.base_url}/records?limit=1000")
-        if response.status_code == 200:
-            data = response.json()
-            total_inventory = len(data.get('records', []))
-        else:
-            total_inventory = 0
-        
-        fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
-        fill_percentage = fill_fraction * 100
-        
-        return {
-            'total_inventory': total_inventory,
-            'store_capacity': store_capacity,
-            'fill_fraction': fill_fraction,
-            'fill_percentage': fill_percentage
-        }
-
 class ConsignmentTab:
     def __init__(self):
         # Initialize API client
         self.api_client = APIClient()
-        self.commission_calculator = CommissionCalculator(self.api_client)
+        
+        # Initialize session state for selected records
+        if 'selected_consignment_records' not in st.session_state:
+            st.session_state.selected_consignment_records = []
+        
+        # Initialize session state for select all
+        if 'select_all_consignment' not in st.session_state:
+            st.session_state.select_all_consignment = False
     
     def render(self):
         st.title("🎵 Consignment Management")
@@ -120,13 +66,6 @@ class ConsignmentTab:
             
             consignment_df['consignor'] = consignment_df['consignor_id'].map(consignor_names)
         
-        # Get commission rate for each record (from database or calculate if missing)
-        consignment_df['commission_rate'] = consignment_df['commission_rate'].fillna(0.0)
-        
-        # Calculate commission and payout for each record using individual commission rates
-        consignment_df['commission'] = consignment_df['store_price'] * consignment_df['commission_rate']
-        consignment_df['payout'] = consignment_df['store_price'] - consignment_df['commission']
-        
         # Add status column based on barcode and deactivated values
         def determine_status(row):
             barcode = row.get('barcode')
@@ -142,81 +81,19 @@ class ConsignmentTab:
         
         consignment_df['status'] = consignment_df.apply(determine_status, axis=1)
         
-        # Format display columns
-        display_df = pd.DataFrame()
+        # Add record ID to session state for selection
+        consignment_df['record_id'] = consignment_df['id']
         
-        if user_role == 'admin':
-            display_df['Consignor'] = consignment_df['consignor']
+        # Filter options
+        st.subheader("Consignment Records")
         
-        display_df['Artist'] = consignment_df['artist']
-        display_df['Title'] = consignment_df['title']
-        display_df['Price'] = consignment_df['store_price'].apply(lambda x: f"${x:.2f}")
-        display_df['Comm Rate'] = consignment_df['commission_rate'].apply(lambda x: f"{x*100:.1f}%")
-        display_df['Commission'] = consignment_df['commission'].apply(lambda x: f"${x:.2f}")
-        display_df['Payout'] = consignment_df['payout'].apply(lambda x: f"${x:.2f}")
-        display_df['Status'] = consignment_df['status']
-        
-        # Calculate totals
-        total_price = consignment_df['store_price'].sum()
-        total_commission = consignment_df['commission'].sum()
-        total_payout = consignment_df['payout'].sum()
-        
-        # Calculate status counts
-        status_counts = consignment_df['status'].value_counts()
-        
-        # Display totals and status summary
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Value", f"${total_price:.2f}")
-        with col2:
-            st.metric("Total Commission", f"${total_commission:.2f}")
-        with col3:
-            st.metric("Total Payout", f"${total_payout:.2f}")
-        
-        # Display status summary
-        st.subheader("📊 Status Summary")
-        status_cols = st.columns(4)
-        status_info = {
-            '🆕 New': ('#FFA500', 'Records without barcodes'),
-            '✅ Active': ('#00CC00', 'Records with barcodes, not deactivated'),
-            '🗑️ Removed': ('#CC0000', 'Records marked as deactivated')
-        }
-        
-        for idx, (status, count) in enumerate(status_counts.items()):
-            with status_cols[idx]:
-                color, description = status_info.get(status, ('#666666', 'Unknown status'))
-                st.markdown(f"<h3 style='color:{color}'>{status}</h3>", unsafe_allow_html=True)
-                st.markdown(f"<h4>{count}</h4>", unsafe_allow_html=True)
-                st.caption(description)
-        
-        # Display the table
-        st.subheader("📋 Consignment Records")
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                'Consignor': st.column_config.TextColumn('Consignor', width='medium'),
-                'Artist': st.column_config.TextColumn('Artist', width='medium'),
-                'Title': st.column_config.TextColumn('Title', width='large'),
-                'Price': st.column_config.TextColumn('Price', width='small'),
-                'Comm Rate': st.column_config.TextColumn('Comm Rate', width='small'),
-                'Commission': st.column_config.TextColumn('Commission', width='small'),
-                'Payout': st.column_config.TextColumn('Payout', width='small'),
-                'Status': st.column_config.TextColumn('Status', width='small')
-            }
-        )
-        
-        # Add filter options
-        st.subheader("🔍 Filter Records")
         filter_cols = st.columns(3)
-        
         with filter_cols[0]:
-            show_new = st.checkbox("🆕 New", value=True)
+            show_new = st.checkbox("🆕 New", value=True, key="show_new")
         with filter_cols[1]:
-            show_active = st.checkbox("✅ Active", value=True)
+            show_active = st.checkbox("✅ Active", value=True, key="show_active")
         with filter_cols[2]:
-            show_removed = st.checkbox("🗑️ Removed", value=True)
+            show_removed = st.checkbox("🗑️ Removed", value=True, key="show_removed")
         
         # Apply filters
         selected_statuses = []
@@ -227,28 +104,152 @@ class ConsignmentTab:
         if show_removed:
             selected_statuses.append('🗑️ Removed')
         
-        if selected_statuses:
-            filtered_df = display_df[display_df['Status'].isin(selected_statuses)]
-            st.info(f"Showing {len(filtered_df)} of {len(display_df)} records")
+        filtered_df = consignment_df[consignment_df['status'].isin(selected_statuses)] if selected_statuses else consignment_df
+        
+        st.info(f"Showing {len(filtered_df)} of {len(consignment_df)} records")
+        
+        if filtered_df.empty:
+            st.warning("No records match the selected filters.")
+            return
+        
+        # Selection controls
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            if st.button("✅ Select All", key="select_all_btn"):
+                st.session_state.select_all_consignment = True
+                st.session_state.selected_consignment_records = filtered_df['record_id'].tolist()
+                st.rerun()
+        
+        with col2:
+            if st.button("❌ Deselect All", key="deselect_all_btn"):
+                st.session_state.select_all_consignment = False
+                st.session_state.selected_consignment_records = []
+                st.rerun()
+        
+        with col3:
+            selected_count = len(st.session_state.selected_consignment_records)
+            if selected_count > 0:
+                st.write(f"**{selected_count} records selected**")
+        
+        # Create editable DataFrame with checkboxes
+        display_data = []
+        
+        for idx, record in filtered_df.iterrows():
+            record_id = record['record_id']
             
-            if not filtered_df.empty:
-                st.dataframe(
-                    filtered_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        'Consignor': st.column_config.TextColumn('Consignor', width='medium'),
-                        'Artist': st.column_config.TextColumn('Artist', width='medium'),
-                        'Title': st.column_config.TextColumn('Title', width='large'),
-                        'Price': st.column_config.TextColumn('Price', width='small'),
-                        'Comm Rate': st.column_config.TextColumn('Comm Rate', width='small'),
-                        'Commission': st.column_config.TextColumn('Commission', width='small'),
-                        'Payout': st.column_config.TextColumn('Payout', width='small'),
-                        'Status': st.column_config.TextColumn('Status', width='small')
-                    }
-                )
-        else:
-            st.warning("Please select at least one status to display")
+            # Determine if this record should be selected
+            is_selected = record_id in st.session_state.selected_consignment_records
+            
+            display_row = {
+                'Select': is_selected,
+                'ID': record_id,
+                'Status': record['status']
+            }
+            
+            if user_role == 'admin':
+                display_row['Consignor'] = record.get('consignor', f"ID: {record.get('consignor_id')}")
+            
+            display_row['Artist'] = record['artist']
+            display_row['Title'] = record['title']
+            display_row['Price'] = f"${record['store_price']:.2f}"
+            
+            # Store original row data for reference
+            display_row['_original_row'] = record
+            
+            display_data.append(display_row)
+        
+        # Create DataFrame for display
+        display_df = pd.DataFrame(display_data)
+        
+        # Display the editable table
+        column_config = {
+            "Select": st.column_config.CheckboxColumn("Select", default=False),
+            "ID": st.column_config.NumberColumn("ID", disabled=True),
+            "Status": st.column_config.TextColumn("Status", disabled=True),
+            "Artist": st.column_config.TextColumn("Artist", disabled=True),
+            "Title": st.column_config.TextColumn("Title", disabled=True),
+            "Price": st.column_config.TextColumn("Price", disabled=True),
+        }
+        
+        if user_role == 'admin':
+            column_config["Consignor"] = st.column_config.TextColumn("Consignor", disabled=True)
+        
+        edited_df = st.data_editor(
+            display_df,
+            column_config=column_config,
+            hide_index=True,
+            width='stretch',
+            key="consignment_table_editor",
+            disabled=["ID", "Status", "Artist", "Title", "Price", "Consignor"]
+        )
+        
+        # Update selected records based on user selection
+        new_selected_records = []
+        for idx, row in edited_df.iterrows():
+            if row['Select']:
+                record_id = row['ID']
+                new_selected_records.append(record_id)
+        
+        # Update session state if selection changed
+        if set(new_selected_records) != set(st.session_state.selected_consignment_records):
+            st.session_state.selected_consignment_records = new_selected_records
+            st.rerun()
+        
+        # Bulk deactivate button
+        if st.session_state.selected_consignment_records:
+            selected_count = len(st.session_state.selected_consignment_records)
+            st.warning(f"You are about to deactivate {selected_count} record(s). This will mark them as 'Removed'.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🗑️ Deactivate", type="primary", use_container_width=True):
+                    self._deactivate_selected_records(st.session_state.selected_consignment_records)
+            
+            with col2:
+                if st.button("❌ Cancel", type="secondary", use_container_width=True):
+                    st.session_state.selected_consignment_records = []
+                    st.rerun()
+    
+    def _deactivate_selected_records(self, record_ids):
+        """Deactivate selected records by setting deactivated = 1"""
+        if not record_ids:
+            st.error("No records selected")
+            return
+        
+        success_count = 0
+        failed_count = 0
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, record_id in enumerate(record_ids):
+            status_text.text(f"Deactivating record {i+1}/{len(record_ids)} (ID: {record_id})...")
+            
+            # Make API call to update record
+            success = self.api_client.update_record(record_id, {'deactivated': 1})
+            
+            if success:
+                success_count += 1
+            else:
+                failed_count += 1
+            
+            progress_bar.progress((i + 1) / len(record_ids))
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        if success_count > 0:
+            st.success(f"✅ Successfully deactivated {success_count} record(s)!")
+        
+        if failed_count > 0:
+            st.error(f"❌ Failed to deactivate {failed_count} record(s)")
+        
+        # Clear selection
+        st.session_state.selected_consignment_records = []
+        st.session_state.select_all_consignment = False
+        
+        # Rerun to refresh data
+        st.rerun()
 
 class APIClient:
     """API client for consignment operations"""
@@ -291,3 +292,15 @@ class APIClient:
         except Exception as e:
             st.error(f"API Error getting user: {e}")
             return None
+    
+    def update_record(self, record_id, updates):
+        """Update a record via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/records/{record_id}",
+                json=updates
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"API Error updating record: {e}")
+            return False

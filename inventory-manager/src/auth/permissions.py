@@ -8,18 +8,18 @@ class PermissionManager:
             'pricing': ['view', 'edit', 'calculate'],
             'ebay': ['view', 'sync', 'export', 'import'],
             'consignment': ['view', 'manage', 'payments'],
-            'checkout': ['view', 'process'],  # ADDED: Checkout permissions
+            'checkout': ['view', 'process'],
             'reports': ['view', 'export'],
             'users': ['view', 'create', 'edit', 'delete'],
             'system': ['configure', 'maintenance']
         },
         'consignor': {
             'inventory': ['view'],
-            'pricing': ['view'],
-            'ebay': ['view'],
+            'pricing': [],
+            'ebay': [],
             'consignment': ['view'],
-            'checkout': [],  # ADDED: Empty list for consignor
-            'reports': ['view'],
+            'checkout': [],
+            'reports': [],
             'users': [],
             'system': []
         }

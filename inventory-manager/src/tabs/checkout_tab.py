@@ -12,7 +12,10 @@ class CheckoutTab:
         st.header("💰 Checkout")
         
         user = st.session_state.get('user', {})
-        if user.get('role') != 'admin':
+        user_role = user.get('role')
+        
+        # Only admin can view checkout
+        if user_role != 'admin':
             st.error("❌ Access denied. Administrator privileges required to view checkout.")
             return
         

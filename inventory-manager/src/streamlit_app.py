@@ -323,16 +323,13 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab,
     
     tab_configs = []
     
-    # Show checkout to users with checkout view permission - FIRST TAB
-    if PermissionManager.has_permission(user_role, 'checkout', 'view'):
-        tab_configs.append(("💰 Checkout", checkout_tab.render))
-    # Fallback: if permission system doesn't have checkout defined, show for admin
-    elif user_role == 'admin':
-        tab_configs.append(("💰 Checkout", checkout_tab.render))
-    
     # Show inventory to all users with view permission
     if PermissionManager.has_permission(user_role, 'inventory', 'view'):
         tab_configs.append(("📦 Inventory", inventory_tab.render))
+    
+    # Show consignment to users with consignment view permission
+    if PermissionManager.has_permission(user_role, 'consignment', 'view'):
+        tab_configs.append(("🤝 Consignment", consignment_tab.render))
     
     # Show price tags to users with add permission
     if PermissionManager.has_permission(user_role, 'inventory', 'add'):
@@ -350,9 +347,9 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab,
     if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("🗳️ Votes", votes_tab.render))
     
-    # Show consignment to users with consignment view permission
-    if PermissionManager.has_permission(user_role, 'consignment', 'view'):
-        tab_configs.append(("🤝 Consignment", consignment_tab.render))
+    # Show checkout to users with checkout view permission
+    if PermissionManager.has_permission(user_role, 'checkout', 'view'):
+        tab_configs.append(("💰 Checkout", checkout_tab.render))
     
     # Show admin config to admin users
     if user_role == 'admin':

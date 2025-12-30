@@ -13,7 +13,10 @@ class StatisticsTab:
         st.header("📊 Statistics")
         
         user = st.session_state.get('user', {})
-        if user.get('role') != 'admin':
+        user_role = user.get('role')
+        
+        # Only admin can view statistics
+        if user_role != 'admin':
             st.error("❌ Access denied. Administrator privileges required to view statistics.")
             return
         

@@ -65,7 +65,10 @@ class EBayTab:
         st.header("🛒 eBay Management")
         
         user = st.session_state.get('user', {})
-        if user.get('role') != 'admin':
+        user_role = user.get('role')
+        
+        # Only admin can view eBay tab
+        if user_role != 'admin':
             st.error("❌ Access denied. Administrator privileges required to view eBay tab.")
             return
         

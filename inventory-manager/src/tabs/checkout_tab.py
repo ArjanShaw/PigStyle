@@ -187,7 +187,7 @@ class CheckoutTab:
     def _render_checkout_summary(self):
         """Render checkout summary and payment processing"""
         st.divider()
-        st.subheader("💳 Process Payment")
+        st.subheader("💳 Mark as Paid")
         
         # Calculate totals
         record_ids = [record['id'] for record in st.session_state.checkout_records]
@@ -244,14 +244,16 @@ class CheckoutTab:
                 with col4:
                     st.write(f"Payout: ${summary['total_payout']:.2f}")
         
-        # Payment button
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("💳 Process Payment", type="primary", use_container_width=True):
-                self._process_checkout_payment(record_ids)
-        with col2:
-            if st.button("🔁 Mark as Sold Only", type="secondary", use_container_width=True):
-                self._mark_as_sold_only(record_ids)
+        # Single "Mark Paid" button
+        if st.button("💰 Mark Paid", type="primary", use_container_width=True):
+            success = self._mark_as_paid(record_ids)
+            
+            if success:
+                st.success(f"✅ Successfully marked {len(record_ids)} items as paid!")
+                
+                # Clear checkout records
+                st.session_state.checkout_records = []
+                st.rerun()
     
     def _search_records_for_checkout(self, search_term):
         """Search records for checkout - only shows unsold items"""
@@ -267,14 +269,13 @@ class CheckoutTab:
                 if data.get('status') == 'success':
                     all_results = data.get('records', [])
                     
-                    # Filter out already sold items
+                    # Filter out already sold items (status_id = 3)
                     available_results = []
                     for record in all_results:
-                        date_sold = record.get('date_sold')
-                        date_paid = record.get('date_paid')
+                        status_id = record.get('status_id', 1)
                         
-                        # Only include if not sold OR sold but not paid
-                        if not date_sold or (date_sold and not date_paid):
+                        # Only include if not sold (status_id != 3)
+                        if status_id != 3:
                             available_results.append(record)
                     
                     return available_results
@@ -285,82 +286,96 @@ class CheckoutTab:
             st.error(f"Search error: {e}")
             return []
     
-    def _process_checkout_payment(self, record_ids):
-        """Process payment for checked out items"""
+    def _mark_as_paid(self, record_ids):
+        """Mark items as paid - update status to sold and credit consignor"""
         if not record_ids:
             st.error("No items to process")
-            return
+            return False
         
-        # First mark as sold
-        success_sold = self._mark_as_sold_only(record_ids)
-        if not success_sold:
-            st.error("Failed to mark items as sold")
-            return
+        success_count = 0
+        failed_count = 0
         
-        # Then process payment
-        success_payment = self.api_client.process_checkout_payment(record_ids)
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
-        if success_payment:
-            st.success(f"✅ Payment processed for {len(record_ids)} items!")
+        for i, record_id in enumerate(record_ids):
+            # Get record details
+            record = self._get_record_details(record_id)
+            if not record:
+                failed_count += 1
+                continue
             
-            # Calculate totals for display
-            total_sales = sum(float(r.get('store_price', 0)) for r in st.session_state.checkout_records)
+            status_text.text(f"Processing {i+1}/{len(record_ids)}: {record.get('artist', '')} - {record.get('title', '')}")
             
-            # Group by consignor for summary
-            consignor_summary = {}
-            for record in st.session_state.checkout_records:
+            # Update record status to sold (status_id = 3)
+            today = dt.now().date().isoformat()
+            updates = {
+                'status_id': 3
+            }
+            
+            update_success = self.api_client.update_record(record_id, updates)
+            
+
+            if update_success:
+                 
+                # Credit consignor if applicable
                 consignor_id = record.get('consignor_id')
                 if consignor_id:
-                    price = float(record.get('store_price', 0))
+                    store_price = float(record.get('store_price', 0))
                     commission_rate = float(record.get('commission_rate', 0.20))
-                    commission = price * commission_rate
-                    payout = price - commission
+                    payout = store_price * (1 - commission_rate)
                     
-                    if consignor_id not in consignor_summary:
-                        consignor_summary[consignor_id] = {
-                            'total_sales': 0,
-                            'total_commission': 0,
-                            'total_payout': 0,
-                            'records': 0
-                        }
-                    
-                    consignor_summary[consignor_id]['total_sales'] += price
-                    consignor_summary[consignor_id]['total_commission'] += commission
-                    consignor_summary[consignor_id]['total_payout'] += payout
-                    consignor_summary[consignor_id]['records'] += 1
+                    # Credit consignor
+                    credit_success = self._credit_consignor(consignor_id, payout)
+                    if credit_success:
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                else:
+                    # No consignor (store-owned), still count as success
+                    success_count += 1
+            else:
+                failed_count += 1
             
-            # Display summary
-            st.write("**Payment Summary:**")
-            st.write(f"Total Sales: ${total_sales:.2f}")
-            
-            for consignor_id, summary in consignor_summary.items():
-                user = self.api_client.get_user(consignor_id)
-                username = user.get('username', f"ID: {consignor_id}") if user else f"ID: {consignor_id}"
-                st.write(f"**{username}:** {summary['records']} items, Payout: ${summary['total_payout']:.2f}")
-            
-            # Clear checkout records
-            st.session_state.checkout_records = []
-            st.rerun()
-        else:
-            st.error("❌ Failed to process payment")
-    
-    def _mark_as_sold_only(self, record_ids):
-        """Mark items as sold without processing payment"""
-        success_count = 0
+            progress_bar.progress((i + 1) / len(record_ids))
         
-        for record_id in record_ids:
-            today = dt.now().date().isoformat()
-            updates = {'date_sold': today}
-            
-            success = self.api_client.update_record(record_id, updates)
-            if success:
-                success_count += 1
+        progress_bar.empty()
+        status_text.empty()
         
-        if success_count == len(record_ids):
-            st.success(f"✅ Marked {success_count} items as sold")
+        if success_count > 0:
             return True
         else:
-            st.warning(f"⚠️ Marked {success_count} of {len(record_ids)} items as sold")
+            st.error(f"❌ Failed to process payment for {failed_count} items")
+            return False
+    
+    def _get_record_details(self, record_id):
+        """Get record details via API"""
+        try:
+            response = requests.get(f"{self.api_client.base_url}/records/{record_id}")
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            st.error(f"Error getting record details: {e}")
+            return None
+    
+    def _credit_consignor(self, consignor_id, amount):
+        """Credit consignor's store balance"""
+        try:
+            # Get current balance
+            user = self.api_client.get_user(consignor_id)
+            if not user:
+                return False
+            
+            current_balance = float(user.get('store_credit_balance', 0))
+            new_balance = current_balance + amount
+            
+            # Update user balance
+            success = self.api_client.update_user(consignor_id, {'store_credit_balance': new_balance})
+            return success
+            
+        except Exception as e:
+            st.error(f"Error crediting consignor: {e}")
             return False
 
 class APIClient:
@@ -392,15 +407,14 @@ class APIClient:
             st.error(f"API Error updating record: {e}")
             return False
     
-    def process_checkout_payment(self, record_ids):
-        """Process payment for checked out records"""
+    def update_user(self, user_id, updates):
+        """Update user via API"""
         try:
-            # This endpoint should be implemented in the API
-            response = requests.post(
-                f"{self.base_url}/checkout/process-payment",
-                json={'record_ids': record_ids}
+            response = requests.put(
+                f"{self.base_url}/users/{user_id}",
+                json=updates
             )
             return response.status_code == 200
         except Exception as e:
-            st.error(f"Error processing payment: {e}")
+            st.error(f"API Error updating user: {e}")
             return False

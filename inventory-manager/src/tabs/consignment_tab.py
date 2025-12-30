@@ -26,11 +26,22 @@ class ConsignmentTab:
             st.warning("Please log in to view consignment information.")
             return
         
+        # Show consignor's credit balance at the top
+        if user_role == 'consignor':
+            user_info = self.api_client.get_user(user_id)
+            if user_info and 'store_credit_balance' in user_info:
+                credit_balance = user_info.get('store_credit_balance', 0)
+                if credit_balance > 0:
+                    st.success(f"💰 **Your Store Credit Balance: ${credit_balance:.2f}**")
+                else:
+                    st.info(f"💳 **Your Store Credit Balance: ${credit_balance:.2f}**")
+        
         # Get consignment records
         if user_role == 'admin':
-            response = requests.get(f"{self.api_client.base_url}/records?limit=1000")
+            # Use the new endpoint for consignment records
+            response = requests.get(f"{self.api_client.base_url}/consignment/records")
         else:
-            response = requests.get(f"{self.api_client.base_url}/records/user/{user_id}")
+            response = requests.get(f"{self.api_client.base_url}/consignment/records?user_id={user_id}")
         
         if response.status_code != 200:
             st.error("Error fetching records")
@@ -66,20 +77,28 @@ class ConsignmentTab:
             
             consignment_df['consignor'] = consignment_df['consignor_id'].map(consignor_names)
         
-        # Add status column based on barcode and deactivated values
-        def determine_status(row):
-            barcode = row.get('barcode')
-            deactivated = row.get('deactivated', 0)
+        # Use display_status from API response
+        if 'display_status' not in consignment_df.columns:
+            # Fallback: determine status based on status_id and barcode
+            def determine_display_status(row):
+                status_id = row.get('status_id', 1)
+                barcode = row.get('barcode')
+                
+                if status_id == 1:  # new
+                    if pd.isna(barcode) or barcode in [None, '', 'None']:
+                        return '🆕 New'
+                    else:
+                        return '✅ Active'
+                elif status_id == 2:  # active
+                    return '✅ Active'
+                elif status_id == 3:  # sold
+                    return '💰 Sold'
+                elif status_id == 4:  # removed
+                    return '🗑️ Removed'
+                else:
+                    return '❓ Unknown'
             
-            # Check if barcode is null, empty, or 'None'
-            if pd.isna(barcode) or barcode in [None, '', 'None']:
-                return '🆕 New'
-            elif deactivated == 1:
-                return '🗑️ Removed'
-            else:
-                return '✅ Active'
-        
-        consignment_df['status'] = consignment_df.apply(determine_status, axis=1)
+            consignment_df['display_status'] = consignment_df.apply(determine_display_status, axis=1)
         
         # Add record ID to session state for selection
         consignment_df['record_id'] = consignment_df['id']
@@ -87,12 +106,14 @@ class ConsignmentTab:
         # Filter options
         st.subheader("Consignment Records")
         
-        filter_cols = st.columns(3)
+        filter_cols = st.columns(4)
         with filter_cols[0]:
             show_new = st.checkbox("🆕 New", value=True, key="show_new")
         with filter_cols[1]:
             show_active = st.checkbox("✅ Active", value=True, key="show_active")
         with filter_cols[2]:
+            show_sold = st.checkbox("💰 Sold", value=False, key="show_sold")
+        with filter_cols[3]:
             show_removed = st.checkbox("🗑️ Removed", value=True, key="show_removed")
         
         # Apply filters
@@ -101,10 +122,12 @@ class ConsignmentTab:
             selected_statuses.append('🆕 New')
         if show_active:
             selected_statuses.append('✅ Active')
+        if show_sold:
+            selected_statuses.append('💰 Sold')
         if show_removed:
             selected_statuses.append('🗑️ Removed')
         
-        filtered_df = consignment_df[consignment_df['status'].isin(selected_statuses)] if selected_statuses else consignment_df
+        filtered_df = consignment_df[consignment_df['display_status'].isin(selected_statuses)] if selected_statuses else consignment_df
         
         st.info(f"Showing {len(filtered_df)} of {len(consignment_df)} records")
         
@@ -131,7 +154,7 @@ class ConsignmentTab:
             if selected_count > 0:
                 # Check if selected records have mixed statuses
                 selected_records_data = filtered_df[filtered_df['record_id'].isin(st.session_state.selected_consignment_records)]
-                selected_statuses_set = set(selected_records_data['status'].unique())
+                selected_statuses_set = set(selected_records_data['display_status'].unique())
                 
                 if len(selected_statuses_set) > 1:
                     st.error(f"❌ {selected_count} records selected - Cannot select records with mixed statuses!")
@@ -151,7 +174,7 @@ class ConsignmentTab:
             display_row = {
                 'Select': is_selected,
                 'ID': record_id,
-                'Status': record['status']
+                'Status': record['display_status']
             }
             
             if user_role == 'admin':
@@ -198,7 +221,7 @@ class ConsignmentTab:
         # Check if newly selected records would create mixed statuses
         if new_selected_records:
             new_selected_data = filtered_df[filtered_df['record_id'].isin(new_selected_records)]
-            new_statuses_set = set(new_selected_data['status'].unique())
+            new_statuses_set = set(new_selected_data['display_status'].unique())
             
             if len(new_statuses_set) > 1:
                 st.error("❌ Cannot select records with mixed statuses. Please select records with the same status only.")
@@ -214,7 +237,7 @@ class ConsignmentTab:
         if st.session_state.selected_consignment_records:
             # Get status of selected records
             selected_records_data = filtered_df[filtered_df['record_id'].isin(st.session_state.selected_consignment_records)]
-            selected_status = selected_records_data['status'].iloc[0] if not selected_records_data.empty else None
+            selected_status = selected_records_data['display_status'].iloc[0] if not selected_records_data.empty else None
             
             if selected_status:
                 selected_count = len(st.session_state.selected_consignment_records)
@@ -233,36 +256,29 @@ class ConsignmentTab:
                             st.session_state.selected_consignment_records = []
                             st.rerun()
                 
-                elif selected_status == '✅ Active':
-                    # Show deactivate option for active records
-                    st.warning(f"You are about to deactivate {selected_count} record(s). This will mark them as 'Removed'.")
+                elif selected_status == '✅ Active' or selected_status == '🆕 New':
+                    # Show mark as removed option for active/new records
+                    action = "deactivate" if selected_status == '✅ Active' else "mark as removed"
+                    st.warning(f"You are about to {action} {selected_count} record(s). This will mark them as 'Removed'.")
                     
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("🗑️ Deactivate", type="primary", use_container_width=True):
-                            self._deactivate_selected_records(st.session_state.selected_consignment_records)
+                        if st.button("🗑️ Mark as Removed", type="primary", use_container_width=True):
+                            self._mark_as_removed(st.session_state.selected_consignment_records)
                     
                     with col2:
                         if st.button("❌ Cancel", type="secondary", use_container_width=True):
                             st.session_state.selected_consignment_records = []
                             st.rerun()
                 
-                elif selected_status == '🆕 New':
-                    # Show deactivate option for new records (they become removed)
-                    st.warning(f"You are about to deactivate {selected_count} record(s). This will mark them as 'Removed'.")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("🗑️ Deactivate", type="primary", use_container_width=True):
-                            self._deactivate_selected_records(st.session_state.selected_consignment_records)
-                    
-                    with col2:
-                        if st.button("❌ Cancel", type="secondary", use_container_width=True):
-                            st.session_state.selected_consignment_records = []
-                            st.rerun()
+                elif selected_status == '💰 Sold':
+                    st.info("Sold records cannot be modified.")
+                    if st.button("❌ Clear Selection", type="secondary", use_container_width=True):
+                        st.session_state.selected_consignment_records = []
+                        st.rerun()
     
-    def _deactivate_selected_records(self, record_ids):
-        """Deactivate selected records by setting deactivated = 1"""
+    def _mark_as_removed(self, record_ids):
+        """Mark selected records as removed (status_id = 4)"""
         if not record_ids:
             st.error("No records selected")
             return
@@ -274,10 +290,10 @@ class ConsignmentTab:
         status_text = st.empty()
         
         for i, record_id in enumerate(record_ids):
-            status_text.text(f"Deactivating record {i+1}/{len(record_ids)} (ID: {record_id})...")
+            status_text.text(f"Marking record {i+1}/{len(record_ids)} (ID: {record_id}) as removed...")
             
-            # Make API call to update record
-            success = self.api_client.update_record(record_id, {'deactivated': 1})
+            # Make API call to update record status to removed (4)
+            success = self.api_client.update_record_status(record_id, 4)
             
             if success:
                 success_count += 1
@@ -290,10 +306,10 @@ class ConsignmentTab:
         status_text.empty()
         
         if success_count > 0:
-            st.success(f"✅ Successfully deactivated {success_count} record(s)!")
+            st.success(f"✅ Successfully marked {success_count} record(s) as removed!")
         
         if failed_count > 0:
-            st.error(f"❌ Failed to deactivate {failed_count} record(s)")
+            st.error(f"❌ Failed to mark {failed_count} record(s) as removed")
         
         # Clear selection
         st.session_state.selected_consignment_records = []
@@ -349,31 +365,6 @@ class APIClient:
     def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
         self.base_url = base_url
     
-    def get_records_by_user(self, user_id):
-        """Get records for specific user via API"""
-        try:
-            response = requests.get(f"{self.base_url}/records/user/{user_id}")
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    return data.get('records', [])
-            return []
-        except Exception as e:
-            st.error(f"API Error getting user records: {e}")
-            return []
-    
-    def get_config_value(self, config_key, default=None):
-        """Get config value via API"""
-        try:
-            response = requests.get(f"{self.base_url}/config/{config_key}")
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('config_value', default)
-            return default
-        except Exception as e:
-            st.error(f"API Error getting config: {e}")
-            return default
-    
     def get_user(self, user_id):
         """Get user by ID"""
         try:
@@ -385,6 +376,27 @@ class APIClient:
             st.error(f"API Error getting user: {e}")
             return None
     
+    def update_record_status(self, record_id, status_id):
+        """Update a record's status via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/records/{record_id}",
+                json={'status_id': status_id}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"API Error updating record status: {e}")
+            return False
+    
+    def delete_record(self, record_id):
+        """Delete a record via API"""
+        try:
+            response = requests.delete(f"{self.base_url}/records/{record_id}")
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"API Error deleting record: {e}")
+            return False
+    
     def update_record(self, record_id, updates):
         """Update a record via API"""
         try:
@@ -395,13 +407,4 @@ class APIClient:
             return response.status_code == 200
         except Exception as e:
             st.error(f"API Error updating record: {e}")
-            return False
-    
-    def delete_record(self, record_id):
-        """Delete a record via API"""
-        try:
-            response = requests.delete(f"{self.base_url}/records/{record_id}")
-            return response.status_code == 200
-        except Exception as e:
-            st.error(f"API Error deleting record: {e}")
             return False

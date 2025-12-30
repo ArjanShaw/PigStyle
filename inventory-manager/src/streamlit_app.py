@@ -254,18 +254,8 @@ def render_header(user, session_manager):
         st.caption(role_display)
     
     with col3:
-        # Show store credit balance for consignors
-        if user['role'] == 'consignor':
-            try:
-                base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
-                response = requests.get(f"{base_url}/users/{user['id']}")
-                if response.status_code == 200:
-                    user_info = response.json()
-                    store_credit = user_info.get('store_credit_balance', 0)
-                    if store_credit > 0:
-                        st.metric("Store Credit", f"${store_credit:.2f}")
-            except:
-                pass
+        # Store credit removed from header - now shown in consignment tab for consignors
+        pass
     
     with col4:
         if st.button("🔐 PW", help="Change Password"):

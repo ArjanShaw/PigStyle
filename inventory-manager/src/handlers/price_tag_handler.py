@@ -14,13 +14,14 @@ from pathlib import Path
 import requests
 
 class PriceTagHandler:
-    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
-        self.base_url = base_url
+    def __init__(self):
+        # Remove base_url parameter - use default
+        pass
     
     def get_records_without_barcodes(self):
         """Get records without barcodes via API"""
         try:
-            response = requests.get(f"{self.base_url}/records/no-barcodes")
+            response = requests.get("https://arjanshaw.pythonanywhere.com/records/no-barcodes")
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -34,11 +35,9 @@ class PriceTagHandler:
         """
         Clear barcodes from the most recent X records that have barcodes
         """
-        # Note: This would need a dedicated API endpoint
-        # For now, we'll implement a workaround
         try:
             # Get all records
-            response = requests.get(f"{self.base_url}/records?limit=1000")
+            response = requests.get("https://arjanshaw.pythonanywhere.com/records?limit=1000")
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -71,7 +70,7 @@ class PriceTagHandler:
         
         try:
             response = requests.post(
-                f"{self.base_url}/barcodes/assign",
+                "https://arjanshaw.pythonanywhere.com/barcodes/assign",
                 json={'record_ids': record_ids}
             )
             if response.status_code == 200:
@@ -290,7 +289,7 @@ class PriceTagHandler:
         """Get records by IDs via API"""
         try:
             response = requests.post(
-                f"{self.base_url}/records/by-ids",
+                "https://arjanshaw.pythonanywhere.com/records/by-ids",
                 json={'record_ids': record_ids}
             )
             if response.status_code == 200:
@@ -306,7 +305,7 @@ class PriceTagHandler:
         """Clear barcode for a record via API"""
         try:
             response = requests.put(
-                f"{self.base_url}/records/{record_id}",
+                f"https://arjanshaw.pythonanywhere.com/records/{record_id}",
                 json={'barcode': None}
             )
             return response.status_code == 200

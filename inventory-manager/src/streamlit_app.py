@@ -33,6 +33,7 @@ from handlers.youtube_handler import YouTubeHandler
 from handlers.email_service import EmailService
 from handlers.commission_calculator import CommissionCalculator
 from handlers.pricing_validator import PricingValidator
+from handlers.contract_handler import ContractHandler  # ADDED
 
 # --- Configuration ---
 IMAGE_FOLDER = Path("images")
@@ -214,6 +215,25 @@ def render_main_app():
             None,  # Will be set if discogs_handler exists
             None   # Will be set if ebay_handler exists
         )
+
+    # ADDED: Initialize contract handler
+    if "contract_handler" not in st.session_state:
+        # Create a simple API client for contract handler
+        class SimpleAPIClientForContract:
+            def __init__(self):
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+            
+            def get_config_value(self, key, default=None):
+                try:
+                    response = requests.get(f"{self.base_url}/config/{key}")
+                    if response.status_code == 200:
+                        data = response.json()
+                        return data.get('config_value', default)
+                    return default
+                except:
+                    return default
+        
+        st.session_state.contract_handler = ContractHandler(SimpleAPIClientForContract())
 
     if "search_results" not in st.session_state:
         st.session_state.search_results = {}

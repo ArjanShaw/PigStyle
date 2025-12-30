@@ -31,6 +31,39 @@ class ConsignmentTab:
             # Use demo user ID
             user_id = 999
         
+        # NEW: Contract management section
+        if user_role == 'consignor' or is_demo:
+            with st.expander("📄 Contract & Receipt Management", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("📝 Generate New Contract", use_container_width=True, 
+                               help="Generate a new consignment agreement contract"):
+                        if is_demo:
+                            st.success("✅ Demo: Contract generated!")
+                            st.info("💡 In real mode, this would generate a downloadable PDF contract with your terms.")
+                            st.info("Contract includes: 180-day term, commission rates, pricing rules, and liability terms.")
+                        else:
+                            # In real mode, this would generate contract
+                            st.info("Contract generation is available when printing price tags in the '🏷️ Print Price Tags' tab.")
+                            st.info("Go to Print Price Tags, select your records, and generate contract + receipt together.")
+                
+                with col2:
+                    if st.button("📋 View Receipt History", use_container_width=True,
+                               help="View past batch receipts and consignment records"):
+                        if is_demo:
+                            # Show demo receipt history
+                            with st.expander("📋 Demo Receipt History", expanded=True):
+                                st.write("**Sample Receipts:**")
+                                demo_receipts = [
+                                    {"Date": "2024-01-15", "Receipt #": "PS20240115001", "Items": 5, "Value": "$174.95", "Status": "Active"},
+                                    {"Date": "2023-12-10", "Receipt #": "PS20231210003", "Items": 3, "Value": "$89.97", "Status": "Paid"},
+                                    {"Date": "2023-11-05", "Receipt #": "PS20231105002", "Items": 2, "Value": "$49.98", "Status": "Expired"}
+                                ]
+                                st.dataframe(pd.DataFrame(demo_receipts), hide_index=True)
+                        else:
+                            st.info("Receipt history would show your past consignment batches")
+        
         # Show consignor's credit balance at the top
         if user_role == 'consignor' or is_demo:
             if is_demo:
@@ -210,6 +243,10 @@ class ConsignmentTab:
             display_row['Title'] = record['title']
             display_row['Price'] = f"${record['store_price']:.2f}"
             
+            # Show receipt number if available
+            if record.get('receipt_number'):
+                display_row['Receipt #'] = record['receipt_number']
+            
             display_data.append(display_row)
         
         # Create DataFrame for display
@@ -227,6 +264,9 @@ class ConsignmentTab:
         
         if user_role == 'admin' and not is_demo:
             column_config["Consignor"] = st.column_config.TextColumn("Consignor", disabled=True)
+        
+        if 'Receipt #' in display_df.columns:
+            column_config["Receipt #"] = st.column_config.TextColumn("Receipt #", disabled=True)
         
         # Determine if select column should be disabled
         disabled_columns = [col for col in column_config.keys() if col != "Select"]
@@ -307,6 +347,10 @@ class ConsignmentTab:
             if record.get('date_sold'):
                 display_row['Date Sold'] = record['date_sold']
             
+            # Show receipt number if available
+            if record.get('receipt_number'):
+                display_row['Receipt #'] = record['receipt_number']
+            
             display_data.append(display_row)
         
         # Create DataFrame for display
@@ -326,6 +370,9 @@ class ConsignmentTab:
         
         if 'Date Sold' in display_df.columns:
             column_config["Date Sold"] = st.column_config.DateColumn("Date Sold", disabled=True)
+        
+        if 'Receipt #' in display_df.columns:
+            column_config["Receipt #"] = st.column_config.TextColumn("Receipt #", disabled=True)
         
         st.data_editor(
             display_df,
@@ -367,6 +414,10 @@ class ConsignmentTab:
             display_row['Title'] = record['title']
             display_row['Price'] = f"${record['store_price']:.2f}"
             
+            # Add receipt number if available
+            if record.get('receipt_number'):
+                display_row['Receipt #'] = record['receipt_number']
+            
             # Add date removed if available
             if record.get('date_removed'):
                 display_row['Date Removed'] = record['date_removed']
@@ -390,6 +441,9 @@ class ConsignmentTab:
             if 'Consignor' in display_df.columns:
                 column_config["Consignor"] = st.column_config.TextColumn("Consignor", disabled=True)
             
+            if 'Receipt #' in display_df.columns:
+                column_config["Receipt #"] = st.column_config.TextColumn("Receipt #", disabled=True)
+            
             if 'Date Removed' in display_df.columns:
                 column_config["Date Removed"] = st.column_config.DateColumn("Date Removed", disabled=True)
             
@@ -404,6 +458,9 @@ class ConsignmentTab:
                 "Title": st.column_config.TextColumn("Title", disabled=True),
                 "Price": st.column_config.TextColumn("Price", disabled=True),
             }
+            
+            if 'Receipt #' in display_df.columns:
+                column_config["Receipt #"] = st.column_config.TextColumn("Receipt #", disabled=True)
             
             if 'Date Removed' in display_df.columns:
                 column_config["Date Removed"] = st.column_config.DateColumn("Date Removed", disabled=True)
@@ -478,7 +535,8 @@ class ConsignmentTab:
                     'display_status': '✅ Active',
                     'genre_name': 'Rock',
                     'catalog_number': 'PCS 7088',
-                    'created_at': '2024-01-15'
+                    'created_at': '2024-01-15',
+                    'receipt_number': 'PS20240115001'
                 },
                 {
                     'id': 1002,
@@ -492,7 +550,8 @@ class ConsignmentTab:
                     'display_status': '✅ Active',
                     'genre_name': 'Jazz',
                     'catalog_number': 'CL 1355',
-                    'created_at': '2024-01-10'
+                    'created_at': '2024-01-10',
+                    'receipt_number': 'PS20240110002'
                 },
                 {
                     'id': 1003,
@@ -507,7 +566,8 @@ class ConsignmentTab:
                     'genre_name': 'Progressive Rock',
                     'catalog_number': 'SHVL 804',
                     'created_at': '2023-12-20',
-                    'date_sold': '2024-01-05'
+                    'date_sold': '2024-01-05',
+                    'receipt_number': 'PS20231220003'
                 },
                 {
                     'id': 1004,
@@ -522,7 +582,8 @@ class ConsignmentTab:
                     'genre_name': 'Grunge',
                     'catalog_number': 'GEF 24425',
                     'created_at': '2023-11-15',
-                    'date_removed': '2024-01-01'
+                    'date_removed': '2024-01-01',
+                    'receipt_number': 'PS20231115004'
                 },
                 {
                     'id': 1005,
@@ -537,7 +598,8 @@ class ConsignmentTab:
                     'genre_name': 'Alternative Rock',
                     'catalog_number': '7243 8 55229 2 6',
                     'created_at': '2023-10-20',
-                    'date_removed': '2023-12-15'
+                    'date_removed': '2023-12-15',
+                    'receipt_number': 'PS20231020005'
                 }
             ]
             

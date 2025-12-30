@@ -1,116 +1,74 @@
-# FILE: inventory-manager/src/tabs/consignment_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import requests
-from handlers.commission_calculator import CommissionCalculator
 
-class FixedCommissionCalculator(CommissionCalculator):
-    """Fixed CommissionCalculator that handles API data properly"""
+class CommissionCalculator:
+    """Simplified capacity-based commission calculator"""
     
     def __init__(self, api_client):
-         self.api_client = api_client
+        self.api_client = api_client
     
     def get_current_commission_rate(self):
-        """Get current commission rate - FIXED to use capacity-based calculation"""
-        try:
-            # Get current user
-            user = st.session_state.get('user', {})
-            user_id = user.get('id')
-            
-            if not user_id:
-                # Return default commission rate
-                default_rate = self.api_client.get_config_value('DEFAULT_COMMISSION_RATE', '0.20')
-                return float(default_rate)
-            
-            # Get user details from API
-            user_data = self.api_client.get_user(user_id)
-            if not user_data:
-                return 0.20
-            
-            # Check if user has a signed agreement
-            if user_data.get('master_agreement_signed') and user_data.get('current_master_agreement_id'):
-                # Get agreement details
-                if user_data.get('agreement_details'):
-                    agreement_rate = float(user_data['agreement_details'].get('commission_rate', 0.20))
-                    
-                    # Calculate capacity-based commission
-                    capacity_rate = self._calculate_capacity_based_commission()
-                    
-                    # Use the higher of agreement rate or capacity rate
-                    return max(agreement_rate, capacity_rate)
-            
-            # No agreement - use capacity-based commission
-            return self._calculate_capacity_based_commission()
-            
-        except Exception as e:
-            st.error(f"Error calculating commission rate: {e}")
-            return 0.20  # Default fallback
+        """Get commission rate based ONLY on store capacity"""
+        # Get required configuration values - will throw error if any missing
+        max_capacity = self._get_config_value('COMMISSION_MAX_CAPACITY')
+        min_capacity = self._get_config_value('COMMISSION_MIN_CAPACITY')
+        max_rate = self._get_config_value('COMMISSION_MAX_RATE')
+        min_rate = self._get_config_value('COMMISSION_MIN_RATE')
+        
+        # Get current store fill percentage
+        store_fill_info = self._get_store_fill_info()
+        fill_percentage = store_fill_info['fill_percentage']
+        
+        # Calculate commission rate based on capacity
+        if fill_percentage <= min_capacity:
+            return min_rate / 100.0  # Convert from percentage to decimal
+        elif fill_percentage >= max_capacity:
+            return max_rate / 100.0  # Convert from percentage to decimal
+        else:
+            # Linear interpolation between min and max rates
+            ratio = (fill_percentage - min_capacity) / (max_capacity - min_capacity)
+            commission_rate = min_rate + (max_rate - min_rate) * ratio
+            return commission_rate / 100.0  # Convert from percentage to decimal
     
-    def _calculate_capacity_based_commission(self):
-        """Calculate commission rate based on store capacity"""
+    def _get_config_value(self, config_key):
+        """Get config value via API - throws error if not found"""
+        value = self.api_client.get_config_value(config_key, None)
+        if value is None:
+            raise ValueError(f"Required configuration key '{config_key}' not found")
         try:
-            # Get capacity thresholds from config
-            max_capacity = float(self.api_client.get_config_value('COMMISSION_MAX_CAPACITY', '110'))
-            min_capacity = float(self.api_client.get_config_value('COMMISSION_MIN_CAPACITY', '60'))
-            max_rate = float(self.api_client.get_config_value('COMMISSION_MAX_RATE', '0.40'))
-            min_rate = float(self.api_client.get_config_value('COMMISSION_MIN_RATE', '0.10'))
-            
-            # Get current store fill percentage
-            store_fill_info = self._get_store_fill_info()
-            fill_percentage = store_fill_info['fill_percentage']
-            
-            # Calculate commission rate based on capacity
-            if fill_percentage <= min_capacity:
-                return min_rate / 100.0  # Convert from percentage to decimal
-            elif fill_percentage >= max_capacity:
-                return max_rate / 100.0  # Convert from percentage to decimal
-            else:
-                # Linear interpolation between min and max rates
-                ratio = (fill_percentage - min_capacity) / (max_capacity - min_capacity)
-                commission_rate = min_rate + (max_rate - min_rate) * ratio
-                return commission_rate / 100.0  # Convert from percentage to decimal
-            
-        except Exception as e:
-            st.error(f"Error calculating capacity-based commission: {e}")
-            return 0.20  # Default fallback
+            return float(value)
+        except (ValueError, TypeError):
+            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'")
     
     def _get_store_fill_info(self):
         """Get store fill information"""
-        try:
-            store_capacity = float(self.api_client.get_config_value('STORE_CAPACITY', '100'))
-            
-            # Get all records via API
-            response = requests.get(f"{self.api_client.base_url}/records?limit=1000")
-            if response.status_code == 200:
-                data = response.json()
-                total_inventory = len(data.get('records', []))
-            else:
-                total_inventory = 0
-            
-            fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
-            fill_percentage = fill_fraction * 100
-            
-            return {
-                'total_inventory': total_inventory,
-                'store_capacity': store_capacity,
-                'fill_fraction': fill_fraction,
-                'fill_percentage': fill_percentage
-            }
-        except Exception as e:
-            st.error(f"Error getting store fill info: {e}")
-            return {
-                'total_inventory': 0,
-                'store_capacity': 100,
-                'fill_fraction': 0,
-                'fill_percentage': 0
-            }
+        store_capacity = self._get_config_value('STORE_CAPACITY')
+        
+        # Get all records via API
+        response = requests.get(f"{self.api_client.base_url}/records?limit=1000")
+        if response.status_code == 200:
+            data = response.json()
+            total_inventory = len(data.get('records', []))
+        else:
+            total_inventory = 0
+        
+        fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
+        fill_percentage = fill_fraction * 100
+        
+        return {
+            'total_inventory': total_inventory,
+            'store_capacity': store_capacity,
+            'fill_fraction': fill_fraction,
+            'fill_percentage': fill_percentage
+        }
 
 class ConsignmentTab:
     def __init__(self):
         # Initialize API client
         self.api_client = APIClient()
-        self.commission_calculator = FixedCommissionCalculator(self.api_client)
+        self.commission_calculator = CommissionCalculator(self.api_client)
     
     def render(self):
         st.title("🎵 Consignment Management")
@@ -124,16 +82,20 @@ class ConsignmentTab:
             return
         
         # Show current commission rate
-        commission_rate = self.commission_calculator.get_current_commission_rate()
-        store_fill_info = self.commission_calculator._get_store_fill_info()
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.info(f"Your commission rate: **{commission_rate*100:.1f}%**")
-        with col2:
-            st.info(f"Store fill: **{store_fill_info['fill_percentage']:.1f}%**")
-        with col3:
-            st.info(f"Store capacity: **{store_fill_info['store_capacity']}**")
+        try:
+            commission_rate = self.commission_calculator.get_current_commission_rate()
+            store_fill_info = self.commission_calculator._get_store_fill_info()
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.info(f"Current commission rate: **{commission_rate*100:.1f}%**")
+            with col2:
+                st.info(f"Store fill: **{store_fill_info['fill_percentage']:.1f}%**")
+            with col3:
+                st.info(f"Store capacity: **{store_fill_info['store_capacity']}**")
+        except ValueError as e:
+            st.error(f"Configuration error: {e}")
+            return
         
         # Tabs for different consignment views
         tab1, tab2, tab3, tab4 = st.tabs([
@@ -161,10 +123,8 @@ class ConsignmentTab:
         
         # Get user's records or all records if admin
         if user_role == 'admin':
-            # Admin can see all records
             response = requests.get(f"{self.api_client.base_url}/records?limit=1000")
         else:
-            # Consignor sees only their own
             response = requests.get(f"{self.api_client.base_url}/records/user/{user_id}")
         
         if response.status_code == 200:
@@ -201,16 +161,11 @@ class ConsignmentTab:
         st.write("### Detailed Records")
         
         for idx, record in df.iterrows():
-            # Get consignor name for admin view
-            consignor_name = record.get('consignor_name', '')
-            if not consignor_name and record.get('consignor_id'):
+            expander_title = f"{record['artist']} - {record['title']} (${record['store_price']:.2f})"
+            if user_role == 'admin' and record.get('consignor_id'):
                 user_info = self.api_client.get_user(record['consignor_id'])
                 if user_info:
-                    consignor_name = user_info.get('username', f"ID: {record['consignor_id']}")
-            
-            expander_title = f"{record['artist']} - {record['title']} (${record['store_price']:.2f})"
-            if user_role == 'admin' and consignor_name:
-                expander_title += f" 👤 {consignor_name}"
+                    expander_title += f" 👤 {user_info.get('username', f'ID: {record['consignor_id']}')}"
             
             with st.expander(expander_title):
                 col1, col2 = st.columns([1, 3])
@@ -226,18 +181,17 @@ class ConsignmentTab:
                     st.write(f"**Price:** ${record['store_price']:.2f}")
                     
                     # Show consignor info for admin
-                    if user_role == 'admin' and consignor_name:
-                        st.write(f"**Consignor:** {consignor_name}")
+                    if user_role == 'admin' and record.get('consignor_id'):
+                        user_info = self.api_client.get_user(record['consignor_id'])
+                        if user_info:
+                            st.write(f"**Consignor:** {user_info.get('username')}")
                     
-                    # Show commission rate - FIXED: Handle None commission_rate
-                    commission_rate_val = record.get('commission_rate')
-                    if commission_rate_val is not None:
-                        try:
-                            st.write(f"**Commission Rate:** {float(commission_rate_val)*100:.1f}%")
-                        except (ValueError, TypeError):
-                            st.write(f"**Commission Rate:** 20.0% (default)")
-                    else:
-                        st.write(f"**Commission Rate:** 20.0% (default)")
+                    # Show current commission rate (same for all records)
+                    try:
+                        commission_rate = self.commission_calculator.get_current_commission_rate()
+                        st.write(f"**Commission Rate:** {commission_rate*100:.1f}%")
+                    except ValueError as e:
+                        st.write(f"**Commission Rate:** Error: {e}")
                     
                     # Show dates
                     if record.get('consignment_start_date'):
@@ -263,10 +217,8 @@ class ConsignmentTab:
         
         # Get payment ready records
         if user_role == 'admin':
-            # Admin can see all payment ready records
             response = requests.get(f"{self.api_client.base_url}/consignment/payment-ready")
         else:
-            # Consignor sees only their own
             response = requests.get(f"{self.api_client.base_url}/consignment/payment-ready?user_id={user_id}")
         
         if response.status_code == 200:
@@ -279,60 +231,44 @@ class ConsignmentTab:
             
             df = pd.DataFrame(records)
             
+            # Get current commission rate
+            try:
+                commission_rate = self.commission_calculator.get_current_commission_rate()
+            except ValueError as e:
+                st.error(f"Cannot calculate payments: {e}")
+                return
+            
             # Calculate totals
             total_sales = df['store_price'].sum()
-            total_commission = 0
-            total_payout = 0
+            total_commission = total_sales * commission_rate
+            total_payout = total_sales - total_commission
             
             # Group by consignor for admin view
             if user_role == 'admin':
                 consignor_summary = {}
                 for _, record in df.iterrows():
                     consignor_id = record.get('consignor_id')
-                    consignor_name = record.get('consignor_name', '')
-                    if not consignor_name and consignor_id:
+                    if consignor_id:
                         user_info = self.api_client.get_user(consignor_id)
-                        if user_info:
-                            consignor_name = user_info.get('username', f"ID: {consignor_id}")
-                    
-                    if consignor_id not in consignor_summary:
-                        consignor_summary[consignor_id] = {
-                            'name': consignor_name,
-                            'total_sales': 0,
-                            'total_commission': 0,
-                            'total_payout': 0,
-                            'records': 0
-                        }
-                    
-                    price = float(record['store_price'])
-                    commission_rate = record.get('commission_rate', 0.20)
-                    if commission_rate is None:
-                        commission_rate = 0.20
-                    else:
-                        commission_rate = float(commission_rate)
-                    commission = price * commission_rate
-                    payout = price - commission
-                    
-                    consignor_summary[consignor_id]['total_sales'] += price
-                    consignor_summary[consignor_id]['total_commission'] += commission
-                    consignor_summary[consignor_id]['total_payout'] += payout
-                    consignor_summary[consignor_id]['records'] += 1
-                    
-                    total_commission += commission
-                    total_payout += payout
-            else:
-                # Regular calculation for consignors
-                for _, record in df.iterrows():
-                    price = float(record['store_price'])
-                    commission_rate = record.get('commission_rate', 0.20)
-                    if commission_rate is None:
-                        commission_rate = 0.20
-                    else:
-                        commission_rate = float(commission_rate)
-                    commission = price * commission_rate
-                    payout = price - commission
-                    total_commission += commission
-                    total_payout += payout
+                        consignor_name = user_info.get('username', f"ID: {consignor_id}") if user_info else f"ID: {consignor_id}"
+                        
+                        if consignor_id not in consignor_summary:
+                            consignor_summary[consignor_id] = {
+                                'name': consignor_name,
+                                'total_sales': 0,
+                                'total_commission': 0,
+                                'total_payout': 0,
+                                'records': 0
+                            }
+                        
+                        price = float(record['store_price'])
+                        commission = price * commission_rate
+                        payout = price - commission
+                        
+                        consignor_summary[consignor_id]['total_sales'] += price
+                        consignor_summary[consignor_id]['total_commission'] += commission
+                        consignor_summary[consignor_id]['total_payout'] += payout
+                        consignor_summary[consignor_id]['records'] += 1
             
             # Display summary
             col1, col2, col3 = st.columns(3)
@@ -342,6 +278,8 @@ class ConsignmentTab:
                 st.metric("Total Sales", f"${total_sales:.2f}")
             with col3:
                 st.metric("Total Payout", f"${total_payout:.2f}")
+            
+            st.write(f"**Current Commission Rate:** {commission_rate*100:.1f}%")
             
             # Show consignor breakdown for admin
             if user_role == 'admin' and consignor_summary:
@@ -365,31 +303,19 @@ class ConsignmentTab:
                 with col1:
                     st.write(f"**{record['artist']} - {record['title']}**")
                     st.write(f"Sold: {record['date_sold']}")
-                    if user_role == 'admin' and record.get('consignor_name'):
-                        st.write(f"Consignor: {record['consignor_name']}")
+                    if user_role == 'admin' and record.get('consignor_id'):
+                        user_info = self.api_client.get_user(record['consignor_id'])
+                        if user_info:
+                            st.write(f"Consignor: {user_info.get('username')}")
                 
                 with col2:
                     price = float(record['store_price'])
-                    commission_rate = record.get('commission_rate', 0.20)
-                    if commission_rate is None:
-                        commission_rate = 0.20
-                    else:
-                        commission_rate = float(commission_rate)
                     commission = price * commission_rate
                     payout = price - commission
                     
                     st.write(f"Price: ${price:.2f}")
                     st.write(f"Commission: ${commission:.2f} ({commission_rate*100:.1f}%)")
                     st.write(f"**Payout: ${payout:.2f}**")
-                
-                with col3:
-                    # Show consignor info for admin
-                    if user_role == 'admin' and not record.get('consignor_name'):
-                        consignor_id = record.get('consignor_id')
-                        if consignor_id:
-                            user_info = self.api_client.get_user(consignor_id)
-                            if user_info:
-                                st.write(f"Consignor: {user_info.get('username')}")
                 
                 with col4:
                     if user_role == 'admin':
@@ -410,7 +336,6 @@ class ConsignmentTab:
         else:
             st.error(f"Error fetching payment ready records: {response.status_code}")
 
-    # Rest of the class remains the same...
     def _render_pickup_ready(self, user_id, user_role):
         """Render records ready for pickup"""
         st.subheader("Pickup Ready Records")
@@ -441,21 +366,14 @@ class ConsignmentTab:
                 with col1:
                     st.write(f"**{record['artist']} - {record['title']}**")
                     st.write(f"Returned: {record['date_returned']}")
-                    if user_role == 'admin' and record.get('consignor_name'):
-                        st.write(f"Consignor: {record['consignor_name']}")
+                    if user_role == 'admin' and record.get('consignor_id'):
+                        user_info = self.api_client.get_user(record['consignor_id'])
+                        if user_info:
+                            st.write(f"Consignor: {user_info.get('username')}")
                 
                 with col2:
                     st.write(f"Price: ${record['store_price']:.2f}")
                     st.write(f"Status: Returned, awaiting pickup")
-                
-                with col3:
-                    # Show consignor info for admin
-                    if user_role == 'admin' and not record.get('consignor_name'):
-                        consignor_id = record.get('consignor_id')
-                        if consignor_id:
-                            user_info = self.api_client.get_user(consignor_id)
-                            if user_info:
-                                st.write(f"Consignor: {user_info.get('username')}")
                 
                 with col4:
                     if st.button("✅ Mark Picked Up", key=f"pickup_{record['id']}"):
@@ -497,20 +415,13 @@ class ConsignmentTab:
                 with col1:
                     st.write(f"**{record['artist']} - {record['title']}**")
                     st.write(f"Added: {record.get('created_at', 'Unknown')}")
-                    if record.get('consignor_name'):
-                        st.write(f"Consignor: {record['consignor_name']}")
-                    elif user_role == 'admin' and record.get('consignor_id'):
+                    if user_role == 'admin' and record.get('consignor_id'):
                         user_info = self.api_client.get_user(record['consignor_id'])
                         if user_info:
                             st.write(f"Consignor: {user_info.get('username')}")
                 
                 with col2:
                     st.write(f"Price: ${record['store_price']:.2f}")
-                    # FIXED: Handle None commission_rate
-                    commission_rate = record.get('commission_rate', 0.20)
-                    if commission_rate is None:
-                        commission_rate = 0.20
-                    st.write(f"Commission Rate: {float(commission_rate)*100:.1f}%")
                 
                 with col3:
                     if user_role == 'admin':
@@ -641,7 +552,6 @@ class APIClient:
     def process_checkout_payment(self, record_ids):
         """Process payment for checked out records"""
         try:
-            # This endpoint should be implemented in the API
             response = requests.post(
                 f"{self.base_url}/checkout/process-payment",
                 json={'record_ids': record_ids}

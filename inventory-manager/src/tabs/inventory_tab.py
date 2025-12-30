@@ -11,103 +11,6 @@ import math
 import requests
 from datetime import datetime as dt
 
-class FixedCommissionCalculator(CommissionCalculator):
-    """Fixed CommissionCalculator that handles API data properly"""
-    
-    def __init__(self, api_client):
-         self.api_client = api_client
-    
-    def get_current_commission_rate(self):
-        """Get current commission rate - FIXED to use capacity-based calculation"""
-        try:
-            # Get current user
-            user = st.session_state.get('user', {})
-            user_id = user.get('id')
-            
-            if not user_id:
-                # Return default commission rate
-                default_rate = self.api_client.get_config_value('DEFAULT_COMMISSION_RATE', '0.20')
-                return float(default_rate)
-            
-            # Get user details from API
-            user_data = self.api_client.get_user(user_id)
-            if not user_data:
-                return 0.20
-            
-            # Check if user has a signed agreement
-            if user_data.get('master_agreement_signed') and user_data.get('current_master_agreement_id'):
-                # Get agreement details
-                if user_data.get('agreement_details'):
-                    agreement_rate = float(user_data['agreement_details'].get('commission_rate', 0.20))
-                    
-                    # Calculate capacity-based commission
-                    capacity_rate = self._calculate_capacity_based_commission()
-                    
-                    # Use the higher of agreement rate or capacity rate
-                    return max(agreement_rate, capacity_rate)
-            
-            # No agreement - use capacity-based commission
-            return self._calculate_capacity_based_commission()
-            
-        except Exception as e:
-            st.error(f"Error calculating commission rate: {e}")
-            return 0.20  # Default fallback
-    
-    def _calculate_capacity_based_commission(self):
-        """Calculate commission rate based on store capacity"""
-        try:
-            # Get capacity thresholds from config
-            max_capacity = float(self.api_client.get_config_value('COMMISSION_MAX_CAPACITY', '110'))
-            min_capacity = float(self.api_client.get_config_value('COMMISSION_MIN_CAPACITY', '60'))
-            max_rate = float(self.api_client.get_config_value('COMMISSION_MAX_RATE', '0.40'))
-            min_rate = float(self.api_client.get_config_value('COMMISSION_MIN_RATE', '0.10'))
-            
-            # Get current store fill percentage
-            store_fill_info = self._get_store_fill_info()
-            fill_percentage = store_fill_info['fill_percentage']
-            
-            # Calculate commission rate based on capacity
-            if fill_percentage <= min_capacity:
-                return min_rate / 100.0  # Convert from percentage to decimal
-            elif fill_percentage >= max_capacity:
-                return max_rate / 100.0  # Convert from percentage to decimal
-            else:
-                # Linear interpolation between min and max rates
-                ratio = (fill_percentage - min_capacity) / (max_capacity - min_capacity)
-                commission_rate = min_rate + (max_rate - min_rate) * ratio
-                return commission_rate / 100.0  # Convert from percentage to decimal
-            
-        except Exception as e:
-            st.error(f"Error calculating capacity-based commission: {e}")
-            return 0.20  # Default fallback
-    
-    def _get_store_fill_info(self):
-        """Get store fill information"""
-        try:
-            store_capacity = float(self.api_client.get_config_value('STORE_CAPACITY', '100'))
-            
-            # Get all records
-            records_df = self.api_client.get_all_records()
-            total_inventory = len(records_df) if not records_df.empty else 0
-            
-            fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
-            fill_percentage = fill_fraction * 100
-            
-            return {
-                'total_inventory': total_inventory,
-                'store_capacity': store_capacity,
-                'fill_fraction': fill_fraction,
-                'fill_percentage': fill_percentage
-            }
-        except Exception as e:
-            st.error(f"Error getting store fill info: {e}")
-            return {
-                'total_inventory': 0,
-                'store_capacity': 100,
-                'fill_fraction': 0,
-                'fill_percentage': 0
-            }
-
 class InventoryTab:
     def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None, base_url="https://arjanshaw.pythonanywhere.com"):
         self.discogs_handler = discogs_handler
@@ -117,13 +20,13 @@ class InventoryTab:
         
         # Update handlers to use API client (self)
         self.search_handler = SearchHandler(discogs_handler)
-        self.commission_calculator = FixedCommissionCalculator(self)
+        self.commission_calculator = CommissionCalculator(self)
         self.pricing_validator = PricingValidator(self, discogs_handler, ebay_handler)
         
         # Initialize cached records
         self._cached_records = None
 
-    # API Client methods (merged from APIClient class)
+    # API Client methods
     
     def delete_record(self, record_id):
         """Delete a record via API"""
@@ -373,27 +276,47 @@ class InventoryTab:
     def render(self):
         stats = self._get_user_database_stats()
         
-        store_fill_info = self._get_store_fill_info()
-        current_commission_rate = self.commission_calculator.get_current_commission_rate()
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Inventory Records", stats['records_count'])
-        with col2:
-            st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
-        with col3:
-            st.metric("Commission Rate", f"{current_commission_rate*100:.1f}%")
-        
-        # Show store capacity warning
-        if store_fill_info['fill_fraction'] > 1.10:
-            st.error("🚨 Store is over capacity! Cannot add new items.")
-        elif store_fill_info['fill_fraction'] > 0.90:
-            st.warning("⚠️ Store is near capacity ({:.1f}%)".format(store_fill_info['fill_percentage']))
+        # Try to get store fill info and commission rate
+        try:
+            store_fill_info = self._get_store_fill_info()
+            current_commission_rate = self.commission_calculator.get_current_commission_rate()
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Inventory Records", stats['records_count'])
+            with col2:
+                st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
+            with col3:
+                st.metric("Commission Rate", f"{current_commission_rate*100:.1f}%")
+            
+            # Show store capacity warning
+            if store_fill_info['fill_fraction'] > 1.10:
+                st.error("🚨 Store is over capacity! Cannot add new items.")
+            elif store_fill_info['fill_fraction'] > 0.90:
+                st.warning("⚠️ Store is near capacity ({:.1f}%)".format(store_fill_info['fill_percentage']))
+                
+        except ValueError as e:
+            st.error(f"Configuration error: {e}")
+            st.info("Please check configuration values for commission calculation")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Inventory Records", stats['records_count'])
+            with col2:
+                st.info("Store fill: N/A")
+            with col3:
+                st.info("Commission: N/A")
         
         # Display last added record
         self._render_last_added_record_simple()
         
-        self._render_unified_operations(store_fill_info['fill_fraction'])
+        # Get store fill fraction for operations
+        try:
+            store_fill_info = self._get_store_fill_info()
+            store_fill_fraction = store_fill_info['fill_fraction']
+        except:
+            store_fill_fraction = 0
+            
+        self._render_unified_operations(store_fill_fraction)
 
     def _render_last_added_record_simple(self):
         """Display the last record added to the database - simple single line"""
@@ -799,7 +722,7 @@ class InventoryTab:
                     user = st.session_state.get('user', {})
                     consignor_id = user.get('id')
                     
-                    # ADD RECORD DIRECTLY TO DATABASE - REMOVED store_credit_option parameter
+                    # ADD RECORD DIRECTLY TO DATABASE
                     success, record_id = self._handle_add_record_direct(
                         record_to_add, 
                         stored_data['selected_genre'], 
@@ -824,7 +747,7 @@ class InventoryTab:
         st.session_state[f"{record_key}_data"] = stored_data
 
     def _handle_add_record_direct(self, record_data, genre, user_price=None, consignor_id=None):
-        """Handle adding a record directly to the database WITH CONSIGNOR ID - REMOVED store_credit_option"""
+        """Handle adding a record directly to the database WITH CONSIGNOR ID"""
         # Add consignor_id to record data
         if consignor_id:
             record_data['consignor_id'] = consignor_id
@@ -845,13 +768,13 @@ class InventoryTab:
             record_data, 
             genre, 
             st.session_state.current_search,
-            consignor_id  # REMOVED store_credit_option parameter
+            consignor_id
         )
         
         return success, record_id
 
     def _add_inventory_record(self, record_data, genre, search_term, consignor_id=None):
-        """Add inventory record to database via API with enhanced consignment features - REMOVED store_credit_option"""
+        """Add inventory record to database via API with enhanced consignment features"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
         
@@ -907,29 +830,12 @@ class InventoryTab:
         if consignor_id is None:
             consignor_id = record_data.get('consignor_id')
         
-        # Get commission info from user's master agreement if consignor_id exists
-        commission_rate = None
-        store_return_days = None
-        
-        if consignor_id:
-            # Try to get user's master agreement details
-            user_data = self.get_user(consignor_id)
-            if user_data and user_data.get('agreement_details'):
-                commission_rate = user_data['agreement_details'].get('commission_rate')
-                store_return_days = user_data['agreement_details'].get('store_return_days')
-        
-        # If no agreement details, use defaults
-        if commission_rate is None:
-            try:
-                commission_rate = float(self.get_config_value('DEFAULT_COMMISSION_RATE', '0.20'))
-            except:
-                commission_rate = 0.20
-        
-        if store_return_days is None:
-            try:
-                store_return_days = int(self.get_config_value('DEFAULT_STORE_RETURN_DAYS', '90'))
-            except:
-                store_return_days = 90
+        # Get commission rate from capacity-based calculator
+        try:
+            commission_rate = self.commission_calculator.get_current_commission_rate()
+        except ValueError as e:
+            st.error(f"Cannot determine commission rate: {e}")
+            return False, None
         
         # Get discogs_genre for mapping
         discogs_genre = record_data.get('discogs_genre', '')
@@ -985,7 +891,7 @@ class InventoryTab:
             discount_eligible_date = consignment_start_date + pd.Timedelta(days=full_price_days)
             original_consignor_price = store_price
         
-        # Save to database via API - SIMPLIFIED VERSION - REMOVED store_credit_option
+        # Save to database via API - SIMPLIFIED VERSION
         try:
             # Prepare data for API
             record_data_to_save = {
@@ -1007,7 +913,6 @@ class InventoryTab:
             if consignor_id:
                 record_data_to_save['consignor_id'] = int(consignor_id)
                 record_data_to_save['commission_rate'] = float(commission_rate)
-                record_data_to_save['store_return_days'] = int(store_return_days)
                 record_data_to_save['consignment_start_date'] = consignment_start_date.isoformat() if consignment_start_date else None
                 record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
                 record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
@@ -1367,7 +1272,7 @@ class InventoryTab:
         with col2:
             user_role = user.get('role', 'consignor') if user else 'consignor'
             
-            # Show consignor info for admin users - FIXED: Show name instead of editable ID field
+            # Show consignor info for admin users
             if user_role == 'admin' and record.get('consignor_id'):
                 consignor_id = record.get('consignor_id')
                 if consignor_id:
@@ -1528,7 +1433,10 @@ class InventoryTab:
         return None
 
     def _get_store_fill_info(self):
-        store_capacity = self._get_config_value('STORE_CAPACITY')
+        try:
+            store_capacity = self._get_config_value('STORE_CAPACITY')
+        except ValueError as e:
+            raise ValueError(f"Cannot calculate store fill: {e}")
         
         records_df = self.get_all_records()
         total_inventory = len(records_df) if not records_df.empty else 0

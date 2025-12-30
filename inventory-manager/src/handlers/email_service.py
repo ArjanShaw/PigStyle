@@ -94,7 +94,6 @@ class EmailService:
         Your payment of ${amount:.2f} has been processed for {records_count} sold records.
         
         The payment will be available via your chosen method.
-        Store credit bonus has been applied to your commission rate.
         
         You can view detailed breakdown in your consignment portal.
         

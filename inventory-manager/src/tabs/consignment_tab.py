@@ -127,6 +127,21 @@ class ConsignmentTab:
         consignment_df['commission'] = consignment_df['store_price'] * consignment_df['commission_rate']
         consignment_df['payout'] = consignment_df['store_price'] - consignment_df['commission']
         
+        # Add status column based on barcode and deactivated values
+        def determine_status(row):
+            barcode = row.get('barcode')
+            deactivated = row.get('deactivated', 0)
+            
+            # Check if barcode is null, empty, or 'None'
+            if pd.isna(barcode) or barcode in [None, '', 'None']:
+                return '🆕 New'
+            elif deactivated == 1:
+                return '🗑️ Removed'
+            else:
+                return '✅ Active'
+        
+        consignment_df['status'] = consignment_df.apply(determine_status, axis=1)
+        
         # Format display columns
         display_df = pd.DataFrame()
         
@@ -139,18 +154,17 @@ class ConsignmentTab:
         display_df['Comm Rate'] = consignment_df['commission_rate'].apply(lambda x: f"{x*100:.1f}%")
         display_df['Commission'] = consignment_df['commission'].apply(lambda x: f"${x:.2f}")
         display_df['Payout'] = consignment_df['payout'].apply(lambda x: f"${x:.2f}")
-        
-        if 'date_sold' in consignment_df.columns:
-            display_df['Status'] = consignment_df['date_sold'].apply(
-                lambda x: '✅ Sold' if pd.notna(x) else '🟢 Available'
-            )
+        display_df['Status'] = consignment_df['status']
         
         # Calculate totals
         total_price = consignment_df['store_price'].sum()
         total_commission = consignment_df['commission'].sum()
         total_payout = consignment_df['payout'].sum()
         
-        # Display totals
+        # Calculate status counts
+        status_counts = consignment_df['status'].value_counts()
+        
+        # Display totals and status summary
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Value", f"${total_price:.2f}")
@@ -159,7 +173,24 @@ class ConsignmentTab:
         with col3:
             st.metric("Total Payout", f"${total_payout:.2f}")
         
+        # Display status summary
+        st.subheader("📊 Status Summary")
+        status_cols = st.columns(4)
+        status_info = {
+            '🆕 New': ('#FFA500', 'Records without barcodes'),
+            '✅ Active': ('#00CC00', 'Records with barcodes, not deactivated'),
+            '🗑️ Removed': ('#CC0000', 'Records marked as deactivated')
+        }
+        
+        for idx, (status, count) in enumerate(status_counts.items()):
+            with status_cols[idx]:
+                color, description = status_info.get(status, ('#666666', 'Unknown status'))
+                st.markdown(f"<h3 style='color:{color}'>{status}</h3>", unsafe_allow_html=True)
+                st.markdown(f"<h4>{count}</h4>", unsafe_allow_html=True)
+                st.caption(description)
+        
         # Display the table
+        st.subheader("📋 Consignment Records")
         st.dataframe(
             display_df,
             use_container_width=True,
@@ -175,6 +206,49 @@ class ConsignmentTab:
                 'Status': st.column_config.TextColumn('Status', width='small')
             }
         )
+        
+        # Add filter options
+        st.subheader("🔍 Filter Records")
+        filter_cols = st.columns(3)
+        
+        with filter_cols[0]:
+            show_new = st.checkbox("🆕 New", value=True)
+        with filter_cols[1]:
+            show_active = st.checkbox("✅ Active", value=True)
+        with filter_cols[2]:
+            show_removed = st.checkbox("🗑️ Removed", value=True)
+        
+        # Apply filters
+        selected_statuses = []
+        if show_new:
+            selected_statuses.append('🆕 New')
+        if show_active:
+            selected_statuses.append('✅ Active')
+        if show_removed:
+            selected_statuses.append('🗑️ Removed')
+        
+        if selected_statuses:
+            filtered_df = display_df[display_df['Status'].isin(selected_statuses)]
+            st.info(f"Showing {len(filtered_df)} of {len(display_df)} records")
+            
+            if not filtered_df.empty:
+                st.dataframe(
+                    filtered_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        'Consignor': st.column_config.TextColumn('Consignor', width='medium'),
+                        'Artist': st.column_config.TextColumn('Artist', width='medium'),
+                        'Title': st.column_config.TextColumn('Title', width='large'),
+                        'Price': st.column_config.TextColumn('Price', width='small'),
+                        'Comm Rate': st.column_config.TextColumn('Comm Rate', width='small'),
+                        'Commission': st.column_config.TextColumn('Commission', width='small'),
+                        'Payout': st.column_config.TextColumn('Payout', width='small'),
+                        'Status': st.column_config.TextColumn('Status', width='small')
+                    }
+                )
+        else:
+            st.warning("Please select at least one status to display")
 
 class APIClient:
     """API client for consignment operations"""

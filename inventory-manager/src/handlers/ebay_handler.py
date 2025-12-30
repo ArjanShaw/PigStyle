@@ -9,6 +9,9 @@ class EbayHandler:
     EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
     EBAY_SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
     EBAY_ITEM_URL = "https://api.ebay.com/buy/browse/v1/item/"
+    
+    # API base URL - update with your actual API endpoint
+    API_BASE_URL = "https://arjanshaw.pythonanywhere.com"  # Replace with your actual API URL
 
     def __init__(self, client_id, client_secret):
         self.client_id = client_id
@@ -17,14 +20,29 @@ class EbayHandler:
         self.token_expiry = 0
 
     def _get_config_value(self, config_key):
-        """Get config value and throw exception if not found"""
-        value = st.session_state.db_manager.get_config_value(config_key, None)
-        if value is None:
-            raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+        """Get config value from API and throw exception if not found"""
         try:
-            return float(value)
-        except ValueError:
-            raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+            # Call API endpoint to get config value
+            response = requests.get(f"{self.API_BASE_URL}/config/{config_key}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    value = data.get('config_value')
+                    if value is None:
+                        raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
+                    
+                    try:
+                        return float(value)
+                    except ValueError:
+                        raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+                else:
+                    raise ValueError(f"API error: {data.get('error', 'Unknown error')}")
+            else:
+                raise ValueError(f"API request failed with status {response.status_code}")
+                
+        except requests.RequestException as e:
+            raise ValueError(f"Failed to connect to API: {str(e)}")
 
     def get_access_token(self):
         if self.token and time.time() < self.token_expiry:

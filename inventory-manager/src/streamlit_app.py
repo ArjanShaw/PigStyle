@@ -8,6 +8,7 @@ import requests
 import json
 import numpy as np
 from typing import Optional, Dict, Any, List
+import time  # ADDED
 
 # Add the current directory to the path to find local modules
 sys.path.insert(0, os.path.dirname(__file__))
@@ -51,6 +52,10 @@ def main():
     if 'session_token' not in st.session_state:
         st.session_state.session_token = None
     
+    # Initialize API timing storage
+    if 'api_timings' not in st.session_state:
+        st.session_state.api_timings = []
+    
     # Check if user is authenticated
     if not st.session_state.authenticated:
         render_login_page()
@@ -67,7 +72,7 @@ def render_login_page():
         st.subheader("Inventory Manager")
         
         # Demo Mode button - SIMPLE AND DIRECT
-        if st.button("👀 Demo Mode", key="demo_button", use_container_width=True, type="primary"):
+        if st.button("👀 Demo Mode", key="demo_button", width='stretch', type="primary"):
             st.session_state.authenticated = True
             st.session_state.user = {
                 'username': 'demo_user',
@@ -98,7 +103,7 @@ def render_login_page():
             username = st.text_input("Username or Email", placeholder="Enter your username or email")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
             
-            login_button = st.form_submit_button("🚀 Login", use_container_width=True)
+            login_button = st.form_submit_button("🚀 Login", width='stretch')
         
         if login_button:
             if username and password:
@@ -277,6 +282,9 @@ def render_main_app():
     checkout_tab = CheckoutTab()
 
     render_header(user)
+    
+    for timing in st.session_state.get("api_timings", [])[-10:]:
+        print(f"{timing['endpoint']}: {timing['duration']:.2f}s")
     
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, statistics_tab, consignment_tab, 

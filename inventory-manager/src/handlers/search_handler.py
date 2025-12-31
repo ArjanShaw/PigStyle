@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import requests
+import time  # ADDED
 
 class SearchHandler:
     def __init__(self, discogs_handler, base_url="https://arjanshaw.pythonanywhere.com"):
@@ -34,8 +35,15 @@ class SearchHandler:
                 format_selected = st.session_state.get('format_select', 'Vinyl')
                 search_query = f"{search_term} {format_selected}"
                 
+                start_time = time.time()  # START TIMING
+                
                 # Use the new simple search method - NO GROUPED PRICING, NO EXTRA API CALLS
                 results = self.discogs_handler.get_simple_search_results(search_query)
+                
+                duration = time.time() - start_time  # END TIMING
+                
+                print(f"SearchHandler Discogs Search '{search_term[:30]}...' took {duration:.2f}s")
+
                 
                 if results:
                     return results
@@ -50,6 +58,8 @@ class SearchHandler:
     def perform_database_search(self, search_term, user=None):
         """Perform database search - NOW INCLUDES CATALOG NUMBER SEARCH AND FILTERS BY CONSIGNOR"""
         try:
+            start_time = time.time()  # START TIMING
+            
             # Get user role and ID
             user_role = user.get('role', 'consignor') if user else 'consignor'
             user_id = user.get('id') if user else None
@@ -64,6 +74,10 @@ class SearchHandler:
             # Use API-based search with consignor filter if applicable
             response = requests.get(f"{self.base_url}/search?{params}", timeout=10)
             
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"SearchHandler DB Search: {search_term[:30]}... took {duration:.2f}s")
+         
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':

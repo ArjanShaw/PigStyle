@@ -57,9 +57,9 @@ class CheckoutTab:
             
             col1, col2 = st.columns(2)
             with col1:
-                search_button = st.form_submit_button("🔍 Search", use_container_width=True)
+                search_button = st.form_submit_button("🔍 Search", width='stretch')
             with col2:
-                if st.form_submit_button("🗑️ Clear Results", type="secondary", use_container_width=True):
+                if st.form_submit_button("🗑️ Clear Results", type="secondary", width='stretch'):
                     st.session_state.search_results_checkout = []
                     st.rerun()
         
@@ -140,17 +140,17 @@ class CheckoutTab:
             date_paid = record.get('date_paid')
             
             if date_sold and not date_paid:
-                st.button("✅ In Checkout", key=f"sold_{record['id']}", disabled=True, use_container_width=True)
+                st.button("✅ In Checkout", key=f"sold_{record['id']}", disabled=True, width='stretch')
             elif date_sold and date_paid:
-                st.button("💰 Paid", key=f"paid_{record['id']}", disabled=True, use_container_width=True)
+                st.button("💰 Paid", key=f"paid_{record['id']}", disabled=True, width='stretch')
             else:
                 # Check if already in checkout
                 already_in_checkout = any(r['id'] == record['id'] for r in st.session_state.checkout_records)
                 
                 if already_in_checkout:
-                    st.button("✅ Added", key=f"added_{record['id']}", disabled=True, use_container_width=True)
+                    st.button("✅ Added", key=f"added_{record['id']}", disabled=True, width='stretch')
                 else:
-                    if st.button("➕ Add to Checkout", key=f"add_{record['id']}", use_container_width=True):
+                    if st.button("➕ Add to Checkout", key=f"add_{record['id']}", width='stretch'):
                         st.session_state.checkout_records.append(record)
                         st.success(f"Added {record.get('artist', '')} - {record.get('title', '')} to checkout")
                         st.rerun()
@@ -190,7 +190,7 @@ class CheckoutTab:
                     st.rerun()
         
         # Clear all button
-        if st.button("🗑️ Clear All", type="secondary", use_container_width=True):
+        if st.button("🗑️ Clear All", type="secondary", width='stretch'):
             st.session_state.checkout_records = []
             st.rerun()
     
@@ -258,7 +258,7 @@ class CheckoutTab:
                     st.write(f"Payout: ${summary['total_payout']:.2f}")
         
         # Single "Mark Paid" button
-        if st.button("💰 Mark Paid", type="primary", use_container_width=True):
+        if st.button("💰 Mark Paid", type="primary", width='stretch'):
             if is_demo:
                 st.success(f"✅ Demo: Would mark {len(record_ids)} items as paid")
                 st.info("💡 Demo: Email confirmation would be sent to consignor and check mailed.")

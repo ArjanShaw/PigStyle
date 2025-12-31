@@ -22,8 +22,15 @@ class EbayHandler:
     def _get_config_value(self, config_key):
         """Get config value from API and throw exception if not found"""
         try:
+            start_time = time.time()  # START TIMING
+            
             # Call API endpoint to get config value
             response = requests.get(f"{self.API_BASE_URL}/config/{config_key}")
+            
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Config {config_key} took {duration:.2f}s")
+
             
             if response.status_code == 200:
                 data = response.json()
@@ -48,6 +55,8 @@ class EbayHandler:
         if self.token and time.time() < self.token_expiry:
             return self.token
 
+        start_time = time.time()  # START TIMING
+        
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"}
 
@@ -57,6 +66,11 @@ class EbayHandler:
         self.token = token_data["access_token"]
         self.token_expiry = time.time() + token_data["expires_in"] - 60
         
+        duration = time.time() - start_time  # END TIMING
+        
+        print(f"eBay Auth Token took {duration:.2f}s")
+
+        
         return self.token
 
     def get_ebay_pricing(self, artist, title, discogs_condition=None, category_id="176985", exclude_foreign=True):
@@ -64,6 +78,8 @@ class EbayHandler:
         if not self.get_access_token():
             return None
 
+        start_time = time.time()  # START TIMING
+        
         headers = {"Authorization": f"Bearer {self.token}"}
         query = f"{artist} {title}".strip()
         
@@ -76,6 +92,10 @@ class EbayHandler:
         }
 
         resp = requests.get(self.EBAY_SEARCH_URL, headers=headers, params=params, timeout=15)
+        
+        duration = time.time() - start_time  # END TIMING
+        
+        print(f"eBay Search: {artist[:15]} - {title[:15]}... took {duration:.2f}s")
         
         # Handle API errors gracefully
         if resp.status_code != 200:
@@ -285,6 +305,8 @@ class EbayHandler:
         if not self.get_access_token():
             return None
 
+        start_time = time.time()  # START TIMING
+        
         headers = {"Authorization": f"Bearer {self.token}"}
         url = f"{self.EBAY_ITEM_URL}{item_id}"
 
@@ -292,6 +314,11 @@ class EbayHandler:
             resp = requests.get(url, headers=headers, timeout=10)
             resp.raise_for_status()
             item_data = resp.json()
+            
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"eBay Item Details ({item_id}) took {duration:.2f}s")
+
             
             return item_data
         except Exception as e:

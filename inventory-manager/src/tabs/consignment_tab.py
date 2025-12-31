@@ -37,7 +37,7 @@ class ConsignmentTab:
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    if st.button("📝 Generate New Contract", use_container_width=True, 
+                    if st.button("📝 Generate New Contract", width='stretch', 
                                help="Generate a new consignment agreement contract"):
                         if is_demo:
                             st.success("✅ Demo: Contract generated!")
@@ -49,7 +49,7 @@ class ConsignmentTab:
                             st.info("Go to Print Price Tags, select your records, and generate contract + receipt together.")
                 
                 with col2:
-                    if st.button("📋 View Receipt History", use_container_width=True,
+                    if st.button("📋 View Receipt History", width='stretch',
                                help="View past batch receipts and consignment records"):
                         if is_demo:
                             # Show demo receipt history
@@ -313,10 +313,10 @@ class ConsignmentTab:
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("🗑️ Remove from Consignment", type="primary", use_container_width=True):
+                    if st.button("🗑️ Remove from Consignment", type="primary", width='stretch'):
                         self._mark_as_removed(table_selected_records, is_demo)
                 with col2:
-                    if st.button("❌ Clear Selection", type="secondary", use_container_width=True):
+                    if st.button("❌ Clear Selection", type="secondary", width='stretch'):
                         st.session_state.selected_consignment_records = [
                             r for r in st.session_state.selected_consignment_records 
                             if r not in table_selected_records
@@ -501,10 +501,10 @@ class ConsignmentTab:
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("🗑️ Delete", type="primary", use_container_width=True):
+                if st.button("🗑️ Delete", type="primary", width='stretch'):
                     self._delete_selected_records(table_selected_records, is_demo)
             with col2:
-                if st.button("❌ Clear Selection", type="secondary", use_container_width=True):
+                if st.button("❌ Clear Selection", type="secondary", width='stretch'):
                     st.session_state.selected_consignment_records = [
                         r for r in st.session_state.selected_consignment_records 
                         if r not in table_selected_records
@@ -687,7 +687,7 @@ class ConsignmentTab:
                     st.write(f"**Credit Balance:** ${user.get('store_credit_balance', 0):.2f}")
                 
                 with col3:
-                    if st.button("✅ Process Payout", key=f"process_{user['id']}", use_container_width=True):
+                    if st.button("✅ Process Payout", key=f"process_{user['id']}", width='stretch'):
                         if self._process_payout(user['id']):
                             st.success(f"✅ Payout processed for {user.get('username')}")
                             st.info("💡 Email confirmation sent and check mailed to consignor.")

@@ -38,7 +38,11 @@ class InventoryTab:
             return True  # Simulate success
             
         try:
+            start_time = time.time()  # START TIMING
             response = requests.delete(f"{self.base_url}/records/{record_id}")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Delete Record ({record_id}) took {duration:.2f}s")            
             return response.status_code == 200
         except Exception as e:
             st.error(f"API Error deleting record: {e}")
@@ -47,7 +51,13 @@ class InventoryTab:
     def get_all_records(self):
         """Get all records via API - returns DataFrame"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/records?limit=1000")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get All Records took {duration:.2f}s")
+
+            
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])
@@ -61,7 +71,12 @@ class InventoryTab:
     def get_recent_records(self, limit=10):
         """Get recent records via API - returns DataFrame"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/records?limit={limit}&order_by=id&order=desc")
+            duration = time.time() - start_time  # END TIMING
+            
+            # Store timing for admin users
+            print(f"API Get Recent Records ({limit}) took {duration:.2f}s")            
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])
@@ -74,7 +89,12 @@ class InventoryTab:
     def get_record(self, record_id):
         """Get single record via API"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/records/{record_id}")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get Record ({record_id}) took {duration:.2f}s")
+            
             if response.status_code == 200:
                 return response.json()
             return None
@@ -92,10 +112,15 @@ class InventoryTab:
             return True  # Simulate success
             
         try:
+            start_time = time.time()  # START TIMING
             response = requests.put(
                 f"{self.base_url}/records/{record_id}",
                 json=updates
             )
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Update Record ({record_id}) took {duration:.2f}s")
+            
             return response.status_code == 200
         except Exception as e:
             st.error(f"API Error updating record: {e}")
@@ -104,6 +129,8 @@ class InventoryTab:
     def search_records(self, search_term):
         """Search records via API - ROBUST VERSION"""
         try:
+            start_time = time.time()  # START TIMING
+            
             # Clean search term
             search_term = search_term.strip()
             if not search_term:
@@ -111,6 +138,11 @@ class InventoryTab:
             
             # Try the API search endpoint first
             response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
+            
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Search: {search_term[:30]}... took {duration:.2f}s")
+
             
             if response.status_code == 200:
                 data = response.json()
@@ -172,7 +204,12 @@ class InventoryTab:
     def get_records_by_user(self, user_id):
         """Get records for specific user via API"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/records/user/{user_id}")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get User Records ({user_id}) took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -185,7 +222,12 @@ class InventoryTab:
     def get_config_value(self, config_key, default=None):
         """Get config value via API"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/config/{config_key}")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get Config ({config_key}) took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
                 return data.get('config_value', default)
@@ -197,7 +239,12 @@ class InventoryTab:
     def get_all_config(self):
         """Get all config values via API"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/config")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get All Config took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
                 return data.get('configs', {})
@@ -209,7 +256,12 @@ class InventoryTab:
     def get_all_genres(self):
         """Get all genres via API - returns DataFrame"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/genres")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get All Genres took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
                 genres = data.get('genres', [])
@@ -230,10 +282,14 @@ class InventoryTab:
             return True, 999  # Simulate success with fake ID
             
         try:
+            start_time = time.time()  # START TIMING
             response = requests.post(
                 f"{self.base_url}/genres",
                 json={'genre_name': genre_name}
             )
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Add Genre: {genre_name} took {duration:.2f}s")            
             if response.status_code == 200:
                 data = response.json()
                 return True, data.get('genre_id')
@@ -245,7 +301,12 @@ class InventoryTab:
     def get_discogs_genre_mapping(self, discogs_genre):
         """Get Discogs genre mapping via API"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/discogs-genre-mappings/{discogs_genre}")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get Genre Mapping: {discogs_genre} took {duration:.2f}s")
+            
             if response.status_code == 200:
                 return response.json()
             return {'mapping': None, 'status': 'error'}
@@ -256,7 +317,12 @@ class InventoryTab:
     def get_database_stats(self):
         """Get database statistics via API"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/stats")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get Database Stats took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
                 return {
@@ -274,7 +340,11 @@ class InventoryTab:
     def get_user(self, user_id):
         """Get user by ID"""
         try:
+            start_time = time.time()  # START TIMING
             response = requests.get(f"{self.base_url}/users/{user_id}")
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Get User ({user_id}) took {duration:.2f}s")            
             if response.status_code == 200:
                 return response.json()
             return None
@@ -770,7 +840,7 @@ class InventoryTab:
             
             add_button_key = f"add_{record_key}"
             if add_enabled:
-                if st.button("➕ Add", key=add_button_key, type="primary", use_container_width=True):
+                if st.button("➕ Add", key=add_button_key, type="primary", width='stretch'):
                     # Prepare record data for adding
                     record_to_add = stored_data['record_data'].copy()
                     record_to_add['selected_condition'] = stored_data['selected_condition']
@@ -810,7 +880,7 @@ class InventoryTab:
                     else:
                         st.error("Failed to add record to database")
             else:
-                st.button("➕ Add", key=f"add_disabled_{record_key}", disabled=True, use_container_width=True)
+                st.button("➕ Add", key=f"add_disabled_{record_key}", disabled=True, width='stretch')
         
         st.divider()
         
@@ -998,6 +1068,8 @@ class InventoryTab:
                 record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
                 record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
             
+            start_time = time.time()  # START TIMING
+            
             # Call API to create record
             response = requests.post(
                 f"{self.base_url}/records",
@@ -1005,6 +1077,10 @@ class InventoryTab:
                 timeout=10
             )
             
+            duration = time.time() - start_time  # END TIMING
+            
+            print(f"API Add Record: {artist[:15]} - {title[:15]}... took {duration:.2f}s")
+
             if response.status_code == 200:
                 response_data = response.json()
                 if response_data.get('status') == 'success':

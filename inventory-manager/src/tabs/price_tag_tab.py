@@ -129,7 +129,7 @@ class PriceTagTab:
                     # Generate Contract button
                     if st.button("📝 Generate Consignment Contract", 
                                 help="Generate downloadable contract for selected consignor",
-                                use_container_width=True):
+                                width='stretch'):
                         self._generate_consignment_contract(selected_user_data)
                 
                 with col2:
@@ -298,7 +298,7 @@ class PriceTagTab:
                 )
             
             # Print button with enhanced functionality
-            if st.button("🖨️ PRINT PRICE TAGS & GENERATE RECEIPT", type="primary", use_container_width=True):
+            if st.button("🖨️ PRINT PRICE TAGS & GENERATE RECEIPT", type="primary", width='stretch'):
                 # Get store credit option from UI or default
                 store_credit = store_credit_option if selected_user_id else False
                 
@@ -361,7 +361,7 @@ class PriceTagTab:
             data=pdf_data,
             file_name=filename,
             mime="application/pdf",
-            use_container_width=True
+            width='stretch'
         )
     
     def _print_tags_with_receipt(self, record_ids, user_id, user_data, store_credit_option):
@@ -489,7 +489,7 @@ class PriceTagTab:
                 data=pdf_tags_data,
                 file_name=tags_filename,
                 mime="application/pdf",
-                use_container_width=True,
+                width='stretch',
                 key=f"download_tags_{datetime.now().strftime('%H%M%S')}"
             )
         
@@ -502,7 +502,7 @@ class PriceTagTab:
                     data=receipt_pdf,
                     file_name=receipt_filename,
                     mime="application/pdf",
-                    use_container_width=True,
+                    width='stretch',
                     key=f"download_receipt_{datetime.now().strftime('%H%M%S')}"
                 )
             
@@ -523,7 +523,7 @@ class PriceTagTab:
                     data=contract_pdf,
                     file_name=contract_filename,
                     mime="application/pdf",
-                    use_container_width=True,
+                    width='stretch',
                     key=f"download_contract_{datetime.now().strftime('%H%M%S')}"
                 )
         

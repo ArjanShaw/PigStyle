@@ -98,7 +98,7 @@ class StatisticsTab:
                     return pd.DataFrame(records) if isinstance(records, list) else pd.DataFrame()
             
             # Fallback to API
-            url = f"{self.base_url}/records?limit=1000"
+            url = f"{self.base_url}/records"
             response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()

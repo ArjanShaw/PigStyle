@@ -64,7 +64,7 @@ class InventoryTab:
             
             # Fallback: direct API call
             start_time = time.time()
-            response = requests.get(f"{self.base_url}/records?limit=1000")
+            response = requests.get(f"{self.base_url}/records")
             duration = time.time() - start_time
             
             print(f"API Get All Records took {duration:.2f}s")
@@ -311,6 +311,7 @@ class InventoryTab:
                 records = st.session_state.records_cache
                 if isinstance(records, list):
                     return len(records)
+                
             return 0
         except Exception as e:
             print(f"Error getting records count: {e}")

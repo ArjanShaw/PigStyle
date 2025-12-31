@@ -42,6 +42,172 @@ IMAGE_FOLDER.mkdir(parents=True, exist_ok=True)
 PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
 
+class ConfigCache:
+    """Centralized config cache management"""
+    _instance = None
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = ConfigCache()
+        return cls._instance
+    
+    def __init__(self):
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self._cache = None
+        self._last_load_time = 0
+        self._cache_ttl = 300  # 5 minutes cache TTL
+    
+    def load_all_configs(self, force_reload=False):
+        """Load all config values in a single API call"""
+        current_time = time.time()
+        
+        # Check if cache is still valid
+        if (not force_reload and 
+            self._cache is not None and 
+            (current_time - self._last_load_time) < self._cache_ttl):
+            return self._cache
+        
+        try:
+            start_time = time.time()
+            response = requests.get(f"{self.base_url}/config", timeout=5)
+            duration = time.time() - start_time
+            
+            print(f"ConfigCache: Loaded all configs in {duration:.2f}s")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    configs = data.get('configs', {})
+                    
+                    # Flatten config structure
+                    flat_configs = {}
+                    for key, config_info in configs.items():
+                        if isinstance(config_info, dict):
+                            flat_configs[key] = config_info.get('value', '')
+                        else:
+                            flat_configs[key] = config_info
+                    
+                    self._cache = flat_configs
+                    self._last_load_time = current_time
+                    
+                    # Store in session state for backward compatibility
+                    if 'config_cache' not in st.session_state:
+                        st.session_state.config_cache = {}
+                    st.session_state.config_cache = flat_configs.copy()
+                    
+                    return self._cache
+            else:
+                print(f"ConfigCache: Failed to load configs, status {response.status_code}")
+                return {}
+        except Exception as e:
+            print(f"ConfigCache: Error loading configs: {e}")
+            return {}
+    
+    def get(self, key, default=None):
+        """Get a config value from cache"""
+        if self._cache is None:
+            self.load_all_configs()
+        
+        return self._cache.get(key, default) if self._cache else default
+    
+    def clear(self):
+        """Clear the cache"""
+        self._cache = None
+        self._last_load_time = 0
+        if 'config_cache' in st.session_state:
+            del st.session_state.config_cache
+
+
+class GenreCache:
+    """Centralized genre cache management"""
+    _instance = None
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = GenreCache()
+        return cls._instance
+    
+    def __init__(self):
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self._cache = None
+        self._last_load_time = 0
+        self._cache_ttl = 300  # 5 minutes cache TTL
+    
+    def load_all_genres(self, force_reload=False):
+        """Load all genres in a single API call"""
+        current_time = time.time()
+        
+        # Check if cache is still valid
+        if (not force_reload and 
+            self._cache is not None and 
+            (current_time - self._last_load_time) < self._cache_ttl):
+            return self._cache
+        
+        try:
+            start_time = time.time()
+            response = requests.get(f"{self.base_url}/genres", timeout=5)
+            duration = time.time() - start_time
+            
+            print(f"GenreCache: Loaded all genres in {duration:.2f}s")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    genres = data.get('genres', [])
+                    
+                    # Create a list of genre names for easy access
+                    genre_list = []
+                    for genre in genres:
+                        if isinstance(genre, dict):
+                            genre_list.append(genre.get('genre_name', ''))
+                        else:
+                            genre_list.append(genre)
+                    
+                    self._cache = {
+                        'genres_list': genre_list,
+                        'genres_data': genres,
+                        'raw_response': data
+                    }
+                    self._last_load_time = current_time
+                    
+                    # Store in session state for backward compatibility
+                    if 'genre_cache' not in st.session_state:
+                        st.session_state.genre_cache = {}
+                    st.session_state.genre_cache = self._cache.copy()
+                    
+                    return self._cache
+            else:
+                print(f"GenreCache: Failed to load genres, status {response.status_code}")
+                return {'genres_list': [], 'genres_data': [], 'raw_response': {}}
+        except Exception as e:
+            print(f"GenreCache: Error loading genres: {e}")
+            return {'genres_list': [], 'genres_data': [], 'raw_response': {}}
+    
+    def get_genres_list(self, force_reload=False):
+        """Get list of genre names from cache"""
+        cache_data = self.load_all_genres(force_reload)
+        return cache_data.get('genres_list', []) if cache_data else []
+    
+    def get_genres_data(self, force_reload=False):
+        """Get full genres data from cache"""
+        cache_data = self.load_all_genres(force_reload)
+        return cache_data.get('genres_data', []) if cache_data else []
+    
+    def clear(self):
+        """Clear the cache"""
+        self._cache = None
+        self._last_load_time = 0
+        if 'genre_cache' in st.session_state:
+            del st.session_state.genre_cache
+    
+    def refresh(self):
+        """Force refresh the cache"""
+        self.clear()
+        return self.load_all_genres(force_reload=True)
+
+
 def main():
     """Main application entry point"""
     # Initialize session state for authentication
@@ -152,6 +318,18 @@ def render_main_app():
     if "config" not in st.session_state:
         st.session_state.config = config
     
+    # Initialize config cache singleton
+    config_cache = ConfigCache.get_instance()
+    
+    # Pre-load all configs on app startup
+    config_cache.load_all_configs()
+    
+    # Initialize genre cache singleton
+    genre_cache = GenreCache.get_instance()
+    
+    # Pre-load all genres on app startup
+    genre_cache.load_all_genres()
+    
     # Initialize new services
     if "email_service" not in st.session_state:
         # Create a simple API client for email service
@@ -182,16 +360,11 @@ def render_main_app():
         class SimpleAPIClient2:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                self.config_cache = config_cache
             
             def get_config_value(self, key, default=None):
-                try:
-                    response = requests.get(f"{self.base_url}/config/{key}")
-                    if response.status_code == 200:
-                        data = response.json()
-                        return data.get('config_value', default)
-                    return default
-                except:
-                    return default
+                # Use the centralized config cache
+                return self.config_cache.get(key, default)
             
             def get_all_records(self):
                 try:
@@ -215,8 +388,30 @@ def render_main_app():
         st.session_state.commission_calculator = CommissionCalculator(SimpleAPIClient2())
     
     if "pricing_validator" not in st.session_state:
+        # Create API client for pricing validator
+        class SimpleAPIClient3:
+            def __init__(self):
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                self.config_cache = config_cache
+                self.genre_cache = genre_cache
+            
+            def get_config_value(self, key, default=None):
+                # Use the centralized config cache
+                return self.config_cache.get(key, default)
+                
+            def search_records(self, query):
+                try:
+                    response = requests.get(f"{self.base_url}/search?q={query}", timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('status') == 'success':
+                            return data.get('records', [])
+                    return []
+                except:
+                    return []
+        
         st.session_state.pricing_validator = PricingValidator(
-            None,  # Will be set if needed
+            SimpleAPIClient3(),  # Now uses config cache
             None,  # Will be set if discogs_handler exists
             None   # Will be set if ebay_handler exists
         )
@@ -227,16 +422,11 @@ def render_main_app():
         class SimpleAPIClientForContract:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                self.config_cache = config_cache
             
             def get_config_value(self, key, default=None):
-                try:
-                    response = requests.get(f"{self.base_url}/config/{key}")
-                    if response.status_code == 200:
-                        data = response.json()
-                        return data.get('config_value', default)
-                    return default
-                except:
-                    return default
+                # Use the centralized config cache
+                return self.config_cache.get(key, default)
         
         st.session_state.contract_handler = ContractHandler(SimpleAPIClientForContract())
 
@@ -271,12 +461,104 @@ def render_main_app():
         youtube_handler = YouTubeHandler(YOUTUBE_API_KEY)
     else:
         st.warning("YouTube API key not found. YouTube integration will be disabled.")
- 
-    inventory_tab = InventoryTab(discogs_handler, ebay_handler, youtube_handler)
+    
+    # Create a proper API client for InventoryTab that uses both caches
+    class InventoryTabAPIClient:
+        def __init__(self, config_cache, genre_cache):
+            self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+            self.config_cache = config_cache
+            self.genre_cache = genre_cache
+        
+        # FIX: Add string representation methods to fix URL errors
+        def __str__(self):
+            return self.base_url
+        
+        def __repr__(self):
+            return f"InventoryTabAPIClient(base_url='{self.base_url}')"
+        
+        def get_config_value(self, key, default=None):
+            """Get config value from cache"""
+            if self.config_cache:
+                return self.config_cache.get(key, default)
+            return default
+        
+        def get_all_genres(self):
+            """Get all genres from cache"""
+            if self.genre_cache:
+                return self.genre_cache.get_genres_list()
+            return []
+        
+        def add_genre(self, genre_name):
+            """Add new genre via API"""
+            try:
+                response = requests.post(
+                    f"{self.base_url}/genres",
+                    json={'genre_name': genre_name}
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    # Refresh the genre cache after adding new genre
+                    if self.genre_cache:
+                        self.genre_cache.refresh()
+                    return True, data.get('genre_id')
+                return False, None
+            except Exception as e:
+                st.error(f"API Error adding genre: {e}")
+                return False, None
+        
+        def get_discogs_genre_mapping(self, discogs_genre):
+            """Get Discogs genre mapping via API"""
+            try:
+                response = requests.get(f"{self.base_url}/discogs-genre-mappings/{discogs_genre}")
+                if response.status_code == 200:
+                    return response.json()
+                return {'mapping': None, 'status': 'error'}
+            except Exception as e:
+                st.error(f"API Error getting genre mapping: {e}")
+                return {'mapping': None, 'status': 'error'}
+        
+        # Add other API methods that InventoryTab needs...
+        def get_user(self, user_id):
+            """Get user by ID via API"""
+            try:
+                response = requests.get(f"{self.base_url}/users/{user_id}")
+                if response.status_code == 200:
+                    return response.json()
+                return None
+            except Exception as e:
+                st.error(f"API Error getting user: {e}")
+                return None
+        
+        def search_records(self, query):
+            """Search records via API"""
+            try:
+                response = requests.get(f"{self.base_url}/search?q={query}", timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('status') == 'success':
+                        return data.get('records', [])
+                return []
+            except Exception as e:
+                st.error(f"API Error searching records: {e}")
+                return []
+    
+    # Pass the proper API client to InventoryTab
+    inventory_api_client = InventoryTabAPIClient(config_cache, genre_cache)
+    
+    # Initialize InventoryTab with the proper API client structure
+    inventory_tab = InventoryTab(
+        discogs_handler, 
+        ebay_handler, 
+        youtube_handler, 
+        config_cache, 
+        genre_cache,
+        inventory_api_client  # Pass the proper API client
+    )
+    
     statistics_tab = StatisticsTab()
     ebay_tab = EBayTab(ebay_handler)
     consignment_tab = ConsignmentTab()
-    price_tag_tab = PriceTagTab()
+    price_tag_tab = PriceTagTab(genre_cache)
     admin_config_tab = AdminConfigTab()
     votes_tab = VotesTab()
     checkout_tab = CheckoutTab()

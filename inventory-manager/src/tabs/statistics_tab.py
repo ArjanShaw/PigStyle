@@ -7,7 +7,11 @@ import requests
 
 class StatisticsTab:
     def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
-        self.base_url = base_url
+        # FIX: Ensure base_url is a string, not an object
+        if hasattr(base_url, '__str__'):
+            self.base_url = str(base_url)
+        else:
+            self.base_url = base_url
     
     def render(self):
         st.header("📊 Statistics")
@@ -25,7 +29,9 @@ class StatisticsTab:
     def _get_database_stats(self):
         """Get database statistics via API"""
         try:
-            response = requests.get(f"{self.base_url}/stats")
+            # FIX: Ensure we use string URL
+            url = f"{self.base_url}/stats"
+            response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()
                 return {
@@ -43,7 +49,9 @@ class StatisticsTab:
     def _get_vote_statistics(self):
         """Get vote statistics via API"""
         try:
-            response = requests.get(f"{self.base_url}/votes/statistics")
+            # FIX: Ensure we use string URL
+            url = f"{self.base_url}/votes/statistics"
+            response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -56,7 +64,9 @@ class StatisticsTab:
     def _get_all_records(self):
         """Get all records via API"""
         try:
-            response = requests.get(f"{self.base_url}/records?limit=1000")
+            # FIX: Ensure we use string URL
+            url = f"{self.base_url}/records?limit=1000"
+            response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])

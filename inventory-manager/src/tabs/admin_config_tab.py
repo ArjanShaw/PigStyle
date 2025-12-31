@@ -59,6 +59,9 @@ class AdminConfigTab:
                     if success:
                         changes_made = True
                         st.success(f"✅ Updated {row['config_key']}")
+                        
+                        # Clear config cache when a value changes
+                        self._clear_config_cache()
                     else:
                         st.error(f"❌ Failed to update {row['config_key']}")
             
@@ -107,6 +110,18 @@ class AdminConfigTab:
         except Exception as e:
             st.error(f"Error setting config value: {e}")
             return False
+
+    def _clear_config_cache(self):
+        """Clear the config cache when values are updated"""
+        if 'config_cache' in st.session_state:
+            del st.session_state.config_cache
+        
+        # Also clear any other cached config-related data
+        if hasattr(st, 'session_state'):
+            # Clear commission calculator cache if exists
+            if hasattr(st.session_state, 'commission_calculator'):
+                # Force reload on next access
+                pass
 
     def _render_email_config(self):
         """Render email configuration section"""

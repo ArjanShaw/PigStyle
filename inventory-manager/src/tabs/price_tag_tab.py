@@ -11,18 +11,19 @@ from pathlib import Path
 import requests
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import mm
+from reportlab.lib.units import mm, inch
 import barcode
 from barcode.writer import ImageWriter
 import io
-from handlers.contract_handler import ContractHandler  # ADDED
+from handlers.contract_handler import ContractHandler
 
 class PriceTagTab:
-    def __init__(self):
+    def __init__(self, genre_cache=None):
         # Initialize config values - will throw errors if config file doesn't exist or values are missing
         self._validate_configuration()
         self.api_base_url = "https://arjanshaw.pythonanywhere.com"
-        self.contract_handler = None  # Will be initialized when needed
+        self.contract_handler = None
+        self.genre_cache = genre_cache  # Store genre cache reference
     
     def _validate_configuration(self):
         """Validate that all required configuration values exist"""
@@ -87,7 +88,7 @@ class PriceTagTab:
             with st.expander("⚙️ Price Tag Design", expanded=False):
                 self._render_price_tag_design_configuration()
         
-        # Get all users for selection
+        # Get all users for selection - USE CACHED DATA IF AVAILABLE
         users = self._get_all_users()
         
         st.subheader("🔍 Select Records for Printing")
@@ -128,19 +129,31 @@ class PriceTagTab:
                 with col1:
                     # Generate Contract button
                     if st.button("📝 Generate Consignment Contract", 
-                                help="Generate downloadable contract for selected consignor",
-                                width='stretch'):
-                        self._generate_consignment_contract(selected_user_data)
+                                help="Generate a new consignment agreement contract"):
+                        if is_demo:
+                            st.success("✅ Demo: Contract generated!")
+                            st.info("💡 In real mode, this would generate a downloadable PDF contract with your terms.")
+                            st.info("Contract includes: 180-day term, commission rates, pricing rules, and liability terms.")
+                        else:
+                            # In real mode, this would generate contract
+                            st.info("Contract generation is available when printing price tags in the '🏷️ Print Price Tags' tab.")
+                            st.info("Go to Print Price Tags, select your records, and generate contract + receipt together.")
                 
                 with col2:
-                    # Store credit option toggle
-                    store_credit_option = st.checkbox(
-                        "Store Credit Bonus (+20%)",
-                        value=False,
-                        help="Consignor chooses store credit payout (20% commission bonus)"
-                    )
-                
-                st.info("💡 Contract will be generated when printing price tags")
+                    if st.button("📋 View Receipt History", width='stretch',
+                               help="View past batch receipts and consignment records"):
+                        if is_demo:
+                            # Show demo receipt history
+                            with st.expander("📋 Demo Receipt History", expanded=True):
+                                st.write("**Sample Receipts:**")
+                                demo_receipts = [
+                                    {"Date": "2024-01-15", "Receipt #": "PS20240115001", "Items": 5, "Value": "$174.95", "Status": "Active"},
+                                    {"Date": "2023-12-10", "Receipt #": "PS20231210003", "Items": 3, "Value": "$89.97", "Status": "Paid"},
+                                    {"Date": "2023-11-05", "Receipt #": "PS20231105002", "Items": 2, "Value": "$49.98", "Status": "Expired"}
+                                ]
+                                st.dataframe(pd.DataFrame(demo_receipts), hide_index=True)
+                        else:
+                            st.info("Receipt history would show your past consignment batches")
         
         # Get records for the selected user (or all records)
         # ONLY get records with status_id = 1 (new records)

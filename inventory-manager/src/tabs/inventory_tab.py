@@ -1,4 +1,3 @@
-# FILE: inventory-manager/src/tabs/inventory_tab.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -10,16 +9,19 @@ import re
 import math
 import requests
 from datetime import datetime as dt
+import os
 
 class InventoryTab:
-    def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None, base_url="https://arjanshaw.pythonanywhere.com"):
+    def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None, config_cache=None, genre_cache=None, base_url="https://arjanshaw.pythonanywhere.com"):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
         self.youtube_handler = youtube_handler
         self.base_url = base_url
+        self.config_cache = config_cache  # Store config cache reference
+        self.genre_cache = genre_cache  # Store genre cache reference
         
         # Update handlers to use API client (self)
-        self.search_handler = SearchHandler(discogs_handler)
+        self.search_handler = SearchHandler(discogs_handler, self.base_url)
         self.commission_calculator = CommissionCalculator(self)
         self.pricing_validator = PricingValidator(self, discogs_handler, ebay_handler)
         
@@ -220,21 +222,10 @@ class InventoryTab:
             return []
     
     def get_config_value(self, config_key, default=None):
-        """Get config value via API"""
-        try:
-            start_time = time.time()  # START TIMING
-            response = requests.get(f"{self.base_url}/config/{config_key}")
-            duration = time.time() - start_time  # END TIMING
-            
-            print(f"API Get Config ({config_key}) took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('config_value', default)
-            return default
-        except Exception as e:
-            st.error(f"API Error getting config: {e}")
-            return default
+        """Get config value from cache - NO API CALL"""
+        if self.config_cache:
+            return self.config_cache.get(config_key, default)
+        return default
     
     def get_all_config(self):
         """Get all config values via API"""
@@ -254,23 +245,10 @@ class InventoryTab:
             return {}
     
     def get_all_genres(self):
-        """Get all genres via API - returns DataFrame"""
-        try:
-            start_time = time.time()  # START TIMING
-            response = requests.get(f"{self.base_url}/genres")
-            duration = time.time() - start_time  # END TIMING
-            
-            print(f"API Get All Genres took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                genres = data.get('genres', [])
-                # Convert to DataFrame for compatibility
-                return pd.DataFrame(genres) if genres else pd.DataFrame()
-            return pd.DataFrame()
-        except Exception as e:
-            st.error(f"API Error getting genres: {e}")
-            return pd.DataFrame()
+        """Get all genres via cache - NO API CALL"""
+        if self.genre_cache:
+            return self.genre_cache.get_genres_list()
+        return []
     
     def add_genre(self, genre_name):
         """Add new genre via API"""
@@ -289,9 +267,13 @@ class InventoryTab:
             )
             duration = time.time() - start_time  # END TIMING
             
-            print(f"API Add Genre: {genre_name} took {duration:.2f}s")            
+            print(f"API Add Genre: {genre_name} took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
+                # Refresh the genre cache after adding new genre
+                if self.genre_cache:
+                    self.genre_cache.refresh()
                 return True, data.get('genre_id')
             return False, None
         except Exception as e:
@@ -332,10 +314,10 @@ class InventoryTab:
                     'latest_record': data.get('latest_record'),
                     'db_path': data.get('db_path', 'API-based')
                 }
-            return {'records_count': 0, 'db_path': 'API-based'}
+            return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
         except Exception as e:
             st.error(f"API Error getting stats: {e}")
-            return {'records_count': 0, 'db_path': 'API-based'}
+            return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
     
     def get_user(self, user_id):
         """Get user by ID"""
@@ -355,7 +337,7 @@ class InventoryTab:
     # Main InventoryTab methods
     
     def _get_config_value(self, config_key):
-        """Get config value using API client"""
+        """Get config value using config cache"""
         value = self.get_config_value(config_key, None)
         if value is not None:
             if config_key == 'STORE_CAPACITY':
@@ -660,10 +642,8 @@ class InventoryTab:
             else:
                 st.write("*No additional info*")
             
-            # Genre selection
-            all_genres = self._get_all_genres()
-            if not isinstance(all_genres, list):
-                all_genres = []
+            # Genre selection - USE CACHED GENRES
+            all_genres = self.get_all_genres()  # This now uses cache
             
             # Get suggested genre
             suggested_genre = self._get_suggested_genre(stored_data['record_data'])
@@ -786,7 +766,7 @@ class InventoryTab:
                 # Get advised price from research
                 advised_price = stored_data.get('advised_price')
                 
-                # Get max ratio from config
+                # Get max ratio from config cache
                 max_ratio_value = self.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3')
                 max_ratio = float(max_ratio_value) if max_ratio_value else 1.3
                 
@@ -991,22 +971,24 @@ class InventoryTab:
         # Get discogs_genre for mapping
         discogs_genre = record_data.get('discogs_genre', '')
         
-        # Get genre_id for the genre using API
+        # Get genre_id for the genre using cache
         genre_id = None
-        if genre:
-            genres_df = self.get_all_genres()
-            if not genres_df.empty:
-                genre_rows = genres_df[genres_df['genre_name'] == genre]
-                if not genre_rows.empty:
-                    genre_id = int(genre_rows.iloc[0]['id'])
-                else:
-                    # Create new genre using API
-                    success, new_genre_id = self.add_genre(genre)
-                    if success:
-                        genre_id = int(new_genre_id)
-                    else:
-                        st.error(f"Failed to create new genre: {genre}")
-                        return False, None
+        if genre and self.genre_cache:
+            genre_data = self.genre_cache.get_genres_data()
+            if genre_data:
+                for genre_item in genre_data:
+                    if genre_item.get('genre_name') == genre:
+                        genre_id = genre_item.get('id')
+                        break
+        
+        # If genre not found in cache, create it via API
+        if genre and not genre_id:
+            success, new_genre_id = self.add_genre(genre)
+            if success:
+                genre_id = int(new_genre_id)
+            else:
+                st.error(f"Failed to create new genre: {genre}")
+                return False, None
         
         # Store pricing data in record_data for display
         if pricing_data:
@@ -1156,7 +1138,7 @@ class InventoryTab:
     def _calculate_store_price(self, discogs_suggested_price):
         """CONSOLIDATED: Calculate store price using configurable parameters"""
         try:
-            # Get current configuration
+            # Get current configuration from cache
             estimated_multiplier = self.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '2.0')
             minimum_price = self.get_config_value('STORE_PRICE_MINIMUM', '5.0')
             
@@ -1478,10 +1460,9 @@ class InventoryTab:
             artist = st.text_input("Artist", value=record.get('artist', ''), key=f"artist_edit_{index}", disabled=not can_edit)
             title = st.text_input("Title", value=record.get('title', ''), key=f"title_edit_{index}", disabled=not can_edit)
             
-            all_genres = self._get_all_genres()
-            if not isinstance(all_genres, list):
-                all_genres = []
-                
+            # USE CACHED GENRES
+            all_genres = self.get_all_genres()
+            
             current_genre = record.get('genre', '')
             genre_index = all_genres.index(current_genre) + 1 if current_genre in all_genres else 0
             genre = st.selectbox("Genre", options=[""] + all_genres, index=genre_index, key=f"genre_edit_{index}", disabled=not can_edit)
@@ -1558,16 +1539,24 @@ class InventoryTab:
         if 'genre' in updates:
             genre = updates.pop('genre')
             if genre:
-                genres_df = self.get_all_genres()
-                if not genres_df.empty:
-                    genre_rows = genres_df[genres_df['genre_name'] == genre]
-                    if not genre_rows.empty:
-                        updates['genre_id'] = genre_rows.iloc[0]['id']
-                    else:
-                        # Add new genre using API
-                        success, new_genre_id = self.add_genre(genre)
-                        if success:
-                            updates['genre_id'] = new_genre_id
+                # Try to get genre_id from cache first
+                genre_id = None
+                if self.genre_cache:
+                    genre_data = self.genre_cache.get_genres_data()
+                    if genre_data:
+                        for genre_item in genre_data:
+                            if genre_item.get('genre_name') == genre:
+                                genre_id = genre_item.get('id')
+                                break
+                
+                # If not found in cache, try to add it
+                if not genre_id:
+                    success, new_genre_id = self.add_genre(genre)
+                    if success:
+                        genre_id = new_genre_id
+                
+                if genre_id:
+                    updates['genre_id'] = genre_id
         
         success = self.update_record(original_record['id'], updates)
         if success:
@@ -1687,20 +1676,10 @@ class InventoryTab:
             return []
 
     def _get_all_genres(self):
-        """Get all genres from API"""
-        try:
-            genres_df = self.get_all_genres()
-            if genres_df.empty:
-                return []
-            
-            # Ensure we have a list of genre names
-            if 'genre_name' in genres_df.columns:
-                return genres_df['genre_name'].tolist()
-            else:
-                return []
-        except Exception as e:
-            st.error(f"Error getting genres: {e}")
-            return []
+        """Get all genres from cache - NO API CALL"""
+        if self.genre_cache:
+            return self.genre_cache.get_genres_list()
+        return []
 
     def _get_suggested_genre(self, record_data):
         """Get suggested genre from mapping via API"""

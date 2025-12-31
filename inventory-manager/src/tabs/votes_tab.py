@@ -4,7 +4,11 @@ import requests
 
 class VotesTab:
     def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
-        self.base_url = base_url
+        # FIX: Ensure base_url is a string, not an object
+        if hasattr(base_url, '__str__'):
+            self.base_url = str(base_url)
+        else:
+            self.base_url = base_url
     
     def render(self):
         st.header("🗳️ All Votes")
@@ -61,7 +65,9 @@ class VotesTab:
     
     def _make_request(self, method, endpoint, **kwargs):
         """Make API request with error handling"""
-        url = f"{self.base_url}{endpoint}"
+        # FIX: Ensure base_url is a string
+        base_url_str = str(self.base_url) if hasattr(self.base_url, '__str__') else self.base_url
+        url = f"{base_url_str}{endpoint}"
         
         try:
             response = requests.request(method, url, **kwargs)

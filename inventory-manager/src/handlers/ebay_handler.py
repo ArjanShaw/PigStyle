@@ -20,36 +20,18 @@ class EbayHandler:
         self.token_expiry = 0
 
     def _get_config_value(self, config_key):
-        """Get config value from API and throw exception if not found"""
-        try:
-            start_time = time.time()  # START TIMING
+        """Get config value from config cache - NO API CALL"""
+        if hasattr(st.session_state, 'config_cache'):
+            value = st.session_state.config_cache.get(config_key)
+            if value is None:
+                raise ValueError(f"Configuration key '{config_key}' not found in cache")
             
-            # Call API endpoint to get config value
-            response = requests.get(f"{self.API_BASE_URL}/config/{config_key}")
-            
-            duration = time.time() - start_time  # END TIMING
-            
-            print(f"API Config {config_key} took {duration:.2f}s")
-
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    value = data.get('config_value')
-                    if value is None:
-                        raise ValueError(f"Configuration key '{config_key}' not found in app_config table")
-                    
-                    try:
-                        return float(value)
-                    except ValueError:
-                        raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
-                else:
-                    raise ValueError(f"API error: {data.get('error', 'Unknown error')}")
-            else:
-                raise ValueError(f"API request failed with status {response.status_code}")
-                
-        except requests.RequestException as e:
-            raise ValueError(f"Failed to connect to API: {str(e)}")
+            try:
+                return float(value)
+            except ValueError:
+                raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
+        else:
+            raise ValueError("Config cache not initialized")
 
     def get_access_token(self):
         if self.token and time.time() < self.token_expiry:
@@ -109,7 +91,7 @@ class EbayHandler:
         # Group listings by detected Discogs condition
         condition_groups = {}
         
-        # Get shipping cost from config for CALC items
+        # Get shipping cost from config cache
         shipping_cost = self._get_config_value('SHIPPING_COST')
         
         for item in items:

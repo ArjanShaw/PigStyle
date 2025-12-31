@@ -7,7 +7,6 @@ import requests
 
 class StatisticsTab:
     def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
-        # FIX: Ensure base_url is a string, not an object
         if hasattr(base_url, '__str__'):
             self.base_url = str(base_url)
         else:
@@ -19,7 +18,6 @@ class StatisticsTab:
         user = st.session_state.get('user', {})
         user_role = user.get('role')
         
-        # Only admin can view statistics
         if user_role != 'admin':
             st.error("❌ Access denied. Administrator privileges required to view statistics.")
             return
@@ -29,7 +27,6 @@ class StatisticsTab:
     def _get_database_stats(self):
         """Get database statistics via API"""
         try:
-            # FIX: Ensure we use string URL
             url = f"{self.base_url}/stats"
             response = requests.get(url)
             if response.status_code == 200:
@@ -49,7 +46,6 @@ class StatisticsTab:
     def _get_vote_statistics(self):
         """Get vote statistics via API"""
         try:
-            # FIX: Ensure we use string URL
             url = f"{self.base_url}/votes/statistics"
             response = requests.get(url)
             if response.status_code == 200:
@@ -62,9 +58,15 @@ class StatisticsTab:
             return pd.DataFrame()
     
     def _get_all_records(self):
-        """Get all records via API"""
+        """Get all records from cache or API"""
         try:
-            # FIX: Ensure we use string URL
+            # Try to get from cache first
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                if records:
+                    return pd.DataFrame(records)
+            
+            # Fallback to API
             url = f"{self.base_url}/records?limit=1000"
             response = requests.get(url)
             if response.status_code == 200:
@@ -77,10 +79,8 @@ class StatisticsTab:
             return pd.DataFrame()
     
     def _render_combined_stats(self):
-        # Get database stats
         stats = self._get_database_stats()
         
-        # Display metrics in columns
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Records", stats['records_count'])
@@ -93,7 +93,6 @@ class StatisticsTab:
         with col3:
             st.metric("Users", stats['users_count'])
         
-        # Get vote statistics
         vote_stats = self._get_vote_statistics()
         
         if not vote_stats.empty:
@@ -113,7 +112,6 @@ class StatisticsTab:
                     record = most_voted.iloc[0]
                     st.metric("Most Voted", f"{record['total_votes']} votes")
             
-            # Top 5 most voted records
             st.write("**🏆 Top 5 Most Voted Records**")
             top_records = vote_stats.sort_values('total_votes', ascending=False).head(5)
             
@@ -127,15 +125,12 @@ class StatisticsTab:
                     with col3:
                         st.metric("📊 Total", record['total_votes'])
         
-        # Genre statistics
         st.subheader("🎵 Genre Distribution")
         self._render_genre_chart()
         
-        # Price statistics
         st.subheader("💰 Price Statistics")
         self._render_price_comparison_chart()
         
-        # All votes table
         if not vote_stats.empty:
             st.subheader("📋 All Votes Summary")
             
@@ -197,7 +192,6 @@ class StatisticsTab:
             st.info("No price data available for comparison charts. Update prices using the Pricing section.")
             return
         
-        # Get price columns that actually exist in the database
         available_price_columns = []
         for col in ['ebay_sell_at', 'store_price']:
             if col in records_df.columns:
@@ -207,7 +201,6 @@ class StatisticsTab:
             st.info("No price columns found in database.")
             return
         
-        # Filter records with valid prices
         filter_conditions = []
         for col in available_price_columns:
             filter_conditions.append(f"(records_df['{col}'].notna() & (records_df['{col}'] > 0))")
@@ -248,7 +241,6 @@ class StatisticsTab:
                 
                 st.plotly_chart(fig, width='stretch')
                 
-                # Display metrics
                 cols = st.columns(len(avg_prices))
                 for i, (price_type, price_value) in enumerate(avg_prices.items()):
                     with cols[i]:

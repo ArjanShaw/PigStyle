@@ -44,7 +44,7 @@ class PriceTagTab:
                 st.session_state[key] = config.get(key)
                 
         except Exception as e:
-            st.error(f"Configuration error: {e}")
+            st.error(f"Configuration error 3: {e}")
             st.stop()
     
     def _save_page_layout_config(self, key, value):

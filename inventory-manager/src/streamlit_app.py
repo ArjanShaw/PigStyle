@@ -8,7 +8,7 @@ import requests
 import json
 import numpy as np
 from typing import Optional, Dict, Any, List
-import time  # ADDED
+import time
 
 # Add the current directory to the path to find local modules
 sys.path.insert(0, os.path.dirname(__file__))
@@ -34,7 +34,7 @@ from handlers.youtube_handler import YouTubeHandler
 from handlers.email_service import EmailService
 from handlers.commission_calculator import CommissionCalculator
 from handlers.pricing_validator import PricingValidator
-from handlers.contract_handler import ContractHandler  # ADDED
+from handlers.contract_handler import ContractHandler
 
 # --- Configuration ---
 IMAGE_FOLDER = Path("images")
@@ -56,13 +56,12 @@ class ConfigCache:
         self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
         self._cache = None
         self._last_load_time = 0
-        self._cache_ttl = 300  # 5 minutes cache TTL
+        self._cache_ttl = 300
     
     def load_all_configs(self, force_reload=False):
         """Load all config values in a single API call"""
         current_time = time.time()
         
-        # Check if cache is still valid
         if (not force_reload and 
             self._cache is not None and 
             (current_time - self._last_load_time) < self._cache_ttl):
@@ -80,7 +79,6 @@ class ConfigCache:
                 if data.get('status') == 'success':
                     configs = data.get('configs', {})
                     
-                    # Flatten config structure
                     flat_configs = {}
                     for key, config_info in configs.items():
                         if isinstance(config_info, dict):
@@ -91,7 +89,6 @@ class ConfigCache:
                     self._cache = flat_configs
                     self._last_load_time = current_time
                     
-                    # Store in session state for backward compatibility
                     if 'config_cache' not in st.session_state:
                         st.session_state.config_cache = {}
                     st.session_state.config_cache = flat_configs.copy()
@@ -133,13 +130,14 @@ class GenreCache:
         self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
         self._cache = None
         self._last_load_time = 0
-        self._cache_ttl = 300  # 5 minutes cache TTL
+        self._cache_ttl = 300
+        
+        self._genre_mapping_cache = {}
     
     def load_all_genres(self, force_reload=False):
         """Load all genres in a single API call"""
         current_time = time.time()
         
-        # Check if cache is still valid
         if (not force_reload and 
             self._cache is not None and 
             (current_time - self._last_load_time) < self._cache_ttl):
@@ -157,7 +155,6 @@ class GenreCache:
                 if data.get('status') == 'success':
                     genres = data.get('genres', [])
                     
-                    # Create a list of genre names for easy access
                     genre_list = []
                     for genre in genres:
                         if isinstance(genre, dict):
@@ -172,7 +169,6 @@ class GenreCache:
                     }
                     self._last_load_time = current_time
                     
-                    # Store in session state for backward compatibility
                     if 'genre_cache' not in st.session_state:
                         st.session_state.genre_cache = {}
                     st.session_state.genre_cache = self._cache.copy()
@@ -195,9 +191,31 @@ class GenreCache:
         cache_data = self.load_all_genres(force_reload)
         return cache_data.get('genres_data', []) if cache_data else []
     
+    def get_discogs_genre_mapping(self, discogs_genre):
+        """Get Discogs genre mapping from cache or API"""
+        if discogs_genre in self._genre_mapping_cache:
+            return self._genre_mapping_cache[discogs_genre]
+        
+        try:
+            start_time = time.time()
+            response = requests.get(f"{self.base_url}/discogs-genre-mappings/{discogs_genre}")
+            duration = time.time() - start_time
+            
+            print(f"GenreCache: Get Discogs mapping '{discogs_genre}' took {duration:.2f}s")
+            
+            if response.status_code == 200:
+                mapping_data = response.json()
+                self._genre_mapping_cache[discogs_genre] = mapping_data
+                return mapping_data
+            return {'mapping': None, 'status': 'error'}
+        except Exception as e:
+            print(f"GenreCache: Error getting genre mapping: {e}")
+            return {'mapping': None, 'status': 'error'}
+    
     def clear(self):
         """Clear the cache"""
         self._cache = None
+        self._genre_mapping_cache = {}
         self._last_load_time = 0
         if 'genre_cache' in st.session_state:
             del st.session_state.genre_cache
@@ -208,9 +226,148 @@ class GenreCache:
         return self.load_all_genres(force_reload=True)
 
 
+class RecordsCache:
+    """Centralized records cache management with automatic refresh on updates"""
+    _instance = None
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = RecordsCache()
+        return cls._instance
+    
+    def __init__(self):
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self._cache = None
+        self._last_load_time = 0
+        self._cache_ttl = 300  # 5 minutes cache TTL
+        self._last_update_time = 0  # Track when records were last updated
+    
+    def get_all_records(self, force_reload=False):
+        """Get all records from cache or API"""
+        current_time = time.time()
+        
+        # Check if we need to reload
+        needs_reload = (
+            force_reload or 
+            self._cache is None or
+            (current_time - self._last_load_time) >= self._cache_ttl or
+            st.session_state.get('records_updated', 0) > self._last_update_time
+        )
+        
+        if not needs_reload:
+            return self._cache
+        
+        try:
+            start_time = time.time()
+            response = requests.get(f"{self.base_url}/records?limit=1000", timeout=10)
+            duration = time.time() - start_time
+            
+            print(f"RecordsCache: Loaded all records in {duration:.2f}s")
+            
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('records', [])
+                
+                self._cache = records
+                self._last_load_time = current_time
+                self._last_update_time = st.session_state.get('records_updated', 0)
+                
+                # Store in session state for backward compatibility
+                st.session_state.records_cache = records.copy()
+                
+                return records
+            else:
+                print(f"RecordsCache: Failed to load records, status {response.status_code}")
+                return []
+        except Exception as e:
+            print(f"RecordsCache: Error loading records: {e}")
+            return []
+    
+    def get_recent_records(self, limit=10, force_reload=False):
+        """Get recent records from cache"""
+        records = self.get_all_records(force_reload)
+        
+        if not records:
+            return []
+        
+        # Sort by ID descending to get most recent
+        sorted_records = sorted(records, key=lambda x: x.get('id', 0), reverse=True)
+        return sorted_records[:limit]
+    
+    def get_records_by_user(self, user_id, force_reload=False):
+        """Get records for specific user from cache"""
+        records = self.get_all_records(force_reload)
+        
+        if not records:
+            return []
+        
+        user_records = [r for r in records if r.get('consignor_id') == user_id]
+        return user_records
+    
+    def search_records(self, search_term, user_id=None, force_reload=False):
+        """Search records in cache"""
+        records = self.get_all_records(force_reload)
+        
+        if not records:
+            return []
+        
+        search_lower = search_term.lower()
+        results = []
+        
+        for record in records:
+            # Skip if user_id is specified and record doesn't belong to user
+            if user_id and record.get('consignor_id') != user_id:
+                continue
+            
+            artist = str(record.get('artist', '')).lower()
+            title = str(record.get('title', '')).lower()
+            catalog = str(record.get('catalog_number', '')).lower()
+            barcode = str(record.get('barcode', '')).lower()
+            
+            if (search_lower in artist or 
+                search_lower in title or 
+                search_lower in catalog or 
+                search_lower in barcode):
+                results.append(record)
+        
+        return results
+    
+    def get_record_by_id(self, record_id, force_reload=False):
+        """Get single record by ID from cache"""
+        records = self.get_all_records(force_reload)
+        
+        if not records:
+            return None
+        
+        for record in records:
+            if record.get('id') == record_id:
+                return record
+        
+        return None
+    
+    def clear(self):
+        """Clear the cache"""
+        self._cache = None
+        self._last_load_time = 0
+        self._last_update_time = 0
+        if 'records_cache' in st.session_state:
+            del st.session_state.records_cache
+    
+    def refresh(self):
+        """Force refresh the cache"""
+        self.clear()
+        return self.get_all_records(force_reload=True)
+    
+    def mark_updated(self):
+        """Mark that records have been updated (call after add/edit/delete)"""
+        if 'records_updated' not in st.session_state:
+            st.session_state.records_updated = 0
+        st.session_state.records_updated += 1
+
+
 def main():
     """Main application entry point"""
-    # Initialize session state for authentication
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
     if 'user' not in st.session_state:
@@ -218,11 +375,13 @@ def main():
     if 'session_token' not in st.session_state:
         st.session_state.session_token = None
     
-    # Initialize API timing storage
     if 'api_timings' not in st.session_state:
         st.session_state.api_timings = []
     
-    # Check if user is authenticated
+    # Initialize records update counter
+    if 'records_updated' not in st.session_state:
+        st.session_state.records_updated = 0
+    
     if not st.session_state.authenticated:
         render_login_page()
     else:
@@ -237,7 +396,6 @@ def render_login_page():
         st.title("🎵 PigStyle Records")
         st.subheader("Inventory Manager")
         
-        # Demo Mode button - SIMPLE AND DIRECT
         if st.button("👀 Demo Mode", key="demo_button", width='stretch', type="primary"):
             st.session_state.authenticated = True
             st.session_state.user = {
@@ -249,15 +407,12 @@ def render_login_page():
             }
             st.session_state.session_token = None
             
-            # Initialize demo last added record with real artist/title
             st.session_state.demo_last_added = {
                 'artist': 'Radiohead',
                 'title': 'OK Computer',
                 'store_price': 27.99
             }
             
-            # Initialize demo credit balance (calculated from sold records)
-            # Pink Floyd sold at $39.99 - 20% commission = $31.99
             st.session_state.demo_credit_balance = 31.99
             
             st.rerun()
@@ -297,11 +452,10 @@ def render_main_app():
         layout="wide"
     )
     
-    # Initialize config - this will throw error if config file is missing or incomplete
     try:
         config = AppConfig()
     except Exception as e:
-        st.error(f"Configuration error: {e}")
+        st.error(f"Configuration error 1: {e}")
         st.info("Please ensure app_config.json exists with all required values")
         st.stop()
     
@@ -318,21 +472,16 @@ def render_main_app():
     if "config" not in st.session_state:
         st.session_state.config = config
     
-    # Initialize config cache singleton
+    # Initialize all caches
     config_cache = ConfigCache.get_instance()
-    
-    # Pre-load all configs on app startup
     config_cache.load_all_configs()
     
-    # Initialize genre cache singleton
     genre_cache = GenreCache.get_instance()
-    
-    # Pre-load all genres on app startup
     genre_cache.load_all_genres()
     
-    # Initialize new services
+    records_cache = RecordsCache.get_instance()
+    
     if "email_service" not in st.session_state:
-        # Create a simple API client for email service
         class SimpleAPIClient:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
@@ -356,25 +505,17 @@ def render_main_app():
         st.session_state.email_service = EmailService(SimpleAPIClient())
     
     if "commission_calculator" not in st.session_state:
-        # Create a simple API client for commission calculator
         class SimpleAPIClient2:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
                 self.config_cache = config_cache
             
             def get_config_value(self, key, default=None):
-                # Use the centralized config cache
                 return self.config_cache.get(key, default)
             
             def get_all_records(self):
-                try:
-                    response = requests.get(f"{self.base_url}/records?limit=1000")
-                    if response.status_code == 200:
-                        data = response.json()
-                        return pd.DataFrame(data.get('records', []))
-                    return pd.DataFrame()
-                except:
-                    return pd.DataFrame()
+                # Use records cache instead of API call
+                return records_cache.get_all_records()
             
             def get_user_by_id(self, user_id):
                 try:
@@ -388,7 +529,6 @@ def render_main_app():
         st.session_state.commission_calculator = CommissionCalculator(SimpleAPIClient2())
     
     if "pricing_validator" not in st.session_state:
-        # Create API client for pricing validator
         class SimpleAPIClient3:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
@@ -396,36 +536,25 @@ def render_main_app():
                 self.genre_cache = genre_cache
             
             def get_config_value(self, key, default=None):
-                # Use the centralized config cache
                 return self.config_cache.get(key, default)
                 
             def search_records(self, query):
-                try:
-                    response = requests.get(f"{self.base_url}/search?q={query}", timeout=10)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get('status') == 'success':
-                            return data.get('records', [])
-                    return []
-                except:
-                    return []
+                # Use records cache instead of API call
+                return records_cache.search_records(query)
         
         st.session_state.pricing_validator = PricingValidator(
-            SimpleAPIClient3(),  # Now uses config cache
-            None,  # Will be set if discogs_handler exists
-            None   # Will be set if ebay_handler exists
+            SimpleAPIClient3(),
+            None,
+            None
         )
 
-    # ADDED: Initialize contract handler
     if "contract_handler" not in st.session_state:
-        # Create a simple API client for contract handler
         class SimpleAPIClientForContract:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
                 self.config_cache = config_cache
             
             def get_config_value(self, key, default=None):
-                # Use the centralized config cache
                 return self.config_cache.get(key, default)
         
         st.session_state.contract_handler = ContractHandler(SimpleAPIClientForContract())
@@ -438,9 +567,6 @@ def render_main_app():
 
     if "last_added" not in st.session_state:
         st.session_state.last_added = None
-
-    if "records_updated" not in st.session_state:
-        st.session_state.records_updated = 0
 
     if "selected_records" not in st.session_state:
         st.session_state.selected_records = []
@@ -462,14 +588,14 @@ def render_main_app():
     else:
         st.warning("YouTube API key not found. YouTube integration will be disabled.")
     
-    # Create a proper API client for InventoryTab that uses both caches
+    # Create API client for InventoryTab that uses caches
     class InventoryTabAPIClient:
-        def __init__(self, config_cache, genre_cache):
+        def __init__(self, config_cache, genre_cache, records_cache):
             self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
             self.config_cache = config_cache
             self.genre_cache = genre_cache
+            self.records_cache = records_cache
         
-        # FIX: Add string representation methods to fix URL errors
         def __str__(self):
             return self.base_url
         
@@ -477,19 +603,16 @@ def render_main_app():
             return f"InventoryTabAPIClient(base_url='{self.base_url}')"
         
         def get_config_value(self, key, default=None):
-            """Get config value from cache"""
             if self.config_cache:
                 return self.config_cache.get(key, default)
             return default
         
         def get_all_genres(self):
-            """Get all genres from cache"""
             if self.genre_cache:
                 return self.genre_cache.get_genres_list()
             return []
         
         def add_genre(self, genre_name):
-            """Add new genre via API"""
             try:
                 response = requests.post(
                     f"{self.base_url}/genres",
@@ -497,7 +620,6 @@ def render_main_app():
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    # Refresh the genre cache after adding new genre
                     if self.genre_cache:
                         self.genre_cache.refresh()
                     return True, data.get('genre_id')
@@ -507,19 +629,11 @@ def render_main_app():
                 return False, None
         
         def get_discogs_genre_mapping(self, discogs_genre):
-            """Get Discogs genre mapping via API"""
-            try:
-                response = requests.get(f"{self.base_url}/discogs-genre-mappings/{discogs_genre}")
-                if response.status_code == 200:
-                    return response.json()
-                return {'mapping': None, 'status': 'error'}
-            except Exception as e:
-                st.error(f"API Error getting genre mapping: {e}")
-                return {'mapping': None, 'status': 'error'}
+            if self.genre_cache:
+                return self.genre_cache.get_discogs_genre_mapping(discogs_genre)
+            return {'mapping': None, 'status': 'error'}
         
-        # Add other API methods that InventoryTab needs...
         def get_user(self, user_id):
-            """Get user by ID via API"""
             try:
                 response = requests.get(f"{self.base_url}/users/{user_id}")
                 if response.status_code == 200:
@@ -530,29 +644,92 @@ def render_main_app():
                 return None
         
         def search_records(self, query):
-            """Search records via API"""
+            return self.records_cache.search_records(query)
+        
+        # Add record operation methods that will update cache
+        def add_record(self, record_data):
             try:
-                response = requests.get(f"{self.base_url}/search?q={query}", timeout=10)
+                response = requests.post(
+                    f"{self.base_url}/records",
+                    json=record_data,
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    # Mark records as updated to trigger cache refresh
+                    self.records_cache.mark_updated()
+                    return True, response.json().get('record_id')
+                return False, None
+            except Exception as e:
+                st.error(f"API Error adding record: {e}")
+                return False, None
+        
+        def update_record(self, record_id, updates):
+            try:
+                response = requests.put(
+                    f"{self.base_url}/records/{record_id}",
+                    json=updates
+                )
+                if response.status_code == 200:
+                    # Mark records as updated to trigger cache refresh
+                    self.records_cache.mark_updated()
+                    return True
+                return False
+            except Exception as e:
+                st.error(f"API Error updating record: {e}")
+                return False
+        
+        def delete_record(self, record_id):
+            try:
+                response = requests.delete(f"{self.base_url}/records/{record_id}")
+                if response.status_code == 200:
+                    # Mark records as updated to trigger cache refresh
+                    self.records_cache.mark_updated()
+                    return True
+                return False
+            except Exception as e:
+                st.error(f"API Error deleting record: {e}")
+                return False
+        
+        # Methods that use cache
+        def get_all_records(self):
+            return self.records_cache.get_all_records()
+        
+        def get_recent_records(self, limit=10):
+            return self.records_cache.get_recent_records(limit)
+        
+        def get_records_by_user(self, user_id):
+            return self.records_cache.get_records_by_user(user_id)
+        
+        def get_record_by_id(self, record_id):
+            return self.records_cache.get_record_by_id(record_id)
+        
+        def get_database_stats(self):
+            try:
+                response = requests.get(f"{self.base_url}/stats", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
-                    if data.get('status') == 'success':
-                        return data.get('records', [])
-                return []
+                    return {
+                        'records_count': data.get('records_count', 0),
+                        'users_count': data.get('users_count', 0),
+                        'votes_count': data.get('votes_count', 0),
+                        'latest_record': data.get('latest_record'),
+                        'db_path': data.get('db_path', 'API-based')
+                    }
+                return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
             except Exception as e:
-                st.error(f"API Error searching records: {e}")
-                return []
+                st.error(f"API Error getting stats: {e}")
+                return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
     
     # Pass the proper API client to InventoryTab
-    inventory_api_client = InventoryTabAPIClient(config_cache, genre_cache)
+    inventory_api_client = InventoryTabAPIClient(config_cache, genre_cache, records_cache)
     
-    # Initialize InventoryTab with the proper API client structure
     inventory_tab = InventoryTab(
         discogs_handler, 
         ebay_handler, 
         youtube_handler, 
         config_cache, 
         genre_cache,
-        inventory_api_client  # Pass the proper API client
+        inventory_api_client
     )
     
     statistics_tab = StatisticsTab()
@@ -587,7 +764,6 @@ def render_header(user):
         st.caption(role_display)
     
     with col3:
-        # Store credit removed from header - now shown in consignment tab for consignors
         pass
     
     with col4:
@@ -596,7 +772,6 @@ def render_header(user):
     
     with col5:
         if st.button("🚪", help="Logout"):
-            # Clear authentication session state
             st.session_state.authenticated = False
             st.session_state.user = None
             st.session_state.session_token = None
@@ -634,7 +809,6 @@ def render_change_password_form():
                 elif new_password != confirm_password:
                     st.error("New passwords do not match")
                 else:
-                    # For demo user, just show success
                     if st.session_state.user['username'] == 'demo_user':
                         st.success("Demo: Password change simulated")
                         st.session_state.show_change_password = False
@@ -659,35 +833,27 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab,
     
     tab_configs = []
     
-    # Show inventory to all users with view permission
     if PermissionManager.has_permission(user_role, 'inventory', 'view') or is_demo:
         tab_configs.append(("📦 Inventory", inventory_tab.render))
     
-    # Show consignment to users with consignment view permission
     if PermissionManager.has_permission(user_role, 'consignment', 'view') or is_demo:
         tab_configs.append(("🤝 Consignment", consignment_tab.render))
     
-    # Show price tags to users with add permission - ONLY FOR ADMIN
-    if user_role == 'admin':  # Only admin can print price tags
+    if user_role == 'admin':
         tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render))
     
-    # Show eBay to users with eBay view permission (admin only)
     if PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    # Show statistics to users with reports view permission (admin only)
     if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("📊 Statistics", statistics_tab.render))
     
-    # Show votes to users with reports view permission (admin only)
     if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("🗳️ Votes", votes_tab.render))
     
-    # Show checkout ONLY to admin users - NOT FOR DEMO OR CONSIGNOR
     if user_role == 'admin':
         tab_configs.append(("💰 Checkout", checkout_tab.render))
     
-    # Show admin config to admin users
     if user_role == 'admin':
         tab_configs.append(("⚙️ Admin Config", admin_config_tab.render))
     

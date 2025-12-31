@@ -17,53 +17,61 @@ class InventoryTab:
         self.ebay_handler = ebay_handler
         self.youtube_handler = youtube_handler
         self.base_url = base_url
-        self.config_cache = config_cache  # Store config cache reference
-        self.genre_cache = genre_cache  # Store genre cache reference
+        self.config_cache = config_cache
+        self.genre_cache = genre_cache
         
-        # Update handlers to use API client (self)
         self.search_handler = SearchHandler(discogs_handler, self.base_url)
         self.commission_calculator = CommissionCalculator(self)
         self.pricing_validator = PricingValidator(self, discogs_handler, ebay_handler)
-        
-        # Initialize cached records
-        self._cached_records = None
 
-    # API Client methods
+    # API Client methods - now use RecordsCache
     
     def delete_record(self, record_id):
-        """Delete a record via API"""
+        """Delete a record via API - updates cache"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
         if is_demo:
             st.info(f"Demo: Would delete record {record_id}")
-            return True  # Simulate success
+            return True
             
         try:
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             response = requests.delete(f"{self.base_url}/records/{record_id}")
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
-            print(f"API Delete Record ({record_id}) took {duration:.2f}s")            
-            return response.status_code == 200
+            print(f"API Delete Record ({record_id}) took {duration:.2f}s")
+            
+            if response.status_code == 200:
+                # Mark records as updated
+                if 'records_updated' not in st.session_state:
+                    st.session_state.records_updated = 0
+                st.session_state.records_updated += 1
+                return True
+            return False
         except Exception as e:
             st.error(f"API Error deleting record: {e}")
             return False
     
     def get_all_records(self):
-        """Get all records via API - returns DataFrame"""
+        """Get all records via RecordsCache"""
         try:
-            start_time = time.time()  # START TIMING
+            # Get records cache from session state
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                # Convert to DataFrame for compatibility
+                return pd.DataFrame(records) if isinstance(records, list) and records else pd.DataFrame()
+            
+            # Fallback: direct API call
+            start_time = time.time()
             response = requests.get(f"{self.base_url}/records?limit=1000")
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Get All Records took {duration:.2f}s")
-
             
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])
-                # Convert to DataFrame for compatibility
                 return pd.DataFrame(records) if records else pd.DataFrame()
             return pd.DataFrame()
         except Exception as e:
@@ -71,14 +79,22 @@ class InventoryTab:
             return pd.DataFrame()
     
     def get_recent_records(self, limit=10):
-        """Get recent records via API - returns DataFrame"""
+        """Get recent records via RecordsCache"""
         try:
-            start_time = time.time()  # START TIMING
-            response = requests.get(f"{self.base_url}/records?limit={limit}&order_by=id&order=desc")
-            duration = time.time() - start_time  # END TIMING
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                if isinstance(records, list) and records:
+                    # Sort by ID descending
+                    sorted_records = sorted(records, key=lambda x: x.get('id', 0), reverse=True)
+                    return pd.DataFrame(sorted_records[:limit]) if sorted_records else pd.DataFrame()
             
-            # Store timing for admin users
-            print(f"API Get Recent Records ({limit}) took {duration:.2f}s")            
+            # Fallback: direct API call
+            start_time = time.time()
+            response = requests.get(f"{self.base_url}/records?limit={limit}&order_by=id&order=desc")
+            duration = time.time() - start_time
+            
+            print(f"API Get Recent Records ({limit}) took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])
@@ -89,11 +105,19 @@ class InventoryTab:
             return pd.DataFrame()
     
     def get_record(self, record_id):
-        """Get single record via API"""
+        """Get single record via RecordsCache"""
         try:
-            start_time = time.time()  # START TIMING
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                if isinstance(records, list) and records:
+                    for record in records:
+                        if record.get('id') == record_id:
+                            return record
+            
+            # Fallback: direct API call
+            start_time = time.time()
             response = requests.get(f"{self.base_url}/records/{record_id}")
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Get Record ({record_id}) took {duration:.2f}s")
             
@@ -105,110 +129,105 @@ class InventoryTab:
             return None
     
     def update_record(self, record_id, updates):
-        """Update a record via API"""
+        """Update a record via API - updates cache"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
         if is_demo:
             st.info(f"Demo: Would update record {record_id} with {updates}")
-            return True  # Simulate success
+            return True
             
         try:
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             response = requests.put(
                 f"{self.base_url}/records/{record_id}",
                 json=updates
             )
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Update Record ({record_id}) took {duration:.2f}s")
             
-            return response.status_code == 200
+            if response.status_code == 200:
+                # Mark records as updated
+                if 'records_updated' not in st.session_state:
+                    st.session_state.records_updated = 0
+                st.session_state.records_updated += 1
+                return True
+            return False
         except Exception as e:
             st.error(f"API Error updating record: {e}")
             return False
     
     def search_records(self, search_term):
-        """Search records via API - ROBUST VERSION"""
+        """Search records via RecordsCache"""
         try:
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             
-            # Clean search term
             search_term = search_term.strip()
             if not search_term:
                 return []
             
-            # Try the API search endpoint first
+            # First try to use cache
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                if isinstance(records, list) and records:
+                    search_lower = search_term.lower()
+                    filtered = []
+                    
+                    for record in records:
+                        artist = str(record.get('artist', '')).lower()
+                        title = str(record.get('title', '')).lower()
+                        catalog = str(record.get('catalog_number', '')).lower()
+                        barcode = str(record.get('barcode', '')).lower()
+                        
+                        if (search_lower in artist or 
+                            search_lower in title or 
+                            search_lower in catalog or 
+                            search_lower in barcode):
+                            filtered.append(record)
+                    
+                    duration = time.time() - start_time
+                    print(f"Cached Search: {search_term[:30]}... took {duration:.2f}s")
+                    return filtered
+            
+            # Fallback to API
             response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
             
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Search: {search_term[:30]}... took {duration:.2f}s")
-
             
             if response.status_code == 200:
                 data = response.json()
-                # Check if we got a valid response
                 if isinstance(data, dict) and data.get('status') == 'success':
                     records = data.get('records', [])
                     if records:
                         return records
                 
-                # If no results or wrong format, try the fallback
-                return self._fallback_search(search_term)
+                return []
             else:
-                # If API fails, use fallback
-                return self._fallback_search(search_term)
+                return []
                 
         except requests.exceptions.Timeout:
-            st.warning("Search timeout - using local search")
-            return self._fallback_search(search_term)
+            st.warning("Search timeout")
+            return []
         except Exception as e:
             st.error(f"API Error searching records: {e}")
-            return self._fallback_search(search_term)
-    
-    def _fallback_search(self, search_term):
-        """Fallback search by getting all records and filtering locally"""
-        try:
-            # Get all records once and cache
-            if self._cached_records is None:
-                self._cached_records = self.get_all_records()
-            
-            all_records = self._cached_records
-            
-            if all_records.empty:
-                return []
-            
-            # Convert search term to lowercase for case-insensitive search
-            search_lower = search_term.lower()
-            
-            # Filter records that match search term
-            filtered = []
-            
-            for idx, record in all_records.iterrows():
-                artist = str(record.get('artist', '')).lower()
-                title = str(record.get('title', '')).lower()
-                catalog = str(record.get('catalog_number', '')).lower()
-                barcode = str(record.get('barcode', '')).lower()
-                
-                # Check if search term appears in any field
-                if (search_lower in artist or 
-                    search_lower in title or 
-                    search_lower in catalog or 
-                    search_lower in barcode):
-                    filtered.append(record.to_dict())
-            
-            return filtered
-        except Exception as e:
-            st.error(f"Fallback search error: {e}")
             return []
     
     def get_records_by_user(self, user_id):
-        """Get records for specific user via API"""
+        """Get records for specific user via RecordsCache"""
         try:
-            start_time = time.time()  # START TIMING
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                if isinstance(records, list) and records:
+                    user_records = [r for r in records if r.get('consignor_id') == user_id]
+                    return user_records
+            
+            # Fallback: direct API call
+            start_time = time.time()
             response = requests.get(f"{self.base_url}/records/user/{user_id}")
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Get User Records ({user_id}) took {duration:.2f}s")
             
@@ -222,7 +241,7 @@ class InventoryTab:
             return []
     
     def get_config_value(self, config_key, default=None):
-        """Get config value from cache - NO API CALL"""
+        """Get config value from cache"""
         if self.config_cache:
             return self.config_cache.get(config_key, default)
         return default
@@ -230,9 +249,9 @@ class InventoryTab:
     def get_all_config(self):
         """Get all config values via API"""
         try:
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             response = requests.get(f"{self.base_url}/config")
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Get All Config took {duration:.2f}s")
             
@@ -245,7 +264,7 @@ class InventoryTab:
             return {}
     
     def get_all_genres(self):
-        """Get all genres via cache - NO API CALL"""
+        """Get all genres via cache"""
         if self.genre_cache:
             return self.genre_cache.get_genres_list()
         return []
@@ -257,21 +276,20 @@ class InventoryTab:
         
         if is_demo:
             st.info(f"Demo: Would add genre '{genre_name}'")
-            return True, 999  # Simulate success with fake ID
+            return True, 999
             
         try:
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             response = requests.post(
                 f"{self.base_url}/genres",
                 json={'genre_name': genre_name}
             )
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Add Genre: {genre_name} took {duration:.2f}s")
             
             if response.status_code == 200:
                 data = response.json()
-                # Refresh the genre cache after adding new genre
                 if self.genre_cache:
                     self.genre_cache.refresh()
                 return True, data.get('genre_id')
@@ -281,27 +299,17 @@ class InventoryTab:
             return False, None
     
     def get_discogs_genre_mapping(self, discogs_genre):
-        """Get Discogs genre mapping via API"""
-        try:
-            start_time = time.time()  # START TIMING
-            response = requests.get(f"{self.base_url}/discogs-genre-mappings/{discogs_genre}")
-            duration = time.time() - start_time  # END TIMING
-            
-            print(f"API Get Genre Mapping: {discogs_genre} took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                return response.json()
-            return {'mapping': None, 'status': 'error'}
-        except Exception as e:
-            st.error(f"API Error getting genre mapping: {e}")
-            return {'mapping': None, 'status': 'error'}
+        """Get Discogs genre mapping via cache"""
+        if self.genre_cache:
+            return self.genre_cache.get_discogs_genre_mapping(discogs_genre)
+        return {'mapping': None, 'status': 'error'}
     
     def get_database_stats(self):
         """Get database statistics via API"""
         try:
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             response = requests.get(f"{self.base_url}/stats")
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Get Database Stats took {duration:.2f}s")
             
@@ -322,9 +330,9 @@ class InventoryTab:
     def get_user(self, user_id):
         """Get user by ID"""
         try:
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             response = requests.get(f"{self.base_url}/users/{user_id}")
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Get User ({user_id}) took {duration:.2f}s")            
             if response.status_code == 200:
@@ -349,7 +357,6 @@ class InventoryTab:
     def render(self):
         stats = self._get_user_database_stats()
         
-        # Try to get store fill info and commission rate
         try:
             store_fill_info = self._get_store_fill_info()
             current_commission_rate = self.commission_calculator.get_current_commission_rate()
@@ -362,14 +369,13 @@ class InventoryTab:
             with col3:
                 st.metric("Commission Rate", f"{current_commission_rate*100:.1f}%")
             
-            # Show store capacity warning
             if store_fill_info['fill_fraction'] > 1.10:
                 st.error("🚨 Store is over capacity! Cannot add new items.")
             elif store_fill_info['fill_fraction'] > 0.90:
                 st.warning("⚠️ Store is near capacity ({:.1f}%)".format(store_fill_info['fill_percentage']))
                 
         except ValueError as e:
-            st.error(f"Configuration error: {e}")
+            st.error(f"Configuration error 2: {e}")
             st.info("Please check configuration values for commission calculation")
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -379,10 +385,8 @@ class InventoryTab:
             with col3:
                 st.info("Commission: N/A")
         
-        # Display last added record
         self._render_last_added_record_simple()
         
-        # Get store fill fraction for operations
         try:
             store_fill_info = self._get_store_fill_info()
             store_fill_fraction = store_fill_info['fill_fraction']
@@ -392,7 +396,7 @@ class InventoryTab:
         self._render_unified_operations(store_fill_fraction)
 
     def _render_last_added_record_simple(self):
-        """Display the last record added to the database - simple single line"""
+        """Display the last record added to the database"""
         user = st.session_state.get('user', {})
         user_id = user.get('id')
         user_role = user.get('role')
@@ -400,8 +404,6 @@ class InventoryTab:
         is_admin = user_role == 'admin'
         
         if is_demo:
-            # In demo mode, show simulated last added record
-            # Check if we have a simulated last added record in session state
             if 'demo_last_added' in st.session_state:
                 last_record = st.session_state.demo_last_added
                 artist = last_record.get('artist', 'Demo Artist')
@@ -413,22 +415,16 @@ class InventoryTab:
             else:
                 st.markdown("**📝 Last Added:** No records yet")
             
-            # Show demo info about credit balance matching
             if hasattr(st.session_state, 'demo_credit_balance'):
                 credit_balance = st.session_state.demo_credit_balance
                 st.caption(f"💡 Demo Credit Balance: ${credit_balance:.2f} (matches sold records)")
         else:
-            # Original non-demo logic
             if is_admin:
-                # Admin sees last added by any user
                 recent_records = self.get_recent_records(limit=1)
             else:
-                # Non-admin users see last added by themselves
                 if user_id:
-                    # Get records for this specific user
                     user_records = self.get_records_by_user(user_id)
                     if user_records:
-                        # Sort by ID descending to get most recent
                         user_records.sort(key=lambda x: x.get('id', 0), reverse=True)
                         recent_records = pd.DataFrame(user_records[:1]) if user_records else pd.DataFrame()
                     else:
@@ -467,9 +463,7 @@ class InventoryTab:
         if 'last_search_term' not in st.session_state:
             st.session_state.last_search_term = ""
         
-        # Clear selected record after successful addition
         if st.session_state.get('record_added'):
-            # Clear ALL record-related session state
             keys_to_clear = [key for key in st.session_state.keys() if key.startswith('discogs_result_')]
             for key in keys_to_clear:
                 del st.session_state[key]
@@ -505,12 +499,8 @@ class InventoryTab:
             with col1:
                 search_submitted = st.form_submit_button("🔍 Search", width='stretch', disabled=search_disabled)
         
-        # CRITICAL FIX: Only clear results when a new search is actually submitted
-        # Don't clear them just because of widget interactions
         if search_submitted:
-            # Only clear if the search term actually changed
             if search_input != st.session_state.get('last_search_term', ''):
-                # Clear ALL record-related session state for the old search
                 keys_to_clear = [key for key in st.session_state.keys() if key.startswith('discogs_result_')]
                 for key in keys_to_clear:
                     del st.session_state[key]
@@ -522,9 +512,8 @@ class InventoryTab:
                 
                 st.session_state.search_query = search_input
                 st.session_state.search_triggered = True
-                st.session_state.last_search_term = search_input  # Store the search term
+                st.session_state.last_search_term = search_input
         
-        # Check if we should show results
         if (st.session_state.search_triggered and 
             st.session_state.search_query and 
             st.session_state.search_query.strip()):
@@ -536,25 +525,21 @@ class InventoryTab:
             
             if search_type == "Add item":
                 results = self.search_handler.perform_discogs_search(search_term)
-                # Store results with a persistent key
                 st.session_state[f"discogs_search_{search_term}"] = results
                 st.session_state.search_results[search_term] = results
                 
-                # Use the new display method for Discogs results
                 self._render_discogs_results(results, search_type)
                 
-            else:  # Edit or Delete item
+            else:
                 user = st.session_state.get('user', {})
                 results = self._perform_database_search(search_term, user)
                 st.session_state.search_results[search_term] = results
                 
-                # Use the existing display method for database results
                 self._render_database_results(results, search_type, st.session_state.get('user', {}))
             
             st.session_state.search_triggered = False
             st.session_state.last_search = search_term
         
-        # If we have existing results (from previous search), show them
         elif search_type == "Add item" and st.session_state.get('last_search_term'):
             search_term = st.session_state.get('last_search_term', '')
             results = st.session_state.get(f"discogs_search_{search_term}", [])
@@ -573,19 +558,14 @@ class InventoryTab:
             st.warning("No results found on Discogs")
             return
         
-        # Show results count
         st.write(f"**Found {len(results)} results**")
         
-        # Process each result
         for i, record in enumerate(results):
             self._render_discogs_result_item(record, i)
 
     def _render_discogs_result_item(self, record, index):
-        """Render individual Discogs search result with condition selection and price research"""
-        # Create a stable key for this record
         record_key = f"discogs_result_{record.get('discogs_id', '')}_{record.get('artist', '')}_{record.get('title', '')}"
         
-        # Initialize session state for this record if not exists
         if f"{record_key}_data" not in st.session_state:
             st.session_state[f"{record_key}_data"] = {
                 'record_data': record.copy(),
@@ -597,7 +577,6 @@ class InventoryTab:
                 'selected_genre': None
             }
         
-        # Get stored data
         stored_data = st.session_state[f"{record_key}_data"]
         
         col1, col2, col3, col4, col5 = st.columns([1, 3, 2, 2, 1])
@@ -642,10 +621,8 @@ class InventoryTab:
             else:
                 st.write("*No additional info*")
             
-            # Genre selection - USE CACHED GENRES
-            all_genres = self.get_all_genres()  # This now uses cache
+            all_genres = self.get_all_genres()
             
-            # Get suggested genre
             suggested_genre = self._get_suggested_genre(stored_data['record_data'])
             
             default_index = 0
@@ -662,14 +639,12 @@ class InventoryTab:
                 key=genre_key
             )
             
-            # Update stored genre
             if selected_genre != "Select genre...":
                 stored_data['selected_genre'] = selected_genre
             else:
                 stored_data['selected_genre'] = None
         
         with col3:
-            # Condition selection
             user = st.session_state.get('user', {})
             user_role = user.get('role', 'consignor')
             
@@ -685,27 +660,20 @@ class InventoryTab:
             ]
             
             if user_role == 'consignor':
-                # Consignor sees Mint, Near Mint, VG+, VG
                 available_conditions = ["Mint (M)", "Near Mint (NM or M-)", "Very Good Plus (VG+)", "Very Good (VG)"]
             else:
-                # Admin sees all conditions
                 available_conditions = discogs_conditions
             
-            # Get the current selection from stored data
             previous_selection = stored_data['selected_condition']
             
-            # Options - empty placeholder as first option
             options = ["Select condition..."] + available_conditions
             
-            # Set default index based on stored value
             default_index = 0
             if previous_selection and previous_selection in available_conditions:
                 default_index = available_conditions.index(previous_selection) + 1
             
-            # Create a unique key for each selectbox
             selectbox_key = f"condition_select_{record_key}"
             
-            # Render selectbox
             selected_condition = st.selectbox(
                 "Condition",
                 options=options,
@@ -713,31 +681,25 @@ class InventoryTab:
                 key=selectbox_key
             )
             
-            # Update stored condition if changed - AUTO RESEARCH
             if selected_condition != "Select condition...":
                 if selected_condition != stored_data['selected_condition']:
                     stored_data['selected_condition'] = selected_condition
                     stored_data['last_researched_condition'] = None
                     
-                    # AUTO RESEARCH when condition changes
                     with st.spinner(f"Researching {selected_condition} prices..."):
-                        # Get Discogs price for selected condition
                         discogs_price = self._get_discogs_price_for_condition(
                             stored_data['record_data'], 
                             selected_condition
                         )
                         
-                        # Get eBay prices
                         ebay_prices = self._get_ebay_prices_for_condition(
                             stored_data['record_data'].get('artist', ''), 
                             stored_data['record_data'].get('title', ''),
                             selected_condition
                         )
                         
-                        # Calculate advised price
                         advised_price = self._calculate_advised_price(discogs_price, ebay_prices, selected_condition)
                         
-                        # Store results
                         stored_data['price_research'] = {
                             'discogs_price': discogs_price,
                             'ebay_prices': ebay_prices,
@@ -747,45 +709,36 @@ class InventoryTab:
                         stored_data['advised_price'] = advised_price
                         stored_data['last_researched_condition'] = selected_condition
                         
-                        # Auto-set user price to advised price initially
                         if advised_price and advised_price > 0:
                             stored_data['user_price'] = advised_price
                         
-                        # Update session state
                         st.session_state[f"{record_key}_data"] = stored_data
                         
-                        # Rerun to update UI with new price
                         st.rerun()
         
         with col4:
-            # Price input field - only show if condition is selected AND we have research
             if (stored_data['selected_condition'] and 
                 stored_data['selected_condition'] != "Select condition..." and
                 stored_data.get('price_research')):
                 
-                # Get advised price from research
                 advised_price = stored_data.get('advised_price')
                 
-                # Get max ratio from config cache
                 max_ratio_value = self.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3')
                 max_ratio = float(max_ratio_value) if max_ratio_value else 1.3
                 
-                # Calculate max allowed price
                 max_allowed = advised_price * max_ratio if advised_price and advised_price > 0 else 0
                 
-                # Get current price from stored data - ensure it's not None
                 current_price = stored_data.get('user_price')
                 if current_price is None and advised_price:
                     current_price = advised_price
                 elif current_price is None:
                     current_price = 0.0
                 
-                # Create price input field with unique key
                 price_input_key = f"price_input_{record_key}"
                 user_price = st.number_input(
                     "Price ($)",
                     min_value=0.0,
-                    max_value=float(max_allowed * 1.5),  # Allow some room
+                    max_value=float(max_allowed * 1.5),
                     value=float(current_price),
                     step=0.01,
                     format="%.2f",
@@ -793,12 +746,10 @@ class InventoryTab:
                     help=f"Max: ${max_allowed:.2f}" if max_allowed > 0 else "Enter price"
                 )
                 
-                # Update stored user price if changed
                 if user_price != stored_data.get('user_price'):
                     stored_data['user_price'] = user_price
                     st.session_state[f"{record_key}_data"] = stored_data
                 
-                # Show price research details in expandable
                 if stored_data.get('price_research'):
                     with st.expander("📊 Price Details", expanded=False):
                         self._render_price_research_details(stored_data['price_research'], stored_data['record_data'])
@@ -808,7 +759,6 @@ class InventoryTab:
                 st.info("Select condition first")
         
         with col5:
-            # Add button - only enable if condition is selected, price is set, and genre is selected
             add_enabled = (
                 stored_data['selected_condition'] and 
                 stored_data['selected_condition'] != "Select condition..." and
@@ -821,7 +771,6 @@ class InventoryTab:
             add_button_key = f"add_{record_key}"
             if add_enabled:
                 if st.button("➕ Add", key=add_button_key, type="primary", width='stretch'):
-                    # Prepare record data for adding
                     record_to_add = stored_data['record_data'].copy()
                     record_to_add['selected_condition'] = stored_data['selected_condition']
                     record_to_add['user_price'] = stored_data['user_price']
@@ -830,11 +779,9 @@ class InventoryTab:
                     record_to_add['genre'] = stored_data['selected_genre']
                     record_to_add['discogs_genre'] = record_to_add.get('genre', '')
                     
-                    # Get current user ID for consignor_id
                     user = st.session_state.get('user', {})
                     consignor_id = user.get('id')
                     
-                    # ADD RECORD DIRECTLY TO DATABASE
                     success, record_id = self._handle_add_record_direct(
                         record_to_add, 
                         stored_data['selected_genre'], 
@@ -843,11 +790,9 @@ class InventoryTab:
                     )
                     
                     if success:
-                        # Clear this record's session state
                         del st.session_state[f"{record_key}_data"]
                         st.session_state.record_added = True
                         
-                        # In demo mode, update the last added record
                         if user.get('username') == 'demo_user':
                             st.session_state.demo_last_added = {
                                 'artist': record_to_add['artist'],
@@ -864,26 +809,21 @@ class InventoryTab:
         
         st.divider()
         
-        # Update the session state with the stored data
         st.session_state[f"{record_key}_data"] = stored_data
 
     def _handle_add_record_direct(self, record_data, genre, user_price=None, consignor_id=None):
-        """Handle adding a record directly to the database WITH CONSIGNOR ID"""
-        # ADD DEMO MODE CHECK
+        """Handle adding a record directly to the database"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
         if is_demo:
-            # Simulate success in demo mode
             st.success(f"✅ Demo: Record '{record_data.get('artist', '')} - {record_data.get('title', '')}' would be added")
             st.info("💡 In a real session, this would be saved to the database.")
-            return True, 999  # Return a fake record ID
+            return True, 999
             
-        # Original code continues for non-demo users...
         if consignor_id:
             record_data['consignor_id'] = consignor_id
         
-        # If user specified a price, validate it
         if user_price is not None:
             validation = self.pricing_validator.validate_user_price(user_price, record_data)
             if not validation['is_valid']:
@@ -891,7 +831,6 @@ class InventoryTab:
                 st.info(f"Maximum allowed price: ${validation['max_allowed']:.2f} (based on advised price: ${validation['advised_price']:.2f})")
                 return False, None
             
-            # Use validated user price
             record_data['selected_price'] = user_price
             record_data['original_consignor_price'] = user_price
         
@@ -905,11 +844,10 @@ class InventoryTab:
         return success, record_id
 
     def _add_inventory_record(self, record_data, genre, search_term, consignor_id=None):
-        """Add inventory record to database via API with enhanced consignment features"""
+        """Add inventory record to database via API"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
         
-        # Check for duplicates BEFORE adding
         from handlers.pricing_validator import PricingValidator
         pricing_validator = PricingValidator(self, self.discogs_handler, self.ebay_handler)
         duplicates_found = pricing_validator.check_for_duplicates(record_data)
@@ -930,10 +868,8 @@ class InventoryTab:
             st.error("No release ID found")
             return False, None
         
-        # Get format from session state or default
         format_selected = st.session_state.get('format_select', 'Vinyl')
         
-        # Get Discogs pricing information - USE PRICE SUGGESTIONS
         pricing_data = None
         
         if self.discogs_handler:
@@ -943,35 +879,28 @@ class InventoryTab:
             st.error("Discogs handler not available")
             return False, None
         
-        # Extract result information - use the edited artist name if available
-        artist = record_data.get('artist', '')  # This will be the edited version
-        title = record_data.get('title', '')    # This will be the edited version
+        artist = record_data.get('artist', '')
+        title = record_data.get('title', '')
         image_url = record_data.get('image_url', '')
         catalog_number = record_data.get('catalog_number', '')
-        youtube_url = record_data.get('youtube_url', '')  # Get YouTube URL from record data
+        youtube_url = record_data.get('youtube_url', '')
         
-        # Get selected condition and price from record_data
         selected_condition = record_data.get('selected_condition')
         user_price = record_data.get('user_price')
         
-        # Get compilation status from record_data
         compilation = record_data.get('compilation', False)
         
-        # Get consignor_id - use provided parameter or from record_data
         if consignor_id is None:
             consignor_id = record_data.get('consignor_id')
         
-        # Get commission rate from capacity-based calculator
         try:
             commission_rate = self.commission_calculator.get_current_commission_rate()
         except ValueError as e:
             st.error(f"Cannot determine commission rate: {e}")
             return False, None
         
-        # Get discogs_genre for mapping
         discogs_genre = record_data.get('discogs_genre', '')
         
-        # Get genre_id for the genre using cache
         genre_id = None
         if genre and self.genre_cache:
             genre_data = self.genre_cache.get_genres_data()
@@ -981,7 +910,6 @@ class InventoryTab:
                         genre_id = genre_item.get('id')
                         break
         
-        # If genre not found in cache, create it via API
         if genre and not genre_id:
             success, new_genre_id = self.add_genre(genre)
             if success:
@@ -990,27 +918,20 @@ class InventoryTab:
                 st.error(f"Failed to create new genre: {genre}")
                 return False, None
         
-        # Store pricing data in record_data for display
         if pricing_data:
             record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
         
-        # Get advised price if available
         advised_price = record_data.get('advised_price')
         
-        # CALCULATE STORE PRICE
-        # Use user price if provided and validated, otherwise use advised price
         if user_price is not None and user_price > 0:
             store_price = user_price
         elif advised_price is not None and advised_price > 0:
             store_price = self._calculate_store_price(advised_price)
         else:
-            # Fallback: calculate from Discogs price suggestions
             store_price = self._calculate_store_price_from_suggestions(record_data, selected_condition)
         
-        # Get eBay sell price from record_data if available
         ebay_sell_at = record_data.get('ebay_sell_at', 0.0)
         
-        # Set consignment dates if consigning
         consignment_start_date = None
         discount_eligible_date = None
         original_consignor_price = None
@@ -1024,9 +945,7 @@ class InventoryTab:
             discount_eligible_date = consignment_start_date + pd.Timedelta(days=full_price_days)
             original_consignor_price = store_price
         
-        # Save to database via API - SIMPLIFIED VERSION
         try:
-            # Prepare data for API
             record_data_to_save = {
                 'artist': artist,
                 'title': title,
@@ -1042,7 +961,6 @@ class InventoryTab:
                 'compilation': bool(compilation)
             }
             
-            # Add consignor fields only if consignor_id exists
             if consignor_id:
                 record_data_to_save['consignor_id'] = int(consignor_id)
                 record_data_to_save['commission_rate'] = float(commission_rate)
@@ -1050,16 +968,15 @@ class InventoryTab:
                 record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
                 record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
             
-            start_time = time.time()  # START TIMING
+            start_time = time.time()
             
-            # Call API to create record
             response = requests.post(
                 f"{self.base_url}/records",
                 json=record_data_to_save,
                 timeout=10
             )
             
-            duration = time.time() - start_time  # END TIMING
+            duration = time.time() - start_time
             
             print(f"API Add Record: {artist[:15]} - {title[:15]}... took {duration:.2f}s")
 
@@ -1068,7 +985,6 @@ class InventoryTab:
                 if response_data.get('status') == 'success':
                     record_id = response_data.get('record_id')
                     
-                    # Save Discogs genre mapping if available
                     if discogs_genre and genre_id:
                         mapping_data = {
                             'discogs_genre': discogs_genre,
@@ -1082,7 +998,12 @@ class InventoryTab:
                         if mapping_response.status_code == 200:
                             mapping_data = mapping_response.json()
                             if mapping_data.get('status') == 'success':
-                                pass  # Success, no need to show message
+                                pass
+                    
+                    # Mark records as updated
+                    if 'records_updated' not in st.session_state:
+                        st.session_state.records_updated = 0
+                    st.session_state.records_updated += 1
                     
                     return True, record_id
                 else:
@@ -1101,13 +1022,11 @@ class InventoryTab:
             return False, None
 
     def _calculate_store_price_from_suggestions(self, record_data, selected_condition):
-        """Calculate store price from Discogs price suggestions for selected condition"""
         price_suggestions = record_data.get('price_suggestions', {})
         
         if not price_suggestions:
             return 0.0
         
-        # Try to find price for selected condition
         condition_map = {
             'Mint (M)': ['Mint (M)', 'M', 'Mint'],
             'Near Mint (NM or M-)': ['Near Mint (NM or M-)', 'NM', 'M-', 'Near Mint'],
@@ -1119,15 +1038,12 @@ class InventoryTab:
             'Poor (P)': ['Poor (P)', 'P']
         }
         
-        # Check for exact or partial matches
         for discogs_condition, price in price_suggestions.items():
             if price and price > 0:
-                # Check if this Discogs condition matches our selected condition
                 for pattern in condition_map.get(selected_condition, []):
                     if pattern.lower() in discogs_condition.lower():
                         return self._calculate_store_price(float(price))
         
-        # If no match found, use the lowest price suggestion
         valid_prices = [float(p) for p in price_suggestions.values() if p]
         if valid_prices:
             lowest_price = min(valid_prices)
@@ -1136,20 +1052,16 @@ class InventoryTab:
         return 0.0
 
     def _calculate_store_price(self, discogs_suggested_price):
-        """CONSOLIDATED: Calculate store price using configurable parameters"""
         try:
-            # Get current configuration from cache
             estimated_multiplier = self.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '2.0')
             minimum_price = self.get_config_value('STORE_PRICE_MINIMUM', '5.0')
             
-            # Ensure they are floats
             estimated_multiplier = float(estimated_multiplier)
             minimum_price = float(minimum_price)
             
             candidates = []
             
             if discogs_suggested_price and discogs_suggested_price > 0:
-                # Use the selected price with the estimated multiplier
                 candidates.append(discogs_suggested_price * estimated_multiplier)
             
             if candidates:
@@ -1158,13 +1070,11 @@ class InventoryTab:
             else:
                 raw_price = minimum_price
             
-            # Round to nearest .49 or .99
             store_price = self._round_to_49_or_99(raw_price)
             
             return store_price
             
         except Exception as e:
-            # Return minimum price or default
             try:
                 minimum_price = float(self.get_config_value('STORE_PRICE_MINIMUM', '5.0'))
                 return minimum_price
@@ -1172,7 +1082,6 @@ class InventoryTab:
                 return 5.0
 
     def _round_to_49_or_99(self, price):
-        """Round to nearest .49 or .99"""
         if price <= 0:
             return 0.0
         
@@ -1187,7 +1096,6 @@ class InventoryTab:
             return base_price + 0.99
 
     def _get_discogs_price_for_condition(self, record, selected_condition):
-        """Get Discogs price for selected condition"""
         try:
             if not self.discogs_handler or 'discogs_id' not in record:
                 return None
@@ -1196,14 +1104,12 @@ class InventoryTab:
             if not release_id:
                 return None
             
-            # Get pricing data from Discogs
             pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
             if not pricing_data or 'price_suggestions' not in pricing_data:
                 return None
             
             price_suggestions = pricing_data.get('price_suggestions', {})
             
-            # Try to match condition
             condition_map = {
                 'Mint (M)': ['Mint (M)', 'M', 'Mint'],
                 'Near Mint (NM or M-)': ['Near Mint (NM or M-)', 'NM', 'M-', 'Near Mint'],
@@ -1215,15 +1121,12 @@ class InventoryTab:
                 'Poor (P)': ['Poor (P)', 'P']
             }
             
-            # Check for exact or partial matches
             for discogs_condition, price in price_suggestions.items():
                 if price and price > 0:
-                    # Check if this Discogs condition matches our selected condition
                     for pattern in condition_map.get(selected_condition, []):
                         if pattern.lower() in discogs_condition.lower():
                             return float(price)
             
-            # If no match, try to get any available price
             for discogs_condition, price in price_suggestions.items():
                 if price and price > 0:
                     return float(price)
@@ -1235,26 +1138,21 @@ class InventoryTab:
             return None
 
     def _get_ebay_prices_for_condition(self, artist, title, selected_condition):
-        """Get eBay prices with condition filtering"""
         try:
             if not self.ebay_handler:
                 return None
             
-            # Get eBay pricing data
             ebay_data = self.ebay_handler.get_ebay_pricing(artist, title)
             if not ebay_data:
                 return None
             
-            # Get all listings
             all_listings = []
             for condition_group in ebay_data.get('condition_pricing', {}).values():
                 all_listings.extend(condition_group.get('listings', []))
             
-            # Calculate median of all listings
             all_prices = [listing.get('base_price', 0) for listing in all_listings if listing.get('base_price', 0) > 0]
             generic_median = self._calculate_median(all_prices) if all_prices else 0
             
-            # Filter listings by condition
             condition_patterns = {
                 'Mint (M)': [r'\bmint\b', r'\bm\b', r'\bstill sealed\b'],
                 'Near Mint (NM or M-)': [r'\bnear mint\b', r'\bnm\b', r'\bm-\b'],
@@ -1278,7 +1176,6 @@ class InventoryTab:
                         condition_listings.append(listing)
                         break
             
-            # Calculate median of condition-specific listings
             condition_prices = [listing.get('base_price', 0) for listing in condition_listings if listing.get('base_price', 0) > 0]
             condition_median = self._calculate_median(condition_prices) if condition_prices else 0
             
@@ -1291,7 +1188,7 @@ class InventoryTab:
                 'condition_listings': condition_listings,
                 'search_query': f"{artist} {title}",
                 'condition': selected_condition,
-                'raw_data': ebay_data  # Include raw data for debugging
+                'raw_data': ebay_data
             }
             
         except Exception as e:
@@ -1299,27 +1196,20 @@ class InventoryTab:
             return None
 
     def _calculate_advised_price(self, discogs_price, ebay_prices, selected_condition):
-        """Calculate advised price as min of Discogs and eBay"""
         candidates = []
         
-        # Add Discogs price if available
         if discogs_price and discogs_price > 0:
             candidates.append(discogs_price)
         
-        # Add eBay prices if available
         if ebay_prices:
-            # Use condition-specific median if we have at least 3 listings
             if ebay_prices['condition_count'] >= 3 and ebay_prices['condition_median'] > 0:
                 candidates.append(ebay_prices['condition_median'])
-            # Otherwise use generic median
             elif ebay_prices['generic_median'] > 0:
                 candidates.append(ebay_prices['generic_median'])
         
-        # Return minimum price or 0 if no candidates
         return min(candidates) if candidates else 0.0
 
     def _calculate_median(self, prices):
-        """Calculate median of price list"""
         if not prices:
             return 0.0
         
@@ -1336,7 +1226,6 @@ class InventoryTab:
             return float((sorted_prices[n // 2 - 1] + sorted_prices[n // 2]) / 2)
 
     def _render_price_research_details(self, research, record):
-        """Render detailed price research results"""
         st.write(f"**Research for:** {record.get('artist', '')} - {record.get('title', '')}")
         st.write(f"**Selected Condition:** {research['selected_condition']}")
         
@@ -1349,7 +1238,6 @@ class InventoryTab:
             else:
                 st.write("No price found for this condition")
                 
-            # Show debug info
             with st.expander("Discogs Debug Info", expanded=False):
                 st.write(f"Artist: {record.get('artist')}")
                 st.write(f"Title: {record.get('title')}")
@@ -1365,7 +1253,6 @@ class InventoryTab:
                 st.write(f"Generic median: ${ebay['generic_median']:.2f} ({ebay['generic_count']} listings)")
                 st.write(f"Condition median: ${ebay['condition_median']:.2f} ({ebay['condition_count']} listings)")
                 
-                # Show debug info
                 with st.expander("eBay Debug Info", expanded=False):
                     st.write(f"Search query: {ebay.get('search_query', 'N/A')}")
                     st.write(f"Raw listings found: {len(ebay.get('all_listings', []))}")
@@ -1384,11 +1271,9 @@ class InventoryTab:
             st.warning("No records found in database")
             return
         
-        # Filter results based on user role
         filtered_results = results
         if user and user.get('role') == 'consignor' and search_type == "Edit or Delete item":
             user_id = user.get('id')
-            # Consignor can only see their own records in edit/delete mode
             filtered_results = [r for r in results if r.get('consignor_id') == user_id]
             
             if not filtered_results:
@@ -1400,7 +1285,6 @@ class InventoryTab:
 
     def _render_editable_database_results(self, results, search_type, user=None):
         for i, record in enumerate(results):
-            # Show consignor name
             expander_title = f"{record.get('artist', '')} - {record.get('title', '')}"
             user_role = user.get('role', 'consignor') if user else 'consignor'
             user_id = user.get('id') if user else None
@@ -1425,11 +1309,9 @@ class InventoryTab:
             user_role = user.get('role', 'consignor') if user else 'consignor'
             user_id = user.get('id') if user else None
             
-            # Show consignor info for admin users
             if user_role == 'admin' and record.get('consignor_id'):
                 consignor_id = record.get('consignor_id')
                 if consignor_id:
-                    # Get consignor name from API
                     user_info = self.get_user(consignor_id)
                     if user_info:
                         consignor_name = user_info.get('username', f"ID: {consignor_id}")
@@ -1442,25 +1324,21 @@ class InventoryTab:
             st.write(f"**Catalog:** {record.get('catalog_number', '')}")
             st.write(f"**Genre:** {record.get('genre', '')}")
             
-            # Show consignment dates if available
             if record.get('consignment_start_date'):
                 st.write(f"**Consigned:** {record.get('consignment_start_date')}")
             
             if record.get('discount_eligible_date'):
                 st.write(f"**Discount Eligible:** {record.get('discount_eligible_date')}")
             
-            # Check if user can edit this record
             can_edit = False
             if user_role == 'admin':
                 can_edit = True
             elif user_role == 'consignor' and record.get('consignor_id') == user_id:
-                # Consignor can only edit their own records
                 can_edit = True
             
             artist = st.text_input("Artist", value=record.get('artist', ''), key=f"artist_edit_{index}", disabled=not can_edit)
             title = st.text_input("Title", value=record.get('title', ''), key=f"title_edit_{index}", disabled=not can_edit)
             
-            # USE CACHED GENRES
             all_genres = self.get_all_genres()
             
             current_genre = record.get('genre', '')
@@ -1469,11 +1347,9 @@ class InventoryTab:
             
             compilation = st.checkbox("Compilation", value=record.get('compilation', False), key=f"compilation_{index}", disabled=not can_edit)
             
-            # Price editing with validation
             store_price = record.get('store_price', 0.0)
             st.write(f"**Current Store Price:** ${store_price:.2f}")
             
-            # Show price override status
             if record.get('price_override_requested'):
                 st.warning("⚠️ Price override requested")
             
@@ -1496,12 +1372,10 @@ class InventoryTab:
                     st.button("💾 Save", key=f"save_{index}_disabled", width='stretch', disabled=True)
             
             with col_btn2:
-                # Check if user can delete this record
                 can_delete = False
                 if user_role == 'admin':
                     can_delete = True
                 elif user_role == 'consignor' and record.get('consignor_id') == user_id:
-                    # Consignor can only delete their own NEW records (status_id = 1)
                     if record.get('status_id') == 1:
                         can_delete = True
                 
@@ -1515,7 +1389,6 @@ class InventoryTab:
             
             with col_btn3:
                 if record.get('barcode'):
-                    # Only admin can clear barcodes
                     if user_role == 'admin':
                         if st.button("🗑️ Clear Barcode", key=f"clear_barcode_{index}", width='stretch', type="secondary"):
                             if self._clear_barcode(record.get('id')):
@@ -1525,7 +1398,7 @@ class InventoryTab:
                         st.button("🗑️ Clear Barcode", key=f"clear_barcode_{index}_disabled", width='stretch', type="secondary", disabled=True)
 
     def _save_record_changes(self, original_record, updates):
-        """Save record changes via API"""
+        """Save record changes via API - updates cache"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
@@ -1535,11 +1408,9 @@ class InventoryTab:
             st.rerun()
             return
         
-        # Handle genre conversion to genre_id
         if 'genre' in updates:
             genre = updates.pop('genre')
             if genre:
-                # Try to get genre_id from cache first
                 genre_id = None
                 if self.genre_cache:
                     genre_data = self.genre_cache.get_genres_data()
@@ -1549,7 +1420,6 @@ class InventoryTab:
                                 genre_id = genre_item.get('id')
                                 break
                 
-                # If not found in cache, try to add it
                 if not genre_id:
                     success, new_genre_id = self.add_genre(genre)
                     if success:
@@ -1579,7 +1449,7 @@ class InventoryTab:
         return success
 
     def _delete_record(self, record_id):
-        """Delete a record from the database via API"""
+        """Delete a record from the database via API - updates cache"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
@@ -1596,20 +1466,71 @@ class InventoryTab:
             return False
 
     def _perform_database_search(self, search_term, user=None):
-        """Perform database search using API client - CONSIGNORS ONLY SEE THEIR OWN RECORDS"""
+        """Perform database search using cache"""
         try:
             user_role = user.get('role', 'consignor') if user else 'consignor'
             user_id = user.get('id') if user else None
             
-            # Build search URL with parameters
+            # Use cache first
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                if isinstance(records, list) and records:
+                    search_lower = search_term.lower()
+                    filtered_records = []
+                    
+                    for record in records:
+                        # Filter by user if needed
+                        if user_role == 'consignor' and user_id and record.get('consignor_id') != user_id:
+                            continue
+                        
+                        artist = str(record.get('artist', '')).lower()
+                        title = str(record.get('title', '')).lower()
+                        catalog = str(record.get('catalog_number', '')).lower()
+                        barcode = str(record.get('barcode', '')).lower()
+                        
+                        if (search_lower in artist or 
+                            search_lower in title or 
+                            search_lower in catalog or 
+                            search_lower in barcode):
+                            filtered_records.append(record)
+                    
+                    # Convert to expected format
+                    formatted_results = []
+                    for record in filtered_records:
+                        formatted_result = {
+                            'type': 'database',
+                            'id': record.get('id', ''),
+                            'artist': record.get('artist', ''),
+                            'title': record.get('title', ''),
+                            'image_url': record.get('image_url', ''),
+                            'barcode': record.get('barcode', ''),
+                            'catalog_number': record.get('catalog_number', ''),
+                            'file_at': record.get('file_at', ''),
+                            'store_price': record.get('store_price', ''),
+                            'ebay_sell_at': record.get('ebay_sell_at', ''),
+                            'discogs_suggested_price': record.get('discogs_suggested_price', ''),
+                            'ebay_lowest_price': record.get('ebay_lowest_price', ''),
+                            'condition': record.get('condition', ''),
+                            'genre': record.get('genre_name', record.get('genre', '')),
+                            'youtube_url': record.get('youtube_url', ''),
+                            'consignor_id': record.get('consignor_id', ''),
+                            'consignor_name': record.get('consignor_name', ''),
+                            'commission_rate': record.get('commission_rate', ''),
+                            'compilation': record.get('compilation', False),
+                            'status_id': record.get('status_id', 1)
+                        }
+                        
+                        formatted_results.append(formatted_result)
+                    
+                    return formatted_results
+            
+            # Fallback to API
             if user_role == 'consignor' and user_id:
-                # Consignor searching in edit/delete mode - only search their own records
                 response = requests.get(
                     f"{self.base_url}/records/user/{user_id}?search={search_term}",
                     timeout=10
                 )
             else:
-                # Admin or general search
                 response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
             
             if response.status_code == 200:
@@ -1617,9 +1538,7 @@ class InventoryTab:
                 if data.get('status') == 'success':
                     records = data.get('records', [])
                     
-                    # For consignor searches, we might get all user records, need to filter by search term
                     if user_role == 'consignor' and user_id:
-                        # Filter records by search term locally
                         filtered_records = []
                         search_lower = search_term.lower()
                         for record in records:
@@ -1641,7 +1560,6 @@ class InventoryTab:
             else:
                 return []
             
-            # Convert database results to same format
             formatted_results = []
             for _, record in df.iterrows():
                 formatted_result = {
@@ -1651,20 +1569,20 @@ class InventoryTab:
                     'title': record.get('title', ''),
                     'image_url': record.get('image_url', ''),
                     'barcode': record.get('barcode', ''),
-                    'catalog_number': record.get('catalog_number', ''),  # Include catalog number
+                    'catalog_number': record.get('catalog_number', ''),
                     'file_at': record.get('file_at', ''),
                     'store_price': record.get('store_price', ''),
                     'ebay_sell_at': record.get('ebay_sell_at', ''),
                     'discogs_suggested_price': record.get('discogs_suggested_price', ''),
                     'ebay_lowest_price': record.get('ebay_lowest_price', ''),
                     'condition': record.get('condition', ''),
-                    'genre': record.get('genre_name', record.get('genre', '')),  # FIXED: API returns 'genre_name'
+                    'genre': record.get('genre_name', record.get('genre', '')),
                     'youtube_url': record.get('youtube_url', ''),
-                    'consignor_id': record.get('consignor_id', ''),  # ADDED: Include consignor_id
-                    'consignor_name': record.get('consignor_name', ''),  # Add consignor name
+                    'consignor_id': record.get('consignor_id', ''),
+                    'consignor_name': record.get('consignor_name', ''),
                     'commission_rate': record.get('commission_rate', ''),
                     'compilation': record.get('compilation', False),
-                    'status_id': record.get('status_id', 1)  # ADDED: Include status_id
+                    'status_id': record.get('status_id', 1)
                 }
                 
                 formatted_results.append(formatted_result)
@@ -1676,18 +1594,15 @@ class InventoryTab:
             return []
 
     def _get_all_genres(self):
-        """Get all genres from cache - NO API CALL"""
         if self.genre_cache:
             return self.genre_cache.get_genres_list()
         return []
 
     def _get_suggested_genre(self, record_data):
-        """Get suggested genre from mapping via API"""
         discogs_genre = record_data.get('genre', '')
         if not discogs_genre:
             return None
         
-        # Check for existing mapping
         mapping_result = self.get_discogs_genre_mapping(discogs_genre)
         if mapping_result and mapping_result.get('mapping'):
             return mapping_result['mapping'].get('local_genre_name')
@@ -1700,6 +1615,7 @@ class InventoryTab:
         except ValueError as e:
             raise ValueError(f"Cannot calculate store fill: {e}")
         
+        # Get records as DataFrame
         records_df = self.get_all_records()
         total_inventory = len(records_df) if not records_df.empty else 0
         

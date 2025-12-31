@@ -10,27 +10,23 @@ class CommissionCalculator:
     
     def get_current_commission_rate(self):
         """Get commission rate based ONLY on store capacity - throws error if config missing"""
-        # Get required configuration values - will throw error if any missing
         max_capacity = self._get_config_value('COMMISSION_MAX_CAPACITY')
         min_capacity = self._get_config_value('COMMISSION_MIN_CAPACITY')
         max_rate = self._get_config_value('COMMISSION_MAX_RATE')
         min_rate = self._get_config_value('COMMISSION_MIN_RATE')
         store_capacity = self._get_config_value('STORE_CAPACITY')
         
-        # Get current store fill percentage
         store_fill_info = self._get_store_fill_info(store_capacity)
         fill_percentage = store_fill_info['fill_percentage']
         
-        # Calculate commission rate based on capacity
         if fill_percentage <= min_capacity:
-            return min_rate / 100.0  # Convert from percentage to decimal
+            return min_rate / 100.0
         elif fill_percentage >= max_capacity:
-            return max_rate / 100.0  # Convert from percentage to decimal
+            return max_rate / 100.0
         else:
-            # Linear interpolation between min and max rates
             ratio = (fill_percentage - min_capacity) / (max_capacity - min_capacity)
             commission_rate = min_rate + (max_rate - min_rate) * ratio
-            return commission_rate / 100.0  # Convert from percentage to decimal
+            return commission_rate / 100.0
     
     def calculate_commission(self, store_price):
         """Calculate commission amount for given store price"""
@@ -53,14 +49,34 @@ class CommissionCalculator:
             raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'")
     
     def _get_store_fill_info(self, store_capacity):
-        """Get store fill information"""
-        # Get all records via API
-        response = requests.get(f"{self.api_client.base_url}/records?limit=1000")
-        if response.status_code == 200:
-            data = response.json()
-            total_inventory = len(data.get('records', []))
+        """Get store fill information from cache"""
+ 
+        # Try to get from cache first
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            
+            # FIXED: Handle both lists and DataFrames
+            if isinstance(records, list):
+                 total_inventory = len(records) if records else 0
+            elif hasattr(records, 'empty'):  # This handles pandas DataFrames
+                total_inventory = len(records) if not records.empty else 0
+            else:
+                # For any other type, try to get length safely
+                try:
+                    total_inventory = len(records) if records is not None else 0
+                except:
+                    total_inventory = 0
         else:
-            total_inventory = 0
+            # Fallback to API client
+            records = self.api_client.get_all_records()
+            
+            # FIXED: Handle both lists and DataFrames
+            if isinstance(records, list):
+                total_inventory = len(records) if records else 0
+            elif hasattr(records, 'empty'):  # This handles pandas DataFrames
+                total_inventory = len(records) if not records.empty else 0
+            else:
+                total_inventory = 0
         
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
         fill_percentage = fill_fraction * 100

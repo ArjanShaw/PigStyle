@@ -4,6 +4,7 @@ import time
 import re
 import json
 from pathlib import Path
+from conditions import DiscogsConditions
 
 class EbayHandler:
     EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
@@ -11,7 +12,7 @@ class EbayHandler:
     EBAY_ITEM_URL = "https://api.ebay.com/buy/browse/v1/item/"
     
     # API base URL - update with your actual API endpoint
-    API_BASE_URL = "https://arjanshaw.pythonanywhere.com"  # Replace with your actual API URL
+    API_BASE_URL = "https://arjanshaw.pythonanywhere.com"
 
     def __init__(self, client_id, client_secret):
         self.client_id = client_id
@@ -20,18 +21,53 @@ class EbayHandler:
         self.token_expiry = 0
 
     def _get_config_value(self, config_key):
-        """Get config value from config cache - NO API CALL"""
-        if hasattr(st.session_state, 'config_cache'):
-            value = st.session_state.config_cache.get(config_key)
-            if value is None:
-                raise ValueError(f"Configuration key '{config_key}' not found in cache")
+        """Get config value from config cache - FIXED VERSION"""
+        try:
+            # First check if config_cache exists in session state
+            if hasattr(st.session_state, 'config_cache') and st.session_state.config_cache:
+                value = st.session_state.config_cache.get(config_key)
+                if value is not None:
+                    try:
+                        return float(value)
+                    except (ValueError, TypeError):
+                        # If it's not a number, return as string
+                        return value
             
+            # If not in session state, try to get it directly
             try:
-                return float(value)
-            except ValueError:
-                raise ValueError(f"Configuration key '{config_key}' has invalid value: '{value}'. Must be a number.")
-        else:
-            raise ValueError("Config cache not initialized")
+                response = requests.get(f"{self.API_BASE_URL}/config/{config_key}")
+                if response.status_code == 200:
+                    data = response.json()
+                    value = data.get('config_value')
+                    if value:
+                        try:
+                            return float(value)
+                        except (ValueError, TypeError):
+                            return value
+            except Exception as api_error:
+                print(f"API error getting config {config_key}: {api_error}")
+            
+            # If all else fails, use defaults for critical configs
+            defaults = {
+                'SHIPPING_COST': 5.72,
+                'EBAY_COND_TRESH': 3,
+                'STORE_PRICE_ESTIMATED_MULTIPLIER': 2.0,
+                'STORE_PRICE_MINIMUM': 5.0
+            }
+            
+            if config_key in defaults:
+                return defaults[config_key]
+            
+            raise ValueError(f"Configuration key '{config_key}' not found and no default available")
+                
+        except Exception as e:
+            print(f"Error getting config {config_key}: {e}")
+            # Return safe defaults
+            if config_key == 'SHIPPING_COST':
+                return 5.72
+            elif config_key == 'EBAY_COND_TRESH':
+                return 3
+            raise
 
     def get_access_token(self):
         if self.token and time.time() < self.token_expiry:
@@ -92,7 +128,10 @@ class EbayHandler:
         condition_groups = {}
         
         # Get shipping cost from config cache
-        shipping_cost = self._get_config_value('SHIPPING_COST')
+        try:
+            shipping_cost = self._get_config_value('SHIPPING_COST')
+        except:
+            shipping_cost = 5.72  # Default fallback
         
         for item in items:
             if exclude_foreign:
@@ -261,26 +300,11 @@ class EbayHandler:
         # Combine text for scanning
         text_to_scan = f"{title} {description}"
         
-        # Discogs condition patterns - both full names and abbreviations
-        condition_patterns = {
-            'Mint (M)': [r'\bmint\b', r'\bm\b', r'\bstill sealed\b', r'\bsealed\b'],
-            'Near Mint (NM or M-)': [r'\bnear mint\b', r'\bnm\b', r'\bm-\b', r'\bm\s*-\s*'],
-            'Very Good Plus (VG+)': [r'\bvery good plus\b', r'\bvg\+\b', r'\bvg\s*\+\s*'],
-            'Very Good (VG)': [r'\bvery good\b', r'\bvg\b'],
-            'Good Plus (G+)': [r'\bgood plus\b', r'\bg\+\b', r'\bg\s*\+\s*'],
-            'Good (G)': [r'\bgood\b', r'\bg\b'],
-            'Fair (F)': [r'\bfair\b', r'\bf\b'],
-            'Poor (P)': [r'\bpoor\b', r'\bp\b']
-        }
-        
-        # Check each condition pattern
-        for condition, patterns in condition_patterns.items():
-            for pattern in patterns:
-                if re.search(pattern, text_to_scan, re.IGNORECASE):
-                    return condition
+        # Use centralized condition detection
+        detected_condition = DiscogsConditions.detect_condition_from_text(text_to_scan)
         
         # Default to "Generic" if no condition detected
-        return "Generic"
+        return detected_condition if detected_condition else "Generic"
 
     def get_item_details(self, item_id):
         """Get detailed information for a specific eBay item"""

@@ -130,18 +130,8 @@ class RecordOperationsHandler:
         if pricing_data:
             record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
         
-        # Get advised price if available
-        advised_price = record_data.get('advised_price')
-        
-        # CALCULATE STORE PRICE
-        # Use user price if provided and validated, otherwise use advised price
-        if user_price is not None and user_price > 0:
-            store_price = user_price
-        elif advised_price is not None and advised_price > 0:
-            store_price = self.calculate_store_price(advised_price)
-        else:
-            # Fallback: calculate from Discogs price suggestions
-            store_price = self.calculate_store_price_from_suggestions(record_data, selected_condition)
+        # Use user_price as store_price
+        store_price = user_price if user_price else 0.0
         
         # Get eBay sell price from record_data if available
         ebay_sell_at = record_data.get('ebay_sell_at', 0.0)
@@ -233,77 +223,6 @@ class RecordOperationsHandler:
             st.error(f"Error saving record: {str(e)}")
             return False, None
 
-    def calculate_store_price_from_suggestions(self, record_data, selected_condition):
-        """Calculate store price from Discogs price suggestions for selected condition"""
-        price_suggestions = record_data.get('price_suggestions', {})
-        
-        if not price_suggestions:
-            return 0.0
-        
-        # Try to find price for selected condition
-        condition_map = {
-            'Mint (M)': ['Mint (M)', 'M', 'Mint'],
-            'Near Mint (NM or M-)': ['Near Mint (NM or M-)', 'NM', 'M-', 'Near Mint'],
-            'Very Good Plus (VG+)': ['Very Good Plus (VG+)', 'VG+'],
-            'Very Good (VG)': ['Very Good (VG)', 'VG'],
-            'Good Plus (G+)': ['Good Plus (G+)', 'G+'],
-            'Good (G)': ['Good (G)', 'G'],
-            'Fair (F)': ['Fair (F)', 'F'],
-            'Poor (P)': ['Poor (P)', 'P']
-        }
-        
-        # Check for exact or partial matches
-        for discogs_condition, price in price_suggestions.items():
-            if price and price > 0:
-                # Check if this Discogs condition matches our selected condition
-                for pattern in condition_map.get(selected_condition, []):
-                    if pattern.lower() in discogs_condition.lower():
-                        return self.calculate_store_price(float(price))
-        
-        # If no match found, use the lowest price suggestion
-        valid_prices = [float(p) for p in price_suggestions.values() if p]
-        if valid_prices:
-            lowest_price = min(valid_prices)
-            return self.calculate_store_price(lowest_price)
-        
-        return 0.0
-
-    def calculate_store_price(self, discogs_suggested_price):
-        """CONSOLIDATED: Calculate store price using configurable parameters"""
-        try:
-            # Get current configuration
-            estimated_multiplier = self.api_client.get_config_value('STORE_PRICE_ESTIMATED_MULTIPLIER', '2.0')
-            minimum_price = self.api_client.get_config_value('STORE_PRICE_MINIMUM', '5.0')
-            
-            # Ensure they are floats
-            estimated_multiplier = float(estimated_multiplier)
-            minimum_price = float(minimum_price)
-            
-            candidates = []
-            
-            if discogs_suggested_price and discogs_suggested_price > 0:
-                # Use the selected price with the estimated multiplier
-                candidates.append(discogs_suggested_price * estimated_multiplier)
-            
-            if candidates:
-                raw_price = max(candidates)
-                raw_price = max(raw_price, minimum_price)
-            else:
-                raw_price = minimum_price
-            
-            # Round to nearest .49 or .99
-            store_price = self._round_to_49_or_99(raw_price)
-            
-            return store_price
-            
-        except Exception as e:
-            # Return minimum price or default
-            try:
-                minimum_price = float(self.api_client.get_config_value('STORE_PRICE_MINIMUM', '5.0'))
-                return minimum_price
-            except:
-                return 5.0
-
     def update_database_record(self, record_data, genre, store_credit_option=None, user_price=None):
         """Update database record with enhanced consignment features via API"""
         if genre is None:
@@ -392,18 +311,3 @@ class RecordOperationsHandler:
         except Exception as e:
             st.error(f"Error updating record: {str(e)}")
             return False
-
-    def _round_to_49_or_99(self, price):
-        """Round to nearest .49 or .99"""
-        if price <= 0:
-            return 0.0
-        
-        base_price = math.floor(price)
-        decimal_part = price - base_price
-        
-        if decimal_part < 0.25:
-            return base_price + 0.49
-        elif decimal_part < 0.75:
-            return base_price + 0.49
-        else:
-            return base_price + 0.99

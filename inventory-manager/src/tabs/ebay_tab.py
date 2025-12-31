@@ -26,7 +26,7 @@ class EBayTab:
     def _get_all_records(self):
         """Get all records via API"""
         try:
-            response = requests.get(f"{self.base_url}/records?limit=1000")
+            response = requests.get(f"{self.base_url}/records")
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])

@@ -35,6 +35,7 @@ from handlers.email_service import EmailService
 from handlers.commission_calculator import CommissionCalculator
 from handlers.pricing_validator import PricingValidator
 from handlers.contract_handler import ContractHandler
+from handlers.price_advise_handler import PriceAdviseHandler  # NEW IMPORT
 
 # --- Configuration ---
 IMAGE_FOLDER = Path("images")
@@ -63,7 +64,7 @@ class ConfigCache:
         current_time = time.time()
         
         if (not force_reload and 
-            self._cache is not None and 
+            self._cache is None and 
             (current_time - self._last_load_time) < self._cache_ttl):
             return self._cache
         
@@ -139,7 +140,7 @@ class GenreCache:
         current_time = time.time()
         
         if (not force_reload and 
-            self._cache is not None and 
+            self._cache is None and 
             (current_time - self._last_load_time) < self._cache_ttl):
             return self._cache
         
@@ -262,7 +263,7 @@ class RecordsCache:
         
         try:
             start_time = time.time()
-            response = requests.get(f"{self.base_url}/records?limit=1000", timeout=10)
+            response = requests.get(f"{self.base_url}/records", timeout=10)
             duration = time.time() - start_time
             
             print(f"RecordsCache: Loaded all records in {duration:.2f}s")
@@ -459,36 +460,29 @@ def render_main_app():
         layout="wide"
     )
     
-    try:
-        config = AppConfig()
-    except Exception as e:
-        st.error(f"Configuration error 1: {e}")
-        st.info("Please ensure app_config.json exists with all required values")
-        st.stop()
+    # Initialize caches
+    config_cache = ConfigCache.get_instance()
+    genre_cache = GenreCache.get_instance()
+    records_cache = RecordsCache.get_instance()
+    
+    # Load initial data
+    config_cache.load_all_configs()
+    genre_cache.load_all_genres()
+    records_cache.get_all_records()
     
     api_key_handler = APIKeyHandler()
     
-    env_vars = api_key_handler.get_environment_variables()
-
+    try:
+        env_vars = api_key_handler.get_environment_variables()
+    except Exception as e:
+        st.error(f"API key error: {e}")
+        return
+    
     IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
     DISCOGS_USER_TOKEN = env_vars["DISCOGS_USER_TOKEN"]
     EBAY_CLIENT_ID = env_vars["EBAY_CLIENT_ID"]
     EBAY_CLIENT_SECRET = env_vars["EBAY_CLIENT_SECRET"]
     YOUTUBE_API_KEY = env_vars.get("YOUTUBE_API_KEY")
-
-    if "config" not in st.session_state:
-        st.session_state.config = config
-    
-    # Initialize all caches
-    config_cache = ConfigCache.get_instance()
-    config_cache.load_all_configs()
-    
-    genre_cache = GenreCache.get_instance()
-    genre_cache.load_all_genres()
-    
-    records_cache = RecordsCache.get_instance()
-    # Load records once at startup
-    records_cache.get_all_records()
     
     if "email_service" not in st.session_state:
         class SimpleAPIClient:
@@ -594,8 +588,9 @@ def render_main_app():
     youtube_handler = None
     if YOUTUBE_API_KEY:
         youtube_handler = YouTubeHandler(YOUTUBE_API_KEY)
-    else:
-        st.warning("YouTube API key not found. YouTube integration will be disabled.")
+    
+    # Initialize PriceAdviseHandler
+    price_advise_handler = PriceAdviseHandler(discogs_handler, ebay_handler)
     
     # Create API client for InventoryTab that uses caches
     class InventoryTabAPIClient:
@@ -715,18 +710,18 @@ def render_main_app():
         def get_records_count(self):
             """Get records count from cache (efficient)"""
             return self.records_cache.get_records_count()
-        
-        
     
     # Pass the proper API client to InventoryTab
     inventory_api_client = InventoryTabAPIClient(config_cache, genre_cache, records_cache)
     
+    # Pass price_advise_handler to InventoryTab
     inventory_tab = InventoryTab(
         discogs_handler, 
         ebay_handler, 
         youtube_handler, 
         config_cache, 
         genre_cache,
+        price_advise_handler,  # NEW: Pass price_advise_handler
         inventory_api_client
     )
     

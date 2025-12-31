@@ -17,7 +17,7 @@ class PricingValidator:
             max_ratio_value = self.api_client.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3')
             max_ratio = float(max_ratio_value) if max_ratio_value else 1.3
             
-            # Get advised price from record data
+            # Get advised price from record data (already rounded to .49/.99)
             advised_price = record_data.get('advised_price')
             if not advised_price or advised_price <= 0:
                 # Try to calculate advised price
@@ -81,46 +81,19 @@ class PricingValidator:
             if not selected_condition:
                 return 0
             
-            # Get Discogs price
-            discogs_price = None
-            if self.discogs_handler and record_data.get('discogs_id'):
-                pricing_data = self.discogs_handler.get_release_statistics_pricing(
-                    str(record_data['discogs_id'])
-                )
-                if pricing_data and 'price_suggestions' in pricing_data:
-                    # Try to find price for selected condition
-                    price_suggestions = pricing_data['price_suggestions']
-                    for condition, price in price_suggestions.items():
-                        if price and selected_condition.lower() in condition.lower():
-                            discogs_price = float(price)
-                            break
+            # Use PriceAdviseHandler to calculate advised price
+            from handlers.price_advise_handler import PriceAdviseHandler
+            price_advise_handler = PriceAdviseHandler(self.discogs_handler, self.ebay_handler)
             
-            # Get eBay price
-            ebay_price = None
-            if self.ebay_handler:
-                artist = record_data.get('artist', '')
-                title = record_data.get('title', '')
-                ebay_data = self.ebay_handler.get_ebay_pricing(artist, title)
-                if ebay_data:
-                    # Use median price from eBay
-                    all_prices = []
-                    for condition_group in ebay_data.get('condition_pricing', {}).values():
-                        for listing in condition_group.get('listings', []):
-                            if listing.get('base_price', 0) > 0:
-                                all_prices.append(listing['base_price'])
-                    
-                    if all_prices:
-                        ebay_price = float(sorted(all_prices)[len(all_prices) // 2])
+            artist = record_data.get('artist', '')
+            title = record_data.get('title', '')
             
-            # Calculate advised price as minimum of available prices
-            candidates = []
-            if discogs_price and discogs_price > 0:
-                candidates.append(discogs_price)
-            if ebay_price and ebay_price > 0:
-                candidates.append(ebay_price)
+            price_advice = price_advise_handler.get_price_advice(
+                artist, title, selected_condition, record_data
+            )
             
-            if candidates:
-                return min(candidates)
+            if price_advice['success']:
+                return price_advice['advised_store_price']
             else:
                 return 0
                 

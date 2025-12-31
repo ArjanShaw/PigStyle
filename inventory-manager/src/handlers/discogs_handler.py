@@ -6,6 +6,7 @@ import streamlit as st
 from pathlib import Path
 from typing import Dict, List, Optional
 from collections import Counter
+from conditions import DiscogsConditions  # Added import
 
 class DiscogsHandler:
     def __init__(self, user_token: str):
@@ -223,7 +224,7 @@ class DiscogsHandler:
             release_id = result.get('id')
             year = result.get('year', '')
             format_info = self._extract_format_info(result)
-            label_info = self._extract_label_info(result)
+            # REMOVED: label_info = self._extract_label_info(result)
             country = result.get('country', '')
             genre = self._extract_genre_from_result(result)
             
@@ -236,7 +237,7 @@ class DiscogsHandler:
                 'discogs_id': release_id,
                 'year': year,
                 'format': format_info,
-                'label': label_info,
+                # REMOVED: 'label': label_info,
                 'country': country,
                 'master_id': master_id,
                 'genre': genre,
@@ -405,22 +406,23 @@ class DiscogsHandler:
             return format_list
         return ''
 
-    def _extract_label_info(self, result):
-        if not isinstance(result, dict):
-            return ''
-            
-        label_list = result.get('label', [])
-        if isinstance(label_list, list):
-            labels = []
-            for label in label_list:
-                if isinstance(label, str):
-                    labels.append(label)
-                elif isinstance(label, dict) and label.get('name'):
-                    labels.append(label['name'])
-            return ', '.join(labels)
-        elif isinstance(label_list, str):
-            return label_list
-        return ''
+    # REMOVED: _extract_label_info method completely
+    # def _extract_label_info(self, result):
+    #     if not isinstance(result, dict):
+    #         return ''
+    #     
+    #     label_list = result.get('label', [])
+    #     if isinstance(label_list, list):
+    #         labels = []
+    #         for label in label_list:
+    #             if isinstance(label, str):
+    #                 labels.append(label)
+    #             elif isinstance(label, dict) and label.get('name'):
+    #                 labels.append(label['name'])
+    #         return ', '.join(labels)
+    #     elif isinstance(label_list, str):
+    #         return label_list
+    #     return ''
 
     def _save_payload(self, filename, data):
         payloads_folder = Path("payloads")

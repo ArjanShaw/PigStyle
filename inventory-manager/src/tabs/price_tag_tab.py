@@ -16,53 +16,59 @@ import barcode
 from barcode.writer import ImageWriter
 import io
 from handlers.contract_handler import ContractHandler
+from conditions import DiscogsConditions
 
 class PriceTagTab:
     def __init__(self, genre_cache=None):
-        # Initialize config values - will throw errors if config file doesn't exist or values are missing
-        self._validate_configuration()
-        self.api_base_url = "https://arjanshaw.pythonanywhere.com"
-        self.contract_handler = None
+        # Get config cache from session state (set up in streamlit_app.py)
         self.genre_cache = genre_cache  # Store genre cache reference
+        self.contract_handler = None
+        
+        # Initialize config values from database
+        self._validate_configuration()
     
     def _validate_configuration(self):
-        """Validate that all required configuration values exist"""
-        from config import AppConfig
+        """Validate that all required configuration values exist in database"""
+        config_keys = [
+            'LABEL_WIDTH_MM', 'LABEL_HEIGHT_MM', 'LEFT_MARGIN_MM',
+            'GUTTER_SPACING_MM', 'TOP_MARGIN_MM', 'FONT_SIZE',
+            'PRICE_FONT_SIZE', 'PRICE_Y_POS', 'TEXT_FONT_SIZE',
+            'BARCODE_Y_POS', 'BARCODE_HEIGHT', 'PRINT_BORDERS'
+        ]
         
-        try:
-            config = AppConfig()
+        for key in config_keys:
+            value = self._get_config_value(key)
+            if value is None:
+                st.error(f"Configuration key '{key}' not found in database")
+                st.stop()
             
-            # Load all required config values
-            required_keys = [
-                'label_width_mm', 'label_height_mm', 'left_margin_mm',
-                'gutter_spacing_mm', 'top_margin_mm', 'font_size',
-                'price_font_size', 'price_y_pos', 'text_font_size',
-                'barcode_y_pos', 'barcode_height', 'print_borders'
-            ]
-            
-            for key in required_keys:
-                st.session_state[key] = config.get(key)
-                
-        except Exception as e:
-            st.error(f"Configuration error 3: {e}")
-            st.stop()
+            # Convert string values to appropriate types
+            if key == 'PRINT_BORDERS':
+                st.session_state[key.lower()] = value.lower() == 'true'
+            elif key in ['FONT_SIZE', 'PRICE_FONT_SIZE', 'TEXT_FONT_SIZE', 'GENRE_FONT_SIZE']:
+                st.session_state[key.lower()] = int(float(value))
+            else:
+                try:
+                    st.session_state[key.lower()] = float(value)
+                except ValueError:
+                    st.session_state[key.lower()] = value
     
     def _save_page_layout_config(self, key, value):
-        """Save page layout configuration to config file"""
-        from config import AppConfig
+        """Save page layout configuration to database via API"""
+        # Convert key to uppercase for database storage
+        db_key = key.upper()
         
         try:
-            config = AppConfig()
-            current_config = config.get_all()
-            current_config[key] = value
-            config.update(current_config)
-            st.session_state[key] = value
+            success = self._save_config_value(db_key, str(value))
+            if success:
+                st.session_state[key] = value
+                st.rerun()
         except Exception as e:
             st.error(f"Error saving configuration: {e}")
     
     def _save_tag_design_config(self, key, value):
-        """Save tag design configuration to config file"""
-        # Both page layout and tag design are in the same config file now
+        """Save tag design configuration to database via API"""
+        # Both page layout and tag design are stored in the same database table
         self._save_page_layout_config(key, value)
     
     def render(self):
@@ -130,7 +136,7 @@ class PriceTagTab:
                     # Generate Contract button
                     if st.button("📝 Generate Consignment Contract", 
                                 help="Generate a new consignment agreement contract"):
-                        if is_demo:
+                        if st.session_state.get('user', {}).get('username') == 'demo_user':
                             st.success("✅ Demo: Contract generated!")
                             st.info("💡 In real mode, this would generate a downloadable PDF contract with your terms.")
                             st.info("Contract includes: 180-day term, commission rates, pricing rules, and liability terms.")
@@ -142,7 +148,7 @@ class PriceTagTab:
                 with col2:
                     if st.button("📋 View Receipt History", width='stretch',
                                help="View past batch receipts and consignment records"):
-                        if is_demo:
+                        if st.session_state.get('user', {}).get('username') == 'demo_user':
                             # Show demo receipt history
                             with st.expander("📋 Demo Receipt History", expanded=True):
                                 st.write("**Sample Receipts:**")
@@ -160,7 +166,7 @@ class PriceTagTab:
         records = self._get_new_records_for_user(selected_user_id)
         
         # Get all records for statistics
-        all_records_response = requests.get(f"{self.api_base_url}/records?limit=1000")
+        all_records_response = requests.get(f"https://arjanshaw.pythonanywhere.com/records?limit=1000")
         if all_records_response.status_code == 200:
             all_data = all_records_response.json()
             all_records = all_data.get('records', [])
@@ -327,25 +333,17 @@ class PriceTagTab:
         if not self.contract_handler:
             # Initialize API client for contract handler
             class APIClient:
-                def __init__(self, base_url):
-                    self.base_url = base_url
+                def __init__(self):
+                    pass
                 
                 def get_config_value(self, key, default=None):
                     return self._get_config_value(key, default)
                 
                 def _get_config_value(self, key, default=None):
                     """Get config value via API"""
-                    try:
-                        response = requests.get(f"{self.base_url}/config/{key}")
-                        if response.status_code == 200:
-                            data = response.json()
-                            return data.get('config_value', default)
-                        return default
-                    except Exception as e:
-                        st.error(f"Error getting config: {e}")
-                        return default
+                    return self._get_config_value(key, default)
             
-            api_client = APIClient(self.api_base_url)
+            api_client = APIClient()
             self.contract_handler = ContractHandler(api_client)
         
         # Get commission rate from config
@@ -386,25 +384,17 @@ class PriceTagTab:
         # Initialize contract handler if needed
         if user_id and not self.contract_handler:
             class APIClient:
-                def __init__(self, base_url):
-                    self.base_url = base_url
+                def __init__(self):
+                    pass
                 
                 def get_config_value(self, key, default=None):
                     return self._get_config_value(key, default)
                 
                 def _get_config_value(self, key, default=None):
                     """Get config value via API"""
-                    try:
-                        response = requests.get(f"{self.base_url}/config/{key}")
-                        if response.status_code == 200:
-                            data = response.json()
-                            return data.get('config_value', default)
-                        return default
-                    except Exception as e:
-                        st.error(f"Error getting config: {e}")
-                        return default
+                    return self._get_config_value(key, default)
             
-            api_client = APIClient(self.api_base_url)
+            api_client = APIClient()
             self.contract_handler = ContractHandler(api_client)
         
         # Initialize session state for printing
@@ -556,7 +546,7 @@ class PriceTagTab:
 
         c = canvas.Canvas(output_path, pagesize=letter)
         
-        # Layout parameters
+        # Layout parameters - use lowercase keys from session_state
         label_width = st.session_state.label_width_mm * mm
         label_height = st.session_state.label_height_mm * mm
         left_margin = st.session_state.left_margin_mm * mm
@@ -604,6 +594,7 @@ class PriceTagTab:
     
     def _draw_tag(self, c, x, y, label_width, label_height, record, barcode_number):
         """Draw a single price tag"""
+        # Use lowercase keys from session_state
         params = {
             'price_font_size': st.session_state.price_font_size,
             'price_y_pos': st.session_state.price_y_pos,
@@ -820,7 +811,7 @@ class PriceTagTab:
     def _get_all_users(self):
         """Get all users via API - FIXED: Always returns a list"""
         try:
-            response = requests.get(f"{self.api_base_url}/users")
+            response = requests.get(f"https://arjanshaw.pythonanywhere.com/users")
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -836,10 +827,10 @@ class PriceTagTab:
         try:
             if user_id:
                 # Get all records for this user, then filter those without barcodes and status_id = 1
-                response = requests.get(f"{self.api_base_url}/records/user/{user_id}")
+                response = requests.get(f"https://arjanshaw.pythonanywhere.com/records/user/{user_id}")
             else:
                 # Get all records without barcodes
-                response = requests.get(f"{self.api_base_url}/records/no-barcodes")
+                response = requests.get(f"https://arjanshaw.pythonanywhere.com/records/no-barcodes")
             
             if response.status_code == 200:
                 data = response.json()
@@ -884,7 +875,7 @@ class PriceTagTab:
         
         try:
             response = requests.post(
-                f"{self.api_base_url}/barcodes/assign",
+                f"https://arjanshaw.pythonanywhere.com/barcodes/assign",
                 json={'record_ids': record_ids}
             )
             if response.status_code == 200:
@@ -902,7 +893,7 @@ class PriceTagTab:
         """
         try:
             # Get all records
-            response = requests.get(f"{self.api_base_url}/records?limit=1000")
+            response = requests.get(f"https://arjanshaw.pythonanywhere.com/records?limit=1000")
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -932,7 +923,7 @@ class PriceTagTab:
         """Clear barcode for a record via API"""
         try:
             response = requests.put(
-                f"{self.api_base_url}/records/{record_id}",
+                f"https://arjanshaw.pythonanywhere.com/records/{record_id}",
                 json={'barcode': None}
             )
             return response.status_code == 200
@@ -964,22 +955,33 @@ class PriceTagTab:
             return None
     
     def _get_config_value(self, config_key, default=None):
-        """Get config value via API"""
+        """Get config value via API or from config cache"""
         try:
-            response = requests.get(f"{self.api_base_url}/config/{config_key}")
+            # First try to get from session state config cache
+            if hasattr(st.session_state, 'config_cache'):
+                value = st.session_state.config_cache.get(config_key)
+                if value is not None:
+                    return value
+            
+            # Fallback to API call
+            response = requests.get(f"https://arjanshaw.pythonanywhere.com/config/{config_key}")
             if response.status_code == 200:
                 data = response.json()
-                return data.get('config_value', default)
+                value = data.get('config_value', default)
+                # Store in cache for future use
+                if hasattr(st.session_state, 'config_cache'):
+                    st.session_state.config_cache[config_key] = value
+                return value
             return default
         except Exception as e:
-            st.error(f"Error getting config: {e}")
+            st.error(f"Error getting config {config_key}: {e}")
             return default
     
     def _save_config_value(self, config_key, config_value):
         """Save config value via API"""
         try:
             response = requests.put(
-                f"{self.api_base_url}/config/{config_key}",
+                f"https://arjanshaw.pythonanywhere.com/config/{config_key}",
                 json={'config_value': config_value}
             )
             return response.status_code == 200
@@ -991,7 +993,7 @@ class PriceTagTab:
         """Get records by IDs via API"""
         try:
             response = requests.post(
-                f"{self.api_base_url}/records/by-ids",
+                f"https://arjanshaw.pythonanywhere.com/records/by-ids",
                 json={'record_ids': record_ids}
             )
             if response.status_code == 200:
@@ -1007,7 +1009,7 @@ class PriceTagTab:
         """Update record via API"""
         try:
             response = requests.put(
-                f"{self.api_base_url}/records/{record_id}",
+                f"https://arjanshaw.pythonanywhere.com/records/{record_id}",
                 json=updates
             )
             return response.status_code == 200

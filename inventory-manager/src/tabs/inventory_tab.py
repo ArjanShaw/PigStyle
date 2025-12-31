@@ -304,28 +304,17 @@ class InventoryTab:
             return self.genre_cache.get_discogs_genre_mapping(discogs_genre)
         return {'mapping': None, 'status': 'error'}
     
-    def get_database_stats(self):
-        """Get database statistics via API"""
+    def get_records_count(self):
+        """Get records count from cache (efficient)"""
         try:
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/stats")
-            duration = time.time() - start_time
-            
-            print(f"API Get Database Stats took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'records_count': data.get('records_count', 0),
-                    'users_count': data.get('users_count', 0),
-                    'votes_count': data.get('votes_count', 0),
-                    'latest_record': data.get('latest_record'),
-                    'db_path': data.get('db_path', 'API-based')
-                }
-            return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
+            if hasattr(st.session_state, 'records_cache'):
+                records = st.session_state.records_cache
+                if isinstance(records, list):
+                    return len(records)
+            return 0
         except Exception as e:
-            st.error(f"API Error getting stats: {e}")
-            return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
+            print(f"Error getting records count: {e}")
+            return 0
     
     def get_user(self, user_id):
         """Get user by ID"""
@@ -355,7 +344,8 @@ class InventoryTab:
         return None
 
     def render(self):
-        stats = self._get_user_database_stats()
+        # Get records count from cache (efficient)
+        records_count = self.get_records_count()
         
         try:
             store_fill_info = self._get_store_fill_info()
@@ -363,7 +353,7 @@ class InventoryTab:
             
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Inventory Records", stats['records_count'])
+                st.metric("Inventory Records", records_count)
             with col2:
                 st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
             with col3:
@@ -379,7 +369,7 @@ class InventoryTab:
             st.info("Please check configuration values for commission calculation")
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Inventory Records", stats['records_count'])
+                st.metric("Inventory Records", records_count)
             with col2:
                 st.info("Store fill: N/A")
             with col3:
@@ -1615,9 +1605,8 @@ class InventoryTab:
         except ValueError as e:
             raise ValueError(f"Cannot calculate store fill: {e}")
         
-        # Get records as DataFrame
-        records_df = self.get_all_records()
-        total_inventory = len(records_df) if not records_df.empty else 0
+        # Get records count from cache (efficient)
+        total_inventory = self.get_records_count()
         
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
         fill_percentage = fill_fraction * 100
@@ -1627,11 +1616,4 @@ class InventoryTab:
             'store_capacity': store_capacity,
             'fill_fraction': fill_fraction,
             'fill_percentage': fill_percentage
-        }
-
-    def _get_user_database_stats(self) -> dict:
-        stats = self.get_database_stats()
-        
-        return {
-            'records_count': stats.get('records_count', 0)
         }

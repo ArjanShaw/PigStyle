@@ -348,6 +348,11 @@ class RecordsCache:
         
         return None
     
+    def get_records_count(self):
+        """Get count of records from cache (efficient)"""
+        records = self.get_all_records()
+        return len(records) if records else 0
+    
     def clear(self):
         """Clear the cache"""
         self._cache = None
@@ -707,22 +712,11 @@ def render_main_app():
         def get_record_by_id(self, record_id):
             return self.records_cache.get_record_by_id(record_id)
         
-        def get_database_stats(self):
-            try:
-                response = requests.get(f"{self.base_url}/stats", timeout=5)
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        'records_count': data.get('records_count', 0),
-                        'users_count': data.get('users_count', 0),
-                        'votes_count': data.get('votes_count', 0),
-                        'latest_record': data.get('latest_record'),
-                        'db_path': data.get('db_path', 'API-based')
-                    }
-                return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
-            except Exception as e:
-                st.error(f"API Error getting stats: {e}")
-                return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
+        def get_records_count(self):
+            """Get records count from cache (efficient)"""
+            return self.records_cache.get_records_count()
+        
+        
     
     # Pass the proper API client to InventoryTab
     inventory_api_client = InventoryTabAPIClient(config_cache, genre_cache, records_cache)

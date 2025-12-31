@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import requests
+import time
 
 class StatisticsTab:
     def __init__(self, records_cache=None, base_url="https://arjanshaw.pythonanywhere.com"):
@@ -12,6 +13,9 @@ class StatisticsTab:
         else:
             self.base_url = base_url
         self.records_cache = records_cache
+        self._stats_cache = None
+        self._stats_last_load_time = 0
+        self._stats_cache_ttl = 300  # 5 minutes
     
     def render(self):
         st.header("📊 Statistics")
@@ -26,19 +30,39 @@ class StatisticsTab:
         self._render_combined_stats()
     
     def _get_database_stats(self):
-        """Get database statistics via API"""
+        """Get database statistics with caching"""
+        current_time = time.time()
+        
+        # Check if we need to reload
+        needs_reload = (
+            self._stats_cache is None or
+            (current_time - self._stats_last_load_time) >= self._stats_cache_ttl or
+            st.session_state.get('records_updated', 0) > self._stats_cache.get('_records_count', 0) if self._stats_cache else True
+        )
+        
+        if not needs_reload:
+            return self._stats_cache
+        
         try:
+            start_time = time.time()
             url = f"{self.base_url}/stats"
-            response = requests.get(url)
+            response = requests.get(url, timeout=5)
+            duration = time.time() - start_time
+            
+            print(f"API Get Database Stats took {duration:.2f}s")
+            
             if response.status_code == 200:
                 data = response.json()
-                return {
+                self._stats_cache = {
                     'records_count': data.get('records_count', 0),
                     'users_count': data.get('users_count', 0),
                     'votes_count': data.get('votes_count', 0),
                     'latest_record': data.get('latest_record'),
-                    'db_path': data.get('db_path', 'API-based')
+                    'db_path': data.get('db_path', 'API-based'),
+                    '_records_count': st.session_state.get('records_updated', 0)
                 }
+                self._stats_last_load_time = current_time
+                return self._stats_cache
             return {'records_count': 0, 'users_count': 0, 'votes_count': 0, 'latest_record': 'N/A', 'db_path': 'API-based'}
         except Exception as e:
             st.error(f"API Error getting stats: {e}")

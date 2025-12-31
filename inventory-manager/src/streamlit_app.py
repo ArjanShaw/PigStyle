@@ -247,12 +247,14 @@ class RecordsCache:
         """Get all records from cache or API"""
         current_time = time.time()
         
-        # Check if we need to reload
+        # Check if we need to reload - FIXED: Better logic to prevent unnecessary reloads
         needs_reload = (
             force_reload or 
             self._cache is None or
             (current_time - self._last_load_time) >= self._cache_ttl or
-            st.session_state.get('records_updated', 0) > self._last_update_time
+            st.session_state.get('records_updated', 0) > self._last_update_time or
+            not hasattr(st.session_state, 'records_cache') or
+            st.session_state.get('records_cache') is None
         )
         
         if not needs_reload:
@@ -480,6 +482,8 @@ def render_main_app():
     genre_cache.load_all_genres()
     
     records_cache = RecordsCache.get_instance()
+    # Load records once at startup
+    records_cache.get_all_records()
     
     if "email_service" not in st.session_state:
         class SimpleAPIClient:
@@ -732,7 +736,8 @@ def render_main_app():
         inventory_api_client
     )
     
-    statistics_tab = StatisticsTab()
+    # Pass records_cache to tabs that need it
+    statistics_tab = StatisticsTab(records_cache=records_cache)
     ebay_tab = EBayTab(ebay_handler)
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(genre_cache)
@@ -742,8 +747,12 @@ def render_main_app():
 
     render_header(user)
     
-    for timing in st.session_state.get("api_timings", [])[-10:]:
-        print(f"{timing['endpoint']}: {timing['duration']:.2f}s")
+    # Print recent API timings for debugging
+    if st.session_state.get("api_timings"):
+        print("\n=== Recent API Timings ===")
+        for timing in st.session_state.get("api_timings", [])[-5:]:
+            print(f"{timing['endpoint']}: {timing['duration']:.2f}s")
+        print("=========================\n")
     
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, statistics_tab, consignment_tab, 

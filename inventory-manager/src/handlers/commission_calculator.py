@@ -50,33 +50,27 @@ class CommissionCalculator:
     
     def _get_store_fill_info(self, store_capacity):
         """Get store fill information from cache"""
- 
-        # Try to get from cache first
-        if hasattr(st.session_state, 'records_cache'):
-            records = st.session_state.records_cache
-            
-            # FIXED: Handle both lists and DataFrames
-            if isinstance(records, list):
-                 total_inventory = len(records) if records else 0
-            elif hasattr(records, 'empty'):  # This handles pandas DataFrames
-                total_inventory = len(records) if not records.empty else 0
-            else:
-                # For any other type, try to get length safely
-                try:
-                    total_inventory = len(records) if records is not None else 0
-                except:
+        try:
+            # Use cache first via api_client
+            if hasattr(self.api_client, 'records_cache'):
+                records = self.api_client.records_cache.get_all_records()
+                if isinstance(records, list):
+                    total_inventory = len(records) if records else 0
+                else:
                     total_inventory = 0
-        else:
-            # Fallback to API client
-            records = self.api_client.get_all_records()
-            
-            # FIXED: Handle both lists and DataFrames
-            if isinstance(records, list):
-                total_inventory = len(records) if records else 0
-            elif hasattr(records, 'empty'):  # This handles pandas DataFrames
-                total_inventory = len(records) if not records.empty else 0
             else:
-                total_inventory = 0
+                # Fallback to direct method
+                records = self.api_client.get_all_records()
+                if isinstance(records, list):
+                    total_inventory = len(records) if records else 0
+                elif hasattr(records, 'empty'):  # pandas DataFrame
+                    total_inventory = len(records) if not records.empty else 0
+                else:
+                    total_inventory = 0
+        
+        except Exception as e:
+            print(f"Error getting records for store fill: {e}")
+            total_inventory = 0
         
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
         fill_percentage = fill_fraction * 100

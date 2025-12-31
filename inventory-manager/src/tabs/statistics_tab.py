@@ -6,11 +6,12 @@ from plotly.subplots import make_subplots
 import requests
 
 class StatisticsTab:
-    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+    def __init__(self, records_cache=None, base_url="https://arjanshaw.pythonanywhere.com"):
         if hasattr(base_url, '__str__'):
             self.base_url = str(base_url)
         else:
             self.base_url = base_url
+        self.records_cache = records_cache
     
     def render(self):
         st.header("📊 Statistics")
@@ -60,11 +61,17 @@ class StatisticsTab:
     def _get_all_records(self):
         """Get all records from cache or API"""
         try:
-            # Try to get from cache first
+            # Use cache if available
+            if self.records_cache:
+                records = self.records_cache.get_all_records()
+                if records:
+                    return pd.DataFrame(records) if isinstance(records, list) else records
+            
+            # Try to get from session state cache
             if hasattr(st.session_state, 'records_cache'):
                 records = st.session_state.records_cache
                 if records:
-                    return pd.DataFrame(records)
+                    return pd.DataFrame(records) if isinstance(records, list) else pd.DataFrame()
             
             # Fallback to API
             url = f"{self.base_url}/records?limit=1000"

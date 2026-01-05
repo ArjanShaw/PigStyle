@@ -91,7 +91,8 @@ class ConsignmentTab:
                             if self._request_payout(user_id):
                                 st.success("✅ Payout request submitted! It will be processed by admin.")
                                 st.info("💡 The store admin would confirm with an email and sent you a check.")
-                                st.rerun()
+                                st.session_state.needs_refresh = True
+                                st.stop()
                     elif payout_requested:
                         st.info("⏳ Payout request pending admin approval")
         
@@ -186,7 +187,8 @@ class ConsignmentTab:
                 if st.button(f"✅ Select All {title.split()[0]}", key=f"select_all_{title}"):
                     st.session_state.select_all_consignment = True
                     st.session_state.selected_consignment_records = df['record_id'].tolist()
-                    st.rerun()
+                    st.session_state.needs_refresh = True
+                    st.stop()
             
             with col2:
                 selected_count = len([r for r in st.session_state.selected_consignment_records if r in df['record_id'].tolist()])
@@ -278,7 +280,8 @@ class ConsignmentTab:
                             r for r in st.session_state.selected_consignment_records 
                             if r not in table_selected_records
                         ]
-                        st.rerun()
+                        st.session_state.needs_refresh = True
+                        st.stop()
     
     def _render_sold_table(self, title, df, user_role, is_demo):
         st.subheader(title)
@@ -443,7 +446,8 @@ class ConsignmentTab:
                         r for r in st.session_state.selected_consignment_records 
                         if r not in table_selected_records
                     ]
-                    st.rerun()
+                    st.session_state.needs_refresh = True
+                    st.stop()
         elif user_role == 'consignor' and 'Select' in display_df.columns:
             st.session_state.selected_consignment_records = [
                 r for r in st.session_state.selected_consignment_records 
@@ -611,7 +615,8 @@ class ConsignmentTab:
                         if self._process_payout(user['id']):
                             st.success(f"✅ Payout processed for {user.get('username')}")
                             st.info("💡 Email confirmation sent and check mailed to consignor.")
-                            st.rerun()
+                            st.session_state.needs_refresh = True
+                            st.stop()
                         else:
                             st.error(f"❌ Failed to process payout")
     
@@ -628,7 +633,10 @@ class ConsignmentTab:
                 f"{self.api_client.base_url}/users/{user_id}/request-payout",
                 json={'payout_requested': True}
             )
-            return response.status_code == 200
+            if response.status_code == 200:
+                st.session_state.needs_refresh = True
+                return True
+            return False
         except Exception as e:
             st.error(f"Error requesting payout: {e}")
             return False
@@ -656,7 +664,10 @@ class ConsignmentTab:
                     'original_payout_amount': credit_balance
                 }
             )
-            return response.status_code == 200
+            if response.status_code == 200:
+                st.session_state.needs_refresh = True
+                return True
+            return False
         except Exception as e:
             st.error(f"Error processing payout: {e}")
             return False
@@ -709,7 +720,9 @@ class ConsignmentTab:
         ]
         st.session_state.select_all_consignment = False
         
-        st.rerun()
+        st.session_state.needs_refresh = True
+        st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
+        st.stop()
     
     def _delete_selected_records(self, record_ids, is_demo=False):
         if not record_ids:
@@ -763,7 +776,9 @@ class ConsignmentTab:
         ]
         st.session_state.select_all_consignment = False
         
-        st.rerun()
+        st.session_state.needs_refresh = True
+        st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
+        st.stop()
 
 class APIClient:
     

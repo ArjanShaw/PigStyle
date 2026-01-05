@@ -82,44 +82,67 @@ class SearchHandler:
                 data = response.json()
                 if data.get('status') == 'success':
                     records = data.get('records', [])
-                    df = pd.DataFrame(records) if records else pd.DataFrame()
+                    # Ensure all records are dictionaries
+                    formatted_results = []
+                    for record in records:
+                        if isinstance(record, dict):
+                            formatted_result = {
+                                'type': 'database',
+                                'id': record.get('id', ''),
+                                'artist': record.get('artist', ''),
+                                'title': record.get('title', ''),
+                                'image_url': record.get('image_url', ''),
+                                'barcode': record.get('barcode', ''),
+                                'catalog_number': record.get('catalog_number', ''),  # Include catalog number
+                                'file_at': record.get('file_at', ''),
+                                'store_price': record.get('store_price', ''),
+                                'ebay_sell_at': record.get('ebay_sell_at', ''),
+                                'discogs_suggested_price': record.get('discogs_suggested_price', ''),
+                                'ebay_lowest_price': record.get('ebay_lowest_price', ''),
+                                'condition': record.get('condition', ''),
+                                'genre': record.get('genre_name', record.get('genre', '')),  # FIXED: API returns 'genre_name'
+                                'youtube_url': record.get('youtube_url', ''),
+                                'consignor_id': record.get('consignor_id', ''),  # ADDED: Include consignor_id
+                                'consignor_name': record.get('consignor_name', ''),  # Add consignor name
+                                'commission_rate': record.get('commission_rate', ''),
+                                'compilation': record.get('compilation', False)
+                            }
+                        else:
+                            # Convert to dict if not already
+                            record_dict = dict(record) if hasattr(record, '_asdict') else {}
+                            formatted_result = {
+                                'type': 'database',
+                                'id': record_dict.get('id', ''),
+                                'artist': record_dict.get('artist', ''),
+                                'title': record_dict.get('title', ''),
+                                'image_url': record_dict.get('image_url', ''),
+                                'barcode': record_dict.get('barcode', ''),
+                                'catalog_number': record_dict.get('catalog_number', ''),
+                                'file_at': record_dict.get('file_at', ''),
+                                'store_price': record_dict.get('store_price', ''),
+                                'ebay_sell_at': record_dict.get('ebay_sell_at', ''),
+                                'discogs_suggested_price': record_dict.get('discogs_suggested_price', ''),
+                                'ebay_lowest_price': record_dict.get('ebay_lowest_price', ''),
+                                'condition': record_dict.get('condition', ''),
+                                'genre': record_dict.get('genre_name', record_dict.get('genre', '')),
+                                'youtube_url': record_dict.get('youtube_url', ''),
+                                'consignor_id': record_dict.get('consignor_id', ''),
+                                'consignor_name': record_dict.get('consignor_name', ''),
+                                'commission_rate': record_dict.get('commission_rate', ''),
+                                'compilation': record_dict.get('compilation', False)
+                            }
+                        
+                        formatted_results.append(formatted_result)
+                    
+                    return formatted_results
                 else:
                     return []
             else:
                 return []
             
-            # Convert database results to same format
-            formatted_results = []
-            for _, record in df.iterrows():
-                formatted_result = {
-                    'type': 'database',
-                    'id': record.get('id', ''),
-                    'artist': record.get('artist', ''),
-                    'title': record.get('title', ''),
-                    'image_url': record.get('image_url', ''),
-                    'barcode': record.get('barcode', ''),
-                    'catalog_number': record.get('catalog_number', ''),  # Include catalog number
-                    'file_at': record.get('file_at', ''),
-                    'store_price': record.get('store_price', ''),
-                    'ebay_sell_at': record.get('ebay_sell_at', ''),
-                    'discogs_suggested_price': record.get('discogs_suggested_price', ''),
-                    'ebay_lowest_price': record.get('ebay_lowest_price', ''),
-                    'condition': record.get('condition', ''),
-                    'genre': record.get('genre_name', record.get('genre', '')),  # FIXED: API returns 'genre_name'
-                    'youtube_url': record.get('youtube_url', ''),
-                    'consignor_id': record.get('consignor_id', ''),  # ADDED: Include consignor_id
-                    'consignor_name': record.get('consignor_name', ''),  # Add consignor name
-                    'commission_rate': record.get('commission_rate', ''),
-                    'compilation': record.get('compilation', False)
-                }
-                
-                formatted_results.append(formatted_result)
-            
-            return formatted_results
-            
         except Exception as e:
             st.error(f"Error searching database: {str(e)}")
-            return []
+            return []     
 
     def _generate_filename(self, search_query, format_name):
         """Generate a safe filename"""

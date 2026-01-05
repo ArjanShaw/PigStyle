@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-import sys
+import sys  # ADD THIS IMPORT
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
@@ -21,14 +21,15 @@ from auth.permissions import PermissionManager
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
 from tabs.statistics_tab import StatisticsTab
+# FIXED: Import EBayTab from ebay_handler
 from tabs.ebay_tab import EBayTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
 from tabs.votes_tab import VotesTab
 from tabs.checkout_tab import CheckoutTab
-from handlers.ebay_handler import EbayHandler
-from handlers.api_key_handler import APIKeyHandler
+# REMOVED: from handlers.ebay_handler import EbayHandler
+from handlers.env_pars_handler import EnvParsHandler  # NEW: Centralized environment variable handler
 from config import AppConfig
 from handlers.youtube_handler import YouTubeHandler
 from handlers.email_service import EmailService
@@ -36,6 +37,7 @@ from handlers.commission_calculator import CommissionCalculator
 from handlers.pricing_validator import PricingValidator
 from handlers.contract_handler import ContractHandler
 from handlers.price_advise_handler import PriceAdviseHandler  # NEW IMPORT
+from handlers.config_handler import ConfigHandler  # NEW IMPORT
 
 # --- Configuration ---
 IMAGE_FOLDER = Path("images")
@@ -44,7 +46,7 @@ PAYLOADS_FOLDER = Path("payloads")
 PAYLOADS_FOLDER.mkdir(parents=True, exist_ok=True)
 
 class ConfigCache:
-    """Centralized config cache management"""
+    """Centralized config cache management - DEPRECATED: Use ConfigHandler instead"""
     _instance = None
     
     @classmethod
@@ -60,61 +62,26 @@ class ConfigCache:
         self._cache_ttl = 300
     
     def load_all_configs(self, force_reload=False):
-        """Load all config values in a single API call"""
-        current_time = time.time()
+        """Load all config values in a single API call - DEPRECATED"""
+        # Use ConfigHandler instead
+        config_handler = ConfigHandler()
+        configs = config_handler.get_all()
         
-        if (not force_reload and 
-            self._cache is None and 
-            (current_time - self._last_load_time) < self._cache_ttl):
-            return self._cache
+        # Maintain backward compatibility with session state
+        st.session_state.config_cache = configs.copy()
         
-        try:
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/config", timeout=5)
-            duration = time.time() - start_time
-            
-            print(f"ConfigCache: Loaded all configs in {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    configs = data.get('configs', {})
-                    
-                    flat_configs = {}
-                    for key, config_info in configs.items():
-                        if isinstance(config_info, dict):
-                            flat_configs[key] = config_info.get('value', '')
-                        else:
-                            flat_configs[key] = config_info
-                    
-                    self._cache = flat_configs
-                    self._last_load_time = current_time
-                    
-                    if 'config_cache' not in st.session_state:
-                        st.session_state.config_cache = {}
-                    st.session_state.config_cache = flat_configs.copy()
-                    
-                    return self._cache
-            else:
-                print(f"ConfigCache: Failed to load configs, status {response.status_code}")
-                return {}
-        except Exception as e:
-            print(f"ConfigCache: Error loading configs: {e}")
-            return {}
+        return configs
     
     def get(self, key, default=None):
-        """Get a config value from cache"""
-        if self._cache is None:
-            self.load_all_configs()
-        
-        return self._cache.get(key, default) if self._cache else default
+        """Get a config value from cache - DEPRECATED"""
+        # Use ConfigHandler instead
+        config_handler = ConfigHandler()
+        return config_handler.get(key, default)
     
     def clear(self):
-        """Clear the cache"""
-        self._cache = None
-        self._last_load_time = 0
-        if 'config_cache' in st.session_state:
-            del st.session_state.config_cache
+        """Clear the cache - DEPRECATED"""
+        config_handler = ConfigHandler()
+        config_handler.clear_cache()
 
 
 class GenreCache:
@@ -461,22 +428,18 @@ def render_main_app():
     )
     
     # Initialize caches
-    config_cache = ConfigCache.get_instance()
+    config_handler = ConfigHandler()  # NEW: Use ConfigHandler
     genre_cache = GenreCache.get_instance()
     records_cache = RecordsCache.get_instance()
     
-    # Load initial data
-    config_cache.load_all_configs()
+    # Load initial data using ConfigHandler
+    config_handler.get_all()  # This will load all configs into cache
     genre_cache.load_all_genres()
     records_cache.get_all_records()
     
-    api_key_handler = APIKeyHandler()
-    
-    try:
-        env_vars = api_key_handler.get_environment_variables()
-    except Exception as e:
-        st.error(f"API key error: {e}")
-        return
+    # NEW: Use EnvParsHandler for all environment variables
+    env_handler = EnvParsHandler()
+    env_vars = env_handler.get_environment_variables()
     
     IMAGEBB_API_KEY = env_vars["IMAGEBB_API_KEY"]
     DISCOGS_USER_TOKEN = env_vars["DISCOGS_USER_TOKEN"]
@@ -511,10 +474,10 @@ def render_main_app():
         class SimpleAPIClient2:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
-                self.config_cache = config_cache
+                self.config_handler = config_handler  # Use ConfigHandler
             
             def get_config_value(self, key, default=None):
-                return self.config_cache.get(key, default)
+                return self.config_handler.get(key, default)
             
             def get_all_records(self):
                 # Use records cache instead of API call
@@ -535,11 +498,11 @@ def render_main_app():
         class SimpleAPIClient3:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
-                self.config_cache = config_cache
+                self.config_handler = config_handler  # Use ConfigHandler
                 self.genre_cache = genre_cache
             
             def get_config_value(self, key, default=None):
-                return self.config_cache.get(key, default)
+                return self.config_handler.get(key, default)
                 
             def search_records(self, query):
                 # Use records cache instead of API call
@@ -555,10 +518,10 @@ def render_main_app():
         class SimpleAPIClientForContract:
             def __init__(self):
                 self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
-                self.config_cache = config_cache
+                self.config_handler = config_handler  # Use ConfigHandler
             
             def get_config_value(self, key, default=None):
-                return self.config_cache.get(key, default)
+                return self.config_handler.get(key, default)
         
         st.session_state.contract_handler = ContractHandler(SimpleAPIClientForContract())
 
@@ -583,20 +546,20 @@ def render_main_app():
     
     ebay_handler = None
     if EBAY_CLIENT_ID and EBAY_CLIENT_SECRET:
-        ebay_handler = EbayHandler(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET)
+        ebay_handler = EBayTab(EBAY_CLIENT_ID, EBAY_CLIENT_SECRET)  # Now EBayTab contains handler functionality
     
     youtube_handler = None
     if YOUTUBE_API_KEY:
         youtube_handler = YouTubeHandler(YOUTUBE_API_KEY)
     
-    # Initialize PriceAdviseHandler
+    # Initialize PriceAdviseHandler with env variables loaded from EnvParsHandler
     price_advise_handler = PriceAdviseHandler(discogs_handler, ebay_handler)
     
     # Create API client for InventoryTab that uses caches
     class InventoryTabAPIClient:
-        def __init__(self, config_cache, genre_cache, records_cache):
+        def __init__(self, config_handler, genre_cache, records_cache):
             self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
-            self.config_cache = config_cache
+            self.config_handler = config_handler  # Use ConfigHandler
             self.genre_cache = genre_cache
             self.records_cache = records_cache
         
@@ -607,9 +570,7 @@ def render_main_app():
             return f"InventoryTabAPIClient(base_url='{self.base_url}')"
         
         def get_config_value(self, key, default=None):
-            if self.config_cache:
-                return self.config_cache.get(key, default)
-            return default
+            return self.config_handler.get(key, default)
         
         def get_all_genres(self):
             if self.genre_cache:
@@ -712,14 +673,14 @@ def render_main_app():
             return self.records_cache.get_records_count()
     
     # Pass the proper API client to InventoryTab
-    inventory_api_client = InventoryTabAPIClient(config_cache, genre_cache, records_cache)
+    inventory_api_client = InventoryTabAPIClient(config_handler, genre_cache, records_cache)
     
     # Pass price_advise_handler to InventoryTab
     inventory_tab = InventoryTab(
         discogs_handler, 
-        ebay_handler, 
+        ebay_handler,  # This is now an EBayTab instance with handler functionality
         youtube_handler, 
-        config_cache, 
+        config_handler,  # Use ConfigHandler instead of config_cache
         genre_cache,
         price_advise_handler,  # NEW: Pass price_advise_handler
         inventory_api_client
@@ -727,7 +688,7 @@ def render_main_app():
     
     # Pass records_cache to tabs that need it
     statistics_tab = StatisticsTab(records_cache=records_cache)
-    ebay_tab = EBayTab(ebay_handler)
+    ebay_tab = ebay_handler  # ebay_handler is already an EBayTab instance
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(genre_cache)
     admin_config_tab = AdminConfigTab()
@@ -742,7 +703,7 @@ def render_main_app():
         for timing in st.session_state.get("api_timings", [])[-5:]:
             print(f"{timing['endpoint']}: {timing['duration']:.2f}s")
         print("=========================\n")
-    
+        
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, statistics_tab, consignment_tab, 
                                    admin_config_tab, votes_tab, checkout_tab)

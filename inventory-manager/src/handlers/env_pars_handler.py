@@ -1,14 +1,21 @@
+"""
+Centralized environment variable parsing handler.
+Loads all required environment variables from .env file or Streamlit secrets.
+Throws hard errors if required variables are missing.
+"""
 import os
 import streamlit as st
 from pathlib import Path
 
-# DEPRECATED: Use EnvParsHandler instead
-class APIKeyHandler:
+class EnvParsHandler:
+    """Centralized handler for parsing environment variables"""
+    
     def __init__(self):
         self.env_vars = {}
         self.env_vars_loaded = False
-    
+        
     def get_environment_variables(self):
+        """Load all environment variables from .env or Streamlit secrets"""
         if self.env_vars_loaded:
             return self.env_vars
             
@@ -20,6 +27,7 @@ class APIKeyHandler:
             "YOUTUBE_API_KEY"
         ]
         
+        # First try Streamlit secrets
         if hasattr(st, 'secrets'):
             secrets_available = all(var in st.secrets for var in required_vars)
             if secrets_available:
@@ -28,12 +36,13 @@ class APIKeyHandler:
                 self.env_vars_loaded = True
                 return self.env_vars
         
+        # Then try .env file in current directory
         current_dir = os.getcwd()
         env_file_path = os.path.join(current_dir, '.env')
         
         if not os.path.exists(env_file_path):
             error_msg = f"""
-            ❌ API keys not found!
+            ❌ Environment variables not found!
             
             For local development:
             - Create a .env file at {env_file_path} with:
@@ -41,13 +50,14 @@ class APIKeyHandler:
               DISCOGS_USER_TOKEN=your_token
               EBAY_CLIENT_ID=your_id
               EBAY_CLIENT_SECRET=your_secret
-              YOUTUBE_API_KEY=your_key (optional)
+              YOUTUBE_API_KEY=your_key
             
             For Streamlit Cloud:
             - Add these secrets in app settings under 'Secrets'
             """
             raise Exception(error_msg)
         
+        # Load from .env file
         with open(env_file_path, 'r') as f:
             for line in f:
                 line = line.strip()
@@ -55,10 +65,12 @@ class APIKeyHandler:
                     key, value = line.split('=', 1)
                     key = key.strip()
                     value = value.strip()
+                    # Remove quotes if present
                     if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
                         value = value[1:-1]
                     self.env_vars[key] = value
         
+        # Check for missing variables
         missing_vars = []
         for var in required_vars:
             if var not in self.env_vars or not self.env_vars[var]:
@@ -66,7 +78,7 @@ class APIKeyHandler:
         
         if missing_vars:
             error_msg = f"""
-            ❌ Missing required API keys!
+            ❌ Missing required environment variables!
             
             Missing: {', '.join(missing_vars)}
             
@@ -78,11 +90,13 @@ class APIKeyHandler:
         return self.env_vars
     
     def get_api_key(self, key_name, default=None):
+        """Get a specific API key"""
         if not self.env_vars_loaded:
             self.get_environment_variables()
         return self.env_vars.get(key_name, default)
     
     def validate_required_keys(self, required_keys=None):
+        """Validate that required keys are present"""
         if not self.env_vars_loaded:
             self.get_environment_variables()
             
@@ -100,6 +114,7 @@ class APIKeyHandler:
         return True, []
     
     def get_available_sources(self):
+        """Get information about available environment variable sources"""
         current_dir = os.getcwd()
         env_file_path = os.path.join(current_dir, '.env')
         

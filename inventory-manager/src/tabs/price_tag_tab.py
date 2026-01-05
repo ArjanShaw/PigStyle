@@ -44,14 +44,100 @@ class PriceTagTab:
             
             # Convert string values to appropriate types
             if key == 'PRINT_BORDERS':
-                st.session_state[key.lower()] = value.lower() == 'true'
+                # FIX: Handle boolean values properly
+                if isinstance(value, bool):
+                    st.session_state[key.lower()] = value
+                elif isinstance(value, str):
+                    st.session_state[key.lower()] = value.lower() == 'true'
+                else:
+                    st.session_state[key.lower()] = False
             elif key in ['FONT_SIZE', 'PRICE_FONT_SIZE', 'TEXT_FONT_SIZE', 'GENRE_FONT_SIZE']:
-                st.session_state[key.lower()] = int(float(value))
+                try:
+                    st.session_state[key.lower()] = int(float(value))
+                except (ValueError, TypeError):
+                    st.session_state[key.lower()] = self._get_default_value(key)
             else:
                 try:
                     st.session_state[key.lower()] = float(value)
-                except ValueError:
+                except (ValueError, TypeError):
                     st.session_state[key.lower()] = value
+    
+    def _get_default_value(self, key):
+        """Get default value for a config key"""
+        defaults = {
+            'LABEL_WIDTH_MM': 45.0,
+            'LABEL_HEIGHT_MM': 16.8,
+            'LEFT_MARGIN_MM': 6.5,
+            'GUTTER_SPACING_MM': 6.5,
+            'TOP_MARGIN_MM': 14.0,
+            'FONT_SIZE': 7,
+            'PRICE_FONT_SIZE': 10,
+            'PRICE_Y_POS': 2.0,
+            'TEXT_FONT_SIZE': 6,
+            'BARCODE_Y_POS': 2.0,
+            'BARCODE_HEIGHT': 6.0,
+            'PRINT_BORDERS': False
+        }
+        return defaults.get(key)
+    
+    def _get_config_value(self, config_key, default=None):
+        """Get config value from cache - FIXED: Use config_cache from session state"""
+        # First try to get from session state config cache
+        if hasattr(st.session_state, 'config_cache') and st.session_state.config_cache:
+            value = st.session_state.config_cache.get(config_key)
+            if value is not None:
+                # Convert to appropriate type
+                if config_key == 'PRINT_BORDERS':
+                    if isinstance(value, bool):
+                        return value
+                    elif isinstance(value, str):
+                        return value.lower() == 'true'
+                    else:
+                        return default
+                elif config_key in ['FONT_SIZE', 'PRICE_FONT_SIZE', 'TEXT_FONT_SIZE', 'GENRE_FONT_SIZE']:
+                    try:
+                        return int(float(value))
+                    except (ValueError, TypeError):
+                        return default
+                else:
+                    try:
+                        return float(value)
+                    except (ValueError, TypeError):
+                        return value
+        
+        # If not in cache, try API call
+        try:
+            response = requests.get(f"https://arjanshaw.pythonanywhere.com/config/{config_key}")
+            if response.status_code == 200:
+                data = response.json()
+                value = data.get('config_value', default)
+                
+                # Update cache
+                if hasattr(st.session_state, 'config_cache'):
+                    st.session_state.config_cache[config_key] = value
+                
+                # Convert to appropriate type
+                if config_key == 'PRINT_BORDERS':
+                    if isinstance(value, bool):
+                        return value
+                    elif isinstance(value, str):
+                        return value.lower() == 'true'
+                    else:
+                        return default
+                elif config_key in ['FONT_SIZE', 'PRICE_FONT_SIZE', 'TEXT_FONT_SIZE', 'GENRE_FONT_SIZE']:
+                    try:
+                        return int(float(value))
+                    except (ValueError, TypeError):
+                        return default
+                else:
+                    try:
+                        return float(value)
+                    except (ValueError, TypeError):
+                        return value
+            return default
+        except Exception as e:
+            print(f"Error getting config {config_key}: {e}")
+            return default
     
     def _save_page_layout_config(self, key, value):
         """Save page layout configuration to database via API"""
@@ -62,7 +148,8 @@ class PriceTagTab:
             success = self._save_config_value(db_key, str(value))
             if success:
                 st.session_state[key] = value
-                st.rerun()
+                st.session_state.needs_refresh = True
+                st.stop()
         except Exception as e:
             st.error(f"Error saving configuration: {e}")
     
@@ -70,6 +157,23 @@ class PriceTagTab:
         """Save tag design configuration to database via API"""
         # Both page layout and tag design are stored in the same database table
         self._save_page_layout_config(key, value)
+    
+    def _save_config_value(self, config_key, config_value):
+        """Save config value via API"""
+        try:
+            response = requests.put(
+                f"https://arjanshaw.pythonanywhere.com/config/{config_key}",
+                json={'config_value': config_value}
+            )
+            
+            # Update cache after saving
+            if response.status_code == 200 and hasattr(st.session_state, 'config_cache'):
+                st.session_state.config_cache[config_key] = config_value
+            
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error saving config: {e}")
+            return False
     
     def render(self):
         st.header("🏷️ Print Price Tags")
@@ -96,8 +200,6 @@ class PriceTagTab:
         
         # Get all users for selection - USE CACHED DATA IF AVAILABLE
         users = self._get_all_users()
-        
-        st.subheader("🔍 Select Records for Printing")
         
         # User selection combobox - FIXED: Handle None/empty users list
         user_options = ["All Users"]
@@ -165,103 +267,89 @@ class PriceTagTab:
         # ONLY get records with status_id = 1 (new records)
         records = self._get_new_records_for_user(selected_user_id)
         
-        # Get all records for statistics
-        all_records_response = requests.get(f"https://arjanshaw.pythonanywhere.com/records?limit=1000")
-        if all_records_response.status_code == 200:
-            all_data = all_records_response.json()
-            all_records = all_data.get('records', [])
-            
-            # Filter only new records (status_id = 1)
-            new_records = [r for r in all_records if r.get('status_id') == 1]
-            
-            printed_count = len([r for r in new_records if r.get('barcode') and r['barcode'] not in [None, '', 'None']])
-            total_count = len(new_records)
-            
-            # Filter selected user's printed count
-            if selected_user_id:
-                user_new_records = [r for r in new_records if r.get('consignor_id') == selected_user_id]
-                user_printed_count = len([r for r in user_new_records if r.get('barcode') and r['barcode'] not in [None, '', 'None']])
-                user_total_count = len(user_new_records)
-            else:
-                user_printed_count = printed_count
-                user_total_count = total_count
-            
-            # Display statistics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Selected User Records", user_total_count)
-            with col2:
-                st.metric("Already Printed", f"{user_printed_count}/{user_total_count}")
-            with col3:
-                st.metric("Ready to Print", len(records))
-        
-        # Get last printed batch size from config
+        # Get last printed batch size from config - use this as default
         last_batch_size = self._get_config_value('LAST_PRINT_BATCH_SIZE', '0')
         try:
             last_batch_size = int(last_batch_size)
         except:
             last_batch_size = 0
         
-        # Management buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("**Clear Recent Price Tags**")
+        # REMOVED: Separate batch size controls for clearing and selection
+        # NEW: Unified batch size control
+        with st.expander("⚙️ Batch Configuration", expanded=False):
+            col1, col2 = st.columns(2)
             
-            if last_batch_size > 0:
-                st.info(f"Last printed batch: {last_batch_size} tags")
+            with col1:
+                # Unified batch size setting
+                batch_size = st.number_input(
+                    "Batch Size:",
+                    min_value=1,
+                    max_value=1000,
+                    value=last_batch_size if last_batch_size > 0 else 10,
+                    step=1,
+                    key="batch_size",
+                    help="Number of records to process in a batch (for printing or clearing)"
+                )
+                
+                # Save batch size to config
+                if st.button("💾 Save Batch Size", width='stretch'):
+                    self._save_config_value('LAST_PRINT_BATCH_SIZE', str(batch_size))
+                    st.success(f"✅ Batch size saved: {batch_size}")
+                    st.session_state.needs_refresh = True
+                    st.stop()
             
-            clear_count = st.number_input(
-                "Number of tags to clear:",
-                min_value=0,
-                max_value=1000,
-                value=last_batch_size if last_batch_size > 0 else 10,
-                step=1,
-                key="clear_tag_count"
-            )
-            
-            if st.button("🗑️ Clear Recent Tags", width='stretch', 
-                       help=f"Remove barcodes from {clear_count} most recent printed records"):
-                cleared_count = self._clear_recent_barcodes(clear_count)
-                if cleared_count > 0:
-                    st.success(f"✅ Cleared {cleared_count} recent price tags!")
-                    st.rerun()
-                else:
-                    st.info("No recent price tags to clear")
-        
+            with col2:
+                st.write("**Clear Recent Price Tags**")
+                if st.button("🗑️ Clear Recent Tags", width='stretch', 
+                           help=f"Remove barcodes and reset status to New for {batch_size} most recent printed records"):
+                    cleared_count = self._clear_recent_barcodes(batch_size)
+                    if cleared_count > 0:
+                        st.success(f"✅ Cleared {cleared_count} recent price tags! Records are now ready for reprinting.")
+                        st.session_state.needs_refresh = True
+                        st.stop()
+                    else:
+                        st.info("No recent price tags to clear")
         
         if not records:
             st.info(f"No NEW records found for {'selected user' if selected_user_id else 'any user'} that need price tags.")
             st.info("Only records with status 'New' (status_id = 1) are shown for printing.")
             return
         
-        st.subheader(f"📋 New Records Ready for Printing ({len(records)} found)")
+        # Sort records by creation date (newest first) for display
+        records.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         
-        # Selection controls
-        col1, col2, col3 = st.columns([1, 1, 1])
+        # Display records count
+        st.write(f"**📋 New Records Ready for Printing ({len(records)} found)**")
+        
+        # Selection controls - REMOVED: "Select First N" is now integrated with batch_size
+        col1, col2 = st.columns(2)
         with col1:
             if st.button("✅ Select All", width='stretch'):
                 st.session_state.select_all = True
-                st.rerun()
+                st.session_state.needs_refresh = True
+                st.stop()
         with col2:
             if st.button("❌ Deselect All", width='stretch'):
                 st.session_state.select_all = False
-                st.rerun()
-        with col3:
-            st.number_input("Select First N", min_value=0, value=0, key="select_first_n")
+                st.session_state.needs_refresh = True
+                st.stop()
         
-        # Display records in a table with checkboxes
+        # Display records in a table with checkboxes - PRESERVE SORTED ORDER (newest first)
         display_data = []
         for i, record in enumerate(records):
             current_select_all = st.session_state.get('select_all', False)
-            select_first_n = st.session_state.get('select_first_n', 0)
-            auto_select = current_select_all or (select_first_n > 0 and i < select_first_n)
+            # Use batch_size for auto-selection instead of select_first_n
+            auto_select = current_select_all or (batch_size > 0 and i < batch_size)
+            
+            # Get genre name - FIXED: Use genre_name field from API
+            genre = record.get('genre_name', record.get('genre', 'Unknown'))
             
             display_data.append({
                 'Select': auto_select,
                 'ID': record['id'],
                 'Artist': record['artist'],
                 'Title': record['title'],
-                'Genre': record.get('genre_name', 'Unknown'),
+                'Genre': genre,
                 'Price': f"${record.get('store_price', 0):.2f}",
                 'Condition': record.get('condition', 'Unknown'),
                 'Added Date': record.get('created_at', ''),
@@ -270,6 +358,8 @@ class PriceTagTab:
             })
         
         df = pd.DataFrame(display_data)
+        
+        # Don't let Streamlit re-sort the DataFrame - keep the original order (newest first)
         edited_df = st.data_editor(
             df,
             column_config={
@@ -287,7 +377,8 @@ class PriceTagTab:
             hide_index=True,
             width='stretch',
             height=400,
-            key="price_tag_editor"
+            key="price_tag_editor",
+            disabled=["ID", "Artist", "Title", "Genre", "Price", "Condition", "Added Date", "User", "Status"]  # Prevent reordering
         )
         
         selected_records = edited_df[edited_df['Select'] == True]
@@ -539,7 +630,7 @@ class PriceTagTab:
         st.session_state.pdf_filename = tags_filename
     
     def _generate_tags_pdf(self, records, barcode_mapping):
-        """Generate PDF with price tags"""
+        """Generate PDF with price tags - FIXED: Newest records print at top-left"""
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         output_path = temp_file.name
         temp_file.close()
@@ -558,9 +649,13 @@ class PriceTagTab:
         labels_per_page = rows * columns
         current_label = 0
         
+        # FIXED: Sort records by creation date (NEWEST first) for proper printing order
+        # This ensures the most recently created records are at the top-left (printed first)
+        sorted_records = sorted(records, key=lambda x: x.get('created_at', ''), reverse=True)
+        
         errors = []
         
-        for idx, record in enumerate(records):
+        for idx, record in enumerate(sorted_records):
             if current_label % labels_per_page == 0 and current_label > 0:
                 c.showPage()
             
@@ -628,7 +723,7 @@ class PriceTagTab:
         price_y = top_start - (params['price_y_pos'] * mm)
         c.drawString(price_x, price_y, price_text)
         
-        # Draw genre and artist
+        # Draw genre and artist - FIXED: Use genre_name field
         genre = record.get('genre_name', 'Unknown')[:15]
         artist = record.get('artist', 'Unknown')[:20]
         
@@ -809,13 +904,21 @@ class PriceTagTab:
             )
 
     def _get_all_users(self):
-        """Get all users via API - FIXED: Always returns a list"""
+        """Get all users via API - FIXED: Use cache if available"""
         try:
+            # Check if we have users in session state cache
+            if hasattr(st.session_state, 'users_cache') and st.session_state.users_cache:
+                return st.session_state.users_cache
+            
+            # Otherwise make API call
             response = requests.get(f"https://arjanshaw.pythonanywhere.com/users")
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
-                    return data.get('users', [])
+                    users = data.get('users', [])
+                    # Cache the users
+                    st.session_state.users_cache = users
+                    return users
             # Return empty list instead of None
             return []
         except Exception as e:
@@ -843,6 +946,9 @@ class PriceTagTab:
                         if r.get('status_id') == 1 and 
                         (not r.get('barcode') or r['barcode'] in [None, '', 'None'])
                     ]
+                    
+                    # FIXED: Sort by creation date (NEWEST first) so they print at top-left
+                    filtered_records.sort(key=lambda x: x.get('created_at', ''), reverse=True)
                     
                     return filtered_records
             return []
@@ -889,7 +995,8 @@ class PriceTagTab:
     
     def _clear_recent_barcodes(self, count):
         """
-        Clear barcodes from the most recent X records that have barcodes
+        Clear barcodes AND reset status to New (status_id = 1) 
+        from the most recent X records that have barcodes
         """
         try:
             # Get all records
@@ -906,10 +1013,10 @@ class PriceTagTab:
                     ]
                     records_with_barcodes.sort(key=lambda x: x.get('id', 0), reverse=True)
                     
-                    # Clear barcodes for the most recent records
+                    # Clear barcodes AND reset status to New (status_id = 1) for the most recent records
                     cleared_count = 0
                     for record in records_with_barcodes[:count]:
-                        success = self._clear_barcode(record['id'])
+                        success = self._clear_barcode_and_reset_status(record['id'])
                         if success:
                             cleared_count += 1
                     
@@ -919,11 +1026,27 @@ class PriceTagTab:
             st.error(f"Error clearing barcodes: {e}")
             return 0
     
+    def _clear_barcode_and_reset_status(self, record_id):
+        """Clear barcode AND reset status_id to 1 (New) for a record via API"""
+        try:
+            # Update both barcode (set to None) and status_id (set to 1 for New)
+            response = requests.put(
+                f"https://arjanshaw.pythonanywhere.com/records/{record_id}",
+                json={
+                    'barcode': None,
+                    'status_id': 1  # Reset to New status
+                }
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error clearing barcode and resetting status: {e}")
+            return False
+    
     def _clear_barcode(self, record_id):
         """Clear barcode for a record via API"""
         try:
             response = requests.put(
-                f"https://arjanshaw.pythonanywhere.com/records/{record_id}",
+                f"{self.base_url}/records/{record_id}",
                 json={'barcode': None}
             )
             return response.status_code == 200
@@ -953,41 +1076,6 @@ class PriceTagTab:
         except Exception as e:
             st.error(f"Error generating barcode: {e}")
             return None
-    
-    def _get_config_value(self, config_key, default=None):
-        """Get config value via API or from config cache"""
-        try:
-            # First try to get from session state config cache
-            if hasattr(st.session_state, 'config_cache'):
-                value = st.session_state.config_cache.get(config_key)
-                if value is not None:
-                    return value
-            
-            # Fallback to API call
-            response = requests.get(f"https://arjanshaw.pythonanywhere.com/config/{config_key}")
-            if response.status_code == 200:
-                data = response.json()
-                value = data.get('config_value', default)
-                # Store in cache for future use
-                if hasattr(st.session_state, 'config_cache'):
-                    st.session_state.config_cache[config_key] = value
-                return value
-            return default
-        except Exception as e:
-            st.error(f"Error getting config {config_key}: {e}")
-            return default
-    
-    def _save_config_value(self, config_key, config_value):
-        """Save config value via API"""
-        try:
-            response = requests.put(
-                f"https://arjanshaw.pythonanywhere.com/config/{config_key}",
-                json={'config_value': config_value}
-            )
-            return response.status_code == 200
-        except Exception as e:
-            st.error(f"Error saving config: {e}")
-            return False
     
     def _get_records_by_ids(self, record_ids):
         """Get records by IDs via API"""

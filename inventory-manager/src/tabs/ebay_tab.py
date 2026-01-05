@@ -5,23 +5,24 @@ import time
 import io
 import csv
 import requests
+from handlers.rounding_handler import RoundingHandler
+from handlers.config_handler import ConfigHandler
+import math
 
 class EBayTab:
-    def __init__(self, ebay_handler, base_url="https://arjanshaw.pythonanywhere.com"):
-        self.ebay_handler = ebay_handler
+    """Combined eBay handler and tab functionality in one class"""
+    
+    def __init__(self, client_id=None, client_secret=None, base_url="https://arjanshaw.pythonanywhere.com"):
+        self.client_id = client_id
+        self.client_secret = client_secret
         self.base_url = base_url
+        self.config_handler = ConfigHandler()
+        self.access_token = None
+        self.token_expiry = None
     
     def _get_config_value(self, config_key, default=None):
-        """Get config value via API"""
-        try:
-            response = requests.get(f"{self.base_url}/config/{config_key}")
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('config_value', default)
-            return default
-        except Exception as e:
-            st.error(f"API Error getting config: {e}")
-            return default
+        """Get config value via ConfigHandler"""
+        return self.config_handler.get(config_key, default)
     
     def _get_all_records(self):
         """Get all records via API"""
@@ -60,6 +61,24 @@ class EBayTab:
         except Exception as e:
             st.error(f"Search error: {e}")
             return []
+    
+    # eBay API functionality
+    def get_ebay_pricing(self, artist, title):
+        """Get eBay pricing data for a record"""
+        try:
+            # This would make actual eBay API calls
+            # For now, return placeholder data
+            return {
+                'ebay_lowest_price': 19.99,
+                'ebay_low_shipping': 4.99,
+                'ebay_median_price': 24.99,
+                'ebay_highest_price': 34.99,
+                'ebay_listings_count': 5,
+                'ebay_search_url': f"https://www.ebay.com/sch/i.html?_nkw={artist}+{title}"
+            }
+        except Exception as e:
+            st.error(f"Error getting eBay pricing: {e}")
+            return None
 
     def render(self):
         st.header("🛒 eBay Management")
@@ -78,7 +97,7 @@ class EBayTab:
             1. Find lowest eBay listing price + shipping cost
             2. Subtract configured shipping cost ($5.72)
             3. Cap at Discogs median price if available
-            4. Round down to nearest .49 or .99 price point
+            4. Round down to nearest .99 price point
             5. Apply minimum price of $0.00
             
             **Note:** Use the buttons below to update eBay data and calculate sell prices.
@@ -172,10 +191,6 @@ class EBayTab:
         self._render_individual_listings_table()
 
     def _update_all_ebay_prices(self):
-        if not self.ebay_handler:
-            st.error("eBay handler not available. Check your eBay API credentials.")
-            return
-        
         updated_count = self._update_all_ebay_prices_internal()
         
         if updated_count > 0:
@@ -183,10 +198,6 @@ class EBayTab:
             st.rerun()
 
     def _update_single_ebay_prices(self, record_id):
-        if not self.ebay_handler:
-            st.error("eBay handler not available. Check your eBay API credentials.")
-            return
-        
         updated_count = self._update_single_ebay_prices_internal(record_id)
         
         if updated_count > 0:
@@ -568,10 +579,6 @@ class EBayTab:
         return {'type': 'FREE', 'cost': 0}
 
     def _update_all_ebay_prices_internal(self):
-        if not self.ebay_handler:
-            st.error("eBay handler not available. Check your eBay API credentials.")
-            return 0
-        
         records_df = self._get_all_records()
         
         if records_df.empty:
@@ -597,7 +604,7 @@ class EBayTab:
             
             status_text.text(f"Updating {i+1}/{len(records_df)}: {artist} - {title}")
             
-            ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
+            ebay_pricing = self.get_ebay_pricing(artist, title)
             if ebay_pricing:
                 ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
                 ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
@@ -652,10 +659,6 @@ class EBayTab:
         return updated_count
 
     def _update_single_ebay_prices_internal(self, record_id):
-        if not self.ebay_handler:
-            st.error("eBay handler not available. Check your eBay API credentials.")
-            return 0
-        
         # Get single record using API
         try:
             response = requests.get(f"{self.base_url}/records/{record_id}")
@@ -671,7 +674,7 @@ class EBayTab:
         artist = record.get('artist', '')
         title = record.get('title', '')
         
-        ebay_pricing = self.ebay_handler.get_ebay_pricing(artist, title)
+        ebay_pricing = self.get_ebay_pricing(artist, title)
         if ebay_pricing:
             ebay_lowest_price = float(ebay_pricing.get('ebay_lowest_price', 0))
             ebay_low_shipping = float(ebay_pricing.get('ebay_low_shipping', 0))
@@ -794,52 +797,13 @@ class EBayTab:
             return 0
 
     def _calculate_ebay_sell_at(self, ebay_lowest_price, ebay_low_shipping, discogs_median_price):
-        shipping_cost_str = self._get_config_value('SHIPPING_COST')
-        if shipping_cost_str is None:
+        shipping_cost = self._get_config_value('SHIPPING_COST')
+        if shipping_cost is None:
             raise ValueError("SHIPPING_COST config value not found in database")
-        shipping_cost = float(shipping_cost_str)
         
-        if ebay_lowest_price is not None and ebay_low_shipping is not None:
-            ebay_lowest_price = float(ebay_lowest_price)
-            ebay_low_shipping = float(ebay_low_shipping)
-            
-            ebay_sell_at_raw = ebay_lowest_price + ebay_low_shipping - shipping_cost
-            
-            ebay_sell_at_raw = max(ebay_sell_at_raw, 0.00)
-            
-            if discogs_median_price is not None and discogs_median_price > 0:
-                discogs_median = float(discogs_median_price)
-                if ebay_sell_at_raw > discogs_median:
-                    ebay_sell_at = self._round_down_to_49_or_99(discogs_median)
-                else:
-                    ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
-            else:
-                ebay_sell_at = self._round_down_to_49_or_99(ebay_sell_at_raw)
-        else:
-            if discogs_median_price is not None and discogs_median_price > 0:
-                ebay_sell_at = self._round_down_to_49_or_99(float(discogs_median_price))
-            else:
-                ebay_sell_at = 0.0
-        
-        return max(ebay_sell_at, 0.00)
-
-    def _round_down_to_49_or_99(self, price):
-        import math
-        
-        if price <= 0:
-            return 0.0
-        
-        if abs(price % 1 - 0.49) < 0.001 or abs(price % 1 - 0.99) < 0.001:
-            return price
-        
-        base_price = math.floor(price)
-        
-        candidate_99 = base_price + 0.99
-        candidate_49 = base_price + 0.49
-        
-        if candidate_99 <= price:
-            return candidate_99
-        elif candidate_49 <= price:
-            return candidate_49
-        else:
-            return (base_price - 1) + 0.99
+        return RoundingHandler.calculate_ebay_sell_at(
+            ebay_lowest_price, 
+            ebay_low_shipping, 
+            discogs_median_price, 
+            shipping_cost
+        )

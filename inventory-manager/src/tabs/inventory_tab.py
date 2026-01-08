@@ -8,6 +8,7 @@ from handlers.pricing_validator import PricingValidator
 from handlers.price_advise_handler import PriceAdviseHandler
 import requests
 import os
+import hashlib
 from conditions import DiscogsConditions  # FIXED: Complete import statement
 
 class InventoryTab:
@@ -30,17 +31,47 @@ class InventoryTab:
         return self.search_handler.perform_database_search(search_term, user)
 
     def _get_suggested_genre(self, record_data):
-        """Get suggested genre from Discogs genre using cache mapping"""
+        """Get suggested genre from Discogs genre using cache mapping - FIXED to handle slashes"""
         discogs_genre = record_data.get('genre', '')
         if not discogs_genre:
             return None
         
-        mapping_data = self.get_discogs_genre_mapping(discogs_genre)
+        # FIX: Clean the discogs genre for API calls
+        clean_discogs_genre = discogs_genre
+        if '/' in discogs_genre:
+            # Try multiple cleaning strategies
+            clean_discogs_genre = discogs_genre.replace('/', ' ')
+        
+        mapping_data = self.get_discogs_genre_mapping(clean_discogs_genre)
+        
+        # If that fails, try the original with slash
+        if (not mapping_data or mapping_data.get('status') != 'success') and '/' in discogs_genre:
+            mapping_data = self.get_discogs_genre_mapping(discogs_genre)
         
         if mapping_data and mapping_data.get('status') == 'success':
             mapping = mapping_data.get('mapping')
             if mapping:
                 return mapping.get('local_genre_name')
+        
+        # FIX: Fallback genre mapping for common slash genres
+        slash_genre_mapping = {
+            'Funk/Soul': 'Funk',
+            'Rock/Pop': 'Rock',
+            'Hip-Hop/Rap': 'Hip Hop',
+            'Jazz/Blues': 'Jazz',
+            'Electronic/Dance': 'Electronic',
+            'Folk/Country': 'Folk',
+            'Latin/World': 'World',
+            'Classical/Opera': 'Classical'
+        }
+        
+        if discogs_genre in slash_genre_mapping:
+            return slash_genre_mapping[discogs_genre]
+        
+        # Try partial matching
+        for slash_genre, mapped_genre in slash_genre_mapping.items():
+            if slash_genre.startswith(discogs_genre.split('/')[0]):
+                return mapped_genre
         
         return None
 
@@ -125,7 +156,7 @@ class InventoryTab:
                 'URL': st.column_config.LinkColumn('Link', width='small')
             },
             hide_index=True,
-            use_container_width=True
+            width='stretch'
         )
         
         prices = [listing.get('base_price', 0) for listing in sorted_listings if listing.get('base_price', 0) > 0]
@@ -137,6 +168,11 @@ class InventoryTab:
         """Handle adding a record directly to the database - FIXED VERSION"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
+        
+        # FIX: Validate genre is provided
+        if genre is None or genre == "Select genre...":
+            st.error("❌ **Genre is required! Please select a genre.**")
+            return False, None
         
         if is_demo:
             st.session_state.demo_last_added = {
@@ -441,9 +477,29 @@ class InventoryTab:
     def get_all_genres(self):
         """Get all genres via cache"""
         if self.genre_cache:
-            return self.genre_cache.get_genres_list()
+            genres_data = self.genre_cache.load_all_genres()
+            
+            # Handle the return structure
+            if isinstance(genres_data, dict):
+                # Try to get genres_list
+                genre_list = genres_data.get('genres_list', [])
+                
+                # If empty, try to extract from genres_data
+                if not genre_list and 'genres_data' in genres_data:
+                    genres_raw = genres_data['genres_data']
+                    if isinstance(genres_raw, list):
+                        # Extract genre names from dicts
+                        genre_list = []
+                        for item in genres_raw:
+                            if isinstance(item, dict):
+                                genre_list.append(item.get('genre_name', ''))
+                            else:
+                                genre_list.append(str(item))
+                
+                return genre_list if isinstance(genre_list, list) else []
+        
         return []
-    
+        
     def add_genre(self, genre_name):
         """Add new genre via API"""
         user = st.session_state.get('user', {})
@@ -804,9 +860,21 @@ class InventoryTab:
             
             suggested_genre = self._get_suggested_genre(stored_data['record_data'])
             
+            # FIX: Clean the suggested genre to handle slashes
+            clean_suggested_genre = suggested_genre
+            if suggested_genre and '/' in suggested_genre:
+                clean_suggested_genre = suggested_genre.replace('/', ' ')
+                # Check if cleaned version exists in genres
+                if clean_suggested_genre not in all_genres:
+                    # Try to find similar genre
+                    for genre in all_genres:
+                        if suggested_genre.split('/')[0] in genre:
+                            clean_suggested_genre = genre
+                            break
+            
             default_index = 0
-            if suggested_genre and suggested_genre in all_genres:
-                default_index = all_genres.index(suggested_genre) + 1
+            if suggested_genre and clean_suggested_genre in all_genres:
+                default_index = all_genres.index(clean_suggested_genre) + 1
             elif stored_data.get('selected_genre') and stored_data['selected_genre'] in all_genres:
                 default_index = all_genres.index(stored_data['selected_genre']) + 1
             
@@ -818,10 +886,12 @@ class InventoryTab:
                 key=genre_key
             )
             
-            if selected_genre != "Select genre...":
-                stored_data['selected_genre'] = selected_genre
-            else:
+            # FIX: Add validation message if no genre selected
+            if selected_genre == "Select genre...":
+                st.error("⚠️ Please select a genre")
                 stored_data['selected_genre'] = None
+            else:
+                stored_data['selected_genre'] = selected_genre
         
         with col3:
             user = st.session_state.get('user', {})
@@ -915,6 +985,7 @@ class InventoryTab:
                 st.info("Select condition first")
         
         with col5:
+            # FIX: Enhanced validation including genre
             add_enabled = (
                 stored_data['selected_condition'] and 
                 stored_data['selected_condition'] != "Select condition..." and
@@ -926,6 +997,16 @@ class InventoryTab:
             )
             
             add_button_key = f"add_{record_key}"
+            
+            # FIX: Better error messages
+            disabled_reason = ""
+            if not stored_data.get('selected_genre') or stored_data['selected_genre'] in [None, "Select genre..."]:
+                disabled_reason = "Please select a genre"
+            elif not stored_data.get('selected_condition') or stored_data['selected_condition'] == "Select condition...":
+                disabled_reason = "Please select a condition"
+            elif not stored_data.get('user_price') or stored_data.get('user_price', 0) <= 0:
+                disabled_reason = "Please enter a price"
+            
             if add_enabled:
                 if st.button("➕ Add", key=add_button_key, type="primary", width='stretch'):
                     record_to_add = stored_data['record_data'].copy()
@@ -963,14 +1044,6 @@ class InventoryTab:
                     else:
                         st.error("Failed to add record to database")
             else:
-                disabled_reason = "Select genre, condition, and price first"
-                if stored_data.get('selected_genre') in [None, "Select genre..."]:
-                    disabled_reason = "Please select a genre"
-                elif not stored_data.get('selected_condition') or stored_data['selected_condition'] == "Select condition...":
-                    disabled_reason = "Please select a condition"
-                elif not stored_data.get('user_price') or stored_data.get('user_price', 0) <= 0:
-                    disabled_reason = "Please enter a price"
-                    
                 st.button("➕ Add", key=f"add_disabled_{record_key}", disabled=True, width='stretch',
                          help=disabled_reason)
         
@@ -1010,9 +1083,53 @@ class InventoryTab:
         st.write(f"**Final advised price: ${advised_store_price:.2f}**")
     
     def _add_inventory_record(self, record_data, genre, search_term, consignor_id=None):
-        """Add inventory record to database via API - FIXED VERSION"""
-        if genre is None:
-            raise Exception("genre parameter is required but was None")
+        """Add inventory record to database via API - FIXED VERSION with genre validation"""
+        # FIX: Validate genre is provided
+        if genre is None or genre == "Select genre...":
+            st.error("❌ **Genre is required! Please select a genre.**")
+            return False, None
+        
+        # FIX: Get genre_id from database - CRITICAL FIX
+        genre_id = None
+        if genre:
+            try:
+                # Call API to get genre_id for genre name
+                response = requests.get(
+                    f"{self.base_url}/genres/by-name/{genre}",
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('status') == 'success':
+                        genre_id = data.get('genre_id')
+                else:
+                    # Try alternative endpoint if exists
+                    response = requests.get(
+                        f"{self.base_url}/genres",
+                        timeout=5
+                    )
+                    if response.status_code == 200:
+                        genres_data = response.json()
+                        if genres_data.get('status') == 'success':
+                            genres_list = genres_data.get('genres', [])
+                            for g in genres_list:
+                                if isinstance(g, dict):
+                                    if g.get('genre_name') == genre:
+                                        genre_id = g.get('id')
+                                        break
+                                elif g == genre:
+                                    # Handle simple string list
+                                    genre_id = 1  # Default or find better mapping
+                                    break
+            except Exception as e:
+                st.error(f"Error getting genre ID: {e}")
+                return False, None
+        
+        # Throw error if genre_id still not set
+        if genre_id is None:
+            st.error(f"❌ **Genre '{genre}' not found in database! Please check the genre exists.**")
+            return False, None
         
         duplicates_found = st.session_state.pricing_validator.check_for_duplicates(record_data)
 
@@ -1074,11 +1191,10 @@ class InventoryTab:
         
         discogs_genre = record_data.get('discogs_genre', '')
         
-        genre_id = None
-        if genre:
-            genres = self.get_all_genres()
-            if genre in genres:
-                pass
+        # FIX: Clean discogs_genre for API calls
+        discogs_genre_for_api = discogs_genre
+        if '/' in discogs_genre:
+            discogs_genre_for_api = discogs_genre.replace('/', ' ')
         
         if pricing_data:
             record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
@@ -1096,11 +1212,26 @@ class InventoryTab:
             original_consignor_price = store_price
         
         try:
+            # GENERATE BARCODE BEFORE INSERTING RECORD
+            # Use a combination of timestamp and record data to create a unique barcode
+            import time
+            import hashlib
+            
+            # Create a unique barcode using timestamp, artist, and title
+            barcode_seed = f"{time.time()}_{artist}_{title}"
+            barcode_hash = hashlib.md5(barcode_seed.encode()).hexdigest()[:12]
+            # Ensure it's numeric for barcode standards
+            barcode_number = ''.join(filter(str.isdigit, barcode_hash))
+            if len(barcode_number) < 8:
+                barcode_number = barcode_number.ljust(8, '0')[:8]
+            else:
+                barcode_number = barcode_number[:12]
+            
             record_data_to_save = {
                 'artist': artist,
                 'title': title,
-                'barcode': '',
-                'genre_id': genre_id,
+                'barcode': barcode_number,  # BARCODE ASSIGNED BEFORE INSERTION
+                'genre_id': genre_id,  # NOW HAS VALID GENRE ID
                 'image_url': image_url,
                 'catalog_number': catalog_number,
                 'format': format_selected,
@@ -1120,20 +1251,29 @@ class InventoryTab:
                 record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
                 record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
             
+            # DEBUG: Show what's being sent
+            # st.write("Sending data:", record_data_to_save)
+            
             response = requests.post(
                 f"{self.base_url}/records",
                 json=record_data_to_save,
                 timeout=10
             )
             
+            # DEBUG: Show response
+            st.write("Response status:", response.status_code)
+            if response.status_code != 200:
+                st.write("Response body:", response.text)
+            
             if response.status_code == 200:
                 response_data = response.json()
                 if response_data.get('status') == 'success':
                     record_id = response_data.get('record_id')
                     
-                    if discogs_genre and genre_id:
+                    # Optional: Save genre mapping
+                    if discogs_genre_for_api and genre_id:
                         mapping_data = {
-                            'discogs_genre': discogs_genre,
+                            'discogs_genre': discogs_genre_for_api,
                             'local_genre_id': genre_id
                         }
                         mapping_response = requests.post(
@@ -1157,7 +1297,95 @@ class InventoryTab:
         except Exception as e:
             st.error(f"Error saving record: {str(e)}")
             return False, None
-
+    
+    def update_database_record(self, record_data, genre, store_credit_option=None, user_price=None):
+        """Update database record with enhanced consignment features via API"""
+        if genre is None:
+            raise Exception("genre parameter is required but was None")
+        
+        record_id = record_data.get('id')
+        
+        if not record_id:
+            st.error("No record ID provided")
+            return False
+        
+        # Get compilation status from record_data
+        compilation = record_data.get('compilation', False)
+        
+        # Get consignment info from record_data
+        consignor_id = record_data.get('consignor_id')
+        commission_rate = record_data.get('commission_rate')
+        store_return_days = record_data.get('store_return_days')
+        
+        # Get genre_id for the genre using API
+        genre_id = None
+        if genre:
+            genres_df = self.get_all_genres()
+            if not genres_df.empty:
+                genre_rows = genres_df[genres_df['genre_name'] == genre]
+                if not genre_rows.empty:
+                    genre_id = int(genre_rows.iloc[0]['id'])
+        
+        updates = {
+            'genre_id': genre_id,
+            'compilation': compilation
+        }
+        
+        # Add consignor fields if provided
+        if consignor_id is not None:
+            updates['consignor_id'] = int(consignor_id) if consignor_id else None
+        
+        if commission_rate is not None:
+            updates['commission_rate'] = float(commission_rate)
+        
+        if store_return_days is not None:
+            updates['store_return_days'] = int(store_return_days)
+        
+        # Update store credit option if provided
+        if store_credit_option is not None:
+            updates['store_credit_option'] = bool(store_credit_option)
+        
+        # Update price if provided
+        if user_price is not None:
+            updates['store_price'] = float(user_price)
+            updates['original_consignor_price'] = float(user_price)
+        
+        # If consignor is being added, set consignment dates
+        if consignor_id and not record_data.get('consignment_start_date'):
+            updates['consignment_start_date'] = datetime.now().date().isoformat()
+            try:
+                full_price_days = int(self.get_config_value('CONSIGNMENT_FULL_PRICE_DAYS', '90'))
+            except:
+                full_price_days = 90
+            updates['discount_eligible_date'] = (datetime.now().date() + timedelta(days=full_price_days)).isoformat()
+        
+        # Call API to update record
+        try:
+            base_url = "https://arjanshaw.pythonanywhere.com"
+            response = requests.put(
+                f"{base_url}/records/{record_id}",
+                json=updates,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                if response_data.get('status') == 'success':
+                    return True
+                else:
+                    error_msg = response_data.get('error', 'Unknown error')
+                    st.error(f"API returned error: {error_msg}")
+                    return False
+            else:
+                st.error(f"API request failed with status {response.status_code}")
+                return False
+                
+        except requests.exceptions.Timeout:
+            st.error("API request timed out")
+            return False
+        except Exception as e:
+            st.error(f"Error updating record: {str(e)}")
+            return False
 
     def _render_database_results(self, results, search_type, user):
         """Render database search results"""

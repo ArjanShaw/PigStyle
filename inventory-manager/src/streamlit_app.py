@@ -20,7 +20,7 @@ from auth.permissions import PermissionManager
 # Import existing modules
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
-from tabs.statistics_tab import StatisticsTab
+# REMOVED: from tabs.statistics_tab import StatisticsTab
 # FIXED: Import EBayTab from ebay_handler
 from tabs.ebay_tab import EBayTab
 from tabs.consignment_tab import ConsignmentTab
@@ -100,15 +100,21 @@ class GenreCache:
         self._last_load_time = 0
         self._cache_ttl = 300
         
-        self._genre_mapping_cache = {}
+        # Initialize genre mapping cache from session state if available
+        self._genre_mapping_cache = st.session_state.get('genre_mapping_cache', {})
     
     def load_all_genres(self, force_reload=False):
         """Load all genres in a single API call"""
         current_time = time.time()
         
-        if (not force_reload and 
-            self._cache is None and 
-            (current_time - self._last_load_time) < self._cache_ttl):
+        # Check cache conditions
+        cache_valid = (
+            not force_reload and 
+            self._cache is not None and 
+            (current_time - self._last_load_time) < self._cache_ttl
+        )
+        
+        if cache_valid:
             return self._cache
         
         try:
@@ -137,8 +143,7 @@ class GenreCache:
                     }
                     self._last_load_time = current_time
                     
-                    if 'genre_cache' not in st.session_state:
-                        st.session_state.genre_cache = {}
+                    # Store in session state for backward compatibility
                     st.session_state.genre_cache = self._cache.copy()
                     
                     return self._cache
@@ -149,44 +154,92 @@ class GenreCache:
             print(f"GenreCache: Error loading genres: {e}")
             return {'genres_list': [], 'genres_data': [], 'raw_response': {}}
     
-    def get_genres_list(self, force_reload=False):
-        """Get list of genre names from cache"""
-        cache_data = self.load_all_genres(force_reload)
-        return cache_data.get('genres_list', []) if cache_data else []
-    
-    def get_genres_data(self, force_reload=False):
-        """Get full genres data from cache"""
-        cache_data = self.load_all_genres(force_reload)
-        return cache_data.get('genres_data', []) if cache_data else []
-    
     def get_discogs_genre_mapping(self, discogs_genre):
-        """Get Discogs genre mapping from cache or API"""
-        if discogs_genre in self._genre_mapping_cache:
-            return self._genre_mapping_cache[discogs_genre]
+        """Get Discogs genre mapping from cache or API - FIXED to handle slashes"""
+        # FIX: Clean the discogs_genre to handle special characters
+        if discogs_genre and '/' in discogs_genre:
+            # Try multiple formats
+            clean_genres = [
+                discogs_genre,  # Original
+                discogs_genre.replace('/', ' '),  # Space instead of slash
+                discogs_genre.split('/')[0],  # First part before slash
+            ]
+            
+            # Check cache for any variant
+            for clean_genre in clean_genres:
+                if clean_genre in self._genre_mapping_cache:
+                    cached_result = self._genre_mapping_cache[clean_genre]
+                    if cached_result.get('status') == 'success' and cached_result.get('mapping'):
+                        print(f"GenreCache: Using cached mapping for variant '{clean_genre}' of '{discogs_genre}'")
+                        return cached_result
+        else:
+            # Original logic for non-slash genres
+            if discogs_genre in self._genre_mapping_cache:
+                cached_result = self._genre_mapping_cache[discogs_genre]
+                if cached_result.get('status') == 'success' and cached_result.get('mapping'):
+                    print(f"GenreCache: Using cached mapping for '{discogs_genre}'")
+                    return cached_result
+        
+        # If not in cache, make API call with cleaned genre
+        api_genre = discogs_genre
+        if '/' in discogs_genre:
+            api_genre = discogs_genre.replace('/', '%2F')  # URL encode slash
         
         try:
             start_time = time.time()
-            response = requests.get(f"{self.base_url}/discogs-genre-mappings/{discogs_genre}")
+            response = requests.get(f"{self.base_url}/discogs-genre-mappings/{api_genre}")
             duration = time.time() - start_time
             
             print(f"GenreCache: Get Discogs mapping '{discogs_genre}' took {duration:.2f}s")
             
             if response.status_code == 200:
                 mapping_data = response.json()
+                # Cache the result for all variants
                 self._genre_mapping_cache[discogs_genre] = mapping_data
+                
+                # Also cache variants for future use
+                if '/' in discogs_genre:
+                    clean_variant = discogs_genre.replace('/', ' ')
+                    self._genre_mapping_cache[clean_variant] = mapping_data
+                    first_part = discogs_genre.split('/')[0]
+                    self._genre_mapping_cache[first_part] = mapping_data
+                
+                # Persist in session state
+                st.session_state.genre_mapping_cache = self._genre_mapping_cache
                 return mapping_data
-            return {'mapping': None, 'status': 'error'}
+            else:
+                # Try alternative API endpoint with cleaned genre
+                if '/' in discogs_genre:
+                    clean_genre = discogs_genre.replace('/', ' ')
+                    alt_response = requests.get(f"{self.base_url}/discogs-genre-mappings/{clean_genre}")
+                    if alt_response.status_code == 200:
+                        mapping_data = alt_response.json()
+                        self._genre_mapping_cache[discogs_genre] = mapping_data
+                        st.session_state.genre_mapping_cache = self._genre_mapping_cache
+                        return mapping_data
+                
+                # Cache the error response
+                error_response = {'mapping': None, 'status': 'error'}
+                self._genre_mapping_cache[discogs_genre] = error_response
+                st.session_state.genre_mapping_cache = self._genre_mapping_cache
+                return error_response
         except Exception as e:
             print(f"GenreCache: Error getting genre mapping: {e}")
-            return {'mapping': None, 'status': 'error'}
+            error_response = {'mapping': None, 'status': 'error'}
+            self._genre_mapping_cache[discogs_genre] = error_response
+            st.session_state.genre_mapping_cache = self._genre_mapping_cache
+            return error_response
     
     def clear(self):
         """Clear the cache"""
         self._cache = None
         self._genre_mapping_cache = {}
         self._last_load_time = 0
+        # Clear from session state
         if 'genre_cache' in st.session_state:
             del st.session_state.genre_cache
+        if 'genre_mapping_cache' in st.session_state:
+            del st.session_state.genre_mapping_cache
     
     def refresh(self):
         """Force refresh the cache"""
@@ -626,7 +679,7 @@ def render_main_app():
                 return False, None
             except Exception as e:
                 st.error(f"API Error adding record: {e}")
-                return False, None
+                return False
         
         def update_record(self, record_id, updates):
             try:
@@ -686,8 +739,7 @@ def render_main_app():
         inventory_api_client
     )
     
-    # Pass records_cache to tabs that need it
-    statistics_tab = StatisticsTab(records_cache=records_cache)
+    # REMOVED: statistics_tab initialization since StatisticsTab no longer exists
     ebay_tab = ebay_handler  # ebay_handler is already an EBayTab instance
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(genre_cache)
@@ -705,7 +757,7 @@ def render_main_app():
         print("=========================\n")
         
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab, 
+                                   ebay_tab, consignment_tab, 
                                    admin_config_tab, votes_tab, checkout_tab)
 
 def render_header(user):
@@ -784,7 +836,7 @@ def render_change_password_form():
                             st.error(message)
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
-                                   ebay_tab, statistics_tab, consignment_tab,  
+                                   ebay_tab, consignment_tab,  
                                    admin_config_tab, votes_tab, checkout_tab):
     """Render tabs based on user permissions"""
     user_role = user['role']
@@ -804,8 +856,7 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab,
     if PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    if PermissionManager.has_permission(user_role, 'reports', 'view'):
-        tab_configs.append(("📊 Statistics", statistics_tab.render))
+    # REMOVED: Statistics tab
     
     if PermissionManager.has_permission(user_role, 'reports', 'view'):
         tab_configs.append(("🗳️ Votes", votes_tab.render))

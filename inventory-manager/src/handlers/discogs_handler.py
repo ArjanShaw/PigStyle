@@ -6,7 +6,12 @@ import streamlit as st
 from pathlib import Path
 from typing import Dict, List, Optional
 from collections import Counter
-from conditions import DiscogsConditions  # Added import
+from conditions import DiscogsConditions
+import logging
+
+# Set up logging for API calls
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class DiscogsHandler:
     def __init__(self, user_token: str):
@@ -16,12 +21,22 @@ class DiscogsHandler:
             "User-Agent": "PigStyleInventory/1.0",
             "Authorization": f"Discogs token={self.user_token}"
         }
+        # Cache for release pricing data
+        self._release_cache = {}
     
-    def get_release_statistics_pricing(self, release_id: str):
-        """Get pricing data with timing measurement"""
+    def get_release_statistics_pricing(self, release_id: str, use_cache: bool = True):
+        """Get pricing data with timing measurement and caching"""
+        # Check cache first if enabled
+        if use_cache and release_id in self._release_cache:
+            cache_entry = self._release_cache[release_id]
+            if time.time() - cache_entry['timestamp'] < 300:  # 5 minute cache
+                logger.info(f"Discogs Cache Hit: Release {release_id}")
+                return cache_entry['data']
+        
         endpoint_url = f"{self.base_url}/marketplace/price_suggestions/{release_id}"
         
-        start_time = time.time()  # START TIMING
+        start_time = time.time()
+        logger.info(f"Discogs API CALL [START]: GET /marketplace/price_suggestions/{release_id}")
         
         response = requests.get(
             endpoint_url,
@@ -29,12 +44,11 @@ class DiscogsHandler:
             timeout=15
         )
         
-        duration = time.time() - start_time  # END TIMING
-        
-        print(f"Discogs Price Suggestions ({release_id}) took {duration:.2f}s")
-
+        duration = time.time() - start_time
+        logger.info(f"Discogs API CALL [END]: GET /marketplace/price_suggestions/{release_id} - {duration:.3f}s - Status: {response.status_code}")
         
         if response.status_code != 200:
+            logger.error(f"Discogs API Error {response.status_code}: {response.text}")
             return None
         
         data = response.json()
@@ -45,11 +59,21 @@ class DiscogsHandler:
             if price_value:
                 price_suggestions[condition] = price_value
         
-        return {
+        result = {
             'price_suggestions': price_suggestions,
             'success': True,
-            'total_conditions': len(price_suggestions)
+            'total_conditions': len(price_suggestions),
+            'release_id': release_id,
+            'api_time': duration
         }
+        
+        # Cache the result
+        self._release_cache[release_id] = {
+            'data': result,
+            'timestamp': time.time()
+        }
+        
+        return result
 
     def _parse_price_from_suggestion(self, price_data):
         if not price_data:
@@ -73,7 +97,8 @@ class DiscogsHandler:
             'currency': 'USD'
         }
         
-        start_time = time.time()  # START TIMING
+        start_time = time.time()
+        logger.info(f"Discogs API CALL [START]: GET /database/search?q={query[:50]}...")
         
         response = requests.get(
             endpoint_url,
@@ -82,24 +107,31 @@ class DiscogsHandler:
             timeout=15
         )
         
-        duration = time.time() - start_time  # END TIMING
-        
-        print(f"Discogs Search: {query[:30]}... took {duration:.2f}s")
+        duration = time.time() - start_time
+        logger.info(f"Discogs API CALL [END]: GET /database/search?q={query[:50]}... - {duration:.3f}s - Status: {response.status_code}")
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
+            logger.error(error_msg)
             raise Exception(error_msg)
         
         data = response.json()
-        
         return data
 
     def get_release_data(self, release_id: str, query: str):
-        """Get release data with timing measurement"""
+        """Get release data with timing measurement - NOW WITH PRICING"""
+        start_time = time.time()
+        logger.info(f"Discogs API CALL [START]: Combined release data for {release_id}")
+        
+        # Get basic release info
         release_info = self._get_basic_release_info(release_id)
         image_url = release_info.get('image_url', '')
         
+        # Get pricing data (will use cache if available)
         pricing_data = self.get_release_statistics_pricing(release_id)
+        
+        duration = time.time() - start_time
+        logger.info(f"Discogs API CALL [END]: Combined release data for {release_id} - {duration:.3f}s")
         
         if pricing_data:
             return {
@@ -107,21 +139,24 @@ class DiscogsHandler:
                 'image_url': image_url,
                 'release_data': release_info.get('release_data', {}),
                 'success': True,
-                'total_conditions': pricing_data.get('total_conditions', 0)
+                'total_conditions': pricing_data.get('total_conditions', 0),
+                'api_time': duration
             }
         else:
             return {
                 'price_suggestions': {},
                 'image_url': image_url,
                 'release_data': release_info.get('release_data', {}),
-                'success': False
+                'success': False,
+                'api_time': duration
             }
 
     def _get_basic_release_info(self, release_id: str):
         """Get basic release info with timing measurement"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
 
-        start_time = time.time()  # START TIMING
+        start_time = time.time()
+        logger.info(f"Discogs API CALL [START]: GET /releases/{release_id}")
         
         response = requests.get(
             endpoint_url,
@@ -129,9 +164,8 @@ class DiscogsHandler:
             timeout=10
         )
         
-        duration = time.time() - start_time  # END TIMING
-        
-        print(f"Discogs Release Info ({release_id}) took {duration:.2f}s")
+        duration = time.time() - start_time
+        logger.info(f"Discogs API CALL [END]: GET /releases/{release_id} - {duration:.3f}s - Status: {response.status_code}")
         
         if response.status_code == 200:
             release_data = response.json()
@@ -139,16 +173,19 @@ class DiscogsHandler:
             image_url = self._extract_image_from_release(release_data)
             return {
                 'image_url': image_url,
-                'release_data': release_data
+                'release_data': release_data,
+                'api_time': duration
             }
         else:
-            return {'image_url': '', 'release_data': {}}
+            logger.error(f"Failed to get release info: {response.status_code}")
+            return {'image_url': '', 'release_data': {}, 'api_time': duration}
 
     def get_release_tracklist(self, release_id: str):
         """Get tracklist with timing measurement"""
         endpoint_url = f"{self.base_url}/releases/{release_id}"
 
-        start_time = time.time()  # START TIMING
+        start_time = time.time()
+        logger.info(f"Discogs API CALL [START]: GET /releases/{release_id} (tracklist)")
         
         response = requests.get(
             endpoint_url,
@@ -156,9 +193,8 @@ class DiscogsHandler:
             timeout=10
         )
         
-        duration = time.time() - start_time  # END TIMING
-        
-        print(f"Discogs Tracklist ({release_id}) took {duration:.2f}s")
+        duration = time.time() - start_time
+        logger.info(f"Discogs API CALL [END]: GET /releases/{release_id} (tracklist) - {duration:.3f}s - Status: {response.status_code}")
         
         if response.status_code == 200:
             release_data = response.json()
@@ -174,6 +210,7 @@ class DiscogsHandler:
             
             return track_titles
         else:
+            logger.error(f"Failed to get tracklist: {response.status_code}")
             return []
 
     def get_simple_search_results(self, query: str, filename_base: str = None):
@@ -186,7 +223,8 @@ class DiscogsHandler:
             'currency': 'USD'
         }
 
-        start_time = time.time()  # START TIMING
+        start_time = time.time()
+        logger.info(f"Discogs API CALL [START]: GET /database/search (simple) - q={query[:50]}...")
         
         response = requests.get(
             endpoint_url,
@@ -195,12 +233,12 @@ class DiscogsHandler:
             timeout=15
         )
         
-        duration = time.time() - start_time  # END TIMING
-        
-        print(f"Discogs Simple Search: {query[:30]}... took {duration:.2f}s")
+        duration = time.time() - start_time
+        logger.info(f"Discogs API CALL [END]: GET /database/search (simple) - q={query[:50]}... - {duration:.3f}s - Status: {response.status_code}")
         
         if response.status_code != 200:
             error_msg = f"Discogs API returned status {response.status_code}: {response.text}"
+            logger.error(error_msg)
             raise Exception(error_msg)
         
         search_data = response.json()
@@ -224,7 +262,6 @@ class DiscogsHandler:
             release_id = result.get('id')
             year = result.get('year', '')
             format_info = self._extract_format_info(result)
-            # REMOVED: label_info = self._extract_label_info(result)
             country = result.get('country', '')
             genre = self._extract_genre_from_result(result)
             
@@ -237,7 +274,6 @@ class DiscogsHandler:
                 'discogs_id': release_id,
                 'year': year,
                 'format': format_info,
-                # REMOVED: 'label': label_info,
                 'country': country,
                 'master_id': master_id,
                 'genre': genre,
@@ -406,27 +442,14 @@ class DiscogsHandler:
             return format_list
         return ''
 
-    # REMOVED: _extract_label_info method completely
-    # def _extract_label_info(self, result):
-    #     if not isinstance(result, dict):
-    #         return ''
-    #     
-    #     label_list = result.get('label', [])
-    #     if isinstance(label_list, list):
-    #         labels = []
-    #         for label in label_list:
-    #             if isinstance(label, str):
-    #                 labels.append(label)
-    #             elif isinstance(label, dict) and label.get('name'):
-    #                 labels.append(label['name'])
-    #         return ', '.join(labels)
-    #     elif isinstance(label_list, str):
-    #         return label_list
-    #     return ''
-
     def _save_payload(self, filename, data):
         payloads_folder = Path("payloads")
         payloads_folder.mkdir(parents=True, exist_ok=True)
         file_path = payloads_folder / filename
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+    
+    def clear_cache(self):
+        """Clear the pricing cache"""
+        self._release_cache = {}
+        logger.info("Discogs cache cleared")

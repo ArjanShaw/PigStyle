@@ -14,6 +14,9 @@ from conditions import DiscogsConditions
 from handlers.rounding_handler import RoundingHandler
 from handlers.env_pars_handler import EnvParsHandler
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PriceAdviseHandler:
     def __init__(self, discogs_handler=None, ebay_handler=None):
@@ -37,7 +40,7 @@ class PriceAdviseHandler:
     def get_price_advice(self, artist, title, selected_condition, record_data=None):
         """
         Get comprehensive price advice including:
-        1. Discogs price for selected condition
+        1. Discogs price for selected condition (FROM CACHE)
         2. eBay prices for selected condition
         3. Calculated advised store price
         4. Calculation lines for display
@@ -52,13 +55,20 @@ class PriceAdviseHandler:
             'success': False
         }
         
-        # Get Discogs price
-        discogs_price = self._get_discogs_price_for_condition(record_data, selected_condition)
+        # Get Discogs price FROM CACHE (already fetched during search)
+        discogs_price = self._get_discogs_price_from_cache(record_data, selected_condition)
         result['discogs_price'] = discogs_price
         
-        # Get eBay prices
-        ebay_prices = self._get_ebay_prices_for_condition(artist, title, selected_condition)
-        result['ebay_prices'] = ebay_prices
+        if discogs_price:
+            result['calculation_lines'].append(f"• **Discogs Price (cached):** ${discogs_price:.2f}")
+        
+        # Get eBay prices (only if we have eBay credentials)
+        if self.ebay_client_id and self.ebay_client_secret:
+            ebay_prices = self._get_ebay_prices_for_condition(artist, title, selected_condition)
+            result['ebay_prices'] = ebay_prices
+        else:
+            result['calculation_lines'].append("• **eBay Search:** Not configured")
+            ebay_prices = None
         
         # Get eBay condition count
         ebay_condition_count = ebay_prices.get('condition_count', 0) if ebay_prices else 0
@@ -72,46 +82,52 @@ class PriceAdviseHandler:
         )
         
         result['advised_store_price'] = advised_store_price
-        result['calculation_lines'] = calculation_lines
+        result['calculation_lines'].extend(calculation_lines)
         result['ebay_listings'] = ebay_prices.get('all_listings', []) if ebay_prices else []
         result['success'] = True
         
         return result
     
-    def _get_discogs_price_for_condition(self, record_data, selected_condition):
-        """Get Discogs price for specific condition"""
+    def _get_discogs_price_from_cache(self, record_data, selected_condition):
+        """Get Discogs price from cache (already fetched during search)"""
         try:
-            if not self.discogs_handler or not record_data or 'discogs_id' not in record_data:
+            if not record_data:
                 return None
             
-            release_id = record_data.get('discogs_id')
-            if not release_id:
+            # Check if price suggestions are already in the record data
+            price_suggestions = record_data.get('price_suggestions', {})
+            
+            if not price_suggestions:
+                # Fallback: check if discogs_id exists and try to get from handler cache
+                release_id = record_data.get('discogs_id')
+                if release_id and self.discogs_handler:
+                    pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id), use_cache=True)
+                    if pricing_data and 'price_suggestions' in pricing_data:
+                        price_suggestions = pricing_data.get('price_suggestions', {})
+            
+            if not price_suggestions:
                 return None
             
-            pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
-            if not pricing_data or 'price_suggestions' not in pricing_data:
-                return None
-            
-            price_suggestions = pricing_data.get('price_suggestions', {})
-            
-            # Use centralized condition abbreviations
+            # Find price for selected condition
             for discogs_condition, price in price_suggestions.items():
                 if price and price > 0:
                     # Check if this Discogs condition matches our selected condition
                     condition_abbrs = DiscogsConditions.CONDITION_ABBREVIATIONS.get(selected_condition, [])
                     for pattern in condition_abbrs:
                         if pattern.lower() in discogs_condition.lower():
+                            logger.info(f"Price found in cache: {selected_condition} = ${price}")
                             return float(price)
             
             # If no exact match, return first available price
             for discogs_condition, price in price_suggestions.items():
                 if price and price > 0:
+                    logger.info(f"Using fallback price from cache: {discogs_condition} = ${price}")
                     return float(price)
             
             return None
             
         except Exception as e:
-            st.error(f"Error getting Discogs price: {e}")
+            logger.error(f"Error getting Discogs price from cache: {e}")
             return None
     
     def _get_ebay_access_token(self):
@@ -123,6 +139,9 @@ class PriceAdviseHandler:
             raise ValueError("eBay credentials not configured")
         
         try:
+            start_time = time.time()
+            logger.info("EBAY API CALL [START]: Get OAuth token")
+            
             token_url = "https://api.ebay.com/identity/v1/oauth2/token"
             auth_string = base64.b64encode(
                 f"{self.ebay_client_id}:{self.ebay_client_secret}".encode()
@@ -140,6 +159,9 @@ class PriceAdviseHandler:
             
             response = requests.post(token_url, headers=headers, data=data)
             
+            duration = time.time() - start_time
+            logger.info(f"EBAY API CALL [END]: Get OAuth token - {duration:.3f}s - Status: {response.status_code}")
+            
             if response.status_code == 200:
                 token_data = response.json()
                 self.ebay_access_token = token_data.get('access_token')
@@ -147,9 +169,11 @@ class PriceAdviseHandler:
                 return self.ebay_access_token
             else:
                 error_msg = f"eBay token error: {response.status_code} - {response.text}"
+                logger.error(error_msg)
                 raise Exception(error_msg)
                 
         except Exception as e:
+            logger.error(f"Error getting eBay token: {e}")
             raise Exception(f"Error getting eBay token: {e}")
     
     def _search_ebay_listings(self, search_query, limit=50):
@@ -159,6 +183,9 @@ class PriceAdviseHandler:
             raise Exception("Failed to obtain eBay access token")
         
         try:
+            start_time = time.time()
+            logger.info(f"EBAY API CALL [START]: Search listings for '{search_query[:50]}...'")
+            
             # Build the search query - artist - title - VINYL
             ebay_search_query = f"{search_query} VINYL"
             
@@ -182,14 +209,19 @@ class PriceAdviseHandler:
                 timeout=10
             )
             
+            duration = time.time() - start_time
+            logger.info(f"EBAY API CALL [END]: Search listings for '{search_query[:50]}...' - {duration:.3f}s - Status: {response.status_code}")
+            
             if response.status_code == 200:
                 data = response.json()
                 return data.get('itemSummaries', [])
             else:
                 error_msg = f"eBay search error: {response.status_code} - {response.text}"
+                logger.error(error_msg)
                 raise Exception(error_msg)
                 
         except Exception as e:
+            logger.error(f"Error searching eBay: {e}")
             raise Exception(f"Error searching eBay: {e}")
     
     def _get_ebay_prices_for_condition(self, artist, title, selected_condition):
@@ -203,6 +235,7 @@ class PriceAdviseHandler:
             
             if not ebay_listings:
                 # Return empty structure if no listings found (but API call succeeded)
+                logger.info(f"No eBay listings found for: {search_query}")
                 return {
                     'generic_median': 0,
                     'condition_median': 0,
@@ -267,6 +300,8 @@ class PriceAdviseHandler:
             condition_prices = [listing['base_price'] for listing in condition_listings if listing['base_price'] > 0]
             condition_median = self._calculate_robust_median(condition_prices) if condition_prices else 0
             
+            logger.info(f"eBay analysis: {len(all_prices)} total listings, {len(condition_prices)} condition matches")
+            
             return {
                 'generic_median': generic_median,
                 'condition_median': condition_median,
@@ -281,7 +316,8 @@ class PriceAdviseHandler:
             }
             
         except Exception as e:
-            # Re-raise the exception instead of returning None
+            # Log error and return empty structure
+            logger.error(f"Error getting eBay prices: {e}")
             raise Exception(f"Error getting eBay prices: {e}")
     
     def _calculate_robust_median(self, prices):
@@ -496,7 +532,14 @@ class PriceAdviseHandler:
             
             # If not in session state, try to get it from API
             try:
+                start_time = time.time()
+                logger.info(f"CONFIG API CALL [START]: GET /config/{config_key}")
+                
                 response = requests.get(f"https://arjanshaw.pythonanywhere.com/config/{config_key}")
+                
+                duration = time.time() - start_time
+                logger.info(f"CONFIG API CALL [END]: GET /config/{config_key} - {duration:.3f}s - Status: {response.status_code}")
+                
                 if response.status_code == 200:
                     data = response.json()
                     value = data.get('config_value', default)
@@ -504,11 +547,12 @@ class PriceAdviseHandler:
                         return float(value) if value else default
                     except (ValueError, TypeError):
                         return value
-            except:
+            except Exception as e:
+                logger.error(f"Error fetching config {config_key}: {e}")
                 return float(default) if default else default
             
             return float(default) if default else default
                 
         except Exception as e:
-            print(f"Error getting config {config_key}: {e}")
+            logger.error(f"Error getting config {config_key}: {e}")
             return float(default) if default else default

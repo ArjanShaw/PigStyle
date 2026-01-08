@@ -22,8 +22,10 @@ class PriceTagTab:
     def __init__(self, genre_cache=None):
         # Get config cache from session state (set up in streamlit_app.py)
         self.genre_cache = genre_cache  # Store genre cache reference
-        self.contract_handler = None
+        self.contract_handler = None  # Will be initialized when needed
         
+        self.base_url = "https://arjanshaw.pythonanywhere.com"
+
         # Initialize config values from database
         self._validate_configuration()
     
@@ -62,23 +64,6 @@ class PriceTagTab:
                 except (ValueError, TypeError):
                     st.session_state[key.lower()] = value
     
-    def _get_default_value(self, key):
-        """Get default value for a config key"""
-        defaults = {
-            'LABEL_WIDTH_MM': 45.0,
-            'LABEL_HEIGHT_MM': 16.8,
-            'LEFT_MARGIN_MM': 6.5,
-            'GUTTER_SPACING_MM': 6.5,
-            'TOP_MARGIN_MM': 14.0,
-            'FONT_SIZE': 7,
-            'PRICE_FONT_SIZE': 10,
-            'PRICE_Y_POS': 2.0,
-            'TEXT_FONT_SIZE': 6,
-            'BARCODE_Y_POS': 2.0,
-            'BARCODE_HEIGHT': 6.0,
-            'PRINT_BORDERS': False
-        }
-        return defaults.get(key)
     
     def _get_config_value(self, config_key, default=None):
         """Get config value from cache - FIXED: Use config_cache from session state"""
@@ -229,195 +214,106 @@ class PriceTagTab:
                 st.error("Invalid user selection")
                 return
         
-        # NEW: Contract and receipt options for consignors
-        if selected_user_id and selected_user_data:
-            with st.expander("📄 Contract & Receipt", expanded=True):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Generate Contract button
-                    if st.button("📝 Generate Consignment Contract", 
-                                help="Generate a new consignment agreement contract"):
-                        if st.session_state.get('user', {}).get('username') == 'demo_user':
-                            st.success("✅ Demo: Contract generated!")
-                            st.info("💡 In real mode, this would generate a downloadable PDF contract with your terms.")
-                            st.info("Contract includes: 180-day term, commission rates, pricing rules, and liability terms.")
-                        else:
-                            # In real mode, this would generate contract
-                            st.info("Contract generation is available when printing price tags in the '🏷️ Print Price Tags' tab.")
-                            st.info("Go to Print Price Tags, select your records, and generate contract + receipt together.")
-                
-                with col2:
-                    if st.button("📋 View Receipt History", width='stretch',
-                               help="View past batch receipts and consignment records"):
-                        if st.session_state.get('user', {}).get('username') == 'demo_user':
-                            # Show demo receipt history
-                            with st.expander("📋 Demo Receipt History", expanded=True):
-                                st.write("**Sample Receipts:**")
-                                demo_receipts = [
-                                    {"Date": "2024-01-15", "Receipt #": "PS20240115001", "Items": 5, "Value": "$174.95", "Status": "Active"},
-                                    {"Date": "2023-12-10", "Receipt #": "PS20231210003", "Items": 3, "Value": "$89.97", "Status": "Paid"},
-                                    {"Date": "2023-11-05", "Receipt #": "PS20231105002", "Items": 2, "Value": "$49.98", "Status": "Expired"}
-                                ]
-                                st.dataframe(pd.DataFrame(demo_receipts), hide_index=True)
-                        else:
-                            st.info("Receipt history would show your past consignment batches")
+        # NEW: Simplified interface - ALWAYS show input and buttons
+        st.divider()
+        st.subheader("📊 Price Tag Management")
         
-        # Get records for the selected user (or all records)
-        # ONLY get records with status_id = 1 (new records)
-        records = self._get_new_records_for_user(selected_user_id)
+        # Get NEW records for printing (status_id = 1) sorted by creation date descending
+        new_records = self._get_new_records_for_user(selected_user_id)
+        total_records = self._get_all_records_for_user(selected_user_id)
         
-        # Get last printed batch size from config - use this as default
-        last_batch_size = self._get_config_value('LAST_PRINT_BATCH_SIZE', '0')
-        try:
-            last_batch_size = int(last_batch_size)
-        except:
-            last_batch_size = 0
-        
-        # REMOVED: Separate batch size controls for clearing and selection
-        # NEW: Unified batch size control
-        with st.expander("⚙️ Batch Configuration", expanded=False):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Unified batch size setting
-                batch_size = st.number_input(
-                    "Batch Size:",
-                    min_value=1,
-                    max_value=1000,
-                    value=last_batch_size if last_batch_size > 0 else 10,
-                    step=1,
-                    key="batch_size",
-                    help="Number of records to process in a batch (for printing or clearing)"
-                )
-                
-                # Save batch size to config
-                if st.button("💾 Save Batch Size", width='stretch'):
-                    self._save_config_value('LAST_PRINT_BATCH_SIZE', str(batch_size))
-                    st.success(f"✅ Batch size saved: {batch_size}")
-                    st.session_state.needs_refresh = True
-                    st.stop()
-            
-            with col2:
-                st.write("**Clear Recent Price Tags**")
-                if st.button("🗑️ Clear Recent Tags", width='stretch', 
-                           help=f"Remove barcodes and reset status to New for {batch_size} most recent printed records"):
-                    cleared_count = self._clear_recent_barcodes(batch_size)
-                    if cleared_count > 0:
-                        st.success(f"✅ Cleared {cleared_count} recent price tags! Records are now ready for reprinting.")
-                        st.session_state.needs_refresh = True
-                        st.stop()
-                    else:
-                        st.info("No recent price tags to clear")
-        
-        if not records:
-            st.info(f"No NEW records found for {'selected user' if selected_user_id else 'any user'} that need price tags.")
-            st.info("Only records with status 'New' (status_id = 1) are shown for printing.")
-            return
-        
-        # Sort records by creation date (newest first) for display
-        records.sort(key=lambda x: x.get('created_at', ''), reverse=True)
-        
-        # Display records count
-        st.write(f"**📋 New Records Ready for Printing ({len(records)} found)**")
-        
-        # Selection controls - REMOVED: "Select First N" is now integrated with batch_size
+        if any(r.get('barcode') is None for r in new_records): raise ValueError("Some records have null barcodes")
+
+        # Display counts
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Select All", width='stretch'):
-                st.session_state.select_all = True
-                st.session_state.needs_refresh = True
-                st.stop()
+            st.metric("📄 Total Records", len(total_records))
         with col2:
-            if st.button("❌ Deselect All", width='stretch'):
-                st.session_state.select_all = False
-                st.session_state.needs_refresh = True
-                st.stop()
+            # FIXED: Changed label to show count of new records (status_id = 1)
+            st.metric("📅 new records", len(new_records))
         
-        # Display records in a table with checkboxes - PRESERVE SORTED ORDER (newest first)
-        display_data = []
-        for i, record in enumerate(records):
-            current_select_all = st.session_state.get('select_all', False)
-            # Use batch_size for auto-selection instead of select_first_n
-            auto_select = current_select_all or (batch_size > 0 and i < batch_size)
+        # Input for number of tags to process
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            # Get last batch size from config for default value
+            last_batch_size = self._get_config_value('LAST_PRINT_BATCH_SIZE', '10')
+            try:
+                default_batch_size = int(last_batch_size)
+            except:
+                default_batch_size = 10
             
-            # Get genre name - FIXED: Use genre_name field from API
-            genre = record.get('genre_name', record.get('genre', 'Unknown'))
+            # Calculate max value for input - use new_records count
+            max_for_printing = len(new_records)
             
-            display_data.append({
-                'Select': auto_select,
-                'ID': record['id'],
-                'Artist': record['artist'],
-                'Title': record['title'],
-                'Genre': genre,
-                'Price': f"${record.get('store_price', 0):.2f}",
-                'Condition': record.get('condition', 'Unknown'),
-                'Added Date': record.get('created_at', ''),
-                'User': self._get_username_by_id(record.get('consignor_id'), users or []),
-                'Status': '🆕 New'  # All records shown are new
-            })
+            batch_size = st.number_input(
+                "Number of tags to print:",
+                min_value=1,
+                max_value=max(max_for_printing, 1),
+                value=min(default_batch_size, max(max_for_printing, 1)),
+                step=1,
+                key="batch_size_input",
+                help="Enter the number of price tags to print"
+            )
         
-        df = pd.DataFrame(display_data)
+        with col2:
+            # Show info about what will be processed
+            if batch_size > 0 and new_records:
+                st.info(f"Will print the {batch_size} most recent NEW records (created_at descending)")
         
-        # Don't let Streamlit re-sort the DataFrame - keep the original order (newest first)
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "Select": st.column_config.CheckboxColumn("Select", default=False),
-                "ID": st.column_config.NumberColumn("ID", disabled=True),
-                "Artist": st.column_config.TextColumn("Artist", disabled=True),
-                "Title": st.column_config.TextColumn("Title", disabled=True),
-                "Genre": st.column_config.TextColumn("Genre", disabled=True),
-                "Price": st.column_config.TextColumn("Price", disabled=True),
-                "Condition": st.column_config.TextColumn("Condition", disabled=True),
-                "Added Date": st.column_config.DatetimeColumn("Added Date", disabled=True),
-                "User": st.column_config.TextColumn("User", disabled=True),
-                "Status": st.column_config.TextColumn("Status", disabled=True)
-            },
-            hide_index=True,
-            width='stretch',
-            height=400,
-            key="price_tag_editor",
-            disabled=["ID", "Artist", "Title", "Genre", "Price", "Condition", "Added Date", "User", "Status"]  # Prevent reordering
+        # Action buttons - only print button remains
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            print_enabled = len(new_records) > 0 and batch_size <= len(new_records)
+            if print_enabled:
+                if st.button("🖨️ Print Price Tags", type="primary", width='stretch',
+                            help=f"Print price tags for {batch_size} most recent new records"):
+                    # Get the most recent new records (already sorted by created_at descending)
+                    records_to_print = new_records[:batch_size]
+                    
+                    self._process_print_tags(records_to_print, batch_size, selected_user_id, selected_user_data)
+            else:
+                disabled_reason = "No new records available" if len(new_records) == 0 else f"Only {len(new_records)} new records available"
+                st.button("🖨️ Print Price Tags", disabled=True, width='stretch',
+                         help=disabled_reason)
+        
+     
+    def _process_print_tags(self, records, batch_size, user_id, user_data):
+        
+        """Process printing price tags for specified number of NEW records"""
+        if batch_size <= 0:
+            st.error("Please enter a valid number of tags to print")
+            return
+        
+        # Get the most recent new records (already filtered and sorted newest first)
+        records_to_print = records[:batch_size]
+        
+       
+        for i, record in enumerate(records_to_print):
+            position = i + 1
+            # Calculate page position
+            row = (position - 1) // 4  # 0-indexed row
+            col = (position - 1) % 4   # 0-indexed column
+        
+        
+        # Print tags with receipt
+        
+        if user_id:
+            store_credit_option = st.checkbox(
+                "📋 Include in consignment with store credit bonus (+20%)",
+                value=False,
+                help="Consignor chooses store credit payout (20% commission bonus)"
+            )
+        
+        self._print_tags_with_receipt(
+            records_to_print,  
+            user_id,
+            user_data
         )
         
-        selected_records = edited_df[edited_df['Select'] == True]
-        
-        if len(selected_records) > 0:
-            st.subheader(f"🖨️ Selected for Printing ({len(selected_records)} records)")
-            
-            # Show summary of selected records
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Items", len(selected_records))
-            with col2:
-                total_value = sum(float(r['Price'].replace('$', '')) for r in selected_records.to_dict('records'))
-                st.metric("Total Value", f"${total_value:.2f}")
-            with col3:
-                if selected_user_id:
-                    user_name = self._get_username_by_id(selected_user_id, users or [])
-                    st.metric("User", user_name)
-            
-            # NEW: Store credit option for consignors
-            store_credit_option = False
-            if selected_user_id:
-                store_credit_option = st.checkbox(
-                    "📋 Include in consignment with store credit bonus (+20%)",
-                    value=False,
-                    help="Consignor chooses store credit payout (20% commission bonus)"
-                )
-            
-            # Print button with enhanced functionality
-            if st.button("🖨️ PRINT PRICE TAGS & GENERATE RECEIPT", type="primary", width='stretch'):
-                # Get store credit option from UI or default
-                store_credit = store_credit_option if selected_user_id else False
-                
-                self._print_tags_with_receipt(
-                    selected_records['ID'].tolist(), 
-                    selected_user_id,
-                    selected_user_data,
-                    store_credit
-                )
+        # Save batch size to config
+        self._save_config_value('LAST_PRINT_BATCH_SIZE', str(batch_size))
     
     def _generate_consignment_contract(self, user_data):
         """Generate and download consignment contract"""
@@ -466,97 +362,68 @@ class PriceTagTab:
             width='stretch'
         )
     
-    def _print_tags_with_receipt(self, record_ids, user_id, user_data, store_credit_option):
-        """Print price tags and generate receipt/contract"""
-        if not record_ids:
-            st.error("❌ No records selected")
-            return
-        
-        # Initialize contract handler if needed
-        if user_id and not self.contract_handler:
-            class APIClient:
-                def __init__(self):
-                    pass
-                
-                def get_config_value(self, key, default=None):
-                    return self._get_config_value(key, default)
-                
-                def _get_config_value(self, key, default=None):
-                    """Get config value via API"""
-                    return self._get_config_value(key, default)
-            
-            api_client = APIClient()
-            self.contract_handler = ContractHandler(api_client)
-        
+    def _print_tags_with_receipt(self, records, user_id, user_data):
+         
         # Initialize session state for printing
         st.session_state.print_status = "processing"
-        st.session_state.print_message = f"🔄 Starting price tag generation for {len(record_ids)} records..."
+        st.session_state.print_message = f"🔄 Starting price tag generation for {len(records)} records..."
         st.session_state.print_success = False
 
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        # Step 1: Assign barcodes
-        status_text.text("Step 1/4: Assigning barcodes...")
-        barcode_mapping = self._assign_barcodes(record_ids)
-        progress_bar.progress(25)
-        
-        if not barcode_mapping:
-            st.session_state.print_status = "error"
-            st.session_state.print_message = "❌ Failed to assign barcodes"
-            st.session_state.print_success = False
-            progress_bar.empty()
-            status_text.empty()
-            return
-        
-        # Step 2: Load record data
-        status_text.text("Step 2/4: Loading record data...")
-        records_to_print = self._get_records_by_ids(record_ids)
-        progress_bar.progress(50)
-        
-        if not records_to_print:
-            st.error("Failed to get records")
-            return
-        
-        # Step 3: Generate PDF price tags
-        status_text.text("Step 3/4: Generating price tags PDF...")
-        pdf_tags_data = self._generate_tags_pdf(records_to_print, barcode_mapping)
-        progress_bar.progress(75)
-        
-        # Step 4: Generate receipt and contract (if consignor)
+        # Step 1: Load record data - USE THE RECORDS WE ALREADY HAVE
+        status_text.text("Step 1/3: Loading record data...")
+        progress_bar.progress(33)
+         
+        # Step 2: Generate PDF price tags
+        status_text.text("Step 2/3: Generating price tags PDF...")
+        pdf_tags_data = self._generate_tags_pdf(records)
+        progress_bar.progress(66)
+         
+        # Step 3: Generate receipt and contract (if consignor)
         receipt_text = None
         receipt_pdf = None
         contract_pdf = None
         
-        if user_id and user_data and self.contract_handler:
-            status_text.text("Step 4/4: Generating receipt and contract...")
-            
+        # Initialize contract handler if not already initialized
+        if not self.contract_handler:
+            self._initialize_contract_handler()
+
+        for record in records:   
+                record_id = record.get('id')   
+                success = self._update_record(record_id, {  
+                    'status_id': 2   
+                })
+
+        if user_id:
             # Get commission rate
             commission_rate_value = self._get_config_value('DEFAULT_COMMISSION_RATE', '0.20')
             commission_rate = float(commission_rate_value) if commission_rate_value else 0.20
-            
+                
             # Generate receipt
             receipt_text, receipt_pdf, receipt_number = self.contract_handler.generate_batch_receipt(
-                user_data, records_to_print, commission_rate, store_credit_option
+                user_data, records, commission_rate
             )
-            
+                
             # Generate contract
-            total_value = sum(r.get('store_price', 0) for r in records_to_print)
+            total_value = sum(r.get('store_price', 0) for r in records)
             batch_data = {
                 'batch_id': receipt_number,
-                'item_count': len(records_to_print),
+                'item_count': len(records),
                 'total_value': total_value,
                 'commission_rate': commission_rate
             }
-            
+                
             contract_pdf = self.contract_handler.generate_consignment_contract(
-                user_data, batch_data, store_credit_option
+                user_data, batch_data
             )
+                
             
-            # Update records with receipt number
-            for record_id in record_ids:
-                self._update_record(record_id, {'receipt_number': receipt_number})
-        
+            if success:
+                st.session_state.records_updated = st.session_state.get('records_updated', 0) + 1
+            
+                        
         progress_bar.progress(100)
         
         # Clear progress indicators
@@ -565,7 +432,7 @@ class PriceTagTab:
         
         # Display results
         st.session_state.print_status = "completed"
-        st.session_state.print_message = f"✅ Successfully generated price tags for {len(record_ids)} records"
+        st.session_state.print_message = f"✅ Successfully generated price tags for {len(records)} records"
         st.session_state.print_success = True
         
         st.success(st.session_state.print_message)
@@ -622,22 +489,37 @@ class PriceTagTab:
                 )
         
         # Save the batch size to config for future clearing
-        batch_size = len(record_ids)
+        batch_size = len(records)
         self._save_config_value('LAST_PRINT_BATCH_SIZE', str(batch_size))
         
         # Update session state
         st.session_state.pdf_data = pdf_tags_data
         st.session_state.pdf_filename = tags_filename
     
-    def _generate_tags_pdf(self, records, barcode_mapping):
-        """Generate PDF with price tags - FIXED: Newest records print at top-left"""
+    def _initialize_contract_handler(self):
+        """Initialize contract handler with proper API client"""
+        # Create a simple API client for the contract handler
+        class ContractAPIClient:
+            def __init__(self, price_tag_tab):
+                self.price_tag_tab = price_tag_tab
+            
+            def get_config_value(self, key, default=None):
+                # Delegate to PriceTagTab's config getter
+                return self.price_tag_tab._get_config_value(key, default)
+        
+        api_client = ContractAPIClient(self)
+        self.contract_handler = ContractHandler(api_client)
+        return self.contract_handler
+    
+    def _generate_tags_pdf(self, records):
+        """Generate PDF with price tags"""
         temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
         output_path = temp_file.name
         temp_file.close()
 
         c = canvas.Canvas(output_path, pagesize=letter)
         
-        # Layout parameters - use lowercase keys from session_state
+        # Layout parameters
         label_width = st.session_state.label_width_mm * mm
         label_height = st.session_state.label_height_mm * mm
         left_margin = st.session_state.left_margin_mm * mm
@@ -649,34 +531,33 @@ class PriceTagTab:
         labels_per_page = rows * columns
         current_label = 0
         
-        # FIXED: Sort records by creation date (NEWEST first) for proper printing order
-        # This ensures the most recently created records are at the top-left (printed first)
-        sorted_records = sorted(records, key=lambda x: x.get('created_at', ''), reverse=True)
+         
         
-        errors = []
-        
-        for idx, record in enumerate(sorted_records):
+        for idx, record in enumerate(records):
             if current_label % labels_per_page == 0 and current_label > 0:
                 c.showPage()
             
             row = (current_label % labels_per_page) // columns
             col = (current_label % labels_per_page) % columns
             
+            # FIXED: Use row instead of (row + 1) to start from top
             x = left_margin + col * (label_width + gutter_spacing)
-            y = letter[1] - top_margin - (row + 1) * label_height
+            y = letter[1] - top_margin - (row+1) * label_height  # CHANGED: row instead of (row + 1)
             
-            barcode_number = barcode_mapping.get(str(record['id']))
+             
+            barcode_number = record.get('barcode')
+
+            if not barcode_number:
+                raise ValueError(f"Record ID {record.get('id')} has null barcode. Artist: {record.get('artist', 'Unknown')}, Title: {record.get('title', 'Unknown')}")
+
             
             error = self._draw_tag(c, x, y, label_width, label_height, record, barcode_number)
             if error:
-                errors.append(f"Record ID {record['id']}: {error}")
+                print(f"  ERROR: {error}")
 
             current_label += 1
         
         c.save()
-        
-        if errors:
-            st.warning(f"Some text overflow errors detected (printed anyway):\n" + "\n".join(errors[:3]))
         
         # Read PDF data
         with open(output_path, "rb") as f:
@@ -686,8 +567,12 @@ class PriceTagTab:
         os.unlink(output_path)
         
         return pdf_data
-    
+
     def _draw_tag(self, c, x, y, label_width, label_height, record, barcode_number):
+
+        if not barcode_number:
+            raise ValueError(f"Record ID {record.get('id')} has null barcode. Artist: {record.get('artist', 'Unknown')}, Title: {record.get('title', 'Unknown')}")
+
         """Draw a single price tag"""
         # Use lowercase keys from session_state
         params = {
@@ -752,6 +637,8 @@ class PriceTagTab:
         genre_artist_y = price_y - 4 * mm
         c.drawString(genre_artist_x, genre_artist_y, genre_artist_text)
         
+
+
         # Draw barcode
         if barcode_number:
             barcode_bytes = self._generate_barcode(barcode_number)
@@ -926,46 +813,61 @@ class PriceTagTab:
             return []  # Return empty list instead of None
     
     def _get_new_records_for_user(self, user_id=None):
-        """Get NEW records (status_id = 1) without barcodes for a specific user (or all users)"""
+        """
+        Get NEW records (status_id = 1) for a specific user (or all users) 
+        sorted by creation date (newest first).
+        """
         try:
             if user_id:
-                # Get all records for this user, then filter those without barcodes and status_id = 1
-                response = requests.get(f"https://arjanshaw.pythonanywhere.com/records/user/{user_id}")
+                # Get all records for this user
+                response = requests.get(f"{self.base_url}/records/user/{user_id}")
             else:
-                # Get all records without barcodes
-                response = requests.get(f"https://arjanshaw.pythonanywhere.com/records/no-barcodes")
+                # Get all records
+                response = requests.get(f"{self.base_url}/records")
             
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
                     records = data.get('records', [])
                     
-                    # Filter for NEW records (status_id = 1) without barcodes
-                    filtered_records = [
-                        r for r in records 
-                        if r.get('status_id') == 1 and 
-                        (not r.get('barcode') or r['barcode'] in [None, '', 'None'])
-                    ]
+                    # Filter for NEW records (status_id = 1)
+                    new_records = [r for r in records if r.get('status_id') == 1]
                     
-                    # FIXED: Sort by creation date (NEWEST first) so they print at top-left
-                    filtered_records.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+                    # Sort by creation date (NEWEST first)
+                    new_records.sort(key=lambda x: x.get('created_at', '') or '', reverse=True)
                     
-                    return filtered_records
+                    return new_records
             return []
         except Exception as e:
-            st.error(f"Error getting records: {e}")
+            st.error(f"Error getting new records: {e}")
             return []
     
-    def _get_username_by_id(self, user_id, users_list):
-        """Get username by user ID from users list"""
-        if not user_id:
-            return "Store Owned"
-        
-        for user in users_list:
-            if user['id'] == user_id:
-                return user.get('username', f"User {user_id}")
-        
-        return f"User {user_id}"
+    def _get_all_records_for_user(self, user_id=None):
+        """
+        Get ALL records for a specific user (or all users) 
+        sorted by creation date (newest first).
+        """
+        try:
+            if user_id:
+                # Get all records for this user
+                response = requests.get(f"{self.base_url}/records/user/{user_id}")
+            else:
+                # Get all records
+                response = requests.get(f"{self.base_url}/records")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    records = data.get('records', [])
+                    
+                    # Sort by creation date (NEWEST first)
+                    records.sort(key=lambda x: x.get('created_at', '') or '', reverse=True)
+                    
+                    return records
+            return []
+        except Exception as e:
+            st.error(f"Error getting all records: {e}")
+            return []
     
     def _get_user_by_id(self, user_id, users_list):
         """Get user by ID from users list"""
@@ -973,86 +875,6 @@ class PriceTagTab:
             if user['id'] == user_id:
                 return user
         return None
-    
-    def _assign_barcodes(self, record_ids):
-        """Assign barcodes to records via API"""
-        if not record_ids:
-            return {}
-        
-        try:
-            response = requests.post(
-                f"https://arjanshaw.pythonanywhere.com/barcodes/assign",
-                json={'record_ids': record_ids}
-            )
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    return data.get('barcode_mapping', {})
-            return {}
-        except Exception as e:
-            st.error(f"Error assigning barcodes: {e}")
-            return {}
-    
-    def _clear_recent_barcodes(self, count):
-        """
-        Clear barcodes AND reset status to New (status_id = 1) 
-        from the most recent X records that have barcodes
-        """
-        try:
-            # Get all records
-            response = requests.get(f"https://arjanshaw.pythonanywhere.com/records?limit=1000")
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    records = data.get('records', [])
-                    
-                    # Filter records with barcodes and sort by ID (most recent first)
-                    records_with_barcodes = [
-                        r for r in records 
-                        if r.get('barcode') and r['barcode'] not in [None, '', 'None']
-                    ]
-                    records_with_barcodes.sort(key=lambda x: x.get('id', 0), reverse=True)
-                    
-                    # Clear barcodes AND reset status to New (status_id = 1) for the most recent records
-                    cleared_count = 0
-                    for record in records_with_barcodes[:count]:
-                        success = self._clear_barcode_and_reset_status(record['id'])
-                        if success:
-                            cleared_count += 1
-                    
-                    return cleared_count
-            return 0
-        except Exception as e:
-            st.error(f"Error clearing barcodes: {e}")
-            return 0
-    
-    def _clear_barcode_and_reset_status(self, record_id):
-        """Clear barcode AND reset status_id to 1 (New) for a record via API"""
-        try:
-            # Update both barcode (set to None) and status_id (set to 1 for New)
-            response = requests.put(
-                f"https://arjanshaw.pythonanywhere.com/records/{record_id}",
-                json={
-                    'barcode': None,
-                    'status_id': 1  # Reset to New status
-                }
-            )
-            return response.status_code == 200
-        except Exception as e:
-            st.error(f"Error clearing barcode and resetting status: {e}")
-            return False
-    
-    def _clear_barcode(self, record_id):
-        """Clear barcode for a record via API"""
-        try:
-            response = requests.put(
-                f"{self.base_url}/records/{record_id}",
-                json={'barcode': None}
-            )
-            return response.status_code == 200
-        except Exception as e:
-            st.error(f"Error clearing barcode: {e}")
-            return False
     
     def _generate_barcode(self, barcode_number):
         """Generate barcode image"""
@@ -1094,6 +916,8 @@ class PriceTagTab:
             return []
     
     def _update_record(self, record_id, updates):
+        print(f"_update_record record_id: {record_id}, updates {updates}")
+
         """Update record via API"""
         try:
             response = requests.put(

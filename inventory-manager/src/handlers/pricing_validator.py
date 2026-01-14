@@ -13,10 +13,6 @@ class PricingValidator:
     def validate_user_price(self, user_price, record_data):
         """Validate user-entered price against advised price"""
         try:
-            # Get max price ratio from config
-            max_ratio_value = self.api_client.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3')
-            max_ratio = float(max_ratio_value) if max_ratio_value else 1.3
-            
             # Get advised price from record data (already rounded to .49/.99)
             advised_price = record_data.get('advised_price')
             if not advised_price or advised_price <= 0:
@@ -29,37 +25,26 @@ class PricingValidator:
                     'is_valid': True,
                     'reason': 'No advised price available',
                     'advised_price': 0,
-                    'max_allowed': user_price * 2,  # Arbitrary high limit
                     'user_price': user_price
                 }
             
-            # Calculate maximum allowed price
-            max_allowed = advised_price * max_ratio
+            # REMOVED: Maximum price ratio check
             
-            # Validate
+            # Validate minimum price only
             if user_price <= 0:
                 return {
                     'is_valid': False,
                     'reason': 'Price must be greater than 0',
                     'advised_price': advised_price,
-                    'max_allowed': max_allowed,
                     'user_price': user_price
                 }
             
-            if user_price > max_allowed:
-                return {
-                    'is_valid': False,
-                    'reason': f'Price exceeds maximum allowed (max: ${max_allowed:.2f})',
-                    'advised_price': advised_price,
-                    'max_allowed': max_allowed,
-                    'user_price': user_price
-                }
+            # REMOVED: Maximum price validation
             
             return {
                 'is_valid': True,
-                'reason': 'Price is within acceptable range',
+                'reason': 'Price is acceptable',
                 'advised_price': advised_price,
-                'max_allowed': max_allowed,
                 'user_price': user_price
             }
             
@@ -70,10 +55,9 @@ class PricingValidator:
                 'is_valid': True,
                 'reason': f'Validation error: {str(e)}',
                 'advised_price': 0,
-                'max_allowed': user_price * 2,
                 'user_price': user_price
-            }
-    
+            } 
+        
     def _calculate_advised_price(self, record_data):
         """Calculate advised price from Discogs and eBay data"""
         try:

@@ -860,13 +860,10 @@ class InventoryTab:
             
             suggested_genre = self._get_suggested_genre(stored_data['record_data'])
             
-            # FIX: Clean the suggested genre to handle slashes
             clean_suggested_genre = suggested_genre
             if suggested_genre and '/' in suggested_genre:
                 clean_suggested_genre = suggested_genre.replace('/', ' ')
-                # Check if cleaned version exists in genres
                 if clean_suggested_genre not in all_genres:
-                    # Try to find similar genre
                     for genre in all_genres:
                         if suggested_genre.split('/')[0] in genre:
                             clean_suggested_genre = genre
@@ -886,7 +883,6 @@ class InventoryTab:
                 key=genre_key
             )
             
-            # FIX: Add validation message if no genre selected
             if selected_genre == "Select genre...":
                 st.error("⚠️ Please select a genre")
                 stored_data['selected_genre'] = None
@@ -897,7 +893,6 @@ class InventoryTab:
             user = st.session_state.get('user', {})
             user_role = user.get('role', 'consignor')
             
-            # FIXED: Use the imported DiscogsConditions class
             available_conditions = DiscogsConditions.get_available_conditions(user_role)
             
             previous_selection = stored_data['selected_condition']
@@ -945,7 +940,6 @@ class InventoryTab:
                             stored_data['last_researched_condition'] = selected_condition
                             
                             st.session_state[f"{record_key}_data"] = stored_data
-                             
         
         with col4:
             if (stored_data['selected_condition'] and 
@@ -958,21 +952,18 @@ class InventoryTab:
                     stored_data['user_price'] = advised_store_price
                     st.session_state[f"{record_key}_data"] = stored_data
                 
-                max_ratio_value = self.get_config_value('MAX_PRICE_TO_ADV_RATIO', '1.3')
-                max_ratio = float(max_ratio_value) if max_ratio_value else 1.3
-                
-                max_allowed = advised_store_price * max_ratio if advised_store_price and advised_store_price > 0 else 0
-                
+                # REMOVED ALL MAX PRICE CALCULATIONS
                 price_input_key = f"price_input_{record_key}"
                 user_price = st.number_input(
                     "Price ($)",
                     min_value=0.0,
-                    max_value=float(max_allowed * 1.5),
-                    value=float(advised_store_price),
+                    # COMPLETELY REMOVED: max_value parameter
+                    value=float(advised_store_price) if advised_store_price else 0.0,
                     step=0.01,
                     format="%.2f",
                     key=price_input_key,
-                    help=f"Advised: ${advised_store_price:.2f} | Max: ${max_allowed:.2f}" if advised_store_price and max_allowed > 0 else "Enter price"
+                    # SIMPLIFIED HELP TEXT
+                    help="Enter store price" if advised_store_price and advised_store_price > 0 else "Enter price"
                 )
                 
                 if user_price != stored_data.get('user_price'):
@@ -985,7 +976,6 @@ class InventoryTab:
                 st.info("Select condition first")
         
         with col5:
-            # FIX: Enhanced validation including genre
             add_enabled = (
                 stored_data['selected_condition'] and 
                 stored_data['selected_condition'] != "Select condition..." and
@@ -998,7 +988,6 @@ class InventoryTab:
             
             add_button_key = f"add_{record_key}"
             
-            # FIX: Better error messages
             disabled_reason = ""
             if not stored_data.get('selected_genre') or stored_data['selected_genre'] in [None, "Select genre..."]:
                 disabled_reason = "Please select a genre"
@@ -1040,12 +1029,11 @@ class InventoryTab:
                             }
                         
                         st.success(f"✅ Record added successfully! ID: {record_id}")
-                        # st.rerun()
                     else:
                         st.error("Failed to add record to database")
             else:
                 st.button("➕ Add", key=f"add_disabled_{record_key}", disabled=True, width='stretch',
-                         help=disabled_reason)
+                        help=disabled_reason)
         
         if (stored_data['selected_condition'] and 
             stored_data['selected_condition'] != "Select condition..." and

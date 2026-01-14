@@ -222,15 +222,96 @@ class PriceTagTab:
         new_records = self._get_new_records_for_user(selected_user_id)
         total_records = self._get_all_records_for_user(selected_user_id)
         
-        if any(r.get('barcode') is None for r in new_records): raise ValueError("Some records have null barcodes")
-
+        # NEW: Display table of inactive records that will be printed
+        if new_records:
+            st.subheader("📋 Inactive Records Ready for Printing")
+            st.write(f"**Found {len(new_records)} inactive records (status_id = 1) sorted by creation date (newest first):**")
+            
+            # Create display table
+            display_data = []
+            for i, record in enumerate(new_records, 1):
+                # Calculate page position for printing
+                position = i
+                row = (position - 1) // 4  # 0-indexed row
+                col = (position - 1) % 4   # 0-indexed column
+                
+                # Format data for display
+                artist = record.get('artist', 'Unknown')[:25]
+                title = record.get('title', 'Unknown')[:30]
+                price = record.get('store_price', 0.0)
+                catalog = record.get('catalog_number', 'N/A')[:15]
+                genre = record.get('genre_name', record.get('genre', 'Unknown'))[:20]
+                barcode_num = record.get('barcode', 'N/A')
+                created_at = record.get('created_at', 'Unknown')
+                
+                # Format date if available
+                if created_at and created_at != 'Unknown':
+                    try:
+                        if 'T' in created_at:
+                            date_part = created_at.split('T')[0]
+                            created_at = date_part
+                    except:
+                        pass
+                
+                display_data.append({
+                    '#': i,
+                    'Artist': artist,
+                    'Title': title,
+                    'Price': f"${price:.2f}",
+                    'Catalog': catalog,
+                    'Genre': genre,
+                    'Barcode': barcode_num,
+                    'Created': created_at,
+                    'Page Pos': f"R{row+1}C{col+1}"
+                })
+            
+            # Create DataFrame and display
+            df = pd.DataFrame(display_data)
+            
+            column_config = {
+                '#': st.column_config.NumberColumn('#', width='small'),
+                'Artist': st.column_config.TextColumn('Artist', width='medium'),
+                'Title': st.column_config.TextColumn('Title', width='large'),
+                'Price': st.column_config.TextColumn('Price', width='small'),
+                'Catalog': st.column_config.TextColumn('Catalog', width='medium'),
+                'Genre': st.column_config.TextColumn('Genre', width='medium'),
+                'Barcode': st.column_config.TextColumn('Barcode', width='medium'),
+                'Created': st.column_config.TextColumn('Created', width='small'),
+                'Page Pos': st.column_config.TextColumn('Page Position', width='small')
+            }
+            
+            st.dataframe(
+                df,
+                column_config=column_config,
+                hide_index=True,
+                width='stretch',
+                height=400
+            )
+            
+            # Show printing position explanation
+            with st.expander("📄 Printing Position Explanation", expanded=False):
+                st.write("""
+                **Page Position Key:**
+                - **R1C1**: Row 1, Column 1 (top-left corner of page)
+                - **R1C2**: Row 1, Column 2
+                - **R2C1**: Row 2, Column 1
+                - etc.
+                
+                **Layout:**
+                - Each page has 15 rows × 4 columns = 60 labels
+                - Labels are filled left-to-right, top-to-bottom
+                - Position numbers show where each record will print
+                """)
+        else:
+            st.info("No inactive records (status_id = 1) found for printing.")
+        
         # Display counts
         col1, col2 = st.columns(2)
         with col1:
             st.metric("📄 Total Records", len(total_records))
         with col2:
             # FIXED: Changed label to show count of new records (status_id = 1)
-            st.metric("📅 new records", len(new_records))
+            st.metric("📅 Inactive Records Ready", len(new_records))
         
         # Input for number of tags to process
         col1, col2 = st.columns([1, 2])

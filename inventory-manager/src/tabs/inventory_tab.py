@@ -1151,14 +1151,14 @@ class InventoryTab:
         
         format_selected = st.session_state.get('format_select', 'Vinyl')
         
-        pricing_data = None
+        # pricing_data = None
         
-        if self.discogs_handler:
-            with st.spinner("Fetching Discogs price suggestions..."):
-                pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
-        else:
-            st.error("Discogs handler not available")
-            return False, None
+        # if self.discogs_handler:
+        #     with st.spinner("Fetching Discogs price suggestions..."):
+        #         pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
+        # else:
+        #     st.error("Discogs handler not available")
+        #     return False, None
         
         artist = record_data.get('artist', '')
         title = record_data.get('title', '')
@@ -1196,8 +1196,8 @@ class InventoryTab:
         if '/' in discogs_genre:
             discogs_genre_for_api = discogs_genre.replace('/', ' ')
         
-        if pricing_data:
-            record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
+        # if pricing_data:
+        #     record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
         
         store_price = user_price if user_price else 0.0
         
@@ -1399,7 +1399,7 @@ class InventoryTab:
             self._render_database_result_item(record, i, user)
 
     def _render_database_result_item(self, record, index, user):
-        """Render individual database result item"""
+        """Render individual database result item - UPDATED to include created_at and Inactive button"""
         if hasattr(record, 'get'):
             record_id = record.get('id')
         elif hasattr(record, '__getitem__'):
@@ -1445,6 +1445,20 @@ class InventoryTab:
             if consignor_name:
                 info_lines.append(f"**Consignor:** {consignor_name}")
             
+            # NEW: Add created_at field if available
+            created_at = record.get('created_at', '') if hasattr(record, 'get') else ''
+            if created_at:
+                # Format the date for display
+                try:
+                    if 'T' in created_at:
+                        # Handle ISO format with T separator
+                        date_part = created_at.split('T')[0]
+                        info_lines.append(f"**Created:** {date_part}")
+                    else:
+                        info_lines.append(f"**Created:** {created_at}")
+                except:
+                    info_lines.append(f"**Created:** {created_at}")
+            
             if info_lines:
                 for line in info_lines:
                     st.write(line)
@@ -1484,6 +1498,54 @@ class InventoryTab:
             else:
                 st.button("✏️ Edit", key=f"edit_disabled_{record_id}", disabled=True, width='stretch')
             
+            # NEW: Add "Set to Inactive" button (only for admin or record owner)
+            status_id = record.get('status_id', 2) if hasattr(record, 'get') else 2
+            
+            # Show inactive button for active records (status_id = 2)
+            if can_edit and status_id == 2:  # Only show for active records
+                if st.button("⏸️ Inactive", key=f"inactive_{record_id}", type="secondary", width='stretch', 
+                           help="Set record to inactive status (status_id = 1)"):
+                    if self._set_record_inactive(record_id):
+                        st.success(f"✅ Record set to inactive!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to set record to inactive")
+            # Show reactivate button for inactive records (status_id = 1)
+            elif can_edit and status_id == 1:
+                if st.button("▶️ Activate", key=f"activate_{record_id}", type="secondary", width='stretch',
+                           help="Reactivate record (status_id = 2)"):
+                    if self._set_record_active(record_id):
+                        st.success(f"✅ Record reactivated!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to reactivate record")
+        
+        with col5:
+            # Display status with better icons based on actual status IDs
+            status_id = record.get('status_id', 2) if hasattr(record, 'get') else 2
+            date_sold = record.get('date_sold') if hasattr(record, 'get') else None
+            date_removed = record.get('date_removed') if hasattr(record, 'get') else None
+            
+            # Correct status mapping:
+            # status_id = 1: New/Inactive
+            # status_id = 2: Active 
+            # status_id = 3: Sold
+            # status_id = 4: Removed
+            
+            if status_id == 1:
+                status = "⏸️ Inactive"
+            elif status_id == 2:
+                status = "✅ Active"
+            elif status_id == 3:
+                status = "💰 Sold"
+            elif status_id == 4:
+                status = "🗑️ Removed"
+            else:
+                status = f"❓ Unknown ({status_id})"
+            
+            st.write(f"**Status:** {status}")
+            
+            # Delete button (admin only)
             if user_role == 'admin':
                 if st.button("🗑️ Delete", key=f"delete_{record_id}", type="secondary", width='stretch'):
                     if self.delete_record(record_id):
@@ -1492,16 +1554,76 @@ class InventoryTab:
                     else:
                         st.error("Failed to delete record")
         
-        with col5:
-            status = "Active"
-            date_sold = record.get('date_sold') if hasattr(record, 'get') else None
-            date_removed = record.get('date_removed') if hasattr(record, 'get') else None
-            
-            if date_sold:
-                status = "Sold"
-            elif date_removed:
-                status = "Removed"
-            
-            st.write(f"**Status:** {status}")
-        
         st.divider()
+    
+    def _set_record_inactive(self, record_id):
+        """Set a record to inactive status (status_id = 1)"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would set record {record_id} to inactive")
+            return True
+            
+        try:
+            updates = {
+                'status_id': 1  # Set to inactive
+            }
+            
+            success = self.update_record(record_id, updates)
+            if success:
+                return True
+            else:
+                st.error("Failed to update record status")
+                return False
+        except Exception as e:
+            st.error(f"Error setting record to inactive: {e}")
+            return False
+    
+    def _set_record_active(self, record_id):
+        """Reactivate a record (status_id = 2)"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would reactivate record {record_id}")
+            return True
+            
+        try:
+            updates = {
+                'status_id': 2  # Set to active
+            }
+            
+            success = self.update_record(record_id, updates)
+            if success:
+                return True
+            else:
+                st.error("Failed to update record status")
+                return False
+        except Exception as e:
+            st.error(f"Error reactivating record: {e}")
+            return False
+    
+    def _set_record_inactive(self, record_id):
+        """Set a record to inactive status (status_id = 1)"""
+        user = st.session_state.get('user', {})
+        is_demo = user.get('username') == 'demo_user'
+        
+        if is_demo:
+            st.info(f"Demo: Would set record {record_id} to inactive")
+            return True
+            
+        try:
+            updates = {
+                'status_id': 1  # Set to inactive
+            }
+            
+            success = self.update_record(record_id, updates)
+            if success:
+                return True
+            else:
+                st.error("Failed to update record status")
+                return False
+        except Exception as e:
+            st.error(f"Error setting record to inactive: {e}")
+            return False

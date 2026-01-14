@@ -145,7 +145,8 @@ class SearchHandler:
                                 'consignor_id': record.get('consignor_id', ''),  # ADDED: Include consignor_id
                                 'consignor_name': record.get('consignor_name', ''),  # Add consignor name
                                 'commission_rate': record.get('commission_rate', ''),
-                                'compilation': record.get('compilation', False)
+                                'compilation': record.get('compilation', False),
+                                'created_at': record.get('created_at', '')  # NEW: Add created_at field
                             }
                         else:
                             # Convert to dict if not already
@@ -169,7 +170,8 @@ class SearchHandler:
                                 'consignor_id': record_dict.get('consignor_id', ''),
                                 'consignor_name': record_dict.get('consignor_name', ''),
                                 'commission_rate': record_dict.get('commission_rate', ''),
-                                'compilation': record_dict.get('compilation', False)
+                                'compilation': record_dict.get('compilation', False),
+                                'created_at': record_dict.get('created_at', '')  # NEW: Add created_at field
                             }
                         
                         formatted_results.append(formatted_result)
@@ -186,7 +188,7 @@ class SearchHandler:
             logger.error(f"Error searching database: {str(e)}")
             st.error(f"Error searching database: {str(e)}")
             return []     
-
+        
     def _generate_filename(self, search_query, format_name):
         """Generate a safe filename"""
         clean_query = re.sub(r'[^\w\s-]', '', search_query)

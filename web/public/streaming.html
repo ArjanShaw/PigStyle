@@ -3,7 +3,7 @@
 <head>
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=0.25'>
-    <link rel="icon" type="image/png" href="images/pigstyle_icon.png">
+    <link rel="icon" href="images/PigStyle.ico">
     <title>Streaming Station - PigStyle Records</title>
     
     <!-- Google tag (gtag.js) -->
@@ -32,15 +32,7 @@
     <header>
         <div class="header-content">
             <div class="logo-container">
-                <a href='index.html'><img src='images/pigstyle_icon.png' alt='PigStyle'></a>
-                <div class="service-icons">
-                    <div class="service-icon youtube-icon active" id="youtubeIcon" title="YouTube">
-                        <i class="fab fa-youtube"></i>
-                    </div>
-                    <div class="service-icon spotify-icon" id="spotifyIcon" title="Spotify">
-                        <i class="fab fa-spotify"></i>
-                    </div>
-                </div>
+                <a href='index.html'><img src='images/PigStyle.ico' alt='PigStyle'></a>
             </div>
             <div class="genre-selector">
                 <select id="genreFilter" class="genre-select">
@@ -72,7 +64,6 @@
                     <!-- Vote controls -->
                     <div class="vote-controls">
                         <div class="vote-stats">
-                            <!-- Vote count number removed from here -->
                             <div class="vote-icons">
                                 <button class="vote-btn upvote-btn" id="upvoteBtn" title="Upvote">
                                     <i class="fas fa-thumbs-up"></i>
@@ -97,18 +88,6 @@
                         </button>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Spotify Player Container -->
-            <div class="spotify-container" id="spotifyContainer" style="display: none;">
-                <iframe id="spotifyPlaylistEmbed" 
-                        width="100%" 
-                        height="380" 
-                        frameborder="0" 
-                        allowfullscreen="" 
-                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                        loading="lazy">
-                </iframe>
             </div>
             
             <!-- YouTube Player Container -->

@@ -1,3 +1,4 @@
+/* streaming.css - PigStyle Records Streaming Station */
 * {
     margin: 0;
     padding: 0;
@@ -61,47 +62,22 @@ header {
     height: 60px;
 }
 
-/* Service icons moved next to pig icon */
-.service-icons {
+/* Genre selector */
+.genre-selector {
     display: flex;
     align-items: center;
-    gap: 10px;
 }
 
-.service-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.genre-select {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #2c3e50;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: all 0.3s ease;
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-}
-
-.service-icon:hover {
-    transform: scale(1.1);
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.service-icon.active {
-    background: rgba(231, 76, 60, 0.6);
-    border-color: #e74c3c;
-    box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
-}
-
-.service-icon.youtube-icon {
-    color: #FF0000;
-}
-
-.service-icon.spotify-icon {
-    color: #1DB954;
-}
-
-.service-icon i {
-    font-size: 1.3rem;
+    min-width: 140px;
+    height: 36px;
 }
 
 /* Main player container */
@@ -155,7 +131,7 @@ header {
     flex-wrap: wrap;
 }
 
-/* Vote controls */
+/* Consolidated Vote Button */
 .vote-controls {
     background: rgba(0, 0, 0, 0.6);
     border-radius: 12px;
@@ -172,120 +148,64 @@ header {
     gap: 15px;
 }
 
-.vote-count {
-    font-size: 2.5rem;
-    font-weight: bold;
-    color: #f1c40f;
-    text-align: center;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    min-width: 60px;
-}
-
-.vote-icons {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-}
-
 .vote-btn {
     background: rgba(255, 255, 255, 0.1);
     border: 2px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    width: 50px;
-    height: 50px;
     border-radius: 50%;
-    font-size: 1.3rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    width: 70px;
+    height: 70px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
     position: relative;
+    color: white;
+    font-size: 24px;
 }
 
 .vote-btn:hover {
     transform: scale(1.1);
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.15);
 }
 
-.upvote-btn {
-    color: #2ecc71;
+.vote-btn.upvote {
+    border-color: #27ae60;
 }
 
-.upvote-btn.active {
-    background: rgba(46, 204, 113, 0.3);
-    border-color: #2ecc71;
-    color: #2ecc71;
-    box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+.vote-btn.downvote {
+    border-color: #e74c3c;
 }
 
-.downvote-btn {
-    color: #e74c3c;
+.vote-btn.user-upvoted {
+    background: rgba(39, 174, 96, 0.3);
+    border-color: #27ae60;
+    color: #27ae60;
 }
 
-.downvote-btn.active {
+.vote-btn.user-downvoted {
     background: rgba(231, 76, 60, 0.3);
     border-color: #e74c3c;
     color: #e74c3c;
-    box-shadow: 0 0 15px rgba(231, 76, 60, 0.5);
 }
 
-.kill-btn {
-    color: #9b59b6;
-}
-
-.kill-btn.active {
-    background: rgba(155, 89, 182, 0.3);
-    border-color: #9b59b6;
-    color: #9b59b6;
-    box-shadow: 0 0 15px rgba(155, 89, 182, 0.5);
-}
-
-/* Visualizer controls */
-.visualizer-controls {
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 12px;
-    padding: 15px 25px;
-    display: flex;
-    gap: 15px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.control-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.2);
+.vote-count {
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 2px;
     color: white;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    font-size: 1.3rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-.control-btn:hover {
-    transform: scale(1.1);
-    background: rgba(255, 255, 255, 0.2);
+.vote-btn.user-upvoted .vote-count {
+    color: #27ae60;
 }
 
-.stop-btn {
+.vote-btn.user-downvoted .vote-count {
     color: #e74c3c;
 }
 
-.mute-btn {
-    color: #3498db;
-}
-
-.mute-btn.muted {
-    color: #95a5a6;
-}
-
-/* Video player with record image overlay */
+/* Video player */
 .video-container {
     width: 90%;
     max-width: 1000px;
@@ -301,89 +221,6 @@ header {
     width: 100%;
     height: 100%;
     border: none;
-}
-
-/* Spotify Visualizer Styles */
-.album-art-container {
-    position: relative;
-    width: 300px;
-    height: 300px;
-    margin: 0 auto 30px auto;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7);
-}
-
-.album-art-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: opacity 0.5s ease;
-}
-
-.album-art-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(to top, 
-        rgba(0, 0, 0, 0.9) 0%, 
-        rgba(0, 0, 0, 0.7) 50%, 
-        rgba(0, 0, 0, 0) 100%);
-    padding: 20px;
-    color: white;
-}
-
-.track-info-large {
-    margin-bottom: 15px;
-}
-
-.track-title-large {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 5px;
-    color: white;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.track-artist-large {
-    font-size: 1.2rem;
-    color: #1DB954;
-    margin-bottom: 3px;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.track-album-large {
-    font-size: 1rem;
-    color: rgba(255, 255, 255, 0.8);
-    font-style: italic;
-}
-
-.track-progress {
-    margin-top: 15px;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 8px;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #1DB954, #1ed760);
-    border-radius: 3px;
-    transition: width 0.5s ease;
-}
-
-.time-display {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.7);
 }
 
 /* Navigation controls */
@@ -417,24 +254,6 @@ header {
 
 .nav-btn:active {
     transform: scale(0.95);
-}
-
-/* Genre selector */
-.genre-selector {
-    display: flex;
-    align-items: center;
-}
-
-.genre-select {
-    padding: 8px 12px;
-    border: none;
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #2c3e50;
-    font-size: 0.9rem;
-    cursor: pointer;
-    min-width: 140px;
-    height: 36px;
 }
 
 /* Loading animation */
@@ -527,10 +346,6 @@ header {
         gap: 10px;
     }
     
-    .service-icons {
-        margin-bottom: 10px;
-    }
-    
     .genre-selector {
         width: 100%;
         justify-content: center;
@@ -560,21 +375,15 @@ header {
         gap: 20px;
     }
     
-    .vote-controls,
-    .visualizer-controls {
+    .vote-controls {
         width: 100%;
         max-width: 300px;
     }
     
-    .vote-count {
-        font-size: 2rem;
-    }
-    
-    .vote-btn,
-    .control-btn {
-        width: 45px;
-        height: 45px;
-        font-size: 1.2rem;
+    .vote-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 20px;
     }
     
     .video-container {
@@ -593,20 +402,6 @@ header {
     
     .logo-container img {
         height: 50px;
-    }
-    
-    /* Visualizer responsive */
-    .album-art-container {
-        width: 250px;
-        height: 250px;
-    }
-    
-    .vote-icons {
-        gap: 12px;
-    }
-    
-    .visualizer-controls {
-        gap: 12px;
     }
     
     .scale-controls {
@@ -639,15 +434,6 @@ header {
         height: 32px;
     }
     
-    .service-icon {
-        width: 35px;
-        height: 35px;
-    }
-    
-    .service-icon i {
-        font-size: 1.1rem;
-    }
-    
     .current-track h2 {
         font-size: 1.6rem;
     }
@@ -660,17 +446,10 @@ header {
         font-size: 1.1rem;
     }
     
-    .vote-btn,
-    .control-btn {
-        width: 40px;
-        height: 40px;
-        font-size: 1.1rem;
-    }
-    
-    /* Visualizer mobile */
-    .album-art-container {
-        width: 200px;
-        height: 200px;
+    .vote-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
     }
     
     .nav-btn {
@@ -737,11 +516,6 @@ header {
 /* Make more elements responsive */
 .current-track {
     max-width: 90vw;
-}
-
-.album-art-container {
-    width: clamp(200px, 30vw, 400px);
-    height: clamp(200px, 30vw, 400px);
 }
 
 /* Quick scaling fix for very large screens */

@@ -1,5 +1,5 @@
-// streaming.js - Get genres from records, random start, no condition stars
-// YouTube only version
+// streaming.js - Get genres from records, random start, YouTube only with consolidated voting
+// Consolidated upvote/downvote into single icon showing net votes
 
 console.log('streaming.js loaded!');
 
@@ -12,14 +12,14 @@ let genreMap = {};
 
 // Current record ID for voting
 let currentRecordId = null;
-let currentUserVote = null; // 'upvote', 'downvote', or 'kill'
+let currentUserVote = null; // 'upvote', 'downvote'
 
-// Voting system with improved tracking
+// Voting system with consolidated upvote/downvote
 class VotingSystem {
     constructor() {
         this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
         this.userIP = null;
-        this.userVotes = {}; // Cache of user's votes: {recordId: voteType}
+        this.userVotes = {}; // Cache of user's votes: {recordId: 'upvote' or 'downvote'}
     }
 
     async initialize() {
@@ -60,33 +60,47 @@ class VotingSystem {
         
         // Calculate net votes (upvotes - downvotes)
         const netVotes = (record.up_votes || 0) - (record.down_votes || 0);
+        const voteCountElement = document.getElementById('voteCount');
+        const voteIconElement = document.getElementById('voteIcon');
+        const voteBtn = document.getElementById('voteBtn');
         
-        // Update button states based on user's vote
-        this.updateVoteButtonStates();
+        if (voteCountElement) {
+            voteCountElement.textContent = Math.abs(netVotes);
+        }
+        
+        // Update icon based on net votes
+        if (voteIconElement) {
+            if (netVotes >= 0) {
+                voteIconElement.className = 'fas fa-thumbs-up';
+                voteBtn.classList.remove('downvote');
+                voteBtn.classList.add('upvote');
+            } else {
+                voteIconElement.className = 'fas fa-thumbs-down';
+                voteBtn.classList.remove('upvote');
+                voteBtn.classList.add('downvote');
+            }
+        }
+        
+        // Update button state based on user's vote
+        this.updateVoteButtonState();
     }
 
-    updateVoteButtonStates() {
+    updateVoteButtonState() {
         if (!currentRecordId) return;
         
-        const upvoteBtn = document.getElementById('upvoteBtn');
-        const downvoteBtn = document.getElementById('downvoteBtn');
-        const killBtn = document.getElementById('killBtn');
-        
-        // Get user's vote for current record
+        const voteBtn = document.getElementById('voteBtn');
         const userVote = this.userVotes[currentRecordId];
         
-        // Reset all buttons
-        if (upvoteBtn) upvoteBtn.classList.remove('active');
-        if (downvoteBtn) downvoteBtn.classList.remove('active');
-        if (killBtn) killBtn.classList.remove('active');
-        
-        // Set active state for current vote
-        if (userVote === 'upvote' && upvoteBtn) {
-            upvoteBtn.classList.add('active');
-        } else if (userVote === 'downvote' && downvoteBtn) {
-            downvoteBtn.classList.add('active');
-        } else if (userVote === 'kill' && killBtn) {
-            killBtn.classList.add('active');
+        // Reset button state
+        if (voteBtn) {
+            voteBtn.classList.remove('user-upvoted', 'user-downvoted');
+            
+            // Set active state for current vote
+            if (userVote === 'upvote') {
+                voteBtn.classList.add('user-upvoted');
+            } else if (userVote === 'downvote') {
+                voteBtn.classList.add('user-downvoted');
+            }
         }
         
         // Update session variable
@@ -113,8 +127,6 @@ class VotingSystem {
                 feedbackEl.textContent = '✓ Upvoted!';
             } else if (voteType === 'downvote') {
                 feedbackEl.textContent = '✓ Downvoted!';
-            } else if (voteType === 'kill') {
-                feedbackEl.textContent = '✓ Removed from playlists!';
             }
         } else {
             feedbackEl.textContent = errorMessage || 'Vote failed';
@@ -132,14 +144,34 @@ class VotingSystem {
         }, 2000);
     }
 
-    async vote(recordId, voteType) {
+    async toggleVote(recordId) {
         try {
             if (!recordId) {
                 console.error('No record ID for voting');
                 return false;
             }
 
-            const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}/${this.userIP}/${voteType}`, {
+            const currentVote = this.userVotes[recordId];
+            let newVote;
+            
+            // Toggle logic: upvote -> downvote -> remove vote
+            if (currentVote === 'upvote') {
+                newVote = 'downvote';
+            } else if (currentVote === 'downvote') {
+                // Remove vote by toggling to null
+                newVote = null;
+            } else {
+                // No vote yet, start with upvote
+                newVote = 'upvote';
+            }
+
+            // If newVote is null, we need to remove the vote (not supported by current API)
+            // For now, we'll just toggle between upvote and downvote
+            if (newVote === null) {
+                newVote = 'upvote';
+            }
+
+            const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}/${this.userIP}/${newVote}`, {
                 method: 'POST'
             });
 
@@ -147,64 +179,55 @@ class VotingSystem {
             
             if (data && data.status === 'success') {
                 // Update local vote cache
-                this.userVotes[recordId] = voteType;
+                if (newVote) {
+                    this.userVotes[recordId] = newVote;
+                } else {
+                    delete this.userVotes[recordId];
+                }
                 
                 // Update local record data if available
                 if (filteredRecords.length > 0 && currentTrackIndex < filteredRecords.length) {
                     const record = filteredRecords[currentTrackIndex];
                     if (record.id === recordId) {
-                        if (voteType === 'upvote') {
-                            record.up_votes = (record.up_votes || 0) + 1;
-                        } else if (voteType === 'downvote') {
+                        // Update counts based on vote change
+                        if (currentVote === 'upvote' && newVote === 'downvote') {
+                            record.up_votes = Math.max(0, (record.up_votes || 0) - 1);
                             record.down_votes = (record.down_votes || 0) + 1;
-                        } else if (voteType === 'kill') {
-                            record.kill_votes = (record.kill_votes || 0) + 1;
+                        } else if (currentVote === 'downvote' && newVote === 'upvote') {
+                            record.down_votes = Math.max(0, (record.down_votes || 0) - 1);
+                            record.up_votes = (record.up_votes || 0) + 1;
+                        } else if (!currentVote && newVote === 'upvote') {
+                            record.up_votes = (record.up_votes || 0) + 1;
+                        } else if (!currentVote && newVote === 'downvote') {
+                            record.down_votes = (record.down_votes || 0) + 1;
                         }
                         this.updateVoteDisplay(record);
                     }
                 }
                 
-                // Update button states
-                this.updateVoteButtonStates();
+                // Update button state
+                this.updateVoteButtonState();
                 
-                this.showVoteFeedback(voteType, true);
+                this.showVoteFeedback(newVote, true);
                 return true;
             } else {
-                this.showVoteFeedback(voteType, false, data?.error || 'Vote failed');
+                this.showVoteFeedback(newVote, false, data?.error || 'Vote failed');
                 return false;
             }
         } catch (error) {
             console.error('Error recording vote:', error);
-            this.showVoteFeedback(voteType, false, 'Network error');
+            this.showVoteFeedback('vote', false, 'Network error');
             return false;
         }
     }
 
     setupVoteHandlers() {
-        const upvoteBtn = document.getElementById('upvoteBtn');
-        const downvoteBtn = document.getElementById('downvoteBtn');
-        const killBtn = document.getElementById('killBtn');
+        const voteBtn = document.getElementById('voteBtn');
         
-        if (upvoteBtn) {
-            upvoteBtn.addEventListener('click', () => {
+        if (voteBtn) {
+            voteBtn.addEventListener('click', () => {
                 if (currentRecordId) {
-                    this.vote(currentRecordId, 'upvote');
-                }
-            });
-        }
-        
-        if (downvoteBtn) {
-            downvoteBtn.addEventListener('click', () => {
-                if (currentRecordId) {
-                    this.vote(currentRecordId, 'downvote');
-                }
-            });
-        }
-        
-        if (killBtn) {
-            killBtn.addEventListener('click', () => {
-                if (currentRecordId) {
-                    this.vote(currentRecordId, 'kill');
+                    this.toggleVote(currentRecordId);
                 }
             });
         }
@@ -289,8 +312,6 @@ function startYouTubePlayback(genreId) {
     document.getElementById('youtubeContainer').style.display = 'block';
     document.getElementById('youtubeControls').style.display = 'flex';
     document.getElementById('controlsRow').style.display = 'flex';
-    
-    
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();

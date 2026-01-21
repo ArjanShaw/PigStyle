@@ -290,11 +290,7 @@ function startYouTubePlayback(genreId) {
     document.getElementById('youtubeControls').style.display = 'flex';
     document.getElementById('controlsRow').style.display = 'flex';
     
-    // Hide any Spotify related containers if they exist
-    const spotifyContainer = document.getElementById('spotifyContainer');
-    if (spotifyContainer) {
-        spotifyContainer.style.display = 'none';
-    }
+    
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();

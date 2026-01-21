@@ -21,6 +21,8 @@
     <link rel="stylesheet" href="streaming.css">
     <!-- External JavaScript -->
     <script src="streaming.js"></script>
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
     <!-- Background Image -->
@@ -33,6 +35,12 @@
         <div class="header-content">
             <div class="logo-container">
                 <a href='index.html'><img src='images/PigStyle.ico' alt='PigStyle'></a>
+                <!-- Single service indicator (YouTube only) -->
+                <div class="service-icons">
+                    <div class="service-icon youtube-icon active" id="youtubeIcon" title="YouTube">
+                        <i class="fab fa-youtube"></i>
+                    </div>
+                </div>
             </div>
             <div class="genre-selector">
                 <select id="genreFilter" class="genre-select">
@@ -64,6 +72,7 @@
                     <!-- Vote controls -->
                     <div class="vote-controls">
                         <div class="vote-stats">
+                            <!-- Vote count number removed from here -->
                             <div class="vote-icons">
                                 <button class="vote-btn upvote-btn" id="upvoteBtn" title="Upvote">
                                     <i class="fas fa-thumbs-up"></i>
@@ -91,7 +100,7 @@
             </div>
             
             <!-- YouTube Player Container -->
-            <div class="video-container" id="youtubeContainer" style="display: none;">
+            <div class="video-container" id="youtubeContainer">
                 <div id="youtube-player" style="width: 100%; height: 100%;"></div>
             </div>
             

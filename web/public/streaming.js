@@ -1,5 +1,4 @@
-// streaming.js - Get genres from records, random start, YouTube only with consolidated voting
-// Consolidated upvote/downvote into single icon showing net votes
+// streaming.js - Get genres from records, random start, YouTube only with upvotes only
 
 console.log('streaming.js loaded!');
 
@@ -12,20 +11,20 @@ let genreMap = {};
 
 // Current record ID for voting
 let currentRecordId = null;
-let currentUserVote = null; // 'upvote', 'downvote'
+let userHasUpvoted = false;
 
-// Voting system with consolidated upvote/downvote
+// Voting system with upvotes only
 class VotingSystem {
     constructor() {
         this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
         this.userIP = null;
-        this.userVotes = {}; // Cache of user's votes: {recordId: 'upvote' or 'downvote'}
+        this.userUpvotes = new Set(); // Cache of records the user has upvoted
     }
 
     async initialize() {
         await this.getUserIP();
         this.setupVoteHandlers();
-        await this.loadUserVotes();
+        await this.loadUserUpvotes();
     }
 
     async getUserIP() {
@@ -40,74 +39,60 @@ class VotingSystem {
         }
     }
 
-    async loadUserVotes() {
+    async loadUserUpvotes() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/user-votes/${this.userIP}`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.status === 'success' && data.votes) {
-                    this.userVotes = data.votes;
-                    console.log('Loaded user votes:', this.userVotes);
+                    // Filter only upvotes from the user's votes
+                    Object.entries(data.votes).forEach(([recordId, voteType]) => {
+                        if (voteType === 'upvote') {
+                            this.userUpvotes.add(parseInt(recordId));
+                        }
+                    });
+                    console.log('Loaded user upvotes:', Array.from(this.userUpvotes));
                 }
             }
         } catch (error) {
-            console.error('Error loading user votes:', error);
+            console.error('Error loading user upvotes:', error);
         }
     }
 
     updateVoteDisplay(record) {
         if (!record) return;
         
-        // Calculate net votes (upvotes - downvotes)
-        const netVotes = (record.up_votes || 0) - (record.down_votes || 0);
-        const voteCountElement = document.getElementById('voteCount');
-        const voteIconElement = document.getElementById('voteIcon');
-        const voteBtn = document.getElementById('voteBtn');
+        const upvoteCountElement = document.getElementById('upvoteCount');
+        const upvoteBtn = document.getElementById('upvoteBtn');
         
-        if (voteCountElement) {
-            voteCountElement.textContent = Math.abs(netVotes);
+        if (upvoteCountElement) {
+            upvoteCountElement.textContent = record.up_votes || 0;
         }
         
-        // Update icon based on net votes
-        if (voteIconElement) {
-            if (netVotes >= 0) {
-                voteIconElement.className = 'fas fa-thumbs-up';
-                voteBtn.classList.remove('downvote');
-                voteBtn.classList.add('upvote');
-            } else {
-                voteIconElement.className = 'fas fa-thumbs-down';
-                voteBtn.classList.remove('upvote');
-                voteBtn.classList.add('downvote');
-            }
-        }
-        
-        // Update button state based on user's vote
-        this.updateVoteButtonState();
+        // Update button state based on whether user has upvoted
+        this.updateUpvoteButtonState(record.id);
     }
 
-    updateVoteButtonState() {
-        if (!currentRecordId) return;
+    updateUpvoteButtonState(recordId) {
+        const upvoteBtn = document.getElementById('upvoteBtn');
         
-        const voteBtn = document.getElementById('voteBtn');
-        const userVote = this.userVotes[currentRecordId];
+        if (!upvoteBtn) return;
         
-        // Reset button state
-        if (voteBtn) {
-            voteBtn.classList.remove('user-upvoted', 'user-downvoted');
-            
-            // Set active state for current vote
-            if (userVote === 'upvote') {
-                voteBtn.classList.add('user-upvoted');
-            } else if (userVote === 'downvote') {
-                voteBtn.classList.add('user-downvoted');
-            }
+        // Check if user has upvoted this record
+        const hasUpvoted = this.userUpvotes.has(recordId);
+        userHasUpvoted = hasUpvoted;
+        
+        // Update button appearance
+        if (hasUpvoted) {
+            upvoteBtn.classList.add('active');
+            upvoteBtn.title = "Remove upvote";
+        } else {
+            upvoteBtn.classList.remove('active');
+            upvoteBtn.title = "Upvote";
         }
-        
-        // Update session variable
-        currentUserVote = userVote;
     }
 
-    showVoteFeedback(voteType, success, errorMessage = '') {
+    showVoteFeedback(message, success = true) {
         const feedbackEl = document.createElement('div');
         feedbackEl.style.cssText = `
             position: fixed;
@@ -122,15 +107,7 @@ class VotingSystem {
             background: ${success ? '#27ae60' : '#e74c3c'};
         `;
         
-        if (success) {
-            if (voteType === 'upvote') {
-                feedbackEl.textContent = '✓ Upvoted!';
-            } else if (voteType === 'downvote') {
-                feedbackEl.textContent = '✓ Downvoted!';
-            }
-        } else {
-            feedbackEl.textContent = errorMessage || 'Vote failed';
-        }
+        feedbackEl.textContent = message;
         
         document.body.appendChild(feedbackEl);
         
@@ -144,90 +121,67 @@ class VotingSystem {
         }, 2000);
     }
 
-    async toggleVote(recordId) {
+    async toggleUpvote(recordId) {
         try {
             if (!recordId) {
                 console.error('No record ID for voting');
                 return false;
             }
 
-            const currentVote = this.userVotes[recordId];
-            let newVote;
-            
-            // Toggle logic: upvote -> downvote -> remove vote
-            if (currentVote === 'upvote') {
-                newVote = 'downvote';
-            } else if (currentVote === 'downvote') {
-                // Remove vote by toggling to null
-                newVote = null;
-            } else {
-                // No vote yet, start with upvote
-                newVote = 'upvote';
-            }
+            const hasUpvoted = this.userUpvotes.has(recordId);
+            const voteType = hasUpvoted ? 'remove' : 'upvote';
 
-            // If newVote is null, we need to remove the vote (not supported by current API)
-            // For now, we'll just toggle between upvote and downvote
-            if (newVote === null) {
-                newVote = 'upvote';
-            }
-
-            const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}/${this.userIP}/${newVote}`, {
+            const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}/${this.userIP}/${voteType}`, {
                 method: 'POST'
             });
 
             const data = await response.json();
             
             if (data && data.status === 'success') {
-                // Update local vote cache
-                if (newVote) {
-                    this.userVotes[recordId] = newVote;
+                // Update local upvote cache
+                if (hasUpvoted) {
+                    this.userUpvotes.delete(recordId);
                 } else {
-                    delete this.userVotes[recordId];
+                    this.userUpvotes.add(recordId);
                 }
                 
                 // Update local record data if available
                 if (filteredRecords.length > 0 && currentTrackIndex < filteredRecords.length) {
                     const record = filteredRecords[currentTrackIndex];
                     if (record.id === recordId) {
-                        // Update counts based on vote change
-                        if (currentVote === 'upvote' && newVote === 'downvote') {
-                            record.up_votes = Math.max(0, (record.up_votes || 0) - 1);
-                            record.down_votes = (record.down_votes || 0) + 1;
-                        } else if (currentVote === 'downvote' && newVote === 'upvote') {
-                            record.down_votes = Math.max(0, (record.down_votes || 0) - 1);
+                        // Update upvote count
+                        if (hasUpvoted) {
+                            record.up_votes = Math.max(0, (record.up_votes || 1) - 1);
+                        } else {
                             record.up_votes = (record.up_votes || 0) + 1;
-                        } else if (!currentVote && newVote === 'upvote') {
-                            record.up_votes = (record.up_votes || 0) + 1;
-                        } else if (!currentVote && newVote === 'downvote') {
-                            record.down_votes = (record.down_votes || 0) + 1;
                         }
                         this.updateVoteDisplay(record);
                     }
                 }
                 
                 // Update button state
-                this.updateVoteButtonState();
+                this.updateUpvoteButtonState(recordId);
                 
-                this.showVoteFeedback(newVote, true);
+                this.showVoteFeedback(hasUpvoted ? '✓ Upvote removed' : '✓ Upvoted!');
                 return true;
             } else {
-                this.showVoteFeedback(newVote, false, data?.error || 'Vote failed');
+                this.showVoteFeedback(data?.error || 'Vote failed', false);
                 return false;
             }
         } catch (error) {
             console.error('Error recording vote:', error);
-            this.showVoteFeedback('vote', false, 'Network error');
+            this.showVoteFeedback('Network error', false);
             return false;
         }
     }
 
     setupVoteHandlers() {
-        const voteBtn = document.getElementById('voteBtn');
+        const upvoteBtn = document.getElementById('upvoteBtn');
         
-        if (voteBtn) {
-            voteBtn.addEventListener('click', () => {
+        if (upvoteBtn) {
+            upvoteBtn.addEventListener('click', () => {
                 if (currentRecordId) {
-                    this.toggleVote(currentRecordId);
+                    this.toggleUpvote(currentRecordId);
                 }
             });
         }

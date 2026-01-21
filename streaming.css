@@ -131,7 +131,7 @@ header {
     flex-wrap: wrap;
 }
 
-/* Consolidated Vote Button */
+/* Upvote control only */
 .vote-controls {
     background: rgba(0, 0, 0, 0.6);
     border-radius: 12px;
@@ -148,7 +148,7 @@ header {
     gap: 15px;
 }
 
-.vote-btn {
+.upvote-btn {
     background: rgba(255, 255, 255, 0.1);
     border: 2px solid rgba(255, 255, 255, 0.2);
     border-radius: 50%;
@@ -165,44 +165,26 @@ header {
     font-size: 24px;
 }
 
-.vote-btn:hover {
+.upvote-btn:hover {
     transform: scale(1.1);
     background: rgba(255, 255, 255, 0.15);
 }
 
-.vote-btn.upvote {
-    border-color: #27ae60;
-}
-
-.vote-btn.downvote {
-    border-color: #e74c3c;
-}
-
-.vote-btn.user-upvoted {
+.upvote-btn.active {
     background: rgba(39, 174, 96, 0.3);
     border-color: #27ae60;
     color: #27ae60;
 }
 
-.vote-btn.user-downvoted {
-    background: rgba(231, 76, 60, 0.3);
-    border-color: #e74c3c;
-    color: #e74c3c;
-}
-
-.vote-count {
+.upvote-count {
     font-size: 12px;
     font-weight: bold;
     margin-top: 2px;
     color: white;
 }
 
-.vote-btn.user-upvoted .vote-count {
+.upvote-btn.active .upvote-count {
     color: #27ae60;
-}
-
-.vote-btn.user-downvoted .vote-count {
-    color: #e74c3c;
 }
 
 /* Video player */
@@ -380,7 +362,7 @@ header {
         max-width: 300px;
     }
     
-    .vote-btn {
+    .upvote-btn {
         width: 60px;
         height: 60px;
         font-size: 20px;
@@ -446,7 +428,7 @@ header {
         font-size: 1.1rem;
     }
     
-    .vote-btn {
+    .upvote-btn {
         width: 50px;
         height: 50px;
         font-size: 18px;

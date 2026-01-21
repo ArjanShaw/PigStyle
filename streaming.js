@@ -1,5 +1,5 @@
 // streaming.js - Get genres from records, random start, YouTube only with upvotes only
-// UPDATED: Uses correct API endpoints based on your API code
+// FIXED: votingSystem initialization order
 
 console.log('streaming.js loaded!');
 
@@ -62,7 +62,7 @@ class VotingSystem {
         }
     }
 
-    // FIXED: Use the correct endpoint /votes/{record_id}
+    // Use the correct endpoint /votes/{record_id}
     async fetchFreshVoteCount(recordId) {
         try {
             // Use the correct endpoint from your API: /votes/{record_id}
@@ -167,7 +167,7 @@ class VotingSystem {
             const hasUpvoted = this.userUpvotes.has(recordId);
             const voteType = hasUpvoted ? 'remove' : 'upvote';
 
-            // FIX: Your API doesn't support 'remove' vote type
+            // Your API doesn't support 'remove' vote type
             // According to your API, vote_type must be 'upvote', 'downvote', or 'kill'
             // So we need to handle remove differently
             let actualVoteType;
@@ -241,8 +241,8 @@ class VotingSystem {
     }
 }
 
-// Initialize voting system
-const votingSystem = new VotingSystem();
+// FIX: Initialize votingSystem here, not in DOMContentLoaded
+let votingSystem = new VotingSystem();
 
 // Load YouTube IFrame API
 function loadYouTubeAPI() {
@@ -660,7 +660,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Setup UI
     setupUI();
     
-    // Initialize voting system
+    // Initialize voting system - FIXED: This is now safe to call
     await votingSystem.initialize();
     
     // Load YouTube API

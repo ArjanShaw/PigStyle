@@ -15,8 +15,58 @@
       gtag('config', 'G-03HFDR9PV7');
     </script>
     
+    <!-- CSS FILE - All styles here -->
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- JavaScript for expandable photos -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all store images
+            const storeImages = document.querySelectorAll('.store-front, .store-inside');
+            const modal = document.querySelector('.expandable-modal');
+            const expandedImg = document.querySelector('.expanded-image');
+            const imageCaption = document.querySelector('.image-caption');
+            const closeModal = document.querySelector('.close-modal');
+            
+            // Add click event to each image
+            storeImages.forEach(img => {
+                img.addEventListener('click', function() {
+                    // Set the expanded image source
+                    expandedImg.src = this.src;
+                    
+                    // Set the caption based on alt text
+                    imageCaption.textContent = this.alt;
+                    
+                    // Show modal
+                    modal.classList.add('active');
+                    document.body.classList.add('modal-open');
+                });
+            });
+            
+            // Close modal when X is clicked
+            closeModal.addEventListener('click', function() {
+                modal.classList.remove('active');
+                document.body.classList.remove('modal-open');
+            });
+            
+            // Close modal when clicking outside the image
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    document.body.classList.remove('modal-open');
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('active')) {
+                    modal.classList.remove('active');
+                    document.body.classList.remove('modal-open');
+                }
+            });
+        });
+    </script>
 </head>
 
 <body>
@@ -31,20 +81,33 @@
         <p>🚧 PigStyle Music is not yet open for business - Coming Soon! 🚧</p>
     </div>
 
+    <!-- Expandable Image Modal -->
+    <div class="expandable-modal">
+        <div class="expanded-image-container">
+            <button class="close-modal">&times;</button>
+            <img class="expanded-image" src="" alt="Expanded view">
+            <div class="image-caption"></div>
+        </div>
+    </div>
+
     <!-- Main Content Container -->
     <div class="container">
         <!-- Top Section - Logo and Title -->
         <div class="top-section">
             <img src="images/pigstyle_text.png" alt="PigStyle" class="pigstyle-logo">
-            <img src="images/music_text.png" alt="Music" class="music-title">
+            <div class="psychedelic-subscript">
+                <img src="images/loveland_record_store.png" alt="Loveland's Coolest Record Store">
+            </div>
         </div>
 
         <!-- Content Box with Bulleted List -->
         <div class="content-box">
             <ul>
                 <li>
-                    The store is not open yet, but I am buying 
-                    records. Meet me at the store during most office hours or contact me.
+                    <div class="image-text-wrapper">
+                        <img src="images/StoreFront.jpg" alt="PigStyle Store Front" class="store-front">
+                        <img src="images/StoreInside1.jpg" alt="Inside PigStyle Store" class="store-inside">
+                    </div>
                 </li>
                 <li>
                     Browse music <a href="catalog.html">here</a>
@@ -77,7 +140,5 @@
             </div>
         </div>
     </div>
-
-    
 </body>
 </html>

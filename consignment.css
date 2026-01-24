@@ -174,13 +174,10 @@ header {
     background-color: #111;
 }
 
-.category-header {
+.process-step-row td {
     background-color: #222 !important;
     font-weight: bold;
     color: #fff;
-}
-
-.category-header td {
     font-size: 1.2rem;
     padding: 20px 15px;
     border-top: 2px solid #333;
@@ -364,6 +361,55 @@ header {
     font-size: 0.9rem;
 }
 
+/* Process Step Styles */
+.process-step {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-top: 20px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #3498db;
+}
+
+/* Portal Note - Fixed for readability */
+.portal-note {
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid #ffcc00;
+    border-left: 6px solid #ffcc00;
+    padding: 15px 20px;
+    margin: 0 0 30px 0;
+    font-size: 1rem;
+    border-radius: 8px;
+    color: white;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.portal-note strong {
+    color: #ffcc00;
+}
+
+.portal-link {
+    color: #ffcc00;
+    text-decoration: underline;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.portal-link:hover {
+    color: #ff9900;
+    text-decoration: none;
+}
+
+.demo-highlight {
+    background-color: rgba(255, 255, 0, 0.2);
+    color: #ffcc00;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    border: 1px solid #ffcc00;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .policy-table {
@@ -428,6 +474,12 @@ header {
     .draft-watermark {
         font-size: 2.5rem;
     }
+    
+    .portal-note {
+        padding: 12px 15px;
+        font-size: 0.95rem;
+        margin: 0 10px 25px 10px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -481,5 +533,11 @@ header {
     
     .banner-content h3 {
         font-size: 1.1rem;
+    }
+    
+    .portal-note {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        margin: 0 5px 20px 5px;
     }
 }

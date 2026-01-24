@@ -1,3 +1,4 @@
+/* RESET AND BASE STYLES */
 * {
     margin: 0;
     padding: 0;
@@ -62,7 +63,6 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 20px;
-    max-width: 1200px;
     margin: 0 auto;
     width: 100%;
 }
@@ -74,12 +74,14 @@ body {
     align-items: center;
     margin-top: 20px;
     width: 100%;
+    gap: 0; /* Remove gap between logo and subscript */
 }
 
 .pigstyle-logo {
-    max-width: 400px;
-    width: 80%;
-    margin-bottom: 20px;
+    width: 500px; /* Increased from default size */
+    max-width: 90%; /* Ensure it's responsive */
+    height: auto;
+    margin-bottom: 0; /* Remove any bottom margin */
 }
 
 .music-title {
@@ -87,16 +89,18 @@ body {
     width: 60%;
 }
 
-/* Content Box */
+/* Content Box - FIXED: Fit snugly around photos */
 .content-box {
     background-color: rgba(0, 0, 0, 0.7);
     border-radius: 15px;
-    padding: 25px;
-    width: 90%;
-    max-width: 800px;
+    padding: 20px; /* Standard padding */
     margin: 20px 0;
     box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
     border: 2px solid rgba(255, 255, 255, 0.2);
+    min-height: 400px; /* Ensure enough height */
+    overflow: visible; /* Allow content to be visible */
+    width: auto; /* Auto width to fit content */
+    display: inline-block; /* Shrink to fit content */
 }
 
 .content-box ul {
@@ -123,6 +127,42 @@ body {
 .content-box a:hover {
     color: #ff9900;
     text-decoration: underline;
+}
+
+/* Style for the psychedelic subscript image */
+.psychedelic-subscript {
+    text-align: center;
+    margin-top: -15px; /* Reduced space between logo and subscript */
+}
+
+.psychedelic-subscript img {
+    max-width: 80%;
+    height: auto;
+}
+
+/* Image layout - REVISED: Calculate total width */
+.image-text-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* This is the margin between photos */
+    margin: 10px 0;
+    justify-content: center; /* Center the images */
+}
+
+/* Expandable Photo Styles */
+.store-front, .store-inside {
+    width: 400px; /* Slightly smaller than 450px */
+    height: 266px; /* Maintain 3:2 aspect ratio (400/1.5) */
+    object-fit: cover;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 5px;
+}
+
+.store-front:hover, .store-inside:hover {
+    transform: scale(1.02);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
 /* Bottom Section - Record and Store Info */
@@ -188,6 +228,76 @@ body {
 
 .social-icons a:hover {
     color: #ffcc00;
+}
+
+/* Expandable Photo Modal */
+.expandable-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.expandable-modal.active {
+    display: flex;
+    opacity: 1;
+}
+
+.expanded-image-container {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    text-align: center;
+}
+
+.expanded-image {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.close-modal {
+    position: absolute;
+    top: -50px;
+    right: 0;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 40px;
+    cursor: pointer;
+    padding: 10px;
+    transition: color 0.3s ease;
+}
+
+.close-modal:hover {
+    color: #ffcc00;
+}
+
+.image-caption {
+    color: white;
+    margin-top: 15px;
+    font-size: 18px;
+    text-align: center;
+}
+
+/* Prevent scrolling when modal is open */
+body.modal-open {
+    overflow: hidden;
 }
 
 /* Large screens - position in bottom left corner */
@@ -412,5 +522,98 @@ input[type='text'] {
     .store-info {
         position: relative;
         margin-top: 20px;
+    }
+}
+
+/* Responsive styles for stacking images on smaller screens */
+@media (max-width: 900px) {
+    .image-text-wrapper {
+        flex-direction: column; /* Stack images vertically */
+        gap: 20px; /* Same gap when stacked */
+    }
+    
+    .store-front, .store-inside {
+        width: 100%;
+        max-width: 500px;
+        height: auto;
+        max-height: 333px;
+    }
+    
+    .content-box {
+        min-height: 750px;
+        padding: 25px;
+        width: auto; /* Still auto width */
+    }
+    
+    .pigstyle-logo {
+        width: 400px;
+    }
+    
+    .container {
+        padding: 0 15px;
+    }
+    
+    /* Calculate box width for stacked layout: image width + padding */
+    .content-box {
+        width: calc(100% - 40px); /* Account for container padding */
+        max-width: 540px; /* Image max-width (500px) + padding */
+    }
+    
+    /* Responsive adjustments for expanded images */
+    .expanded-image {
+        max-width: 95%;
+        max-height: 70vh;
+    }
+    
+    .close-modal {
+        top: -60px;
+        right: -10px;
+        font-size: 50px;
+    }
+}
+
+/* For very small screens (mobile) */
+@media (max-width: 600px) {
+    .store-front, .store-inside {
+        width: 100%;
+        max-width: 100%;
+        max-height: 250px;
+    }
+    
+    .pigstyle-logo {
+        width: 320px;
+    }
+    
+    .content-box {
+        min-height: 700px;
+        padding: 20px;
+        width: calc(100% - 20px); /* Account for smaller container padding */
+    }
+    
+    .psychedelic-subscript {
+        margin-top: -10px;
+    }
+    
+    .psychedelic-subscript img {
+        max-width: 95%;
+    }
+    
+    .container {
+        padding: 0 10px;
+    }
+    
+    .close-modal {
+        top: -70px;
+        right: -5px;
+        font-size: 45px;
+    }
+}
+
+/* Desktop-specific: Calculate exact box width for side-by-side images */
+@media (min-width: 901px) {
+    .content-box {
+        /* Calculate: (2 images × 400px) + gap (20px) + padding (2 × 20px) */
+        width: calc(400px + 400px + 20px + 40px); /* = 860px */
+        padding: 20px; /* This matches the gap between photos */
     }
 }

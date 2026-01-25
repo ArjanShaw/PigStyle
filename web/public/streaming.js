@@ -137,40 +137,16 @@ class VotingSystem {
             } else {
                 // Other error - re-enable button
                 upvoteBtn.disabled = false;
-                upvoteBtn.innerHTML =
-
-    showVoteFeedback(message, success = true) {
-        // Remove any existing feedback
-        const existing = document.getElementById('voteFeedback');
-        if (existing) existing.remove();
-        
-        const feedbackEl = document.createElement('div');
-        feedbackEl.id = 'voteFeedback';
-        feedbackEl.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            z-index: 10000;
-            font-size: 16px;
-            background: ${success ? '#27ae60' : '#e74c3c'};
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: fadeIn 0.3s ease;
-        `;
-        
-        feedbackEl.textContent = message;
-        document.body.appendChild(feedbackEl);
-        
-        setTimeout(() => {
-            feedbackEl.style.opacity = '0';
-            feedbackEl.style.transition = 'opacity 0.5s';
-            setTimeout(() => {
-                if (feedbackEl.parentNode) feedbackEl.remove();
-            }, 500);
-        }, 3000);
+                upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
+                
+                this.showVoteFeedback('Error: ' + (result.error || 'Vote failed'), false);
+                return false;
+            }
+        } catch (error) {
+            console.error('Vote error:', error);
+            this.showVoteFeedback('Network error', false);
+            return false;
+        }
     }
 
     setupVoteHandlers() {

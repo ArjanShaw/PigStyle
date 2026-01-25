@@ -127,24 +127,16 @@ class VotingSystem {
             }, 300);
         }, 2000);
     }
-
-    // REAL ENDPOINT: POST /vote/{record_id}
     async castVote(recordId) {
-        console.log('=== VOTE DEBUG START ===');
-        console.log('Voting for record:', recordId);
-        
-        const upvoteCountElement = document.getElementById('upvoteCount');
-        const upvoteBtn = document.getElementById('upvoteBtn');
-        
-        console.log('Before vote - Count:', upvoteCountElement?.textContent);
-        console.log('Before vote - Has voted?', userHasUpvoted);
-        
         try {
-            // First, check if we can even reach the API
-            console.log('Testing API connection...');
+            if (!recordId) {
+                console.error('No record ID for voting');
+                return false;
+            }
+
+            console.log('1. Casting vote for record:', recordId);
             
-            // Make the vote request
-            console.log('Making POST request to:', `${this.apiBaseUrl}/vote/${recordId}`);
+            // STEP 1: Send vote to POST endpoint
             const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}`, {
                 method: 'POST',
                 headers: {
@@ -152,72 +144,56 @@ class VotingSystem {
                     'Accept': 'application/json'
                 }
             });
+
+            const voteResult = await response.json();
+            console.log('2. Vote API response:', voteResult);
             
-            console.log('Response status:', response.status);
-            const data = await response.json();
-            console.log('Response data:', data);
-            
-            if (response.ok && data.status === 'success') {
-                console.log('Vote successful on server');
+            if (response.ok && voteResult.status === 'success') {
+                console.log('3. Vote successful on server');
                 
-                // Update UI IMMEDIATELY with optimistic update
-                if (upvoteCountElement && upvoteBtn) {
-                    const currentCount = parseInt(upvoteCountElement.textContent) || 0;
-                    const newCount = currentCount + 1;
+                // STEP 2: WAIT A MOMENT for the vote to be saved
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                // STEP 3: CALL THE GET ENDPOINT to get updated count
+                console.log('4. Fetching updated vote count...');
+                const freshData = await this.fetchFreshVoteData(recordId);
+                console.log('5. Updated vote data:', freshData);
+                
+                if (freshData) {
+                    // STEP 4: UPDATE THE FUCKING UI
+                    const upvoteCountElement = document.getElementById('upvoteCount');
+                    const upvoteBtn = document.getElementById('upvoteBtn');
                     
-                    console.log('Optimistic update - Old:', currentCount, 'New:', newCount);
-                    
-                    upvoteCountElement.textContent = newCount;
-                    userHasUpvoted = true;
-                    upvoteBtn.classList.add('voted');
-                    upvoteBtn.disabled = true;
-                    upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + newCount + '</span>';
-                    
-                    // Update local cache
-                    if (filteredRecords.length > 0 && currentTrackIndex < filteredRecords.length) {
-                        const record = filteredRecords[currentTrackIndex];
-                        if (record.id === recordId) {
-                            record.up_votes = newCount;
+                    if (upvoteCountElement && upvoteBtn) {
+                        // Update the count
+                        upvoteCountElement.textContent = freshData.vote_count;
+                        
+                        // Update button state
+                        userHasUpvoted = freshData.has_voted;
+                        if (freshData.has_voted) {
+                            upvoteBtn.classList.add('voted');
+                            upvoteBtn.disabled = true;
+                            upvoteBtn.title = "Already voted";
+                            upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + freshData.vote_count + '</span>';
                         }
+                        
+                        console.log('6. UI updated! New count:', freshData.vote_count);
                     }
                 }
                 
-                // Then verify with server after a delay
-                setTimeout(async () => {
-                    console.log('Verifying vote with server...');
-                    try {
-                        const verifyData = await this.fetchFreshVoteData(recordId);
-                        console.log('Server verification:', verifyData);
-                        
-                        if (verifyData && upvoteCountElement) {
-                            // Use server count if different
-                            if (parseInt(upvoteCountElement.textContent) !== verifyData.vote_count) {
-                                console.log('Updating to server count:', verifyData.vote_count);
-                                upvoteCountElement.textContent = verifyData.vote_count;
-                            }
-                        }
-                    } catch (verifyError) {
-                        console.log('Verification failed:', verifyError);
-                    }
-                }, 1000);
-                
                 this.showVoteFeedback('✓ Vote recorded!');
-                console.log('=== VOTE DEBUG END - SUCCESS ===');
                 return true;
             } else {
-                console.log('Vote failed on server:', data);
-                this.showVoteFeedback(data.error || 'Vote failed', false);
-                console.log('=== VOTE DEBUG END - FAILED ===');
+                this.showVoteFeedback(voteResult.error || 'Vote failed', false);
                 return false;
             }
         } catch (error) {
-            console.error('Vote error:', error);
-            this.showVoteFeedback('Network error - try again', false);
-            console.log('=== VOTE DEBUG END - ERROR ===');
+            console.error('Error recording vote:', error);
+            this.showVoteFeedback('Network error', false);
             return false;
         }
     }
-    
+
     updateUIAfterVote(recordId, voteCount, hasVoted) {
         const upvoteCountElement = document.getElementById('upvoteCount');
         const upvoteBtn = document.getElementById('upvoteBtn');

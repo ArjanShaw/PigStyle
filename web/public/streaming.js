@@ -1,5 +1,4 @@
-// streaming.js - Get genres from records, random start, YouTube only with upvotes only
-// FIXED: votingSystem initialization order
+// streaming.js - Get genres from records, random start, YouTube only with voting using REAL endpoints
 
 console.log('streaming.js loaded!');
 
@@ -14,18 +13,16 @@ let genreMap = {};
 let currentRecordId = null;
 let userHasUpvoted = false;
 
-// Voting system with upvotes only
+// Voting system with REAL endpoints only
 class VotingSystem {
     constructor() {
         this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
         this.userIP = null;
-        this.userUpvotes = new Set(); // Cache of records the user has upvoted
     }
 
     async initialize() {
         await this.getUserIP();
         this.setupVoteHandlers();
-        await this.loadUserUpvotes();
     }
 
     async getUserIP() {
@@ -40,38 +37,17 @@ class VotingSystem {
         }
     }
 
-    async loadUserUpvotes() {
+    // REAL ENDPOINT: GET /votes/record/{record_id}
+    async fetchFreshVoteData(recordId) {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/user-votes/${this.userIP}`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.status === 'success' && data.votes) {
-                    // Filter only upvotes from the user's votes
-                    Object.entries(data.votes).forEach(([recordId, voteType]) => {
-                        if (voteType === 'upvote') {
-                            this.userUpvotes.add(parseInt(recordId));
-                        }
-                    });
-                    console.log('Loaded user upvotes:', Array.from(this.userUpvotes));
-                }
-            } else {
-                console.warn('Could not load user votes, endpoint might not exist');
-            }
-        } catch (error) {
-            console.error('Error loading user upvotes:', error);
-        }
-    }
-
-    // Use the correct endpoint /votes/{record_id}
-    async fetchFreshVoteCount(recordId) {
-        try {
-            // Use the correct endpoint from your API: /votes/{record_id}
-            const response = await fetch(`${this.apiBaseUrl}/votes/${recordId}`);
+            const response = await fetch(`${this.apiBaseUrl}/votes/record/${recordId}`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.status === 'success') {
-                    // Your API returns: up_votes, down_votes, kill_votes
-                    return data.up_votes || 0;
+                    return {
+                        vote_count: data.vote_count || 0,
+                        has_voted: data.has_voted || false
+                    };
                 }
             } else {
                 console.warn(`Failed to fetch votes for record ${recordId}:`, response.status);
@@ -79,7 +55,7 @@ class VotingSystem {
         } catch (error) {
             console.error('Error fetching fresh vote count:', error);
         }
-        return null; // Return null if fetch fails
+        return null;
     }
 
     async updateVoteDisplay(record) {
@@ -88,43 +64,38 @@ class VotingSystem {
         const upvoteCountElement = document.getElementById('upvoteCount');
         const upvoteBtn = document.getElementById('upvoteBtn');
         
-        if (upvoteCountElement) {
-            // FIRST: Try to get fresh count from API
-            const freshCount = await this.fetchFreshVoteCount(record.id);
+        if (!upvoteCountElement || !upvoteBtn) return;
+        
+        // Get REAL data from REAL endpoint
+        const voteData = await this.fetchFreshVoteData(record.id);
+        
+        if (voteData) {
+            // Update vote count
+            upvoteCountElement.textContent = voteData.vote_count;
             
-            if (freshCount !== null) {
-                // Use fresh count from API
-                upvoteCountElement.textContent = freshCount;
-                // Also update the local record cache
-                if (record) {
-                    record.up_votes = freshCount;
-                }
+            // Update button state based on REAL has_voted status
+            userHasUpvoted = voteData.has_voted;
+            if (voteData.has_voted) {
+                upvoteBtn.classList.add('voted');
+                upvoteBtn.disabled = true;
+                upvoteBtn.title = "Already voted";
+                upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + voteData.vote_count + '</span>';
             } else {
-                // Fallback to local cached count
-                upvoteCountElement.textContent = record.up_votes || 0;
+                upvoteBtn.classList.remove('voted');
+                upvoteBtn.disabled = false;
+                upvoteBtn.title = "Upvote this track";
+                upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + voteData.vote_count + '</span>';
             }
-        }
-        
-        // Update button state based on whether user has upvoted
-        this.updateUpvoteButtonState(record.id);
-    }
-
-    updateUpvoteButtonState(recordId) {
-        const upvoteBtn = document.getElementById('upvoteBtn');
-        
-        if (!upvoteBtn) return;
-        
-        // Check if user has upvoted this record
-        const hasUpvoted = this.userUpvotes.has(recordId);
-        userHasUpvoted = hasUpvoted;
-        
-        // Update button appearance
-        if (hasUpvoted) {
-            upvoteBtn.classList.add('active');
-            upvoteBtn.title = "Remove upvote";
+            
+            // Update local cache
+            if (record) {
+                record.up_votes = voteData.vote_count;
+            }
         } else {
-            upvoteBtn.classList.remove('active');
-            upvoteBtn.title = "Upvote";
+            // Fallback to local data
+            upvoteCountElement.textContent = record.up_votes || 0;
+            upvoteBtn.disabled = false;
+            upvoteBtn.classList.remove('voted');
         }
     }
 
@@ -141,10 +112,10 @@ class VotingSystem {
             z-index: 1000;
             transition: opacity 0.3s;
             background: ${success ? '#27ae60' : '#e74c3c'};
+            opacity: 1;
         `;
         
         feedbackEl.textContent = message;
-        
         document.body.appendChild(feedbackEl);
         
         setTimeout(() => {
@@ -157,68 +128,70 @@ class VotingSystem {
         }, 2000);
     }
 
-    async toggleUpvote(recordId) {
+    // REAL ENDPOINT: POST /vote/{record_id}
+    async castVote(recordId) {
         try {
             if (!recordId) {
                 console.error('No record ID for voting');
                 return false;
             }
 
-            const hasUpvoted = this.userUpvotes.has(recordId);
-            const voteType = hasUpvoted ? 'remove' : 'upvote';
-
-            // Your API doesn't support 'remove' vote type
-            // According to your API, vote_type must be 'upvote', 'downvote', or 'kill'
-            // So we need to handle remove differently
-            let actualVoteType;
-            if (hasUpvoted) {
-                // To remove an upvote, we might need a different approach
-                // Your API doesn't support removing votes, so we'll skip the vote
-                // and just update locally
-                console.log('Cannot remove vote - API only supports adding votes');
-                return false;
-            } else {
-                actualVoteType = 'upvote';
-            }
-
-            const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}/${this.userIP}/${actualVoteType}`, {
-                method: 'POST'
+            // Use REAL vote endpoint
+            const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
             });
 
             const data = await response.json();
             
-            if (data && data.status === 'success') {
-                // Update local upvote cache
-                if (hasUpvoted) {
-                    this.userUpvotes.delete(recordId);
-                } else {
-                    this.userUpvotes.add(recordId);
-                }
+            if (response.ok && data.status === 'success') {
+                // Fetch fresh data after voting
+                const freshData = await this.fetchFreshVoteData(recordId);
                 
-                // CRITICAL FIX: Fetch fresh count from API after voting
-                const freshCount = await this.fetchFreshVoteCount(recordId);
+                // Update UI
+                const upvoteCountElement = document.getElementById('upvoteCount');
+                const upvoteBtn = document.getElementById('upvoteBtn');
                 
-                // Update local record data
-                if (filteredRecords.length > 0 && currentTrackIndex < filteredRecords.length) {
-                    const record = filteredRecords[currentTrackIndex];
-                    if (record.id === recordId) {
-                        // Use fresh count from API
-                        if (freshCount !== null) {
-                            record.up_votes = freshCount;
-                        } else {
-                            // Fallback: increment locally if fresh count failed
-                            if (!hasUpvoted) {
-                                record.up_votes = (record.up_votes || 0) + 1;
+                if (upvoteCountElement && upvoteBtn) {
+                    if (freshData) {
+                        upvoteCountElement.textContent = freshData.vote_count;
+                        userHasUpvoted = freshData.has_voted;
+                        
+                        if (freshData.has_voted) {
+                            upvoteBtn.classList.add('voted');
+                            upvoteBtn.disabled = true;
+                            upvoteBtn.title = "Already voted";
+                            upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + freshData.vote_count + '</span>';
+                        }
+                        
+                        // Update local record cache
+                        if (filteredRecords.length > 0 && currentTrackIndex < filteredRecords.length) {
+                            const record = filteredRecords[currentTrackIndex];
+                            if (record.id === recordId) {
+                                record.up_votes = freshData.vote_count;
                             }
                         }
-                        this.updateVoteDisplay(record);
                     }
                 }
                 
-                this.showVoteFeedback(hasUpvoted ? 'Upvote removed (local only)' : '✓ Upvoted!');
+                this.showVoteFeedback('✓ Vote recorded!');
                 return true;
             } else {
-                this.showVoteFeedback(data?.error || 'Vote failed', false);
+                // Handle errors
+                if (data.error === 'Already voted') {
+                    // Refresh data
+                    const freshData = await this.fetchFreshVoteData(recordId);
+                    if (freshData) {
+                        userHasUpvoted = true;
+                        this.updateUIAfterVote(recordId, freshData.vote_count, true);
+                    }
+                    this.showVoteFeedback('You already voted for this track!', false);
+                } else {
+                    this.showVoteFeedback(data.error || 'Vote failed', false);
+                }
                 return false;
             }
         } catch (error) {
@@ -228,20 +201,37 @@ class VotingSystem {
         }
     }
 
+    updateUIAfterVote(recordId, voteCount, hasVoted) {
+        const upvoteCountElement = document.getElementById('upvoteCount');
+        const upvoteBtn = document.getElementById('upvoteBtn');
+        
+        if (!upvoteCountElement || !upvoteBtn) return;
+        
+        upvoteCountElement.textContent = voteCount;
+        userHasUpvoted = hasVoted;
+        
+        if (hasVoted) {
+            upvoteBtn.classList.add('voted');
+            upvoteBtn.disabled = true;
+            upvoteBtn.title = "Already voted";
+            upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + voteCount + '</span>';
+        }
+    }
+
     setupVoteHandlers() {
         const upvoteBtn = document.getElementById('upvoteBtn');
         
         if (upvoteBtn) {
             upvoteBtn.addEventListener('click', () => {
                 if (currentRecordId) {
-                    this.toggleUpvote(currentRecordId);
+                    this.castVote(currentRecordId);
                 }
             });
         }
     }
 }
 
-// FIX: Initialize votingSystem here, not in DOMContentLoaded
+// Initialize voting system
 let votingSystem = new VotingSystem();
 
 // Load YouTube IFrame API
@@ -393,8 +383,10 @@ function loadCurrentYouTubeTrack() {
     // Set current record ID for voting
     currentRecordId = currentRecord.id;
     
-    // Update vote display - THIS NOW FETCHES FRESH DATA
-    votingSystem.updateVoteDisplay(currentRecord);
+    // Update vote display - USING REAL ENDPOINT
+    if (votingSystem) {
+        votingSystem.updateVoteDisplay(currentRecord);
+    }
     
     if (!youtubeId) {
         document.getElementById('youtube-player').innerHTML = `
@@ -660,7 +652,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Setup UI
     setupUI();
     
-    // Initialize voting system - FIXED: This is now safe to call
+    // Initialize voting system
     await votingSystem.initialize();
     
     // Load YouTube API

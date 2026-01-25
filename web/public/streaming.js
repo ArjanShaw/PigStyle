@@ -85,7 +85,6 @@ function startYouTubePlayback(genreId) {
     // Show YouTube player and controls
     document.getElementById('youtubeContainer').style.display = 'block';
     document.getElementById('youtubeControls').style.display = 'flex';
-    document.getElementById('controlsRow').style.display = 'none'; // Hide voting controls
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();
@@ -427,11 +426,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load YouTube API
     loadYouTubeAPI();
     
-    // Load saved scale
-    loadSavedScale();
-    
     // Load records and start playing
     setTimeout(loadRecordsFromAPI, 500);
+    
+    // Load saved scale
+    loadSavedScale();
 });
 
 // Make functions available globally

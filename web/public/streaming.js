@@ -11,237 +11,145 @@ let genreMap = {};
 
 // Current record ID for voting
 let currentRecordId = null;
-let userHasUpvoted = false;
 
-// SIMPLE VOTING SYSTEM
-class VotingSystem {
-    constructor() {
-        this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
-    }
+// ========== VOTING FUNCTIONS ==========
 
-    // Show feedback message
-    showVoteFeedback(message, success = true) {
-        // Remove any existing feedback
-        const existing = document.getElementById('voteFeedback');
-        if (existing) existing.remove();
-        
-        const feedbackEl = document.createElement('div');
-        feedbackEl.id = 'voteFeedback';
-        feedbackEl.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            z-index: 10000;
-            font-size: 16px;
-            background: ${success ? '#27ae60' : '#e74c3c'};
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: fadeIn 0.3s ease;
-        `;
-        
-        feedbackEl.textContent = message;
-        document.body.appendChild(feedbackEl);
-        
-        setTimeout(() => {
-            feedbackEl.style.opacity = '0';
-            feedbackEl.style.transition = 'opacity 0.5s';
-            setTimeout(() => {
-                if (feedbackEl.parentNode) feedbackEl.remove();
-            }, 500);
-        }, 3000);
-    }
-
-    // Cast a vote and update UI immediately
-    async castVote(recordId) {
-        try {
-            console.log('=== VOTE START ===');
-            
-            // Use querySelector to find elements by class (more reliable)
-            const upvoteBtn = document.querySelector('.upvote-btn');
-            const upvoteCountElement = document.querySelector('.upvote-count');
-            
-            console.log('Elements found by class:', {
-                upvoteBtn: upvoteBtn ? 'FOUND' : 'NOT FOUND',
-                upvoteCountElement: upvoteCountElement ? 'FOUND' : 'NOT FOUND'
-            });
-            
-            if (!upvoteBtn || !upvoteCountElement) {
-                console.error('Cannot find vote elements! Showing alert instead.');
-                alert('Vote recorded!');
-                return false;
-            }
-            
-            console.log('Current count:', upvoteCountElement.textContent);
-            
-            // Disable button immediately
-            upvoteBtn.disabled = true;
-            upvoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
-            
-            // Make the vote request
-            const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
-            });
-
-            const result = await response.json();
-            console.log('API Response:', result);
-            
-            if (response.ok && result.status === 'success') {
-                // ✅ SUCCESS: Update UI with vote_count from response
-                const newCount = result.vote_count;
-                upvoteCountElement.textContent = newCount;
-                upvoteBtn.classList.add('voted');
-                upvoteBtn.disabled = true;
-                upvoteBtn.title = "Already voted";
-                upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + newCount + '</span>';
-                
-                userHasUpvoted = true;
-                
-                console.log('UI updated to:', newCount);
-                this.showVoteFeedback('✓ Vote recorded! Votes: ' + newCount);
-                return true;
-                
-            } else if (result.error === 'Already voted') {
-                // Already voted - update with current count from response
-                const currentCount = result.vote_count || 0;
-                upvoteCountElement.textContent = currentCount;
-                upvoteBtn.classList.add('voted');
-                upvoteBtn.disabled = true;
-                upvoteBtn.title = "Already voted";
-                upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + currentCount + '</span>';
-                
-                userHasUpvoted = true;
-                
-                this.showVoteFeedback('Already voted! Votes: ' + currentCount);
-                return false;
-                
-            } else {
-                // Other error
-                upvoteBtn.disabled = false;
-                upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
-                
-                this.showVoteFeedback('Error: ' + (result.error || 'Vote failed'), false);
-                return false;
-            }
-        } catch (error) {
-            console.error('Vote error:', error);
-            
-            // Re-enable button on error
-            const upvoteBtn = document.querySelector('.upvote-btn');
-            const upvoteCountElement = document.querySelector('.upvote-count');
-            if (upvoteBtn && upvoteCountElement) {
-                upvoteBtn.disabled = false;
-                upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
-            }
-            
-            this.showVoteFeedback('Network error', false);
-            return false;
-        }
-    }
-
-    setupVoteHandlers() {
-        console.log('Setting up vote handlers...');
-        
-        // Get the button by class selector (more reliable)
-        const upvoteBtn = document.querySelector('.upvote-btn');
-        console.log('Found upvoteBtn by class:', upvoteBtn);
-        
-        if (upvoteBtn) {
-            console.log('Attaching click handler...');
-            
-            // Bind the function to preserve 'this' context
-            const boundCastVote = this.castVote.bind(this);
-            
-            upvoteBtn.addEventListener('click', (event) => {
-                console.log('Button clicked!', {
-                    currentRecordId: currentRecordId,
-                    userHasUpvoted: userHasUpvoted
-                });
-                
-                if (currentRecordId && !userHasUpvoted) {
-                    console.log('Calling castVote for:', currentRecordId);
-                    boundCastVote(currentRecordId);
-                } else if (userHasUpvoted) {
-                    this.showVoteFeedback('Already voted for this track!', false);
-                }
-            });
-            
-            console.log('Vote handler attached');
-        } else {
-            console.error('setupVoteHandlers: Could not find upvoteBtn!');
-        }
-    }
-    
-    // Load initial vote count for a track
-    async loadVoteCountForTrack(record) {
-        if (!record) return 0;
-        
-        try {
-            // Get votes from GET /votes endpoint
-            const response = await fetch(`${this.apiBaseUrl}/votes`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.status === 'success' && data.votes) {
-                    const recordVotes = data.votes.find(v => v.record_id === record.id);
-                    return recordVotes ? recordVotes.vote_count : 0;
-                }
-            }
-        } catch (error) {
-            console.error('Error loading vote count:', error);
-        }
-        return 0;
-    }
-}
-
-// Initialize voting system
-let votingSystem = new VotingSystem();
-
-// Update vote display for current track
-async function updateVoteDisplayForCurrentTrack() {
-    if (!currentRecordId) return;
-    
+// Get vote data for a specific track
+async function fetchTrackVoteData(recordId) {
     try {
-        // Get the current record
-        const currentRecord = filteredRecords[currentTrackIndex];
-        if (!currentRecord) return;
-        
-        // Get votes from GET /votes endpoint
-        const response = await fetch(`${this.apiBaseUrl}/votes`);
+        const response = await fetch(`https://arjanshaw.pythonanywhere.com/votes/record/${recordId}`);
         if (response.ok) {
             const data = await response.json();
-            if (data.status === 'success' && data.votes) {
-                const recordVotes = data.votes.find(v => v.record_id === currentRecord.id);
-                const voteCount = recordVotes ? recordVotes.vote_count : 0;
-                
-                // Get UI elements
-                const upvoteCountElement = document.querySelector('.upvote-count');
-                const upvoteBtn = document.querySelector('.upvote-btn');
-                
-                if (upvoteCountElement && upvoteBtn) {
-                    // Update count
-                    upvoteCountElement.textContent = voteCount;
-                    
-                    // Check if current IP has voted for THIS track
-                    // Note: This requires checking against the server
-                    // For now, we'll assume user hasn't voted for new track
-                    // until they try to vote
-                    upvoteBtn.classList.remove('voted');
-                    upvoteBtn.disabled = false;
-                    upvoteBtn.title = "Upvote this track";
-                    upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + voteCount + '</span>';
-                }
+            if (data.status === 'success') {
+                return {
+                    vote_count: data.vote_count || 0,
+                    has_voted: data.has_voted || false
+                };
             }
         }
     } catch (error) {
-        console.error('Error updating vote display:', error);
+        console.error('Error fetching vote data:', error);
+    }
+    return { vote_count: 0, has_voted: false };
+}
+
+// Update vote display for current track
+async function updateVoteDisplayForTrack(recordId) {
+    const upvoteBtn = document.getElementById('upvoteBtn');
+    const upvoteCount = document.getElementById('upvoteCount');
+    
+    if (!upvoteBtn || !upvoteCount) {
+        console.log('Vote elements not ready yet');
+        return;
+    }
+    
+    console.log('Fetching vote data for track:', recordId);
+    
+    // Get fresh data for THIS track
+    const voteData = await fetchTrackVoteData(recordId);
+    console.log('Vote data received:', voteData);
+    
+    // Update count
+    upvoteCount.textContent = voteData.vote_count;
+    
+    // Update button state
+    if (voteData.has_voted) {
+        upvoteBtn.classList.add('voted');
+        upvoteBtn.disabled = true;
+        upvoteBtn.title = "Already voted";
+        upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + voteData.vote_count + '</span>';
+    } else {
+        upvoteBtn.classList.remove('voted');
+        upvoteBtn.disabled = false;
+        upvoteBtn.title = "Upvote this track";
+        upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + voteData.vote_count + '</span>';
     }
 }
+
+// Handle vote button click
+async function handleVote() {
+    if (!currentRecordId) {
+        console.log('No record selected');
+        return;
+    }
+    
+    const upvoteBtn = document.getElementById('upvoteBtn');
+    const upvoteCount = document.getElementById('upvoteCount');
+    
+    if (!upvoteBtn || !upvoteCount) {
+        console.log('Vote elements not found');
+        return;
+    }
+    
+    console.log('Voting for record:', currentRecordId);
+    
+    // Disable button during request
+    upvoteBtn.disabled = true;
+    upvoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
+    
+    try {
+        // Cast vote
+        const response = await fetch(`https://arjanshaw.pythonanywhere.com/vote/${currentRecordId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        console.log('Vote response:', result);
+        
+        if (response.ok && result.status === 'success') {
+            // After voting, refresh the display
+            console.log('Vote successful, refreshing display...');
+            await updateVoteDisplayForTrack(currentRecordId);
+            showMessage('✓ Vote recorded!');
+            
+        } else if (result.error === 'Already voted') {
+            // Already voted - refresh display
+            console.log('Already voted, refreshing display...');
+            await updateVoteDisplayForTrack(currentRecordId);
+            showMessage('Already voted for this track!');
+            
+        } else {
+            // Error - re-enable button
+            console.log('Vote failed:', result.error);
+            upvoteBtn.disabled = false;
+            upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
+            showMessage('Error: ' + (result.error || 'Vote failed'), false);
+        }
+    } catch (error) {
+        console.error('Vote error:', error);
+        upvoteBtn.disabled = false;
+        upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
+        showMessage('Network error', false);
+    }
+}
+
+// Show message
+function showMessage(text, success = true) {
+    // Simple alert for now
+    if (success) {
+        console.log('Success:', text);
+    } else {
+        console.error('Error:', text);
+    }
+}
+
+// Setup vote handler
+function setupVoteHandler() {
+    const upvoteBtn = document.getElementById('upvoteBtn');
+    if (upvoteBtn) {
+        console.log('Setting up vote handler');
+        upvoteBtn.addEventListener('click', handleVote);
+    } else {
+        console.log('Vote button not found, will try again later');
+        setTimeout(setupVoteHandler, 1000);
+    }
+}
+
+// ========== YOUTUBE PLAYER FUNCTIONS ==========
 
 // Load YouTube IFrame API
 function loadYouTubeAPI() {
@@ -375,9 +283,12 @@ function loadCurrentYouTubeTrack() {
     const currentRecord = filteredRecords[currentTrackIndex];
     const youtubeId = extractYouTubeId(currentRecord.youtube_url);
     
-    console.log('Loading track:', currentRecord.artist, '-', currentRecord.title);
+    console.log('=== Loading track ===');
+    console.log('Artist:', currentRecord.artist);
+    console.log('Title:', currentRecord.title);
+    console.log('Record ID:', currentRecord.id);
     console.log('YouTube ID:', youtubeId);
-    console.log('Current index:', currentTrackIndex, '/', filteredRecords.length);
+    console.log('Index:', currentTrackIndex, '/', filteredRecords.length);
     
     // Update track info
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
@@ -389,14 +300,11 @@ function loadCurrentYouTubeTrack() {
         priceElement.textContent = `$${parseFloat(currentRecord.store_price).toFixed(2)}`;
     }
     
-    // Set current record ID for voting
+    // ✅ SET CURRENT RECORD ID
     currentRecordId = currentRecord.id;
     
-    // ✅ RESET voting state for new track
-    userHasUpvoted = false;
-    
-    // ✅ Update vote display for NEW track
-    updateVoteDisplayForCurrentTrack();
+    // ✅ FETCH AND DISPLAY VOTES FOR THIS SPECIFIC TRACK
+    updateVoteDisplayForTrack(currentRecordId);
     
     if (!youtubeId) {
         document.getElementById('youtube-player').innerHTML = `
@@ -662,8 +570,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup UI
     setupUI();
     
-    // Setup vote handlers
-    votingSystem.setupVoteHandlers();
+    // ✅ SETUP VOTE HANDLER
+    setupVoteHandler();
     
     // Load YouTube API
     loadYouTubeAPI();

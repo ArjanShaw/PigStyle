@@ -1,4 +1,4 @@
-// streaming.js - Get genres from records, random start, YouTube only with CORRECT voting
+// streaming.js - Get genres from records, random start, YouTube only with voting
 
 console.log('streaming.js loaded!');
 
@@ -13,85 +13,40 @@ let genreMap = {};
 let currentRecordId = null;
 let userHasUpvoted = false;
 
-// SIMPLE WORKING VOTING SYSTEM
+// SIMPLE VOTING SYSTEM
 class VotingSystem {
     constructor() {
         this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
     }
 
-    // Update vote display - gets initial count when track loads
-    async updateVoteDisplay(record) {
-        if (!record) return;
-        
-        try {
-            // Get votes from GET /votes endpoint
-            const response = await fetch(`${this.apiBaseUrl}/votes`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.status === 'success' && data.votes) {
-                    // Find this record's vote count
-                    const recordVotes = data.votes.find(v => v.record_id === record.id);
-                    const voteCount = recordVotes ? recordVotes.vote_count : 0;
-                    
-                    // Update UI
-                    const upvoteCountElement = document.getElementById('upvoteCount');
-                    const upvoteBtn = document.getElementById('upvoteBtn');
-                    
-                    if (upvoteCountElement && upvoteBtn) {
-                        upvoteCountElement.textContent = voteCount;
-                        
-                        // Reset button state (user hasn't voted for this track yet)
-                        upvoteBtn.classList.remove('voted');
-                        upvoteBtn.disabled = false;
-                        upvoteBtn.title = "Upvote this track";
-                        upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + voteCount + '</span>';
-                        
-                        userHasUpvoted = false;
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error loading initial votes:', error);
-        }
-    }
-
+    // Cast a vote and update UI immediately
     async castVote(recordId) {
         try {
-            console.log('=== VOTE DEBUG START ===');
+            console.log('=== VOTE START ===');
             
-            // ALWAYS get fresh elements - don't trust cached references
+            // ALWAYS get fresh elements - don't cache them
             const upvoteBtn = document.getElementById('upvoteBtn');
             const upvoteCountElement = document.getElementById('upvoteCount');
             
-            console.log('Elements found:', {
-                upvoteBtn: upvoteBtn ? '✅ FOUND' : '❌ NOT FOUND',
-                upvoteCountElement: upvoteCountElement ? '✅ FOUND' : '❌ NOT FOUND',
-                upvoteBtnId: upvoteBtn?.id,
-                upvoteCountId: upvoteCountElement?.id,
-                documentReadyState: document.readyState
+            console.log('Elements:', {
+                upvoteBtn: upvoteBtn ? 'FOUND' : 'NOT FOUND',
+                upvoteCountElement: upvoteCountElement ? 'FOUND' : 'NOT FOUND',
+                currentCount: upvoteCountElement?.textContent
             });
             
-            // If still not found, something is VERY wrong
             if (!upvoteBtn || !upvoteCountElement) {
                 console.error('CRITICAL: Cannot find vote elements!');
-                console.log('All elements with "upvote" in ID:');
-                document.querySelectorAll('[id*="upvote"]').forEach(el => {
-                    console.log(el.id, el.tagName, el.className);
-                });
                 
                 // Try alternative selectors
                 const altBtn = document.querySelector('.upvote-btn');
                 const altCount = document.querySelector('.upvote-count');
-                console.log('Alternative selectors:', {
-                    '.upvote-btn': altBtn,
-                    '.upvote-count': altCount
+                console.log('Alternative:', {
+                    altBtn: altBtn,
+                    altCount: altCount
                 });
                 
-                this.showVoteFeedback('Error: Cannot find vote button', false);
                 return false;
             }
-            
-            console.log('Current count:', upvoteCountElement.textContent);
             
             // Disable button immediately
             upvoteBtn.disabled = true;
@@ -100,14 +55,17 @@ class VotingSystem {
             // Make the vote request
             const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'}
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
             });
 
             const result = await response.json();
             console.log('API Response:', result);
             
             if (response.ok && result.status === 'success') {
-                // ✅ SUCCESS: Update UI
+                // ✅ SUCCESS: Update UI with vote_count from response
                 const newCount = result.vote_count;
                 upvoteCountElement.textContent = newCount;
                 upvoteBtn.classList.add('voted');
@@ -117,16 +75,17 @@ class VotingSystem {
                 
                 userHasUpvoted = true;
                 
-                console.log('UI updated successfully to:', newCount);
+                console.log('UI updated to:', newCount);
                 this.showVoteFeedback('✓ Vote recorded! Votes: ' + newCount);
                 return true;
                 
             } else if (result.error === 'Already voted') {
-                // Already voted
+                // Already voted - update with current count from response
                 const currentCount = result.vote_count || 0;
                 upvoteCountElement.textContent = currentCount;
                 upvoteBtn.classList.add('voted');
                 upvoteBtn.disabled = true;
+                upvoteBtn.title = "Already voted";
                 upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + currentCount + '</span>';
                 
                 userHasUpvoted = true;
@@ -135,7 +94,7 @@ class VotingSystem {
                 return false;
                 
             } else {
-                // Other error - re-enable button
+                // Other error
                 upvoteBtn.disabled = false;
                 upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
                 
@@ -144,20 +103,125 @@ class VotingSystem {
             }
         } catch (error) {
             console.error('Vote error:', error);
+            
+            // Re-enable button on error
+            const upvoteBtn = document.getElementById('upvoteBtn');
+            const upvoteCountElement = document.getElementById('upvoteCount');
+            if (upvoteBtn && upvoteCountElement) {
+                upvoteBtn.disabled = false;
+                upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
+            }
+            
             this.showVoteFeedback('Network error', false);
             return false;
         }
     }
 
+    showVoteFeedback(message, success = true) {
+        // Remove any existing feedback
+        const existing = document.getElementById('voteFeedback');
+        if (existing) existing.remove();
+        
+        const feedbackEl = document.createElement('div');
+        feedbackEl.id = 'voteFeedback';
+        feedbackEl.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 10000;
+            font-size: 16px;
+            background: ${success ? '#27ae60' : '#e74c3c'};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: fadeIn 0.3s ease;
+        `;
+        
+        feedbackEl.textContent = message;
+        document.body.appendChild(feedbackEl);
+        
+        setTimeout(() => {
+            feedbackEl.style.opacity = '0';
+            feedbackEl.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                if (feedbackEl.parentNode) feedbackEl.remove();
+            }, 500);
+        }, 3000);
+    }
+
     setupVoteHandlers() {
+        console.log('Setting up vote handlers...');
+        
+        // Get the button
         const upvoteBtn = document.getElementById('upvoteBtn');
+        console.log('Found upvoteBtn:', upvoteBtn);
         
         if (upvoteBtn) {
-            upvoteBtn.addEventListener('click', () => {
+            console.log('Attaching click handler...');
+            
+            upvoteBtn.addEventListener('click', (event) => {
+                console.log('Button clicked!', {
+                    currentRecordId: currentRecordId,
+                    userHasUpvoted: userHasUpvoted,
+                    eventTarget: event.target
+                });
+                
                 if (currentRecordId && !userHasUpvoted) {
+                    console.log('Calling castVote for:', currentRecordId);
                     this.castVote(currentRecordId);
+                } else if (userHasUpvoted) {
+                    this.showVoteFeedback('Already voted for this track!', false);
                 }
             });
+            
+            console.log('Vote handler attached');
+        } else {
+            console.error('setupVoteHandlers: Could not find upvoteBtn!');
+            console.log('Trying again in 1 second...');
+            
+            // Try again after a delay
+            setTimeout(() => {
+                const retryBtn = document.getElementById('upvoteBtn');
+                console.log('Retry found upvoteBtn:', retryBtn);
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => {
+                        if (currentRecordId && !userHasUpvoted) {
+                            this.castVote(currentRecordId);
+                        }
+                    });
+                }
+            }, 1000);
+        }
+    }
+    
+    // Update initial vote display when track loads
+    async updateVoteDisplay(record) {
+        if (!record) return;
+        
+        try {
+            // Get initial votes from GET /votes endpoint
+            const response = await fetch(`${this.apiBaseUrl}/votes`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'success' && data.votes) {
+                    const recordVotes = data.votes.find(v => v.record_id === record.id);
+                    const voteCount = recordVotes ? recordVotes.vote_count : 0;
+                    
+                    const upvoteCountElement = document.getElementById('upvoteCount');
+                    const upvoteBtn = document.getElementById('upvoteBtn');
+                    
+                    if (upvoteCountElement && upvoteBtn) {
+                        upvoteCountElement.textContent = voteCount;
+                        upvoteBtn.classList.remove('voted');
+                        upvoteBtn.disabled = false;
+                        userHasUpvoted = false;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading initial votes:', error);
         }
     }
 }
@@ -313,6 +377,7 @@ function loadCurrentYouTubeTrack() {
     
     // Set current record ID for voting
     currentRecordId = currentRecord.id;
+    userHasUpvoted = false; // Reset for new track
     
     // Update vote display
     if (votingSystem && votingSystem.updateVoteDisplay) {
@@ -577,13 +642,13 @@ function loadSavedScale() {
 }
 
 // Initialize when page loads
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing...');
     
     // Setup UI
     setupUI();
     
-    // Initialize voting system
+    // Setup vote handlers
     votingSystem.setupVoteHandlers();
     
     // Load YouTube API

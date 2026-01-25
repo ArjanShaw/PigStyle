@@ -70,11 +70,17 @@ async function updateVoteDisplayForTrack(recordId) {
 async function handleVote() {
     alert('handleVote currentRecordId = '+ currentRecordId);
 
-    // if (!currentRecordId) {
-    //     console.log('No record selected');
-    //     return;
-    // }
-    
+    const response = await fetch(`https://arjanshaw.pythonanywhere.com/vote/${currentRecordId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+    const result = await response.json();
+    alert('Vote response:', result);
+        
     // const upvoteBtn = document.getElementById('upvoteBtn');
     // const upvoteCount = document.getElementById('upvoteCount');
     
@@ -83,8 +89,7 @@ async function handleVote() {
     //     return;
     // }
     
-    // console.log('Voting for record:', currentRecordId);
-    
+     
     // // Disable button during request
     // upvoteBtn.disabled = true;
     // upvoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';

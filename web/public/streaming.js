@@ -19,34 +19,69 @@ class VotingSystem {
         this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com';
     }
 
+    // Show feedback message
+    showVoteFeedback(message, success = true) {
+        // Remove any existing feedback
+        const existing = document.getElementById('voteFeedback');
+        if (existing) existing.remove();
+        
+        const feedbackEl = document.createElement('div');
+        feedbackEl.id = 'voteFeedback';
+        feedbackEl.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 10000;
+            font-size: 16px;
+            background: ${success ? '#27ae60' : '#e74c3c'};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: fadeIn 0.3s ease;
+        `;
+        
+        feedbackEl.textContent = message;
+        document.body.appendChild(feedbackEl);
+        
+        setTimeout(() => {
+            feedbackEl.style.opacity = '0';
+            feedbackEl.style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                if (feedbackEl.parentNode) feedbackEl.remove();
+            }, 500);
+        }, 3000);
+    }
+
     // Cast a vote and update UI immediately
     async castVote(recordId) {
         try {
             console.log('=== VOTE START ===');
             
-            // ALWAYS get fresh elements - don't cache them
-            const upvoteBtn = document.getElementById('upvoteBtn');
-            const upvoteCountElement = document.getElementById('upvoteCount');
+            // Use querySelector to find elements by class (more reliable)
+            const upvoteBtn = document.querySelector('.upvote-btn');
+            const upvoteCountElement = document.querySelector('.upvote-count');
             
-            console.log('Elements:', {
+            console.log('Elements found by class:', {
                 upvoteBtn: upvoteBtn ? 'FOUND' : 'NOT FOUND',
-                upvoteCountElement: upvoteCountElement ? 'FOUND' : 'NOT FOUND',
-                currentCount: upvoteCountElement?.textContent
+                upvoteCountElement: upvoteCountElement ? 'FOUND' : 'NOT FOUND'
             });
             
+            // If still not found by class, try ID
+            if (!upvoteCountElement) {
+                console.log('Trying by ID...');
+                const byId = document.getElementById('upvoteCount');
+                console.log('By ID:', byId);
+            }
+            
             if (!upvoteBtn || !upvoteCountElement) {
-                console.error('CRITICAL: Cannot find vote elements!');
-                
-                // Try alternative selectors
-                const altBtn = document.querySelector('.upvote-btn');
-                const altCount = document.querySelector('.upvote-count');
-                console.log('Alternative:', {
-                    altBtn: altBtn,
-                    altCount: altCount
-                });
-                
+                console.error('Cannot find vote elements! Showing alert instead.');
+                alert('Vote recorded!');
                 return false;
             }
+            
+            console.log('Current count:', upvoteCountElement.textContent);
             
             // Disable button immediately
             upvoteBtn.disabled = true;
@@ -105,8 +140,8 @@ class VotingSystem {
             console.error('Vote error:', error);
             
             // Re-enable button on error
-            const upvoteBtn = document.getElementById('upvoteBtn');
-            const upvoteCountElement = document.getElementById('upvoteCount');
+            const upvoteBtn = document.querySelector('.upvote-btn');
+            const upvoteCountElement = document.querySelector('.upvote-count');
             if (upvoteBtn && upvoteCountElement) {
                 upvoteBtn.disabled = false;
                 upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
@@ -117,60 +152,28 @@ class VotingSystem {
         }
     }
 
-    showVoteFeedback(message, success = true) {
-        // Remove any existing feedback
-        const existing = document.getElementById('voteFeedback');
-        if (existing) existing.remove();
-        
-        const feedbackEl = document.createElement('div');
-        feedbackEl.id = 'voteFeedback';
-        feedbackEl.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            z-index: 10000;
-            font-size: 16px;
-            background: ${success ? '#27ae60' : '#e74c3c'};
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: fadeIn 0.3s ease;
-        `;
-        
-        feedbackEl.textContent = message;
-        document.body.appendChild(feedbackEl);
-        
-        setTimeout(() => {
-            feedbackEl.style.opacity = '0';
-            feedbackEl.style.transition = 'opacity 0.5s';
-            setTimeout(() => {
-                if (feedbackEl.parentNode) feedbackEl.remove();
-            }, 500);
-        }, 3000);
-    }
-
     setupVoteHandlers() {
         console.log('Setting up vote handlers...');
         
-        // Get the button
-        const upvoteBtn = document.getElementById('upvoteBtn');
-        console.log('Found upvoteBtn:', upvoteBtn);
+        // Get the button by class selector (more reliable)
+        const upvoteBtn = document.querySelector('.upvote-btn');
+        console.log('Found upvoteBtn by class:', upvoteBtn);
         
         if (upvoteBtn) {
             console.log('Attaching click handler...');
             
+            // Bind the function to preserve 'this' context
+            const boundCastVote = this.castVote.bind(this);
+            
             upvoteBtn.addEventListener('click', (event) => {
                 console.log('Button clicked!', {
                     currentRecordId: currentRecordId,
-                    userHasUpvoted: userHasUpvoted,
-                    eventTarget: event.target
+                    userHasUpvoted: userHasUpvoted
                 });
                 
                 if (currentRecordId && !userHasUpvoted) {
                     console.log('Calling castVote for:', currentRecordId);
-                    this.castVote(currentRecordId);
+                    boundCastVote(currentRecordId);
                 } else if (userHasUpvoted) {
                     this.showVoteFeedback('Already voted for this track!', false);
                 }
@@ -179,20 +182,6 @@ class VotingSystem {
             console.log('Vote handler attached');
         } else {
             console.error('setupVoteHandlers: Could not find upvoteBtn!');
-            console.log('Trying again in 1 second...');
-            
-            // Try again after a delay
-            setTimeout(() => {
-                const retryBtn = document.getElementById('upvoteBtn');
-                console.log('Retry found upvoteBtn:', retryBtn);
-                if (retryBtn) {
-                    retryBtn.addEventListener('click', () => {
-                        if (currentRecordId && !userHasUpvoted) {
-                            this.castVote(currentRecordId);
-                        }
-                    });
-                }
-            }, 1000);
         }
     }
     
@@ -209,8 +198,8 @@ class VotingSystem {
                     const recordVotes = data.votes.find(v => v.record_id === record.id);
                     const voteCount = recordVotes ? recordVotes.vote_count : 0;
                     
-                    const upvoteCountElement = document.getElementById('upvoteCount');
-                    const upvoteBtn = document.getElementById('upvoteBtn');
+                    const upvoteCountElement = document.querySelector('.upvote-count');
+                    const upvoteBtn = document.querySelector('.upvote-btn');
                     
                     if (upvoteCountElement && upvoteBtn) {
                         upvoteCountElement.textContent = voteCount;

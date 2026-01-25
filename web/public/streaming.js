@@ -68,13 +68,6 @@ class VotingSystem {
                 upvoteCountElement: upvoteCountElement ? 'FOUND' : 'NOT FOUND'
             });
             
-            // If still not found by class, try ID
-            if (!upvoteCountElement) {
-                console.log('Trying by ID...');
-                const byId = document.getElementById('upvoteCount');
-                console.log('By ID:', byId);
-            }
-            
             if (!upvoteBtn || !upvoteCountElement) {
                 console.error('Cannot find vote elements! Showing alert instead.');
                 alert('Vote recorded!');
@@ -185,38 +178,70 @@ class VotingSystem {
         }
     }
     
-    // Update initial vote display when track loads
-    async updateVoteDisplay(record) {
-        if (!record) return;
+    // Load initial vote count for a track
+    async loadVoteCountForTrack(record) {
+        if (!record) return 0;
         
         try {
-            // Get initial votes from GET /votes endpoint
+            // Get votes from GET /votes endpoint
             const response = await fetch(`${this.apiBaseUrl}/votes`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.status === 'success' && data.votes) {
                     const recordVotes = data.votes.find(v => v.record_id === record.id);
-                    const voteCount = recordVotes ? recordVotes.vote_count : 0;
-                    
-                    const upvoteCountElement = document.querySelector('.upvote-count');
-                    const upvoteBtn = document.querySelector('.upvote-btn');
-                    
-                    if (upvoteCountElement && upvoteBtn) {
-                        upvoteCountElement.textContent = voteCount;
-                        upvoteBtn.classList.remove('voted');
-                        upvoteBtn.disabled = false;
-                        userHasUpvoted = false;
-                    }
+                    return recordVotes ? recordVotes.vote_count : 0;
                 }
             }
         } catch (error) {
-            console.error('Error loading initial votes:', error);
+            console.error('Error loading vote count:', error);
         }
+        return 0;
     }
 }
 
 // Initialize voting system
 let votingSystem = new VotingSystem();
+
+// Update vote display for current track
+async function updateVoteDisplayForCurrentTrack() {
+    if (!currentRecordId) return;
+    
+    try {
+        // Get the current record
+        const currentRecord = filteredRecords[currentTrackIndex];
+        if (!currentRecord) return;
+        
+        // Get votes from GET /votes endpoint
+        const response = await fetch(`${this.apiBaseUrl}/votes`);
+        if (response.ok) {
+            const data = await response.json();
+            if (data.status === 'success' && data.votes) {
+                const recordVotes = data.votes.find(v => v.record_id === currentRecord.id);
+                const voteCount = recordVotes ? recordVotes.vote_count : 0;
+                
+                // Get UI elements
+                const upvoteCountElement = document.querySelector('.upvote-count');
+                const upvoteBtn = document.querySelector('.upvote-btn');
+                
+                if (upvoteCountElement && upvoteBtn) {
+                    // Update count
+                    upvoteCountElement.textContent = voteCount;
+                    
+                    // Check if current IP has voted for THIS track
+                    // Note: This requires checking against the server
+                    // For now, we'll assume user hasn't voted for new track
+                    // until they try to vote
+                    upvoteBtn.classList.remove('voted');
+                    upvoteBtn.disabled = false;
+                    upvoteBtn.title = "Upvote this track";
+                    upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + voteCount + '</span>';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error updating vote display:', error);
+    }
+}
 
 // Load YouTube IFrame API
 function loadYouTubeAPI() {
@@ -366,12 +391,12 @@ function loadCurrentYouTubeTrack() {
     
     // Set current record ID for voting
     currentRecordId = currentRecord.id;
-    userHasUpvoted = false; // Reset for new track
     
-    // Update vote display
-    if (votingSystem && votingSystem.updateVoteDisplay) {
-        votingSystem.updateVoteDisplay(currentRecord);
-    }
+    // ✅ RESET voting state for new track
+    userHasUpvoted = false;
+    
+    // ✅ Update vote display for NEW track
+    updateVoteDisplayForCurrentTrack();
     
     if (!youtubeId) {
         document.getElementById('youtube-player').innerHTML = `

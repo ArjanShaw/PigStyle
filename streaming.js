@@ -1,4 +1,4 @@
-// streaming.js - Get genres from records, random start, YouTube only
+// streaming.js - Get genres from records, true shuffle, YouTube only
 
 console.log('streaming.js loaded!');
 
@@ -8,6 +8,10 @@ let currentTrackIndex = 0;
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let genreMap = {};
+
+// ========== SHUFFLE VARIABLES ==========
+let shuffledIndices = [];      // Array of shuffled indices
+let shuffleCurrentIndex = 0;   // Current position in shuffled playlist
 
 // ========== YOUTUBE PLAYER FUNCTIONS ==========
 
@@ -36,6 +40,32 @@ window.onYouTubeIframeAPIReady = function() {
         loadCurrentYouTubeTrack();
     }
 };
+
+// ========== SHUFFLE FUNCTIONS ==========
+
+// Generate a shuffled playlist (Fisher-Yates algorithm)
+function generateShuffledPlaylist(records) {
+    // Create array of indices [0, 1, 2, ..., n-1]
+    shuffledIndices = Array.from({ length: records.length }, (_, i) => i);
+    
+    // Shuffle the indices using Fisher-Yates algorithm
+    for (let i = shuffledIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
+    }
+    
+    shuffleCurrentIndex = 0;
+    console.log(`Generated shuffled playlist of ${shuffledIndices.length} tracks`);
+    console.log('Shuffled indices:', shuffledIndices);
+}
+
+// Get the actual array index for current track (using shuffled indices)
+function getCurrentShuffledIndex() {
+    if (shuffledIndices.length === 0) return 0;
+    return shuffledIndices[shuffleCurrentIndex];
+}
+
+// ========== CORE FUNCTIONS ==========
 
 // Load saved selections from localStorage
 function loadSavedSelections() {
@@ -111,9 +141,15 @@ function startYouTubePlayback(genreId) {
     console.log(`Filtered to ${filteredRecords.length} records for YouTube playback`);
     
     if (filteredRecords.length > 0) {
-        // Random start when filtering
-        currentTrackIndex = Math.floor(Math.random() * filteredRecords.length);
-        console.log(`Random start at index: ${currentTrackIndex}/${filteredRecords.length}`);
+        // GENERATE SHUFFLED PLAYLIST (TRUE SHUFFLE)
+        generateShuffledPlaylist(filteredRecords);
+        
+        // Start at first shuffled track (index 0 in shuffled playlist)
+        shuffleCurrentIndex = 0;
+        currentTrackIndex = getCurrentShuffledIndex();
+        
+        console.log(`True shuffle: Starting at shuffled position ${shuffleCurrentIndex}, actual index ${currentTrackIndex}`);
+        console.log(`Total tracks in shuffled playlist: ${shuffledIndices.length}`);
         
         if (youtubeAPILoaded) {
             loadCurrentYouTubeTrack();
@@ -139,15 +175,20 @@ function startYouTubePlayback(genreId) {
 function loadCurrentYouTubeTrack() {
     if (filteredRecords.length === 0) return;
     
-    const currentRecord = filteredRecords[currentTrackIndex];
+    // Get the actual record index from shuffled playlist
+    const actualIndex = getCurrentShuffledIndex();
+    const currentRecord = filteredRecords[actualIndex];
+    
+    // Extract YouTube ID
     const youtubeId = extractYouTubeId(currentRecord.youtube_url);
     
-    console.log('=== Loading track ===');
+    console.log('=== Loading shuffled track ===');
+    console.log('Shuffle position:', shuffleCurrentIndex + 1, '/', shuffledIndices.length);
+    console.log('Actual index:', actualIndex);
     console.log('Artist:', currentRecord.artist);
     console.log('Title:', currentRecord.title);
     console.log('Record ID:', currentRecord.id);
     console.log('YouTube ID:', youtubeId);
-    console.log('Index:', currentTrackIndex, '/', filteredRecords.length);
     
     // Update track info
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
@@ -207,7 +248,7 @@ function onPlayerReady(event) {
 // YouTube player state change callback
 function onPlayerStateChange(event) {
     if (event.data === 0) { // ENDED
-        console.log('Video ended, playing next track...');
+        console.log('Video ended, playing next shuffled track...');
         playNextTrack();
     }
     
@@ -243,21 +284,40 @@ function extractYouTubeId(url) {
     return null;
 }
 
-// Play previous track
+// Play previous track (using shuffled playlist)
 function playPreviousTrack() {
     if (filteredRecords.length === 0) return;
     
-    currentTrackIndex = (currentTrackIndex - 1 + filteredRecords.length) % filteredRecords.length;
-    console.log('Playing previous track, new index:', currentTrackIndex);
+    // Move backward in shuffled playlist
+    shuffleCurrentIndex = (shuffleCurrentIndex - 1 + shuffledIndices.length) % shuffledIndices.length;
+    currentTrackIndex = getCurrentShuffledIndex();
+    
+    console.log('Playing previous shuffled track:');
+    console.log('New shuffle position:', shuffleCurrentIndex);
+    console.log('New actual index:', currentTrackIndex);
+    
     loadCurrentYouTubeTrack();
 }
 
-// Play next track
+// Play next track (using shuffled playlist)
 function playNextTrack() {
     if (filteredRecords.length === 0) return;
     
-    currentTrackIndex = (currentTrackIndex + 1) % filteredRecords.length;
-    console.log('Playing next track, new index:', currentTrackIndex);
+    // Move forward in shuffled playlist
+    shuffleCurrentIndex = (shuffleCurrentIndex + 1) % shuffledIndices.length;
+    
+    // If we reach the end of shuffled playlist, regenerate it
+    if (shuffleCurrentIndex === 0) {
+        console.log('End of shuffled playlist, regenerating new shuffle...');
+        generateShuffledPlaylist(filteredRecords);
+    }
+    
+    currentTrackIndex = getCurrentShuffledIndex();
+    
+    console.log('Playing next shuffled track:');
+    console.log('New shuffle position:', shuffleCurrentIndex);
+    console.log('New actual index:', currentTrackIndex);
+    
     loadCurrentYouTubeTrack();
 }
 
@@ -307,7 +367,7 @@ async function loadRecordsFromAPI() {
     try {
         console.log('Loading records from API...');
         
-        const response = await fetch('https://arjanshaw.pythonanywhere.com/records?limit=100');
+        const response = await fetch('https://arjanshaw.pythonanywhere.com/records?limit=500');
         
         if (!response.ok) {
             throw new Error(`API error: ${response.status} ${response.statusText}`);

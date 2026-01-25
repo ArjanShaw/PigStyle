@@ -560,10 +560,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup UI
     setupUI();
-    
-    // ✅ SETUP VOTE HANDLER
-    setupVoteHandler();
-
+     
     const upvoteBtn = document.getElementById('upvoteBtn');
     upvoteBtn.addEventListener('click', handleVote);
     

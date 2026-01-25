@@ -69,7 +69,7 @@ async function updateVoteDisplayForTrack(recordId) {
 // Handle vote button click
 async function handleVote() {
     alert('handleVote');
-    
+
     // if (!currentRecordId) {
     //     console.log('No record selected');
     //     return;
@@ -138,18 +138,7 @@ function showMessage(text, success = true) {
         console.error('Error:', text);
     }
 }
-
-// Setup vote handler
-function setupVoteHandler() {
-    const upvoteBtn = document.getElementById('upvoteBtn');
-    if (upvoteBtn) {
-        console.log('Setting up vote handler');
-        upvoteBtn.addEventListener('click', handleVote);
-    } else {
-        console.log('Vote button not found, will try again later');
-        setTimeout(setupVoteHandler, 1000);
-    }
-}
+ 
 
 // ========== YOUTUBE PLAYER FUNCTIONS ==========
 
@@ -574,6 +563,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ✅ SETUP VOTE HANDLER
     setupVoteHandler();
+
+    const upvoteBtn = document.getElementById('upvoteBtn');
+    upvoteBtn.addEventListener('click', handleVote);
     
     // Load YouTube API
     loadYouTubeAPI();

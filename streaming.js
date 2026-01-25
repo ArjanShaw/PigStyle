@@ -68,63 +68,65 @@ async function updateVoteDisplayForTrack(recordId) {
 
 // Handle vote button click
 async function handleVote() {
-    if (!currentRecordId) {
-        console.log('No record selected');
-        return;
-    }
+    alert('handleVote');
     
-    const upvoteBtn = document.getElementById('upvoteBtn');
-    const upvoteCount = document.getElementById('upvoteCount');
+    // if (!currentRecordId) {
+    //     console.log('No record selected');
+    //     return;
+    // }
     
-    if (!upvoteBtn || !upvoteCount) {
-        console.log('Vote elements not found');
-        return;
-    }
+    // const upvoteBtn = document.getElementById('upvoteBtn');
+    // const upvoteCount = document.getElementById('upvoteCount');
     
-    console.log('Voting for record:', currentRecordId);
+    // if (!upvoteBtn || !upvoteCount) {
+    //     console.log('Vote elements not found');
+    //     return;
+    // }
     
-    // Disable button during request
-    upvoteBtn.disabled = true;
-    upvoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
+    // console.log('Voting for record:', currentRecordId);
     
-    try {
-        // Cast vote
-        const response = await fetch(`https://arjanshaw.pythonanywhere.com/vote/${currentRecordId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        });
+    // // Disable button during request
+    // upvoteBtn.disabled = true;
+    // upvoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
+    
+    // try {
+    //     // Cast vote
+    //     const response = await fetch(`https://arjanshaw.pythonanywhere.com/vote/${currentRecordId}`, {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json',
+    //             'Accept': 'application/json'
+    //         }
+    //     });
         
-        const result = await response.json();
-        console.log('Vote response:', result);
+    //     const result = await response.json();
+    //     console.log('Vote response:', result);
         
-        if (response.ok && result.status === 'success') {
-            // After voting, refresh the display
-            console.log('Vote successful, refreshing display...');
-            await updateVoteDisplayForTrack(currentRecordId);
-            showMessage('✓ Vote recorded!');
+    //     if (response.ok && result.status === 'success') {
+    //         // After voting, refresh the display
+    //         console.log('Vote successful, refreshing display...');
+    //         await updateVoteDisplayForTrack(currentRecordId);
+    //         showMessage('✓ Vote recorded!');
             
-        } else if (result.error === 'Already voted') {
-            // Already voted - refresh display
-            console.log('Already voted, refreshing display...');
-            await updateVoteDisplayForTrack(currentRecordId);
-            showMessage('Already voted for this track!');
+    //     } else if (result.error === 'Already voted') {
+    //         // Already voted - refresh display
+    //         console.log('Already voted, refreshing display...');
+    //         await updateVoteDisplayForTrack(currentRecordId);
+    //         showMessage('Already voted for this track!');
             
-        } else {
-            // Error - re-enable button
-            console.log('Vote failed:', result.error);
-            upvoteBtn.disabled = false;
-            upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
-            showMessage('Error: ' + (result.error || 'Vote failed'), false);
-        }
-    } catch (error) {
-        console.error('Vote error:', error);
-        upvoteBtn.disabled = false;
-        upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
-        showMessage('Network error', false);
-    }
+    //     } else {
+    //         // Error - re-enable button
+    //         console.log('Vote failed:', result.error);
+    //         upvoteBtn.disabled = false;
+    //         upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
+    //         showMessage('Error: ' + (result.error || 'Vote failed'), false);
+    //     }
+    // } catch (error) {
+    //     console.error('Vote error:', error);
+    //     upvoteBtn.disabled = false;
+    //     upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
+    //     showMessage('Network error', false);
+    // }
 }
 
 // Show message

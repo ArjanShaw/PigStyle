@@ -79,7 +79,7 @@ async function handleVote() {
         });
         
     const result = await response.json();
-    alert('Vote response:', result);
+    alert('Vote response: ' + JSON.stringify(result));
         
     // const upvoteBtn = document.getElementById('upvoteBtn');
     // const upvoteCount = document.getElementById('upvoteCount');

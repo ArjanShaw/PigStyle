@@ -68,7 +68,7 @@ async function updateVoteDisplayForTrack(recordId) {
 
 // Handle vote button click
 async function handleVote() {
-    alert('handleVote');
+    alert('handleVote currentRecordId = '+ currentRecordId);
 
     // if (!currentRecordId) {
     //     console.log('No record selected');

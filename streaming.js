@@ -1,4 +1,4 @@
-// streaming.js - Get genres from records, random start, YouTube only with voting
+// streaming.js - Get genres from records, random start, YouTube only
 
 console.log('streaming.js loaded!');
 
@@ -8,142 +8,6 @@ let currentTrackIndex = 0;
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let genreMap = {};
-
-// Current record ID for voting
-let currentRecordId = null;
-
-// ========== VOTING FUNCTIONS ==========
-
-// Get vote data for a specific track
-async function fetchTrackVoteData(recordId) {
-    try {
-        const response = await fetch(`https://arjanshaw.pythonanywhere.com/votes/record/${recordId}`);
-        if (response.ok) {
-            const data = await response.json();
-            if (data.status === 'success') {
-                return {
-                    vote_count: data.vote_count || 0,
-                    has_voted: data.has_voted || false
-                };
-            }
-        }
-    } catch (error) {
-        console.error('Error fetching vote data:', error);
-    }
-    return { vote_count: 0, has_voted: false };
-}
-
-// Update vote display for current track
-async function updateVoteDisplayForTrack(recordId) {
-    const upvoteBtn = document.getElementById('upvoteBtn');
-    const upvoteCount = document.getElementById('upvoteCount');
-    
-    if (!upvoteBtn || !upvoteCount) {
-        console.log('Vote elements not ready yet');
-        return;
-    }
-    
-    console.log('Fetching vote data for track:', recordId);
-    
-    // Get fresh data for THIS track
-    const voteData = await fetchTrackVoteData(recordId);
-    console.log('Vote data received:', voteData);
-    
-    // Update count
-    upvoteCount.textContent = voteData.vote_count;
-    
-    // Update button state
-    if (voteData.has_voted) {
-        upvoteBtn.classList.add('voted');
-        upvoteBtn.disabled = true;
-        upvoteBtn.title = "Already voted";
-        upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + voteData.vote_count + '</span>';
-    } else {
-        upvoteBtn.classList.remove('voted');
-        upvoteBtn.disabled = false;
-        upvoteBtn.title = "Upvote this track";
-        upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + voteData.vote_count + '</span>';
-    }
-}
-
-// Handle vote button click
-async function handleVote() {
-    alert('handleVote currentRecordId = '+ currentRecordId);
-
-    const response = await fetch(`https://arjanshaw.pythonanywhere.com/vote/${currentRecordId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        });
-        
-    const result = await response.json();
-    alert('Vote response: ' + JSON.stringify(result));
-        
-    // const upvoteBtn = document.getElementById('upvoteBtn');
-    // const upvoteCount = document.getElementById('upvoteCount');
-    
-    // if (!upvoteBtn || !upvoteCount) {
-    //     console.log('Vote elements not found');
-    //     return;
-    // }
-    
-     
-    // // Disable button during request
-    // upvoteBtn.disabled = true;
-    // upvoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
-    
-    // try {
-    //     // Cast vote
-    //     const response = await fetch(`https://arjanshaw.pythonanywhere.com/vote/${currentRecordId}`, {
-    //         method: 'POST',
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //             'Accept': 'application/json'
-    //         }
-    //     });
-        
-    //     const result = await response.json();
-    //     console.log('Vote response:', result);
-        
-    //     if (response.ok && result.status === 'success') {
-    //         // After voting, refresh the display
-    //         console.log('Vote successful, refreshing display...');
-    //         await updateVoteDisplayForTrack(currentRecordId);
-    //         showMessage('✓ Vote recorded!');
-            
-    //     } else if (result.error === 'Already voted') {
-    //         // Already voted - refresh display
-    //         console.log('Already voted, refreshing display...');
-    //         await updateVoteDisplayForTrack(currentRecordId);
-    //         showMessage('Already voted for this track!');
-            
-    //     } else {
-    //         // Error - re-enable button
-    //         console.log('Vote failed:', result.error);
-    //         upvoteBtn.disabled = false;
-    //         upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
-    //         showMessage('Error: ' + (result.error || 'Vote failed'), false);
-    //     }
-    // } catch (error) {
-    //     console.error('Vote error:', error);
-    //     upvoteBtn.disabled = false;
-    //     upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCount.textContent + '</span>';
-    //     showMessage('Network error', false);
-    // }
-}
-
-// Show message
-function showMessage(text, success = true) {
-    // Simple alert for now
-    if (success) {
-        console.log('Success:', text);
-    } else {
-        console.error('Error:', text);
-    }
-}
- 
 
 // ========== YOUTUBE PLAYER FUNCTIONS ==========
 
@@ -221,7 +85,7 @@ function startYouTubePlayback(genreId) {
     // Show YouTube player and controls
     document.getElementById('youtubeContainer').style.display = 'block';
     document.getElementById('youtubeControls').style.display = 'flex';
-    document.getElementById('controlsRow').style.display = 'flex';
+    document.getElementById('controlsRow').style.display = 'none'; // Hide voting controls
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();
@@ -295,12 +159,6 @@ function loadCurrentYouTubeTrack() {
     if (priceElement && currentRecord.store_price) {
         priceElement.textContent = `$${parseFloat(currentRecord.store_price).toFixed(2)}`;
     }
-    
-    // ✅ SET CURRENT RECORD ID
-    currentRecordId = currentRecord.id;
-    
-    // ✅ FETCH AND DISPLAY VOTES FOR THIS SPECIFIC TRACK
-    updateVoteDisplayForTrack(currentRecordId);
     
     if (!youtubeId) {
         document.getElementById('youtube-player').innerHTML = `
@@ -565,9 +423,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup UI
     setupUI();
-     
-    const upvoteBtn = document.getElementById('upvoteBtn');
-    upvoteBtn.addEventListener('click', handleVote);
     
     // Load YouTube API
     loadYouTubeAPI();

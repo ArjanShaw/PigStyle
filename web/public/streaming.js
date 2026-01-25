@@ -55,38 +55,59 @@ class VotingSystem {
         }
     }
 
-    // Cast a vote and update UI with response data
     async castVote(recordId) {
         try {
-            console.log('Voting for record:', recordId);
+            console.log('=== VOTE DEBUG START ===');
             
-            // Get UI elements
-            const upvoteCountElement = document.getElementById('upvoteCount');
+            // ALWAYS get fresh elements - don't trust cached references
             const upvoteBtn = document.getElementById('upvoteBtn');
+            const upvoteCountElement = document.getElementById('upvoteCount');
             
-            if (!upvoteCountElement || !upvoteBtn) {
-                console.error('Cannot find vote elements!');
+            console.log('Elements found:', {
+                upvoteBtn: upvoteBtn ? '✅ FOUND' : '❌ NOT FOUND',
+                upvoteCountElement: upvoteCountElement ? '✅ FOUND' : '❌ NOT FOUND',
+                upvoteBtnId: upvoteBtn?.id,
+                upvoteCountId: upvoteCountElement?.id,
+                documentReadyState: document.readyState
+            });
+            
+            // If still not found, something is VERY wrong
+            if (!upvoteBtn || !upvoteCountElement) {
+                console.error('CRITICAL: Cannot find vote elements!');
+                console.log('All elements with "upvote" in ID:');
+                document.querySelectorAll('[id*="upvote"]').forEach(el => {
+                    console.log(el.id, el.tagName, el.className);
+                });
+                
+                // Try alternative selectors
+                const altBtn = document.querySelector('.upvote-btn');
+                const altCount = document.querySelector('.upvote-count');
+                console.log('Alternative selectors:', {
+                    '.upvote-btn': altBtn,
+                    '.upvote-count': altCount
+                });
+                
+                this.showVoteFeedback('Error: Cannot find vote button', false);
                 return false;
             }
             
-            // Disable button immediately to prevent double-clicks
+            console.log('Current count:', upvoteCountElement.textContent);
+            
+            // Disable button immediately
             upvoteBtn.disabled = true;
             upvoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Voting...';
             
-            // Call POST /vote/{record_id} endpoint
+            // Make the vote request
             const response = await fetch(`${this.apiBaseUrl}/vote/${recordId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
+                headers: {'Content-Type': 'application/json'}
             });
 
             const result = await response.json();
-            console.log('Vote response:', result);
+            console.log('API Response:', result);
             
             if (response.ok && result.status === 'success') {
-                // ✅ SUCCESS: Update UI with vote_count from response
+                // ✅ SUCCESS: Update UI
                 const newCount = result.vote_count;
                 upvoteCountElement.textContent = newCount;
                 upvoteBtn.classList.add('voted');
@@ -96,18 +117,16 @@ class VotingSystem {
                 
                 userHasUpvoted = true;
                 
-                // Show success message
+                console.log('UI updated successfully to:', newCount);
                 this.showVoteFeedback('✓ Vote recorded! Votes: ' + newCount);
-                console.log('UI updated to:', newCount);
                 return true;
                 
             } else if (result.error === 'Already voted') {
-                // Already voted - update with current count from response
+                // Already voted
                 const currentCount = result.vote_count || 0;
                 upvoteCountElement.textContent = currentCount;
                 upvoteBtn.classList.add('voted');
                 upvoteBtn.disabled = true;
-                upvoteBtn.title = "Already voted";
                 upvoteBtn.innerHTML = '<i class="fas fa-check"></i><span class="upvote-count">' + currentCount + '</span>';
                 
                 userHasUpvoted = true;
@@ -116,27 +135,9 @@ class VotingSystem {
                 return false;
                 
             } else {
-                // Other error
+                // Other error - re-enable button
                 upvoteBtn.disabled = false;
-                upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
-                this.showVoteFeedback('Error: ' + (result.error || 'Vote failed'), false);
-                return false;
-            }
-        } catch (error) {
-            console.error('Vote error:', error);
-            
-            // Re-enable button on error
-            const upvoteBtn = document.getElementById('upvoteBtn');
-            const upvoteCountElement = document.getElementById('upvoteCount');
-            if (upvoteBtn && upvoteCountElement) {
-                upvoteBtn.disabled = false;
-                upvoteBtn.innerHTML = '<i class="fas fa-thumbs-up"></i><span class="upvote-count">' + upvoteCountElement.textContent + '</span>';
-            }
-            
-            this.showVoteFeedback('Network error - try again', false);
-            return false;
-        }
-    }
+                upvoteBtn.innerHTML =
 
     showVoteFeedback(message, success = true) {
         // Remove any existing feedback

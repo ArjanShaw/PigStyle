@@ -20,15 +20,13 @@ from auth.permissions import PermissionManager
 # Import existing modules
 from handlers.discogs_handler import DiscogsHandler
 from tabs.inventory_tab import InventoryTab
-# REMOVED: from tabs.statistics_tab import StatisticsTab
-# FIXED: Import EBayTab from ebay_handler
 from tabs.ebay_tab import EBayTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
+from tabs.custom_labels_tab import CustomLabelsTab  # NEW IMPORT
 from tabs.admin_config_tab import AdminConfigTab
 from tabs.checkout_tab import CheckoutTab
 from tabs.youtube_linker_tab import YouTubeLinkerTab  # NEW IMPORT
-# REMOVED: from handlers.ebay_handler import EbayHandler
 from handlers.env_pars_handler import EnvParsHandler  # NEW: Centralized environment variable handler
 from config import AppConfig
 from handlers.youtube_handler import YouTubeHandler
@@ -743,6 +741,7 @@ def render_main_app():
     ebay_tab = ebay_handler  # ebay_handler is already an EBayTab instance
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(genre_cache)
+    custom_labels_tab = CustomLabelsTab(config_handler)  # NEW: Custom Labels Tab
     admin_config_tab = AdminConfigTab()
     checkout_tab = CheckoutTab()
     youtube_linker_tab = YouTubeLinkerTab(youtube_handler)  # NEW: YouTube Linker Tab
@@ -756,9 +755,17 @@ def render_main_app():
             print(f"{timing['endpoint']}: {timing['duration']:.2f}s")
         print("=========================\n")
         
-    render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
-                                   ebay_tab, consignment_tab, 
-                                   admin_config_tab, checkout_tab, youtube_linker_tab)  # UPDATED: Added youtube_linker_tab
+    render_tabs_based_on_permissions(
+        user, 
+        inventory_tab, 
+        price_tag_tab,
+        custom_labels_tab,  # NEW: Added custom_labels_tab
+        ebay_tab, 
+        consignment_tab, 
+        admin_config_tab, 
+        checkout_tab, 
+        youtube_linker_tab
+    )
 
 def render_header(user):
     """Render application header with user information"""
@@ -835,9 +842,17 @@ def render_change_password_form():
                         else:
                             st.error(message)
 
-def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
-                                   ebay_tab, consignment_tab,  
-                                   admin_config_tab, checkout_tab, youtube_linker_tab):  # UPDATED: Added youtube_linker_tab
+def render_tabs_based_on_permissions(
+    user, 
+    inventory_tab, 
+    price_tag_tab,
+    custom_labels_tab,  # NEW: Added custom_labels_tab
+    ebay_tab, 
+    consignment_tab, 
+    admin_config_tab, 
+    checkout_tab, 
+    youtube_linker_tab
+):
     """Render tabs based on user permissions"""
     user_role = user['role']
     is_demo = user['username'] == 'demo_user'
@@ -852,6 +867,10 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab,
     
     if user_role == 'admin':
         tab_configs.append(("🏷️ Print Price Tags", price_tag_tab.render))
+    
+    # NEW: Add Custom Labels tab for admin only
+    if user_role == 'admin':
+        tab_configs.append(("🏷️ Custom Labels", custom_labels_tab.render))
     
     if PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))

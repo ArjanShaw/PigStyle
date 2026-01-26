@@ -28,6 +28,8 @@ class YouTubeLinkerTab:
                 'reset_dropdown': False,
                 'force_search': False,
                 'search_query': '',
+                'dropdown_index': 0,  # Track selected index
+                'selected_genre': 'All Genres',  # Genre filter
             }
     
     def render(self):
@@ -70,6 +72,8 @@ class YouTubeLinkerTab:
             dropdown_state['force_refresh'] = False
             dropdown_state['force_search'] = True
             dropdown_state['search_query'] = ''
+            dropdown_state['dropdown_index'] = 0
+            dropdown_state['selected_genre'] = 'All Genres'
         
         if not dropdown_state['records_without_links']:
             with st.spinner("Loading records without YouTube links..."):
@@ -77,10 +81,17 @@ class YouTubeLinkerTab:
                 dropdown_state['records_without_links'] = records
                 
                 options = []
+                all_genres = set(['All Genres'])  # Start with "All Genres"
+                
                 for record in records:
                     artist = record.get('artist', 'Unknown Artist')
                     title = record.get('title', 'Unknown Title')
                     catalog = record.get('catalog_number', '')
+                    genre = record.get('genre_name', record.get('genre', 'Unknown'))
+                    
+                    # Add genre to the set
+                    if genre:
+                        all_genres.add(genre)
                     
                     display_text = f"{artist} - {title}"
                     if catalog:
@@ -90,11 +101,22 @@ class YouTubeLinkerTab:
                         'display': display_text,
                         'record': record,
                         'value': f"{record.get('id')}_{artist}_{title}",
-                        'search_text': f"{artist.lower()} {title.lower()} {catalog.lower()}" if catalog else f"{artist.lower()} {title.lower()}"
+                        'search_text': f"{artist.lower()} {title.lower()} {catalog.lower()}" if catalog else f"{artist.lower()} {title.lower()}",
+                        'genre': genre
                     })
                 
                 dropdown_state['dropdown_options'] = options
                 dropdown_state['filtered_options'] = options[:]  # Start with all options
+                dropdown_state['available_genres'] = sorted(list(all_genres))
+                
+                # Auto-select first record if there are options
+                if options:
+                    dropdown_state['selected_record'] = options[0]['record']
+                    dropdown_state['dropdown_index'] = 0
+                else:
+                    dropdown_state['selected_record'] = None
+                    dropdown_state['dropdown_index'] = 0
+                
                 st.session_state.youtube_dropdown_state = dropdown_state
     
     def _get_records_without_youtube(self):
@@ -131,74 +153,112 @@ class YouTubeLinkerTab:
                 st.rerun()
             return
         
-        # SEARCH INPUT
-        search_query = st.text_input(
-            "🔍 Search records (artist, title, or catalog number):",
-            value=dropdown_state.get('search_query', ''),
-            key="youtube_search_input",
-            placeholder="Type to filter records..."
-        )
+        # FILTER CONTROLS
+        col1, col2, col3 = st.columns([3, 2, 1])
         
-        # Update filtered options based on search
+        with col1:
+            # SEARCH INPUT
+            search_query = st.text_input(
+                "🔍 Search records (artist, title, or catalog number):",
+                value=dropdown_state.get('search_query', ''),
+                key="youtube_search_input",
+                placeholder="Type to filter records..."
+            )
+        
+        with col2:
+            # GENRE DROPDOWN FILTER
+            available_genres = dropdown_state.get('available_genres', ['All Genres'])
+            selected_genre = st.selectbox(
+                "🎵 Filter by Genre:",
+                options=available_genres,
+                index=available_genres.index(dropdown_state.get('selected_genre', 'All Genres')) 
+                if dropdown_state.get('selected_genre', 'All Genres') in available_genres else 0,
+                key="genre_filter_dropdown"
+            )
+        
+        with col3:
+            st.metric("Total", len(dropdown_state['dropdown_options']))
+        
+        # Apply filters
+        filters_changed = False
+        
+        # Check if search query changed
         if search_query != dropdown_state.get('search_query', ''):
             dropdown_state['search_query'] = search_query
+            filters_changed = True
+        
+        # Check if genre filter changed
+        if selected_genre != dropdown_state.get('selected_genre', 'All Genres'):
+            dropdown_state['selected_genre'] = selected_genre
+            filters_changed = True
+        
+        # Apply filters if they changed
+        if filters_changed:
+            filtered = dropdown_state['dropdown_options']
+            
+            # Apply genre filter
+            if selected_genre != 'All Genres':
+                filtered = [option for option in filtered if option.get('genre') == selected_genre]
+            
+            # Apply search filter
             if search_query:
                 search_lower = search_query.lower()
-                filtered = [
-                    option for option in dropdown_state['dropdown_options']
-                    if search_lower in option['search_text']
-                ]
-                dropdown_state['filtered_options'] = filtered
+                filtered = [option for option in filtered if search_lower in option['search_text']]
+            
+            dropdown_state['filtered_options'] = filtered
+            
+            # Reset to first item when filters change
+            dropdown_state['dropdown_index'] = 0
+            if filtered:
+                dropdown_state['selected_record'] = filtered[0]['record']
             else:
-                dropdown_state['filtered_options'] = dropdown_state['dropdown_options'][:]
+                dropdown_state['selected_record'] = None
+            
             st.session_state.youtube_dropdown_state = dropdown_state
         
         filtered_options = dropdown_state['filtered_options']
         
         if not filtered_options:
-            st.warning(f"No records found matching '{search_query}'. Try a different search term.")
+            st.warning(f"No records found matching your filters.")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🔄 Clear Search", type="secondary"):
+            # Show clear filters button
+            if search_query or selected_genre != 'All Genres':
+                if st.button("🗑️ Clear All Filters", type="secondary"):
                     dropdown_state['search_query'] = ''
+                    dropdown_state['selected_genre'] = 'All Genres'
                     dropdown_state['filtered_options'] = dropdown_state['dropdown_options'][:]
+                    dropdown_state['dropdown_index'] = 0
+                    if dropdown_state['dropdown_options']:
+                        dropdown_state['selected_record'] = dropdown_state['dropdown_options'][0]['record']
                     st.session_state.youtube_dropdown_state = dropdown_state
                     st.rerun()
-            with col2:
-                st.metric("Total Records", len(dropdown_state['dropdown_options']))
             return
         
-        col1, col2, col3 = st.columns([3, 1, 1])
+        # DROPDOWN SELECTION
+        dropdown_choices = [option['display'] for option in filtered_options]
         
-        with col1:
-            dropdown_choices = ["Select a record..."] + [
-                option['display'] for option in filtered_options
-            ]
-            
-            selected_display = st.selectbox(
-                "Select record to add YouTube link:",
-                options=dropdown_choices,
-                key="youtube_record_dropdown",
-                index=0
-            )
+        # Always select the first item by default
+        selected_index = dropdown_state['dropdown_index']
         
-        with col2:
-            if st.button("🔄 Refresh List", type="secondary"):
-                dropdown_state['records_without_links'] = []
-                dropdown_state['dropdown_options'] = []
-                dropdown_state['filtered_options'] = []
-                dropdown_state['current_search_results'] = None
-                dropdown_state['selected_record'] = None
-                dropdown_state['force_refresh'] = True
-                dropdown_state['search_query'] = ''
-                st.session_state.youtube_dropdown_state = dropdown_state
-                st.rerun()
+        selected_display = st.selectbox(
+            "Select record to add YouTube link:",
+            options=dropdown_choices,
+            index=selected_index,  # Auto-select based on stored index
+            key="youtube_record_dropdown"
+        )
         
-        with col3:
-            st.metric("Filtered", f"{len(filtered_options)}/{len(dropdown_state['dropdown_options'])}")
+        # Update index when user selects a different option
+        current_index = dropdown_choices.index(selected_display) if selected_display in dropdown_choices else 0
+        if current_index != dropdown_state['dropdown_index']:
+            dropdown_state['dropdown_index'] = current_index
+            st.session_state.youtube_dropdown_state = dropdown_state
         
-        if selected_display and selected_display != "Select a record...":
+        # Show filter metrics
+        if selected_genre != 'All Genres' or search_query:
+            st.caption(f"Showing {len(filtered_options)} records (filtered by {selected_genre}{' + search' if search_query else ''})")
+        
+        # Always show results for the selected record
+        if selected_display:
             selected_option = None
             for option in filtered_options:
                 if option['display'] == selected_display:
@@ -219,8 +279,9 @@ class YouTubeLinkerTab:
                         if prev_session_key in st.session_state:
                             del st.session_state[prev_session_key]
                 
-                # Always update the selected record
-                dropdown_state['selected_record'] = record
+                # Update the selected record
+                if dropdown_state.get('selected_record') != record:
+                    dropdown_state['selected_record'] = record
                 
                 # Check if we need to perform a new search
                 should_search = False
@@ -421,16 +482,34 @@ class YouTubeLinkerTab:
         dropdown_state['dropdown_options'] = new_options
         dropdown_state['records_without_links'] = new_records
         
-        # Re-filter the options based on current search
-        if dropdown_state.get('search_query'):
+        # Rebuild available genres
+        all_genres = set(['All Genres'])
+        for option in new_options:
+            genre = option.get('genre')
+            if genre:
+                all_genres.add(genre)
+        dropdown_state['available_genres'] = sorted(list(all_genres))
+        
+        # Re-filter the options based on current filters
+        filtered = new_options
+        
+        # Apply genre filter
+        if dropdown_state.get('selected_genre', 'All Genres') != 'All Genres':
+            filtered = [option for option in filtered if option.get('genre') == dropdown_state['selected_genre']]
+        
+        # Apply search filter
+        if dropdown_state.get('search_query', ''):
             search_lower = dropdown_state['search_query'].lower()
-            filtered = [
-                option for option in new_options
-                if search_lower in option['search_text']
-            ]
-            dropdown_state['filtered_options'] = filtered
+            filtered = [option for option in filtered if search_lower in option['search_text']]
+        
+        dropdown_state['filtered_options'] = filtered
+        
+        # Update dropdown index
+        dropdown_state['dropdown_index'] = 0
+        if dropdown_state['filtered_options']:
+            dropdown_state['selected_record'] = dropdown_state['filtered_options'][0]['record']
         else:
-            dropdown_state['filtered_options'] = new_options
+            dropdown_state['selected_record'] = None
         
         st.session_state.youtube_dropdown_state = dropdown_state
         return True

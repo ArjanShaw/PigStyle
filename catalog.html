@@ -17,259 +17,6 @@
     
     <link rel="stylesheet" href="catalog.css">
     <script src="js/api-utils.js"></script>
-    <style>
-        /* Additional styles for price groups */
-        .price-group {
-            margin-bottom: 40px;
-        }
-        
-        .group-header {
-            display: none; /* Remove the red line and header */
-        }
-        
-        .group-gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        
-        .catalog-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* Loading animation */
-        #loading {
-            text-align: center;
-            padding: 50px;
-            color: #aaa;
-        }
-        
-        .loading-dots {
-            display: inline-block;
-            position: relative;
-            width: 80px;
-            height: 80px;
-        }
-        
-        .loading-dots div {
-            position: absolute;
-            top: 33px;
-            width: 13px;
-            height: 13px;
-            border-radius: 50%;
-            background: #ff3366;
-            animation-timing-function: cubic-bezier(0, 1, 1, 0);
-        }
-        
-        .loading-dots div:nth-child(1) {
-            left: 8px;
-            animation: loading-dots1 0.6s infinite;
-        }
-        
-        .loading-dots div:nth-child(2) {
-            left: 8px;
-            animation: loading-dots2 0.6s infinite;
-        }
-        
-        .loading-dots div:nth-child(3) {
-            left: 32px;
-            animation: loading-dots2 0.6s infinite;
-        }
-        
-        .loading-dots div:nth-child(4) {
-            left: 56px;
-            animation: loading-dots3 0.6s infinite;
-        }
-        
-        @keyframes loading-dots1 {
-            0% {
-                transform: scale(0);
-            }
-            100% {
-                transform: scale(1);
-            }
-        }
-        
-        @keyframes loading-dots3 {
-            0% {
-                transform: scale(1);
-            }
-            100% {
-                transform: scale(0);
-            }
-        }
-        
-        @keyframes loading-dots2 {
-            0% {
-                transform: translate(0, 0);
-            }
-            100% {
-                transform: translate(24px, 0);
-            }
-        }
-        
-        .error-message {
-            background: rgba(255, 0, 0, 0.1);
-            border: 1px solid #ff3366;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px;
-            text-align: center;
-            color: #ff3366;
-        }
-        
-        .no-records {
-            text-align: center;
-            padding: 50px;
-            color: #aaa;
-            font-size: 18px;
-        }
-        
-        /* YouTube modal styles */
-        .youtube-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .youtube-modal {
-            background: rgba(0, 0, 0, 0.9);
-            border-radius: 10px;
-            padding: 20px;
-            max-width: 900px;
-            width: 90%;
-            max-height: 90vh;
-            overflow: hidden;
-            position: relative;
-            border: 2px solid #ff3366;
-            animation: slideUp 0.3s ease;
-        }
-        
-        @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        
-        /* Condition styling - UPDATED: plain text like other info */
-        .condition {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            color: #7f8c8d; /* Same color as genre */
-        }
-        
-        /* Different colors for different conditions - UPDATED: text colors instead of badges */
-        .condition-mint,
-        .condition-near-mint,
-        .condition-nm {
-            color: #27ae60 !important; /* Green for mint/near mint */
-            font-weight: bold;
-        }
-        
-        .condition-very-good,
-        .condition-vg {
-            color: #3498db !important; /* Blue for very good */
-            font-weight: bold;
-        }
-        
-        .condition-good,
-        .condition-g {
-            color: #f39c12 !important; /* Orange for good */
-            font-weight: bold;
-        }
-        
-        .condition-fair,
-        .condition-poor {
-            color: #e74c3c !important; /* Red for fair/poor */
-            font-weight: bold;
-        }
-        
-        .condition-new,
-        .condition-sealed {
-            color: #9b59b6 !important; /* Purple for new/sealed */
-            font-weight: bold;
-        }
-        
-        /* YouTube link styling */
-        .youtube-link {
-            display: inline-block;
-            background: #ff3366;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            font-size: 14px;
-            margin-top: 10px;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            border: 1px solid transparent;
-        }
-        
-        .youtube-link:hover {
-            background: transparent;
-            border-color: #ff3366;
-            color: #ff3366;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(255, 51, 102, 0.3);
-        }
-        
-        /* Card info styling */
-        .card-info {
-            padding: 15px;
-        }
-        
-        .card-info h3 {
-            margin: 0 0 8px 0;
-            font-size: 18px;
-            color: #2c3e50;
-        }
-        
-        .card-info .artist {
-            margin: 0 0 8px 0;
-            font-weight: bold;
-            color: #e74c3c;
-            font-size: 16px;
-        }
-        
-        .card-info .price {
-            margin: 0 0 8px 0;
-            font-size: 18px;
-            font-weight: bold;
-            color: #27ae60;
-        }
-        
-        .card-info .genre {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            color: #7f8c8d;
-        }
-        
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .group-gallery {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .group-gallery {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Background Image -->
@@ -278,14 +25,13 @@
         <div class="background-overlay"></div>
     </div>
 
-     <header>
+    <header>
         <div class="header-content">
             <div class="logo-container">
-                <a href='index.html'><img src='images/PigStyle.ico' alt='PigStyle'></a>
+                <a href='index.html'><img src='images/PigStyle.ico' alt='PigStyle' class="logo-img"></a>
             </div>
         </div>
     </header>
- 
     
     <div class="header-section">
         <div class='search-container'>
@@ -300,9 +46,9 @@
                 
                 <div class="price-filter-group">
                     <div class="price-inputs">
-                        <input type="number" id="minPrice" class="price-input" placeholder="Min Price" min="0">
+                        <input type="number" id="minPrice" class="price-input" placeholder="Min Price" min="0" value="">
                         <span class="price-separator">-</span>
-                        <input type="number" id="maxPrice" class="price-input" placeholder="Max Price" min="0">
+                        <input type="number" id="maxPrice" class="price-input" placeholder="Max Price" min="0" value="">
                     </div>
                 </div>
             </div>
@@ -389,8 +135,6 @@
             groupDiv.dataset.minPrice = group.min || 0;
             groupDiv.dataset.maxPrice = group.max || 99999;
             
-            // NO HEADER - removed as requested
-            
             const gallery = document.createElement('div');
             gallery.className = 'group-gallery';
             
@@ -474,41 +218,19 @@
             // Create modal content
             modal.innerHTML = `
                 <div class="youtube-modal">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0; color: white; font-size: 1.2rem;">${title}</h3>
-                        <button onclick="this.closest('.youtube-modal-overlay').remove()" style="
-                            background: #ff3366;
-                            color: white;
-                            border: none;
-                            width: 30px;
-                            height: 30px;
-                            border-radius: 50%;
-                            cursor: pointer;
-                            font-size: 1rem;
-                        ">×</button>
+                    <div class="youtube-modal-header">
+                        <h3>${title}</h3>
+                        <button class="youtube-modal-close" onclick="this.closest('.youtube-modal-overlay').remove()">×</button>
                     </div>
-                    <div style="position: relative; padding-bottom: 56.25%; height: 0;">
+                    <div class="youtube-video-container">
                         <iframe 
                             src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
-                            style="
-                                position: absolute;
-                                top: 0;
-                                left: 0;
-                                width: 100%;
-                                height: 100%;
-                                border: none;
-                                border-radius: 8px;
-                            " 
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                             allowfullscreen>
                         </iframe>
                     </div>
-                    <div style="margin-top: 15px; text-align: center;">
-                        <a href="${youtubeUrl}" target="_blank" style="
-                            color: #ff3366;
-                            text-decoration: none;
-                            font-size: 0.9rem;
-                        ">Open in YouTube ↗</a>
+                    <div class="youtube-modal-footer">
+                        <a href="${youtubeUrl}" target="_blank">Open in YouTube ↗</a>
                     </div>
                 </div>
             `;
@@ -589,6 +311,25 @@
             artistFilter.addEventListener('change', applyAllFilters);
             minPrice.addEventListener('input', applyAllFilters);
             maxPrice.addEventListener('input', applyAllFilters);
+            
+            // Clear price filters button functionality
+            const clearPriceFilters = () => {
+                minPrice.value = '';
+                maxPrice.value = '';
+                applyAllFilters();
+            };
+            
+            // Add clear button if not exists
+            if (!document.getElementById('clearPriceFilters')) {
+                const clearButton = document.createElement('button');
+                clearButton.id = 'clearPriceFilters';
+                clearButton.textContent = 'Clear Price Filter';
+                clearButton.className = 'clear-price-filter';
+                clearButton.addEventListener('click', clearPriceFilters);
+                
+                const priceFilterGroup = document.querySelector('.price-filter-group');
+                priceFilterGroup.appendChild(clearButton);
+            }
         }
 
         // Apply all filters (search, artist, price)
@@ -648,7 +389,19 @@
             
             // Show message if no records match filters
             if (visibleGroupCount === 0) {
-                container.innerHTML = '<div class="no-records">No records match your search criteria.</div>';
+                if (container.querySelector('.no-records')) {
+                    container.querySelector('.no-records').style.display = 'block';
+                } else {
+                    const noRecordsDiv = document.createElement('div');
+                    noRecordsDiv.className = 'no-records';
+                    noRecordsDiv.textContent = 'No records match your search criteria.';
+                    container.appendChild(noRecordsDiv);
+                }
+            } else {
+                const noRecordsDiv = container.querySelector('.no-records');
+                if (noRecordsDiv) {
+                    noRecordsDiv.style.display = 'none';
+                }
             }
         }
 

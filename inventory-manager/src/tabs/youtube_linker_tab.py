@@ -22,10 +22,12 @@ class YouTubeLinkerTab:
                 'current_search_results': None,
                 'selected_record': None,
                 'dropdown_options': [],
+                'filtered_options': [],
                 'last_saved_record': None,
                 'force_refresh': False,
                 'reset_dropdown': False,
                 'force_search': False,
+                'search_query': '',
             }
     
     def render(self):
@@ -62,10 +64,12 @@ class YouTubeLinkerTab:
         if dropdown_state.get('force_refresh', False):
             dropdown_state['records_without_links'] = []
             dropdown_state['dropdown_options'] = []
+            dropdown_state['filtered_options'] = []
             dropdown_state['current_search_results'] = None
             dropdown_state['selected_record'] = None
             dropdown_state['force_refresh'] = False
             dropdown_state['force_search'] = True
+            dropdown_state['search_query'] = ''
         
         if not dropdown_state['records_without_links']:
             with st.spinner("Loading records without YouTube links..."):
@@ -85,10 +89,12 @@ class YouTubeLinkerTab:
                     options.append({
                         'display': display_text,
                         'record': record,
-                        'value': f"{record.get('id')}_{artist}_{title}"
+                        'value': f"{record.get('id')}_{artist}_{title}",
+                        'search_text': f"{artist.lower()} {title.lower()} {catalog.lower()}" if catalog else f"{artist.lower()} {title.lower()}"
                     })
                 
                 dropdown_state['dropdown_options'] = options
+                dropdown_state['filtered_options'] = options[:]  # Start with all options
                 st.session_state.youtube_dropdown_state = dropdown_state
     
     def _get_records_without_youtube(self):
@@ -125,11 +131,49 @@ class YouTubeLinkerTab:
                 st.rerun()
             return
         
+        # SEARCH INPUT
+        search_query = st.text_input(
+            "🔍 Search records (artist, title, or catalog number):",
+            value=dropdown_state.get('search_query', ''),
+            key="youtube_search_input",
+            placeholder="Type to filter records..."
+        )
+        
+        # Update filtered options based on search
+        if search_query != dropdown_state.get('search_query', ''):
+            dropdown_state['search_query'] = search_query
+            if search_query:
+                search_lower = search_query.lower()
+                filtered = [
+                    option for option in dropdown_state['dropdown_options']
+                    if search_lower in option['search_text']
+                ]
+                dropdown_state['filtered_options'] = filtered
+            else:
+                dropdown_state['filtered_options'] = dropdown_state['dropdown_options'][:]
+            st.session_state.youtube_dropdown_state = dropdown_state
+        
+        filtered_options = dropdown_state['filtered_options']
+        
+        if not filtered_options:
+            st.warning(f"No records found matching '{search_query}'. Try a different search term.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔄 Clear Search", type="secondary"):
+                    dropdown_state['search_query'] = ''
+                    dropdown_state['filtered_options'] = dropdown_state['dropdown_options'][:]
+                    st.session_state.youtube_dropdown_state = dropdown_state
+                    st.rerun()
+            with col2:
+                st.metric("Total Records", len(dropdown_state['dropdown_options']))
+            return
+        
         col1, col2, col3 = st.columns([3, 1, 1])
         
         with col1:
             dropdown_choices = ["Select a record..."] + [
-                option['display'] for option in dropdown_state['dropdown_options']
+                option['display'] for option in filtered_options
             ]
             
             selected_display = st.selectbox(
@@ -143,18 +187,20 @@ class YouTubeLinkerTab:
             if st.button("🔄 Refresh List", type="secondary"):
                 dropdown_state['records_without_links'] = []
                 dropdown_state['dropdown_options'] = []
+                dropdown_state['filtered_options'] = []
                 dropdown_state['current_search_results'] = None
                 dropdown_state['selected_record'] = None
                 dropdown_state['force_refresh'] = True
+                dropdown_state['search_query'] = ''
                 st.session_state.youtube_dropdown_state = dropdown_state
                 st.rerun()
         
         with col3:
-            st.metric("Remaining", len(dropdown_state['dropdown_options']))
+            st.metric("Filtered", f"{len(filtered_options)}/{len(dropdown_state['dropdown_options'])}")
         
         if selected_display and selected_display != "Select a record...":
             selected_option = None
-            for option in dropdown_state['dropdown_options']:
+            for option in filtered_options:
                 if option['display'] == selected_display:
                     selected_option = option
                     break
@@ -374,6 +420,17 @@ class YouTubeLinkerTab:
         
         dropdown_state['dropdown_options'] = new_options
         dropdown_state['records_without_links'] = new_records
+        
+        # Re-filter the options based on current search
+        if dropdown_state.get('search_query'):
+            search_lower = dropdown_state['search_query'].lower()
+            filtered = [
+                option for option in new_options
+                if search_lower in option['search_text']
+            ]
+            dropdown_state['filtered_options'] = filtered
+        else:
+            dropdown_state['filtered_options'] = new_options
         
         st.session_state.youtube_dropdown_state = dropdown_state
         return True

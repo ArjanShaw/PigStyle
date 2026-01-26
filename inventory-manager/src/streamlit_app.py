@@ -26,8 +26,8 @@ from tabs.ebay_tab import EBayTab
 from tabs.consignment_tab import ConsignmentTab
 from tabs.price_tag_tab import PriceTagTab
 from tabs.admin_config_tab import AdminConfigTab
-from tabs.votes_tab import VotesTab
 from tabs.checkout_tab import CheckoutTab
+from tabs.youtube_linker_tab import YouTubeLinkerTab  # NEW IMPORT
 # REMOVED: from handlers.ebay_handler import EbayHandler
 from handlers.env_pars_handler import EnvParsHandler  # NEW: Centralized environment variable handler
 from config import AppConfig
@@ -744,8 +744,8 @@ def render_main_app():
     consignment_tab = ConsignmentTab()
     price_tag_tab = PriceTagTab(genre_cache)
     admin_config_tab = AdminConfigTab()
-    votes_tab = VotesTab()
     checkout_tab = CheckoutTab()
+    youtube_linker_tab = YouTubeLinkerTab(youtube_handler)  # NEW: YouTube Linker Tab
 
     render_header(user)
     
@@ -758,7 +758,7 @@ def render_main_app():
         
     render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, consignment_tab, 
-                                   admin_config_tab, votes_tab, checkout_tab)
+                                   admin_config_tab, checkout_tab, youtube_linker_tab)  # UPDATED: Added youtube_linker_tab
 
 def render_header(user):
     """Render application header with user information"""
@@ -837,7 +837,7 @@ def render_change_password_form():
 
 def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab, 
                                    ebay_tab, consignment_tab,  
-                                   admin_config_tab, votes_tab, checkout_tab):
+                                   admin_config_tab, checkout_tab, youtube_linker_tab):  # UPDATED: Added youtube_linker_tab
     """Render tabs based on user permissions"""
     user_role = user['role']
     is_demo = user['username'] == 'demo_user'
@@ -856,10 +856,9 @@ def render_tabs_based_on_permissions(user, inventory_tab, price_tag_tab,
     if PermissionManager.has_permission(user_role, 'ebay', 'view'):
         tab_configs.append(("🛒 eBay", ebay_tab.render))
     
-    # REMOVED: Statistics tab
-    
-    if PermissionManager.has_permission(user_role, 'reports', 'view'):
-        tab_configs.append(("🗳️ Votes", votes_tab.render))
+    # NEW: Add YouTube Linker tab for admin only
+    if user_role == 'admin' and youtube_linker_tab.youtube_handler and youtube_linker_tab.youtube_handler.is_enabled():
+        tab_configs.append(("🎬 YouTube Linker", youtube_linker_tab.render))
     
     if user_role == 'admin':
         tab_configs.append(("💰 Checkout", checkout_tab.render))

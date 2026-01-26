@@ -1139,15 +1139,6 @@ class InventoryTab:
         
         format_selected = st.session_state.get('format_select', 'Vinyl')
         
-        # pricing_data = None
-        
-        # if self.discogs_handler:
-        #     with st.spinner("Fetching Discogs price suggestions..."):
-        #         pricing_data = self.discogs_handler.get_release_statistics_pricing(str(release_id))
-        # else:
-        #     st.error("Discogs handler not available")
-        #     return False, None
-        
         artist = record_data.get('artist', '')
         title = record_data.get('title', '')
         image_url = record_data.get('image_url', '')
@@ -1183,9 +1174,6 @@ class InventoryTab:
         discogs_genre_for_api = discogs_genre
         if '/' in discogs_genre:
             discogs_genre_for_api = discogs_genre.replace('/', ' ')
-        
-        # if pricing_data:
-        #     record_data['price_suggestions'] = pricing_data.get('price_suggestions', {})
         
         store_price = user_price if user_price else 0.0
         
@@ -1459,6 +1447,26 @@ class InventoryTab:
             condition = record.get('condition', '') if hasattr(record, 'get') else ''
             if condition:
                 st.write(f"**Condition:** {condition}")
+            
+            # NEW: YouTube link editing field
+            youtube_url = record.get('youtube_url', '') if hasattr(record, 'get') else ''
+            youtube_key = f"youtube_edit_{record_id}"
+            new_youtube_url = st.text_input(
+                "YouTube URL:",
+                value=youtube_url,
+                placeholder="Enter YouTube URL...",
+                key=youtube_key
+            )
+            
+            # Save button for YouTube URL
+            if new_youtube_url != youtube_url:
+                if st.button("💾 Save YouTube Link", key=f"save_youtube_{record_id}", type="secondary", width='stretch'):
+                    success = self.update_record(record_id, {'youtube_url': new_youtube_url})
+                    if success:
+                        st.success("✅ YouTube link saved!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to save YouTube link")
         
         with col4:
             user_role = user.get('role', 'consignor')
@@ -1468,23 +1476,7 @@ class InventoryTab:
             can_edit = (user_role == 'admin' or 
                        (user_role == 'consignor' and user_id and record_consignor_id == user_id))
             
-            if can_edit:
-                if st.button("✏️ Edit", key=f"edit_{record_id}", width='stretch'):
-                    if not isinstance(record, dict):
-                        record_dict = {}
-                        if hasattr(record, 'to_dict'):
-                            record_dict = record.to_dict()
-                        elif hasattr(record, '_asdict'):
-                            record_dict = record._asdict()
-                        else:
-                            record_dict = dict(record) if hasattr(record, '__dict__') else {}
-                        st.session_state.selected_record = record_dict
-                    else:
-                        st.session_state.selected_record = record
-                    st.session_state.editing_record = True
-                    st.rerun()
-            else:
-                st.button("✏️ Edit", key=f"edit_disabled_{record_id}", disabled=True, width='stretch')
+            # REMOVED: Edit button
             
             # NEW: Add "Set to Inactive" button (only for admin or record owner)
             status_id = record.get('status_id', 2) if hasattr(record, 'get') else 2

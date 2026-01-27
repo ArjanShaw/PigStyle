@@ -1,4 +1,4 @@
-// streaming.js - Get genres from records, true shuffle, YouTube only
+// streaming.js - Get genres from records, true shuffle, YouTube only with checkbox genre filtering
 
 console.log('streaming.js loaded!');
 
@@ -9,7 +9,8 @@ let shuffledIndices = [];      // Array of shuffled indices
 let shuffleCurrentIndex = 0;   // Current position in shuffled playlist
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
-let genreMap = {};
+let allGenres = [];
+let selectedGenres = new Set();
 
 // ========== YOUTUBE PLAYER FUNCTIONS ==========
 
@@ -63,115 +64,242 @@ function getCurrentShuffledIndex() {
     return shuffledIndices[shuffleCurrentIndex];
 }
 
-// ========== CORE FUNCTIONS ==========
+// ========== GENRE CHECKBOX FUNCTIONS ==========
 
-// Load saved selections from localStorage
-function loadSavedSelections() {
-    const savedGenre = localStorage.getItem('pigstyleStreamingGenre');
+// Extract unique genres from records
+function extractUniqueGenres(records) {
+    const genreSet = new Set();
     
-    if (savedGenre) {
-        document.getElementById('genreFilter').value = savedGenre;
+    records.forEach(record => {
+        if (record.genre_name) {
+            genreSet.add(record.genre_name);
+        }
+    });
+    
+    allGenres = Array.from(genreSet).sort();
+    
+    // Start with all genres selected
+    selectedGenres = new Set(allGenres);
+    
+    console.log(`Extracted ${allGenres.length} unique genres:`, allGenres);
+    return allGenres;
+}
+
+// Initialize genre checkboxes
+function initGenreCheckboxes() {
+    const container = document.getElementById('genreCheckboxContainer');
+    
+    // Clear loading indicator
+    container.innerHTML = '';
+    
+    // Create header
+    const header = document.createElement('div');
+    header.className = 'genre-checkbox-header';
+    header.innerHTML = '<h3>Filter by Genre</h3>';
+    container.appendChild(header);
+    
+    // Create checkbox group
+    const group = document.createElement('div');
+    group.className = 'genre-checkbox-group';
+    
+    // Add checkboxes for each genre
+    allGenres.forEach(genre => {
+        const item = document.createElement('div');
+        item.className = 'genre-checkbox-item';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `genre-${genre.replace(/\s+/g, '-').toLowerCase()}`;
+        checkbox.value = genre;
+        checkbox.checked = selectedGenres.has(genre);
+        
+        checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                selectedGenres.add(genre);
+            } else {
+                selectedGenres.delete(genre);
+            }
+            console.log(`Genre ${genre} ${e.target.checked ? 'selected' : 'deselected'}`);
+            console.log('Selected genres:', Array.from(selectedGenres));
+            
+            // Auto-apply filter when checkbox changes
+            applyGenreFilter();
+        });
+        
+        const label = document.createElement('label');
+        label.htmlFor = `genre-${genre.replace(/\s+/g, '-').toLowerCase()}`;
+        label.textContent = genre;
+        
+        item.appendChild(checkbox);
+        item.appendChild(label);
+        group.appendChild(item);
+    });
+    
+    container.appendChild(group);
+    
+    // Add action buttons
+    const actions = document.createElement('div');
+    actions.className = 'genre-actions';
+    
+    // Select All button
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.className = 'genre-action-btn genre-select-all';
+    selectAllBtn.textContent = 'Select All';
+    selectAllBtn.addEventListener('click', () => {
+        selectedGenres = new Set(allGenres);
+        updateCheckboxes();
+        applyGenreFilter();
+        console.log('All genres selected');
+    });
+    
+    // Deselect All button
+    const deselectAllBtn = document.createElement('button');
+    deselectAllBtn.className = 'genre-action-btn genre-deselect-all';
+    deselectAllBtn.textContent = 'Deselect All';
+    deselectAllBtn.addEventListener('click', () => {
+        selectedGenres.clear();
+        updateCheckboxes();
+        applyGenreFilter();
+        console.log('All genres deselected');
+    });
+    
+    // Apply button (just for closing panel)
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'genre-action-btn genre-apply';
+    applyBtn.textContent = 'Close';
+    applyBtn.addEventListener('click', () => {
+        document.getElementById('genreCheckboxContainer').classList.remove('show');
+        document.getElementById('genreToggleBtn').classList.remove('active');
+    });
+    
+    actions.appendChild(selectAllBtn);
+    actions.appendChild(deselectAllBtn);
+    actions.appendChild(applyBtn);
+    container.appendChild(actions);
+}
+
+// Update all checkboxes based on selectedGenres
+function updateCheckboxes() {
+    allGenres.forEach(genre => {
+        const checkbox = document.getElementById(`genre-${genre.replace(/\s+/g, '-').toLowerCase()}`);
+        if (checkbox) {
+            checkbox.checked = selectedGenres.has(genre);
+        }
+    });
+}
+
+// Apply genre filter and reload tracks
+function applyGenreFilter() {
+    console.log('Applying genre filter...');
+    console.log('Selected genres:', Array.from(selectedGenres));
+    
+    // Filter records based on selected genres
+    if (selectedGenres.size === 0) {
+        // If no genres selected, show nothing
+        filteredRecords = [];
+        console.log('No genres selected, clearing all tracks');
+    } else {
+        // Filter to records with matching genres
+        filteredRecords = allRecords.filter(record => 
+            record.youtube_url && 
+            (record.youtube_url.includes('youtube.com') || 
+             record.youtube_url.includes('youtu.be')) &&
+            record.genre_name &&
+            selectedGenres.has(record.genre_name)
+        );
+        
+        console.log(`Filtered to ${filteredRecords.length} records with selected genres`);
     }
     
-    console.log('Loaded saved selections:', { genre: savedGenre });
+    // Regenerate shuffled playlist with filtered records
+    if (filteredRecords.length > 0) {
+        generateShuffledPlaylist(filteredRecords);
+        shuffleCurrentIndex = 0;
+        
+        // Load the first track
+        if (youtubeAPILoaded) {
+            loadCurrentYouTubeTrack();
+        }
+        
+        // Show player controls
+        document.getElementById('youtubeControls').style.display = 'flex';
+    } else {
+        // No tracks match the filter
+        if (youtubePlayer) {
+            youtubePlayer.destroy();
+            youtubePlayer = null;
+        }
+        
+        document.getElementById('youtube-player').innerHTML = `
+            <div style="padding: 40px; text-align: center; color: white;">
+                <h3>No Tracks Found</h3>
+                <p>No YouTube videos found for selected ${selectedGenres.size > 1 ? 'genres' : 'genre'}.</p>
+                <p>Try selecting different genres.</p>
+            </div>
+        `;
+        
+        document.getElementById('youtubeControls').style.display = 'none';
+        document.getElementById('trackTitle').textContent = 'No Tracks Available';
+        document.getElementById('trackArtist').textContent = 'Select genres to see tracks';
+        document.getElementById('trackPrice').textContent = '';
+    }
+    
+    // Update info tab if active
+    if (document.querySelector('#info-tab').classList.contains('active')) {
+        const currentIndex = getCurrentShuffledIndex();
+        loadRecordInfo(currentIndex);
+    }
 }
 
-// Save selections to localStorage
+// ========== CORE FUNCTIONS ==========
+
+// Load saved genre selections from localStorage
+function loadSavedSelections() {
+    const savedGenres = localStorage.getItem('pigstyleStreamingGenres');
+    
+    if (savedGenres) {
+        try {
+            const parsedGenres = JSON.parse(savedGenres);
+            if (Array.isArray(parsedGenres)) {
+                // Only use saved genres that still exist in current data
+                selectedGenres = new Set(parsedGenres.filter(genre => allGenres.includes(genre)));
+                console.log('Loaded saved genre selections:', Array.from(selectedGenres));
+            }
+        } catch (e) {
+            console.error('Error parsing saved genres:', e);
+        }
+    }
+}
+
+// Save genre selections to localStorage
 function saveSelections() {
-    const genre = document.getElementById('genreFilter').value;
-    
-    localStorage.setItem('pigstyleStreamingGenre', genre);
-    
-    console.log('Saved selections:', { genre });
+    const genresToSave = Array.from(selectedGenres);
+    localStorage.setItem('pigstyleStreamingGenres', JSON.stringify(genresToSave));
+    console.log('Saved genre selections:', genresToSave);
 }
 
-// Main function to start playing based on current selections
-function startPlaying() {
-    const genreId = document.getElementById('genreFilter').value;
-    const genreName = genreId ? (genreMap[genreId] || 'Selected Genre') : 'All Genres';
-    
-    console.log(`Starting YouTube playback - Genre: ${genreName}`);
-    
-    // Save selections
-    saveSelections();
-    
-    startYouTubePlayback(genreId);
-}
-
-// Start YouTube playback
-function startYouTubePlayback(genreId) {
-    console.log('Starting YouTube playback for genre:', genreId || 'All');
+// Start YouTube playback with current genre selections
+function startYouTubePlayback() {
+    console.log('Starting YouTube playback with selected genres...');
     
     if (youtubePlayer) {
         youtubePlayer.destroy();
         youtubePlayer = null;
     }
     
+    // Show player content
     document.getElementById('loading').style.display = 'none';
     document.getElementById('playerContent').style.display = 'block';
     
-    // Show YouTube player and controls
+    // Show YouTube player
     document.getElementById('youtubeContainer').style.display = 'block';
-    document.getElementById('youtubeControls').style.display = 'flex';
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();
     }
     
-    // Apply genre filter for YouTube
-    if (!genreId) {
-        // Show all records with YouTube URLs
-        filteredRecords = allRecords.filter(record => 
-            record.youtube_url && 
-            (record.youtube_url.includes('youtube.com') || 
-             record.youtube_url.includes('youtu.be'))
-        );
-    } else {
-        // Filter by genre
-        filteredRecords = allRecords.filter(record => 
-            record.youtube_url && 
-            (record.youtube_url.includes('youtube.com') || 
-             record.youtube_url.includes('youtu.be')) &&
-            record.genre_id == genreId
-        );
-    }
-    
-    console.log(`Filtered to ${filteredRecords.length} records for YouTube playback`);
-    
-    if (filteredRecords.length > 0) {
-        // GENERATE SHUFFLED PLAYLIST (TRUE SHUFFLE)
-        generateShuffledPlaylist(filteredRecords);
-        
-        // Start at first shuffled track (index 0 in shuffled playlist)
-        shuffleCurrentIndex = 0;
-        
-        console.log(`True shuffle: Starting at shuffled position ${shuffleCurrentIndex}`);
-        console.log(`Total tracks in shuffled playlist: ${shuffledIndices.length}`);
-        
-        if (youtubeAPILoaded) {
-            loadCurrentYouTubeTrack();
-        } else {
-            document.getElementById('youtube-player').innerHTML = `
-                <div style="padding: 40px; text-align: center; color: white;">
-                    <h3>Loading YouTube Player...</h3>
-                    <p>Please wait a moment...</p>
-                </div>
-            `;
-        }
-    } else {
-        document.getElementById('youtube-player').innerHTML = `
-            <div style="padding: 40px; text-align: center; color: white;">
-                <h3>No Tracks Found</h3>
-                <p>No YouTube videos found for ${genreMap[genreId] || 'this genre'}.</p>
-            </div>
-        `;
-        document.getElementById('info-tab').innerHTML = `
-            <div style="padding: 40px; text-align: center; color: white;">
-                <h3>No Tracks Found</h3>
-                <p>No YouTube videos found for ${genreMap[genreId] || 'this genre'}.</p>
-            </div>
-        `;
-    }
+    // Apply genre filter
+    applyGenreFilter();
 }
 
 // Load current YouTube track
@@ -192,6 +320,7 @@ function loadCurrentYouTubeTrack() {
     console.log('Title:', currentRecord.title);
     console.log('Record ID:', currentRecord.id);
     console.log('YouTube ID:', youtubeId);
+    console.log('Genre:', currentRecord.genre_name);
     
     // Update track info
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
@@ -324,47 +453,6 @@ function playNextTrack() {
     loadCurrentYouTubeTrack();
 }
 
-// Build genre map from records
-function buildGenreMap(records) {
-    genreMap = {};
-    
-    // Find unique genre IDs and names from records
-    records.forEach(record => {
-        if (record.genre_id && record.genre_name && !genreMap[record.genre_id]) {
-            // Use the actual genre name from the JOIN
-            genreMap[record.genre_id] = record.genre_name;
-        } else if (record.genre_id && !genreMap[record.genre_id]) {
-            // Fallback if no genre name
-            genreMap[record.genre_id] = `Genre ${record.genre_id}`;
-        }
-    });
-    
-    console.log('Built genre map from records:', genreMap);
-}
-
-// Populate genre filter dropdown
-function populateGenreFilter() {
-    const genreFilter = document.getElementById('genreFilter');
-    
-    // Clear existing options except "All Genres"
-    while (genreFilter.options.length > 1) {
-        genreFilter.remove(1);
-    }
-    
-    // Add genre options sorted by ID
-    const sortedGenres = Object.entries(genreMap)
-        .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
-    
-    sortedGenres.forEach(([id, name]) => {
-        const option = document.createElement('option');
-        option.value = id;
-        option.textContent = name;
-        genreFilter.appendChild(option);
-    });
-    
-    console.log(`Populated ${sortedGenres.length} genres in filter`);
-}
-
 // Load records from API
 async function loadRecordsFromAPI() {
     try {
@@ -382,17 +470,23 @@ async function loadRecordsFromAPI() {
             allRecords = data.records;
             console.log(`Loaded ${allRecords.length} records from API`);
             
-            // Build genre map from records
-            buildGenreMap(allRecords);
+            // Extract unique genres from records
+            extractUniqueGenres(allRecords);
             
-            // Populate genre filter
-            populateGenreFilter();
+            // Initialize genre checkboxes
+            initGenreCheckboxes();
             
             // Load saved selections
             loadSavedSelections();
             
+            // Update checkboxes based on saved selections
+            updateCheckboxes();
+            
+            // Save selections (in case this is first load)
+            saveSelections();
+            
             // Start playing based on current selections
-            startPlaying();
+            startYouTubePlayback();
             
         } else {
             throw new Error('Invalid response from API');
@@ -573,19 +667,35 @@ function loadSavedScale() {
     }
 }
 
-// ========== INITIALIZATION ==========
+// ========== UI SETUP ==========
 
 // Setup UI event listeners
 function setupUI() {
-    const genreFilter = document.getElementById('genreFilter');
-    
-    if (genreFilter) {
-        genreFilter.addEventListener('change', function() {
-            console.log('Genre changed to:', this.value);
-            startPlaying();
+    // Genre toggle button
+    const genreToggleBtn = document.getElementById('genreToggleBtn');
+    if (genreToggleBtn) {
+        genreToggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const container = document.getElementById('genreCheckboxContainer');
+            const btn = document.getElementById('genreToggleBtn');
+            
+            container.classList.toggle('show');
+            btn.classList.toggle('active');
         });
     }
     
+    // Close genre filter when clicking outside
+    document.addEventListener('click', (e) => {
+        const container = document.getElementById('genreCheckboxContainer');
+        const btn = document.getElementById('genreToggleBtn');
+        
+        if (container && btn && !container.contains(e.target) && !btn.contains(e.target)) {
+            container.classList.remove('show');
+            btn.classList.remove('active');
+        }
+    });
+    
+    // Previous/Next buttons
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     
@@ -595,6 +705,8 @@ function setupUI() {
     // Initialize tabs
     initTabs();
 }
+
+// ========== INITIALIZATION ==========
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -616,7 +728,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // Make functions available globally
 window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;
-window.startPlaying = startPlaying;
 window.scaleDown = scaleDown;
 window.scaleUp = scaleUp;
 window.resetScale = resetScale;

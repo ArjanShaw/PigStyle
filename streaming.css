@@ -392,26 +392,7 @@ header {
     color: #ccc;
 }
 
-.record-info-youtube {
-    margin-top: 20px;
-}
-
-.youtube-external-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #ff0000;
-    text-decoration: none;
-    padding: 8px 16px;
-    background: rgba(255, 0, 0, 0.1);
-    border-radius: 4px;
-    transition: all 0.3s ease;
-}
-
-.youtube-external-link:hover {
-    background: rgba(255, 0, 0, 0.2);
-    transform: translateY(-2px);
-}
+/* Removed YouTube external link styles */
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

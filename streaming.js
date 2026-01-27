@@ -469,11 +469,9 @@ function loadRecordInfo(recordIndex) {
     const imageUrl = record.image_url || 'images/default-record.jpg';
     const genre = record.genre_name || 'Unknown Genre';
     const price = record.store_price ? formatPrice(record.store_price) : 'Price N/A';
-    const youtubeUrl = record.youtube_url || '';
     const recordCondition = record.condition || '';
     const description = record.description || '';
     
-    const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
     const hasCondition = recordCondition && recordCondition.trim() !== '';
     
     let conditionClass = 'record-condition';
@@ -508,14 +506,6 @@ function loadRecordInfo(recordIndex) {
                     <div class="record-info-description">
                         <h4>Description</h4>
                         <p>${escapeHtml(description)}</p>
-                    </div>
-                ` : ''}
-                
-                ${hasYouTube ? `
-                    <div class="record-info-youtube">
-                        <a href="${youtubeUrl}" target="_blank" class="youtube-external-link">
-                            <i class="fab fa-youtube"></i> Watch on YouTube
-                        </a>
                     </div>
                 ` : ''}
             </div>

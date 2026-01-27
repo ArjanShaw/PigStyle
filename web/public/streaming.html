@@ -36,10 +36,21 @@
             <div class="logo-container">
                 <a href='index.html'><img src='images/PigStyle.ico' alt='PigStyle'></a>
             </div>
-            <div class="genre-selector">
-                <select id="genreFilter" class="genre-select">
-                    <option value="">All Genres</option>
-                </select>
+            <div class="genre-controls">
+                <button class="genre-toggle-btn" id="genreToggleBtn">
+                    <i class="fas fa-filter"></i> Filter Genres
+                </button>
+                <div class="genre-checkbox-container" id="genreCheckboxContainer">
+                    <!-- Genre checkboxes will be populated by JavaScript -->
+                    <div class="genre-checkbox-loading">
+                        <div class="loading-dots small">
+                            <div></div>
+                            <div></div>
+                            <div></div>
+                            <div></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>

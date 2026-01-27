@@ -89,8 +89,47 @@ function extractUniqueGenres(records) {
 function initGenreCheckboxes() {
     const container = document.getElementById('genreCheckboxContainer');
     
-    // Clear loading indicator
-    container.innerHTML = '';
+    // SAFETY CHECK: Ensure container exists before modifying it
+    if (!container) {
+        console.error('ERROR: genreCheckboxContainer element not found!');
+        console.log('Available elements with ID genreCheckboxContainer:', document.querySelectorAll('#genreCheckboxContainer'));
+        console.log('DOM state:', document.readyState);
+        
+        // Try to create the element if it doesn't exist (fallback)
+        const genreControls = document.querySelector('.genre-controls');
+        if (genreControls) {
+            console.log('Creating genreCheckboxContainer element as fallback...');
+            const newContainer = document.createElement('div');
+            newContainer.id = 'genreCheckboxContainer';
+            newContainer.className = 'genre-checkbox-container';
+            genreControls.appendChild(newContainer);
+            
+            // Use the newly created element
+            initGenreCheckboxesWithElement(newContainer);
+        } else {
+            console.error('Could not find .genre-controls element either!');
+            // Create a temporary container to prevent further errors
+            const tempContainer = document.createElement('div');
+            tempContainer.id = 'genreCheckboxContainer';
+            tempContainer.style.display = 'none';
+            document.body.appendChild(tempContainer);
+            initGenreCheckboxesWithElement(tempContainer);
+        }
+        return;
+    }
+    
+    // If container exists, proceed normally
+    initGenreCheckboxesWithElement(container);
+}
+
+// Helper function to initialize checkboxes with a given container
+function initGenreCheckboxesWithElement(container) {
+    console.log('Initializing genre checkboxes with container:', container);
+    
+    // Clear loading indicator if it exists
+    if (container.querySelector('.genre-checkbox-loading')) {
+        container.innerHTML = '';
+    }
     
     // Create header
     const header = document.createElement('div');
@@ -168,8 +207,10 @@ function initGenreCheckboxes() {
     applyBtn.className = 'genre-action-btn genre-apply';
     applyBtn.textContent = 'Close';
     applyBtn.addEventListener('click', () => {
-        document.getElementById('genreCheckboxContainer').classList.remove('show');
-        document.getElementById('genreToggleBtn').classList.remove('active');
+        const container = document.getElementById('genreCheckboxContainer');
+        const btn = document.getElementById('genreToggleBtn');
+        if (container) container.classList.remove('show');
+        if (btn) btn.classList.remove('active');
     });
     
     actions.appendChild(selectAllBtn);
@@ -192,6 +233,9 @@ function updateCheckboxes() {
 function applyGenreFilter() {
     console.log('Applying genre filter...');
     console.log('Selected genres:', Array.from(selectedGenres));
+    
+    // Save selections whenever filter changes
+    saveSelections();
     
     // Filter records based on selected genres
     if (selectedGenres.size === 0) {
@@ -219,6 +263,14 @@ function applyGenreFilter() {
         // Load the first track
         if (youtubeAPILoaded) {
             loadCurrentYouTubeTrack();
+        } else {
+            // Show placeholder while waiting for YouTube API
+            document.getElementById('youtube-player').innerHTML = `
+                <div style="padding: 40px; text-align: center; color: white;">
+                    <h3>Loading Player...</h3>
+                    <p>Found ${filteredRecords.length} tracks for selected genres</p>
+                </div>
+            `;
         }
         
         // Show player controls
@@ -245,7 +297,7 @@ function applyGenreFilter() {
     }
     
     // Update info tab if active
-    if (document.querySelector('#info-tab').classList.contains('active')) {
+    if (document.querySelector('#info-tab') && document.querySelector('#info-tab').classList.contains('active')) {
         const currentIndex = getCurrentShuffledIndex();
         loadRecordInfo(currentIndex);
     }
@@ -288,11 +340,15 @@ function startYouTubePlayback() {
     }
     
     // Show player content
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('playerContent').style.display = 'block';
+    const loadingElement = document.getElementById('loading');
+    const playerContent = document.getElementById('playerContent');
+    
+    if (loadingElement) loadingElement.style.display = 'none';
+    if (playerContent) playerContent.style.display = 'block';
     
     // Show YouTube player
-    document.getElementById('youtubeContainer').style.display = 'block';
+    const youtubeContainer = document.getElementById('youtubeContainer');
+    if (youtubeContainer) youtubeContainer.style.display = 'block';
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();
@@ -323,11 +379,14 @@ function loadCurrentYouTubeTrack() {
     console.log('Genre:', currentRecord.genre_name);
     
     // Update track info
-    document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
-    document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
+    const trackTitle = document.getElementById('trackTitle');
+    const trackArtist = document.getElementById('trackArtist');
+    const priceElement = document.getElementById('trackPrice');
+    
+    if (trackTitle) trackTitle.textContent = currentRecord.title || 'Unknown Title';
+    if (trackArtist) trackArtist.textContent = currentRecord.artist || 'Unknown Artist';
     
     // Update price
-    const priceElement = document.getElementById('trackPrice');
     if (priceElement && currentRecord.store_price) {
         priceElement.textContent = `$${parseFloat(currentRecord.store_price).toFixed(2)}`;
     }
@@ -350,7 +409,10 @@ function loadCurrentYouTubeTrack() {
         return;
     }
     
-    document.getElementById('youtube-player').innerHTML = '<div id="player"></div>';
+    const youtubePlayerDiv = document.getElementById('youtube-player');
+    if (!youtubePlayerDiv) return;
+    
+    youtubePlayerDiv.innerHTML = '<div id="player"></div>';
     
     youtubePlayer = new YT.Player('player', {
         height: '100%',
@@ -371,7 +433,7 @@ function loadCurrentYouTubeTrack() {
     });
     
     // Update info tab if it's active
-    if (document.querySelector('#info-tab').classList.contains('active')) {
+    if (document.querySelector('#info-tab') && document.querySelector('#info-tab').classList.contains('active')) {
         loadRecordInfo(actualIndex);
     }
 }
@@ -473,7 +535,7 @@ async function loadRecordsFromAPI() {
             // Extract unique genres from records
             extractUniqueGenres(allRecords);
             
-            // Initialize genre checkboxes
+            // Initialize genre checkboxes (with safety checks)
             initGenreCheckboxes();
             
             // Load saved selections
@@ -494,13 +556,16 @@ async function loadRecordsFromAPI() {
         
     } catch (error) {
         console.error('Error loading records from API:', error);
-        document.getElementById('youtube-player').innerHTML = `
-            <div style="padding: 40px; text-align: center; color: white;">
-                <h3>Error Loading Records</h3>
-                <p>Failed to load from API: ${error.message}</p>
-                <p>Make sure your API server at arjanshaw.pythonanywhere.com is running.</p>
-            </div>
-        `;
+        const youtubePlayerDiv = document.getElementById('youtube-player');
+        if (youtubePlayerDiv) {
+            youtubePlayerDiv.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: white;">
+                    <h3>Error Loading Records</h3>
+                    <p>Failed to load from API: ${error.message}</p>
+                    <p>Make sure your API server at arjanshaw.pythonanywhere.com is running.</p>
+                </div>
+            `;
+        }
     }
 }
 
@@ -546,6 +611,7 @@ function switchTab(tabId, buttonElement) {
 // Load record information for the info tab
 function loadRecordInfo(recordIndex) {
     const container = document.getElementById('recordInfoContainer');
+    if (!container) return;
     
     if (filteredRecords.length === 0 || recordIndex >= filteredRecords.length) {
         container.innerHTML = '<div class="no-record-info">No record information available</div>';
@@ -671,17 +737,24 @@ function loadSavedScale() {
 
 // Setup UI event listeners
 function setupUI() {
-    // Genre toggle button
+    console.log('Setting up UI...');
+    
+    // Check if genre toggle button exists
     const genreToggleBtn = document.getElementById('genreToggleBtn');
     if (genreToggleBtn) {
+        console.log('Found genreToggleBtn element');
         genreToggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             const container = document.getElementById('genreCheckboxContainer');
             const btn = document.getElementById('genreToggleBtn');
             
-            container.classList.toggle('show');
-            btn.classList.toggle('active');
+            if (container && btn) {
+                container.classList.toggle('show');
+                btn.classList.toggle('active');
+            }
         });
+    } else {
+        console.warn('genreToggleBtn element not found during UI setup');
     }
     
     // Close genre filter when clicking outside
@@ -699,8 +772,15 @@ function setupUI() {
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     
-    if (prevBtn) prevBtn.addEventListener('click', playPreviousTrack);
-    if (nextBtn) nextBtn.addEventListener('click', playNextTrack);
+    if (prevBtn) {
+        console.log('Found prevBtn element');
+        prevBtn.addEventListener('click', playPreviousTrack);
+    }
+    
+    if (nextBtn) {
+        console.log('Found nextBtn element');
+        nextBtn.addEventListener('click', playNextTrack);
+    }
     
     // Initialize tabs
     initTabs();
@@ -711,6 +791,23 @@ function setupUI() {
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing...');
+    console.log('Document readyState:', document.readyState);
+    
+    // Verify critical DOM elements exist
+    const criticalElements = [
+        'genreToggleBtn',
+        'genreCheckboxContainer',
+        'youtube-player',
+        'trackTitle',
+        'trackArtist',
+        'trackPrice'
+    ];
+    
+    console.log('Checking critical DOM elements:');
+    criticalElements.forEach(id => {
+        const element = document.getElementById(id);
+        console.log(`  ${id}: ${element ? 'FOUND' : 'NOT FOUND'}`);
+    });
     
     // Setup UI
     setupUI();
@@ -718,8 +815,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load YouTube API
     loadYouTubeAPI();
     
-    // Load records and start playing
-    setTimeout(loadRecordsFromAPI, 500);
+    // Load records and start playing - wait for DOM to be fully ready
+    function initializeApp() {
+        const genreContainer = document.getElementById('genreCheckboxContainer');
+        if (!genreContainer) {
+            console.log('genreCheckboxContainer not ready yet, waiting...');
+            setTimeout(initializeApp, 100);
+            return;
+        }
+        
+        console.log('All required DOM elements ready, loading records...');
+        loadRecordsFromAPI();
+    }
+    
+    // Start initialization with a small delay to ensure DOM is ready
+    setTimeout(initializeApp, 300);
     
     // Load saved scale
     loadSavedScale();

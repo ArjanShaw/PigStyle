@@ -1275,7 +1275,7 @@ class InventoryTab:
             return False, None
     
     def update_database_record(self, record_data, genre, store_credit_option=None, user_price=None):
-        """Update database record with enhanced consignment features via API"""
+        """Update database record with enhanced consignment features via API - FIXED VERSION"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
         
@@ -1285,27 +1285,42 @@ class InventoryTab:
             st.error("No record ID provided")
             return False
         
+        # First, get the genre_id for the genre name
+        genre_id = None
+        try:
+            # Call API to get genre_id for genre name
+            response = requests.get(
+                f"{self.base_url}/genres/by-name/{genre}",
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    genre_id = data.get('genre_id')
+                else:
+                    st.error(f"Genre '{genre}' not found")
+                    return False
+            else:
+                st.error(f"Failed to get genre ID for '{genre}'")
+                return False
+        except Exception as e:
+            st.error(f"Error getting genre ID: {e}")
+            return False
+        
+        # Prepare updates
+        updates = {
+            'genre_id': genre_id
+        }
+        
         # Get compilation status from record_data
         compilation = record_data.get('compilation', False)
+        updates['compilation'] = compilation
         
         # Get consignment info from record_data
         consignor_id = record_data.get('consignor_id')
         commission_rate = record_data.get('commission_rate')
         store_return_days = record_data.get('store_return_days')
-        
-        # Get genre_id for the genre using API
-        genre_id = None
-        if genre:
-            genres_df = self.get_all_genres()
-            if not genres_df.empty:
-                genre_rows = genres_df[genres_df['genre_name'] == genre]
-                if not genre_rows.empty:
-                    genre_id = int(genre_rows.iloc[0]['id'])
-        
-        updates = {
-            'genre_id': genre_id,
-            'compilation': compilation
-        }
         
         # Add consignor fields if provided
         if consignor_id is not None:
@@ -1438,6 +1453,51 @@ class InventoryTab:
             if info_lines:
                 for line in info_lines:
                     st.write(line)
+            
+            # NEW: Genre editing field (just like YouTube URL)
+            if hasattr(record, 'get'):
+                current_genre = record.get('genre', '')
+                genre_key = f"genre_edit_{record_id}"
+                
+                # Get all available genres
+                all_genres = self.get_all_genres()
+                
+                # Find current genre index
+                current_index = 0  # Default to first option
+                if current_genre in all_genres:
+                    current_index = all_genres.index(current_genre) + 1
+                
+                # Genre selection dropdown
+                new_genre = st.selectbox(
+                    "Genre:",
+                    options=["Select genre..."] + all_genres,
+                    index=current_index,
+                    key=genre_key
+                )
+                
+                # Show save button if genre changed
+                if new_genre != "Select genre..." and new_genre != current_genre:
+                    if st.button("💾 Save Genre", key=f"save_genre_{record_id}", type="secondary", width='stretch'):
+                        # Add confirmation message
+                        confirm_container = st.empty()
+                        with confirm_container:
+                            st.info(f"Updating genre from '{current_genre}' to '{new_genre}'...")
+                        
+                        # Update the record with new genre
+                        success = self.update_database_record(
+                            record,
+                            new_genre,
+                            store_credit_option=None,
+                            user_price=None
+                        )
+                        
+                        if success:
+                            confirm_container.empty()
+                            st.success(f"✅ Genre updated successfully from '{current_genre}' to '{new_genre}'!")
+                            st.rerun()
+                        else:
+                            confirm_container.empty()
+                            st.error("❌ Failed to update genre")
         
         with col3:
             store_price = record.get('store_price', 0.0) if hasattr(record, 'get') else 0.0
@@ -1448,7 +1508,7 @@ class InventoryTab:
             if condition:
                 st.write(f"**Condition:** {condition}")
             
-            # NEW: YouTube link editing field
+            # YouTube link editing field
             youtube_url = record.get('youtube_url', '') if hasattr(record, 'get') else ''
             youtube_key = f"youtube_edit_{record_id}"
             new_youtube_url = st.text_input(
@@ -1461,11 +1521,18 @@ class InventoryTab:
             # Save button for YouTube URL
             if new_youtube_url != youtube_url:
                 if st.button("💾 Save YouTube Link", key=f"save_youtube_{record_id}", type="secondary", width='stretch'):
+                    # Add confirmation message
+                    confirm_container = st.empty()
+                    with confirm_container:
+                        st.info("Updating YouTube URL...")
+                    
                     success = self.update_record(record_id, {'youtube_url': new_youtube_url})
                     if success:
+                        confirm_container.empty()
                         st.success("✅ YouTube link saved!")
                         st.rerun()
                     else:
+                        confirm_container.empty()
                         st.error("❌ Failed to save YouTube link")
         
         with col4:
@@ -1478,26 +1545,40 @@ class InventoryTab:
             
             # REMOVED: Edit button
             
-            # NEW: Add "Set to Inactive" button (only for admin or record owner)
+            # Add "Set to Inactive" button (only for admin or record owner)
             status_id = record.get('status_id', 2) if hasattr(record, 'get') else 2
             
             # Show inactive button for active records (status_id = 2)
             if can_edit and status_id == 2:  # Only show for active records
                 if st.button("⏸️ Inactive", key=f"inactive_{record_id}", type="secondary", width='stretch', 
                            help="Set record to inactive status (status_id = 1)"):
+                    # Add confirmation message
+                    confirm_container = st.empty()
+                    with confirm_container:
+                        st.info("Setting record to inactive...")
+                    
                     if self._set_record_inactive(record_id):
+                        confirm_container.empty()
                         st.success(f"✅ Record set to inactive!")
                         st.rerun()
                     else:
+                        confirm_container.empty()
                         st.error("Failed to set record to inactive")
             # Show reactivate button for inactive records (status_id = 1)
             elif can_edit and status_id == 1:
                 if st.button("▶️ Activate", key=f"activate_{record_id}", type="secondary", width='stretch',
                            help="Reactivate record (status_id = 2)"):
+                    # Add confirmation message
+                    confirm_container = st.empty()
+                    with confirm_container:
+                        st.info("Reactivating record...")
+                    
                     if self._set_record_active(record_id):
+                        confirm_container.empty()
                         st.success(f"✅ Record reactivated!")
                         st.rerun()
                     else:
+                        confirm_container.empty()
                         st.error("Failed to reactivate record")
         
         with col5:
@@ -1528,10 +1609,17 @@ class InventoryTab:
             # Delete button (admin only)
             if user_role == 'admin':
                 if st.button("🗑️ Delete", key=f"delete_{record_id}", type="secondary", width='stretch'):
+                    # Add confirmation message
+                    confirm_container = st.empty()
+                    with confirm_container:
+                        st.info("Deleting record...")
+                    
                     if self.delete_record(record_id):
+                        confirm_container.empty()
                         st.success(f"✅ Record deleted successfully!")
                         st.rerun()
                     else:
+                        confirm_container.empty()
                         st.error("Failed to delete record")
         
         st.divider()
@@ -1582,28 +1670,4 @@ class InventoryTab:
                 return False
         except Exception as e:
             st.error(f"Error reactivating record: {e}")
-            return False
-    
-    def _set_record_inactive(self, record_id):
-        """Set a record to inactive status (status_id = 1)"""
-        user = st.session_state.get('user', {})
-        is_demo = user.get('username') == 'demo_user'
-        
-        if is_demo:
-            st.info(f"Demo: Would set record {record_id} to inactive")
-            return True
-            
-        try:
-            updates = {
-                'status_id': 1  # Set to inactive
-            }
-            
-            success = self.update_record(record_id, updates)
-            if success:
-                return True
-            else:
-                st.error("Failed to update record status")
-                return False
-        except Exception as e:
-            st.error(f"Error setting record to inactive: {e}")
             return False

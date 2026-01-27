@@ -1,7 +1,3 @@
-"""
-YouTube Linker Tab - Dropdown Style
-Select artist-title from dropdown, see YouTube clips, pick one to save.
-"""
 import streamlit as st
 import requests
 import pandas as pd
@@ -20,16 +16,18 @@ class YouTubeLinkerTab:
             st.session_state.youtube_dropdown_state = {
                 'records_without_links': [],
                 'current_search_results': None,
+                'current_search_query': None,  # Track what was actually searched
                 'selected_record': None,
                 'dropdown_options': [],
                 'filtered_options': [],
                 'last_saved_record': None,
                 'force_refresh': False,
                 'reset_dropdown': False,
-                'force_search': False,
+                'force_search': True,  # Start with True to force initial search
                 'search_query': '',
-                'dropdown_index': 0,  # Track selected index
-                'selected_genre': 'All Genres',  # Genre filter
+                'dropdown_index': 0,
+                'selected_genre': 'All Genres',
+                'search_cache': {},  # Cache results by record ID
             }
     
     def render(self):
@@ -54,6 +52,7 @@ class YouTubeLinkerTab:
     def _initialize_dropdown(self):
         dropdown_state = st.session_state.youtube_dropdown_state
         
+        # Reset logic
         if dropdown_state.get('reset_dropdown', False):
             dropdown_state['reset_dropdown'] = False
             dropdown_state['current_search_results'] = None
@@ -65,20 +64,23 @@ class YouTubeLinkerTab:
             dropdown_state['dropdown_options'] = []
             dropdown_state['filtered_options'] = []
             dropdown_state['current_search_results'] = None
+            dropdown_state['current_search_query'] = None
             dropdown_state['selected_record'] = None
             dropdown_state['force_refresh'] = False
             dropdown_state['force_search'] = True
             dropdown_state['search_query'] = ''
             dropdown_state['dropdown_index'] = 0
             dropdown_state['selected_genre'] = 'All Genres'
+            dropdown_state['search_cache'] = {}  # Clear cache
         
+        # Load records without YouTube links if needed
         if not dropdown_state['records_without_links']:
             with st.spinner("Loading records without YouTube links..."):
                 records = self._get_records_without_youtube()
                 dropdown_state['records_without_links'] = records
                 
                 options = []
-                all_genres = set(['All Genres'])  # Start with "All Genres"
+                all_genres = set(['All Genres'])
                 
                 for record in records:
                     artist = record.get('artist', 'Unknown Artist')
@@ -86,7 +88,6 @@ class YouTubeLinkerTab:
                     catalog = record.get('catalog_number', '')
                     genre = record.get('genre_name', record.get('genre', 'Unknown'))
                     
-                    # Add genre to the set
                     if genre:
                         all_genres.add(genre)
                     
@@ -99,12 +100,14 @@ class YouTubeLinkerTab:
                         'record': record,
                         'value': f"{record.get('id')}_{artist}_{title}",
                         'search_text': f"{artist.lower()} {title.lower()} {catalog.lower()}" if catalog else f"{artist.lower()} {title.lower()}",
-                        'genre': genre
+                        'genre': genre,
+                        'record_id': record.get('id')  # Store record ID for cache lookup
                     })
                 
                 dropdown_state['dropdown_options'] = options
-                dropdown_state['filtered_options'] = options[:]  # Start with all options
+                dropdown_state['filtered_options'] = options[:]
                 dropdown_state['available_genres'] = sorted(list(all_genres))
+                dropdown_state['search_cache'] = {}  # Clear cache when reloading records
                 
                 # Auto-select first record if there are options
                 if options:
@@ -179,12 +182,10 @@ class YouTubeLinkerTab:
         # Apply filters
         filters_changed = False
         
-        # Check if search query changed
         if search_query != dropdown_state.get('search_query', ''):
             dropdown_state['search_query'] = search_query
             filters_changed = True
         
-        # Check if genre filter changed
         if selected_genre != dropdown_state.get('selected_genre', 'All Genres'):
             dropdown_state['selected_genre'] = selected_genre
             filters_changed = True
@@ -211,6 +212,9 @@ class YouTubeLinkerTab:
             else:
                 dropdown_state['selected_record'] = None
             
+            # Force new search when filters change (new selection)
+            dropdown_state['force_search'] = True
+            
             st.session_state.youtube_dropdown_state = dropdown_state
         
         filtered_options = dropdown_state['filtered_options']
@@ -218,7 +222,6 @@ class YouTubeLinkerTab:
         if not filtered_options:
             st.warning(f"No records found matching your filters.")
             
-            # Show clear filters button
             if search_query or selected_genre != 'All Genres':
                 if st.button("🗑️ Clear All Filters", type="secondary"):
                     dropdown_state['search_query'] = ''
@@ -234,13 +237,12 @@ class YouTubeLinkerTab:
         # DROPDOWN SELECTION
         dropdown_choices = [option['display'] for option in filtered_options]
         
-        # Always select the first item by default
         selected_index = dropdown_state['dropdown_index']
         
         selected_display = st.selectbox(
             "Select record to add YouTube link:",
             options=dropdown_choices,
-            index=selected_index,  # Auto-select based on stored index
+            index=selected_index,
             key="youtube_record_dropdown"
         )
         
@@ -248,6 +250,8 @@ class YouTubeLinkerTab:
         current_index = dropdown_choices.index(selected_display) if selected_display in dropdown_choices else 0
         if current_index != dropdown_state['dropdown_index']:
             dropdown_state['dropdown_index'] = current_index
+            # Force new search when dropdown selection changes
+            dropdown_state['force_search'] = True
             st.session_state.youtube_dropdown_state = dropdown_state
         
         # Show filter metrics
@@ -283,33 +287,52 @@ class YouTubeLinkerTab:
                 # Check if we need to perform a new search
                 should_search = False
                 
-                # Condition 1: No search results cached
-                if dropdown_state['current_search_results'] is None:
-                    should_search = True
-                # Condition 2: Cached results are for a different record
-                elif prev_selected_record and prev_selected_record.get('id') != record_id:
-                    should_search = True
-                # Condition 3: Force refresh (if implemented elsewhere)
-                elif dropdown_state.get('force_search', False):
+                # Condition 1: Force search flag is set
+                if dropdown_state.get('force_search', False):
                     should_search = True
                     dropdown_state['force_search'] = False
+                # Condition 2: No search results cached
+                elif dropdown_state['current_search_results'] is None:
+                    should_search = True
+                # Condition 3: Cached results are for a different record
+                elif prev_selected_record and prev_selected_record.get('id') != record_id:
+                    should_search = True
+                # Condition 4: Check if we have cached results for this record
+                elif record_id in dropdown_state.get('search_cache', {}):
+                    # Use cached results
+                    cached = dropdown_state['search_cache'][record_id]
+                    dropdown_state['current_search_results'] = cached['results']
+                    dropdown_state['current_search_query'] = cached['query']
+                    should_search = False
                 
                 if should_search:
                     with st.spinner(f"Searching YouTube for {record.get('artist', '')}..."):
-                        youtube_results = self._search_youtube_for_record(record)
+                        artist = record.get('artist', '')
+                        title = record.get('title', '')
+                        search_query = f"{artist} - {title}"
+                        
+                        # Store the actual search query
+                        dropdown_state['current_search_query'] = search_query
+                        
+                        youtube_results = self._search_youtube_for_record(record, search_query)
                         dropdown_state['current_search_results'] = youtube_results
+                        
+                        # Cache the results
+                        if record_id:
+                            dropdown_state['search_cache'][record_id] = {
+                                'results': youtube_results,
+                                'query': search_query
+                            }
+                        
                         st.session_state.youtube_dropdown_state = dropdown_state
-                        # Add a small delay to ensure state is updated before rerendering
-                        time.sleep(0.1)
                 
                 self._display_record_and_results(record)
     
-    def _search_youtube_for_record(self, record):
+    def _search_youtube_for_record(self, record, search_query):
         artist = record.get('artist', '')
         title = record.get('title', '')
         
-        search_query = f"{artist} - {title}"
-        
+        # Use the provided search query
         track_titles = []
         if 'discogs_handler' in st.session_state and record.get('discogs_id'):
             try:
@@ -358,8 +381,23 @@ class YouTubeLinkerTab:
         
         if dropdown_state['current_search_results']:
             youtube_results = dropdown_state['current_search_results']
+            search_query = dropdown_state.get('current_search_query', 'Unknown search')
             
-            st.subheader(f"🎬 YouTube Results ({len(youtube_results)} found)")
+            # Display the actual search query used
+            st.subheader(f"🎬 YouTube Results for: '{search_query}' ({len(youtube_results)} found)")
+            
+            # Show a button to re-search if results seem irrelevant
+            if len(youtube_results) == 0 or len(youtube_results) < 3:
+                col1, col2 = st.columns([3, 1])
+                with col2:
+                    if st.button("🔄 Re-search YouTube", type="secondary"):
+                        dropdown_state['force_search'] = True
+                        # Clear cache for this record
+                        record_id = record.get('id')
+                        if record_id in dropdown_state.get('search_cache', {}):
+                            del dropdown_state['search_cache'][record_id]
+                        st.session_state.youtube_dropdown_state = dropdown_state
+                        st.rerun()
             
             cols_per_row = 3
             max_rows = 3
@@ -375,6 +413,10 @@ class YouTubeLinkerTab:
                         self._display_youtube_result_card(result, record, result_idx)
         else:
             st.info("No YouTube results found for this record.")
+            if st.button("🔄 Try Search Again"):
+                dropdown_state['force_search'] = True
+                st.session_state.youtube_dropdown_state = dropdown_state
+                st.rerun()
     
     def _display_youtube_result_card(self, result, record, index):
         record_id = record.get('id')
@@ -441,11 +483,16 @@ class YouTubeLinkerTab:
                     
                     # Clear the search results cache
                     dropdown_state['current_search_results'] = None
+                    dropdown_state['current_search_query'] = None
                     dropdown_state['selected_record'] = None
                     dropdown_state['reset_dropdown'] = True
                     dropdown_state['force_refresh'] = True
                     dropdown_state['force_search'] = True
                     dropdown_state['last_saved_record'] = record_id
+                    
+                    # Remove from search cache
+                    if record_id in dropdown_state.get('search_cache', {}):
+                        del dropdown_state['search_cache'][record_id]
                     
                     st.session_state.youtube_dropdown_state = dropdown_state
                     
@@ -490,11 +537,9 @@ class YouTubeLinkerTab:
         # Re-filter the options based on current filters
         filtered = new_options
         
-        # Apply genre filter
         if dropdown_state.get('selected_genre', 'All Genres') != 'All Genres':
             filtered = [option for option in filtered if option.get('genre') == dropdown_state['selected_genre']]
         
-        # Apply search filter
         if dropdown_state.get('search_query', ''):
             search_lower = dropdown_state['search_query'].lower()
             filtered = [option for option in filtered if search_lower in option['search_text']]
@@ -507,6 +552,10 @@ class YouTubeLinkerTab:
             dropdown_state['selected_record'] = dropdown_state['filtered_options'][0]['record']
         else:
             dropdown_state['selected_record'] = None
+        
+        # Remove from search cache
+        if record_id in dropdown_state.get('search_cache', {}):
+            del dropdown_state['search_cache'][record_id]
         
         st.session_state.youtube_dropdown_state = dropdown_state
         return True
@@ -585,5 +634,7 @@ class YouTubeLinkerTab:
         """Clear cached YouTube search results"""
         dropdown_state = st.session_state.youtube_dropdown_state
         dropdown_state['current_search_results'] = None
+        dropdown_state['current_search_query'] = None
+        dropdown_state['search_cache'] = {}
         dropdown_state['force_search'] = True
         st.session_state.youtube_dropdown_state = dropdown_state

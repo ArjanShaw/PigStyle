@@ -493,6 +493,137 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSavedScale();
 });
 
+// Add to your existing streaming.js file
+
+// Tab management
+function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            switchTab(tabId, this);
+        });
+    });
+}
+
+function switchTab(tabId, buttonElement) {
+    // Update active tab button
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    buttonElement.classList.add('active');
+    
+    // Hide all tab panes
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const selectedPane = document.getElementById(tabId);
+    if (selectedPane) {
+        selectedPane.classList.add('active');
+        
+        // If switching to info tab and we have a current track, load its info
+        if (tabId === 'info-tab' && window.currentTrackIndex >= 0) {
+            loadRecordInfo(window.currentTrackIndex);
+        }
+    }
+}
+
+// Function to load record info (reusing code from catalog.html)
+async function loadRecordInfo(recordIndex) {
+    const record = window.allRecords[recordIndex];
+    const container = document.getElementById('recordInfoContainer');
+    
+    if (!record) {
+        container.innerHTML = '<div class="no-record-info">No record information available</div>';
+        return;
+    }
+    
+    const artist = record.artist || 'Unknown Artist';
+    const title = record.title || 'Unknown Title';
+    const imageUrl = record.image_url || 'images/default-record.jpg';
+    const genre = record.genre_name || 'Unknown Genre';
+    const price = record.store_price ? window.pigstyleAPI.formatPrice(record.store_price) : 'Price N/A';
+    const youtubeUrl = record.youtube_url || '';
+    const recordCondition = record.condition || '';
+    const description = record.description || '';
+    
+    const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
+    const hasCondition = recordCondition && recordCondition.trim() !== '';
+    
+    let conditionClass = 'record-condition';
+    if (hasCondition) {
+        const conditionSlug = recordCondition.toLowerCase().replace(/\s+/g, '-');
+        conditionClass += ` condition-${conditionSlug}`;
+    }
+    
+    container.innerHTML = `
+        <div class="record-info-card">
+            <div class="record-info-image">
+                <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
+            </div>
+            <div class="record-info-details">
+                <h3>${window.pigstyleAPI.escapeHtml(title)}</h3>
+                <p class="record-info-artist">${window.pigstyleAPI.escapeHtml(artist)}</p>
+                <p class="record-info-price">${price}</p>
+                <p class="record-info-genre">${window.pigstyleAPI.escapeHtml(genre)}</p>
+                
+                ${hasCondition ? `
+                    <p class="${conditionClass}">Condition: ${recordCondition}</p>
+                ` : ''}
+                
+                ${description ? `
+                    <div class="record-info-description">
+                        <h4>Description</h4>
+                        <p>${window.pigstyleAPI.escapeHtml(description)}</p>
+                    </div>
+                ` : ''}
+                
+                ${hasYouTube ? `
+                    <div class="record-info-youtube">
+                        <a href="${youtubeUrl}" target="_blank" class="youtube-external-link">
+                            <i class="fab fa-youtube"></i> Watch on YouTube
+                        </a>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Update your existing loadAndPlayTrack function to include:
+function loadAndPlayTrack(recordIndex) {
+    // ... your existing code ...
+    
+    // Set current track index
+    window.currentTrackIndex = recordIndex;
+    
+    // Update track info in header
+    document.getElementById('trackTitle').textContent = record.title || 'Unknown Title';
+    document.getElementById('trackArtist').textContent = record.artist || 'Unknown Artist';
+    document.getElementById('trackPrice').textContent = 
+        record.store_price ? window.pigstyleAPI.formatPrice(record.store_price) : 'Price N/A';
+    
+    // If info tab is active, load the record info
+    if (document.querySelector('#info-tab').classList.contains('active')) {
+        loadRecordInfo(recordIndex);
+    }
+    
+    // ... rest of your existing code ...
+}
+
+// Initialize tabs when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initTabs();
+    
+    // Make sure pigstyleAPI is available
+    if (!window.pigstyleAPI) {
+        console.error('pigstyleAPI not loaded');
+    }
+});
+
 // Make functions available globally
 window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;

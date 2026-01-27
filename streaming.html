@@ -23,8 +23,6 @@
     <script src="streaming.js"></script>
     <!-- YouTube IFrame API -->
     <script src="https://www.youtube.com/iframe_api"></script>
-    <!-- Include API utils for catalog data -->
-    <script src="js/api-utils.js"></script>
 </head>
 <body>
     <!-- Background Image -->
@@ -67,10 +65,10 @@
             <!-- Tab Navigation -->
             <div class="tab-navigation">
                 <button class="tab-button active" data-tab="player-tab">
-                    <i class="fas fa-play"></i> 
+                    <i class="fas fa-play"></i> Player
                 </button>
                 <button class="tab-button" data-tab="info-tab">
-                    <i class="fas fa-info-circle"></i> 
+                    <i class="fas fa-info-circle"></i> Info
                 </button>
             </div>
             
@@ -98,7 +96,7 @@
                                 <div></div>
                                 <div></div>
                             </div>
-                            <p>Loading record information...</p>
+                            <p>Select a track to view information</p>
                         </div>
                     </div>
                 </div>
@@ -115,156 +113,8 @@
     </div>
 
     <script>
-        // Global variables
-        let allRecords = [];
-        let currentTrackIndex = -1;
-        let currentGenreFilter = '';
-        
-        // Tab switching functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            // Tab switching
-            const tabButtons = document.querySelectorAll('.tab-button');
-            tabButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const tabId = this.getAttribute('data-tab');
-                    
-                    // Update active button
-                    tabButtons.forEach(btn => btn.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    // Show active tab content
-                    document.querySelectorAll('.tab-pane').forEach(pane => {
-                        pane.classList.remove('active');
-                    });
-                    document.getElementById(tabId).classList.add('active');
-                    
-                    // If switching to info tab and we have a current track, load its info
-                    if (tabId === 'info-tab' && currentTrackIndex >= 0) {
-                        loadRecordInfo(currentTrackIndex);
-                    }
-                });
-            });
-        });
-        
-        // Function to load record information
-        async function loadRecordInfo(recordIndex) {
-            const record = allRecords[recordIndex];
-            const container = document.getElementById('recordInfoContainer');
-            
-            if (!record) {
-                container.innerHTML = '<div class="no-record-info">No record information available</div>';
-                return;
-            }
-            
-            const artist = record.artist || 'Unknown Artist';
-            const title = record.title || 'Unknown Title';
-            const imageUrl = record.image_url || 'images/default-record.jpg';
-            const genre = record.genre_name || 'Unknown Genre';
-            const price = record.store_price ? pigstyleAPI.formatPrice(record.store_price) : 'Price N/A';
-            const youtubeUrl = record.youtube_url || '';
-            const recordCondition = record.condition || '';
-            const description = record.description || '';
-            
-            const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
-            const hasCondition = recordCondition && recordCondition.trim() !== '';
-            
-            // Create condition class based on condition value
-            let conditionClass = 'record-condition';
-            if (hasCondition) {
-                const conditionSlug = recordCondition.toLowerCase().replace(/\s+/g, '-');
-                conditionClass += ` condition-${conditionSlug}`;
-            }
-            
-            container.innerHTML = `
-                <div class="record-info-card">
-                    <div class="record-info-image">
-                        <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
-                    </div>
-                    <div class="record-info-details">
-                        <h3>${pigstyleAPI.escapeHtml(title)}</h3>
-                        <p class="record-info-artist">${pigstyleAPI.escapeHtml(artist)}</p>
-                        <p class="record-info-price">${price}</p>
-                        <p class="record-info-genre">${pigstyleAPI.escapeHtml(genre)}</p>
-                        
-                        ${hasCondition ? `
-                            <p class="${conditionClass}">Condition: ${recordCondition}</p>
-                        ` : ''}
-                        
-                        ${description ? `
-                            <div class="record-info-description">
-                                <h4>Description</h4>
-                                <p>${pigstyleAPI.escapeHtml(description)}</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${hasYouTube ? `
-                            <div class="record-info-youtube">
-                                <a href="${youtubeUrl}" target="_blank" class="youtube-external-link">
-                                    <i class="fab fa-youtube"></i> Watch on YouTube
-                                </a>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Update the existing loadAndPlayTrack function to also load record info
-        async function loadAndPlayTrack(recordIndex) {
-            if (!allRecords || allRecords.length === 0) {
-                console.error('No records loaded');
-                return;
-            }
-            
-            const record = allRecords[recordIndex];
-            if (!record) {
-                console.error('Invalid record index:', recordIndex);
-                return;
-            }
-            
-            currentTrackIndex = recordIndex;
-            
-            // Update track info display
-            document.getElementById('trackTitle').textContent = record.title || 'Unknown Title';
-            document.getElementById('trackArtist').textContent = record.artist || 'Unknown Artist';
-            document.getElementById('trackPrice').textContent = 
-                record.store_price ? pigstyleAPI.formatPrice(record.store_price) : 'Price N/A';
-            
-            // If currently on info tab, update the info display
-            if (document.querySelector('#info-tab').classList.contains('active')) {
-                loadRecordInfo(recordIndex);
-            }
-            
-            // Rest of your existing YouTube player code...
-            // [Your existing YouTube player code here]
-        }
-        
-        // Update the existing loadTrackData function to store all records
-        async function loadTrackData() {
-            try {
-                document.getElementById('loadingMessage').textContent = 'Loading tracks...';
-                
-                // Load all records from the API
-                const catalogData = await pigstyleAPI.loadCatalogGroupedRecords();
-                
-                // Flatten all records
-                allRecords = [];
-                catalogData.groups.forEach(group => {
-                    allRecords = allRecords.concat(group.records);
-                });
-                
-                // Filter records with YouTube URLs
-                const tracksWithYouTube = allRecords.filter(record => 
-                    record.youtube_url && record.youtube_url.trim() !== ''
-                );
-                
-                // [Rest of your existing loadTrackData function...]
-                
-            } catch (error) {
-                console.error('Error loading track data:', error);
-                document.getElementById('loadingMessage').textContent = 'Error loading tracks. Please try again.';
-            }
-        }
+        // Remove the conflicting script from streaming.html
+        // All functionality is now in streaming.js
     </script>
 </body>
 </html>

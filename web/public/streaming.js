@@ -2,16 +2,14 @@
 
 console.log('streaming.js loaded!');
 
+// ========== GLOBAL VARIABLES ==========
 let allRecords = [];
 let filteredRecords = [];
-let currentTrackIndex = 0;
+let shuffledIndices = [];      // Array of shuffled indices
+let shuffleCurrentIndex = 0;   // Current position in shuffled playlist
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let genreMap = {};
-
-// ========== SHUFFLE VARIABLES ==========
-let shuffledIndices = [];      // Array of shuffled indices
-let shuffleCurrentIndex = 0;   // Current position in shuffled playlist
 
 // ========== YOUTUBE PLAYER FUNCTIONS ==========
 
@@ -146,9 +144,8 @@ function startYouTubePlayback(genreId) {
         
         // Start at first shuffled track (index 0 in shuffled playlist)
         shuffleCurrentIndex = 0;
-        currentTrackIndex = getCurrentShuffledIndex();
         
-        console.log(`True shuffle: Starting at shuffled position ${shuffleCurrentIndex}, actual index ${currentTrackIndex}`);
+        console.log(`True shuffle: Starting at shuffled position ${shuffleCurrentIndex}`);
         console.log(`Total tracks in shuffled playlist: ${shuffledIndices.length}`);
         
         if (youtubeAPILoaded) {
@@ -163,6 +160,12 @@ function startYouTubePlayback(genreId) {
         }
     } else {
         document.getElementById('youtube-player').innerHTML = `
+            <div style="padding: 40px; text-align: center; color: white;">
+                <h3>No Tracks Found</h3>
+                <p>No YouTube videos found for ${genreMap[genreId] || 'this genre'}.</p>
+            </div>
+        `;
+        document.getElementById('info-tab').innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
                 <h3>No Tracks Found</h3>
                 <p>No YouTube videos found for ${genreMap[genreId] || 'this genre'}.</p>
@@ -237,6 +240,11 @@ function loadCurrentYouTubeTrack() {
             'onError': onPlayerError
         }
     });
+    
+    // Update info tab if it's active
+    if (document.querySelector('#info-tab').classList.contains('active')) {
+        loadRecordInfo(actualIndex);
+    }
 }
 
 // YouTube player ready callback
@@ -290,11 +298,9 @@ function playPreviousTrack() {
     
     // Move backward in shuffled playlist
     shuffleCurrentIndex = (shuffleCurrentIndex - 1 + shuffledIndices.length) % shuffledIndices.length;
-    currentTrackIndex = getCurrentShuffledIndex();
     
     console.log('Playing previous shuffled track:');
     console.log('New shuffle position:', shuffleCurrentIndex);
-    console.log('New actual index:', currentTrackIndex);
     
     loadCurrentYouTubeTrack();
 }
@@ -312,11 +318,8 @@ function playNextTrack() {
         generateShuffledPlaylist(filteredRecords);
     }
     
-    currentTrackIndex = getCurrentShuffledIndex();
-    
     console.log('Playing next shuffled track:');
     console.log('New shuffle position:', shuffleCurrentIndex);
-    console.log('New actual index:', currentTrackIndex);
     
     loadCurrentYouTubeTrack();
 }
@@ -407,23 +410,127 @@ async function loadRecordsFromAPI() {
     }
 }
 
-// Setup UI
-function setupUI() {
-    const genreFilter = document.getElementById('genreFilter');
+// ========== TAB MANAGEMENT ==========
+
+// Initialize tab functionality
+function initTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
     
-    if (genreFilter) {
-        genreFilter.addEventListener('change', function() {
-            console.log('Genre changed to:', this.value);
-            startPlaying();
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+            switchTab(tabId, this);
         });
+    });
+}
+
+function switchTab(tabId, buttonElement) {
+    // Update active tab button
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    buttonElement.classList.add('active');
+    
+    // Hide all tab panes
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const selectedPane = document.getElementById(tabId);
+    if (selectedPane) {
+        selectedPane.classList.add('active');
+        
+        // If switching to info tab and we have filtered records, load current track info
+        if (tabId === 'info-tab' && filteredRecords.length > 0) {
+            const currentIndex = getCurrentShuffledIndex();
+            loadRecordInfo(currentIndex);
+        }
+    }
+}
+
+// Load record information for the info tab
+function loadRecordInfo(recordIndex) {
+    const container = document.getElementById('recordInfoContainer');
+    
+    if (filteredRecords.length === 0 || recordIndex >= filteredRecords.length) {
+        container.innerHTML = '<div class="no-record-info">No record information available</div>';
+        return;
     }
     
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
+    const record = filteredRecords[recordIndex];
+    if (!record) {
+        container.innerHTML = '<div class="no-record-info">No record information available</div>';
+        return;
+    }
     
-    if (prevBtn) prevBtn.addEventListener('click', playPreviousTrack);
-    if (nextBtn) nextBtn.addEventListener('click', playNextTrack);
+    const artist = record.artist || 'Unknown Artist';
+    const title = record.title || 'Unknown Title';
+    const imageUrl = record.image_url || 'images/default-record.jpg';
+    const genre = record.genre_name || 'Unknown Genre';
+    const price = record.store_price ? formatPrice(record.store_price) : 'Price N/A';
+    const youtubeUrl = record.youtube_url || '';
+    const recordCondition = record.condition || '';
+    const description = record.description || '';
+    
+    const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
+    const hasCondition = recordCondition && recordCondition.trim() !== '';
+    
+    let conditionClass = 'record-condition';
+    if (hasCondition) {
+        const conditionSlug = recordCondition.toLowerCase().replace(/\s+/g, '-');
+        conditionClass += ` condition-${conditionSlug}`;
+    }
+    
+    // Escape HTML to prevent XSS
+    const escapeHtml = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
+    
+    container.innerHTML = `
+        <div class="record-info-card">
+            <div class="record-info-image">
+                <img src="${imageUrl}" alt="${escapeHtml(title)}" onerror="this.src='images/default-record.jpg'">
+            </div>
+            <div class="record-info-details">
+                <h3>${escapeHtml(title)}</h3>
+                <p class="record-info-artist">${escapeHtml(artist)}</p>
+                <p class="record-info-price">${price}</p>
+                <p class="record-info-genre">${escapeHtml(genre)}</p>
+                
+                ${hasCondition ? `
+                    <p class="${conditionClass}">Condition: ${recordCondition}</p>
+                ` : ''}
+                
+                ${description ? `
+                    <div class="record-info-description">
+                        <h4>Description</h4>
+                        <p>${escapeHtml(description)}</p>
+                    </div>
+                ` : ''}
+                
+                ${hasYouTube ? `
+                    <div class="record-info-youtube">
+                        <a href="${youtubeUrl}" target="_blank" class="youtube-external-link">
+                            <i class="fab fa-youtube"></i> Watch on YouTube
+                        </a>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
 }
+
+// Helper function to format price
+function formatPrice(price) {
+    if (!price) return 'Price N/A';
+    const numPrice = parseFloat(price);
+    return isNaN(numPrice) ? 'Price N/A' : `$${numPrice.toFixed(2)}`;
+}
+
+// ========== SCALE CONTROLS ==========
 
 // Manual scaling functionality
 let currentScale = 1;
@@ -476,6 +583,29 @@ function loadSavedScale() {
     }
 }
 
+// ========== INITIALIZATION ==========
+
+// Setup UI event listeners
+function setupUI() {
+    const genreFilter = document.getElementById('genreFilter');
+    
+    if (genreFilter) {
+        genreFilter.addEventListener('change', function() {
+            console.log('Genre changed to:', this.value);
+            startPlaying();
+        });
+    }
+    
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    
+    if (prevBtn) prevBtn.addEventListener('click', playPreviousTrack);
+    if (nextBtn) nextBtn.addEventListener('click', playNextTrack);
+    
+    // Initialize tabs
+    initTabs();
+}
+
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing...');
@@ -491,137 +621,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load saved scale
     loadSavedScale();
-});
-
-// Add to your existing streaming.js file
-
-// Tab management
-function initTabs() {
-    const tabButtons = document.querySelectorAll('.tab-button');
-    
-    tabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const tabId = this.getAttribute('data-tab');
-            switchTab(tabId, this);
-        });
-    });
-}
-
-function switchTab(tabId, buttonElement) {
-    // Update active tab button
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    buttonElement.classList.add('active');
-    
-    // Hide all tab panes
-    document.querySelectorAll('.tab-pane').forEach(pane => {
-        pane.classList.remove('active');
-    });
-    
-    // Show selected tab
-    const selectedPane = document.getElementById(tabId);
-    if (selectedPane) {
-        selectedPane.classList.add('active');
-        
-        // If switching to info tab and we have a current track, load its info
-        if (tabId === 'info-tab' && window.currentTrackIndex >= 0) {
-            loadRecordInfo(window.currentTrackIndex);
-        }
-    }
-}
-
-// Function to load record info (reusing code from catalog.html)
-async function loadRecordInfo(recordIndex) {
-    const record = window.allRecords[recordIndex];
-    const container = document.getElementById('recordInfoContainer');
-    
-    if (!record) {
-        container.innerHTML = '<div class="no-record-info">No record information available</div>';
-        return;
-    }
-    
-    const artist = record.artist || 'Unknown Artist';
-    const title = record.title || 'Unknown Title';
-    const imageUrl = record.image_url || 'images/default-record.jpg';
-    const genre = record.genre_name || 'Unknown Genre';
-    const price = record.store_price ? window.pigstyleAPI.formatPrice(record.store_price) : 'Price N/A';
-    const youtubeUrl = record.youtube_url || '';
-    const recordCondition = record.condition || '';
-    const description = record.description || '';
-    
-    const hasYouTube = youtubeUrl && youtubeUrl.trim() !== '';
-    const hasCondition = recordCondition && recordCondition.trim() !== '';
-    
-    let conditionClass = 'record-condition';
-    if (hasCondition) {
-        const conditionSlug = recordCondition.toLowerCase().replace(/\s+/g, '-');
-        conditionClass += ` condition-${conditionSlug}`;
-    }
-    
-    container.innerHTML = `
-        <div class="record-info-card">
-            <div class="record-info-image">
-                <img src="${imageUrl}" alt="${title}" onerror="this.src='images/default-record.jpg'">
-            </div>
-            <div class="record-info-details">
-                <h3>${window.pigstyleAPI.escapeHtml(title)}</h3>
-                <p class="record-info-artist">${window.pigstyleAPI.escapeHtml(artist)}</p>
-                <p class="record-info-price">${price}</p>
-                <p class="record-info-genre">${window.pigstyleAPI.escapeHtml(genre)}</p>
-                
-                ${hasCondition ? `
-                    <p class="${conditionClass}">Condition: ${recordCondition}</p>
-                ` : ''}
-                
-                ${description ? `
-                    <div class="record-info-description">
-                        <h4>Description</h4>
-                        <p>${window.pigstyleAPI.escapeHtml(description)}</p>
-                    </div>
-                ` : ''}
-                
-                ${hasYouTube ? `
-                    <div class="record-info-youtube">
-                        <a href="${youtubeUrl}" target="_blank" class="youtube-external-link">
-                            <i class="fab fa-youtube"></i> Watch on YouTube
-                        </a>
-                    </div>
-                ` : ''}
-            </div>
-        </div>
-    `;
-}
-
-// Update your existing loadAndPlayTrack function to include:
-function loadAndPlayTrack(recordIndex) {
-    // ... your existing code ...
-    
-    // Set current track index
-    window.currentTrackIndex = recordIndex;
-    
-    // Update track info in header
-    document.getElementById('trackTitle').textContent = record.title || 'Unknown Title';
-    document.getElementById('trackArtist').textContent = record.artist || 'Unknown Artist';
-    document.getElementById('trackPrice').textContent = 
-        record.store_price ? window.pigstyleAPI.formatPrice(record.store_price) : 'Price N/A';
-    
-    // If info tab is active, load the record info
-    if (document.querySelector('#info-tab').classList.contains('active')) {
-        loadRecordInfo(recordIndex);
-    }
-    
-    // ... rest of your existing code ...
-}
-
-// Initialize tabs when document is ready
-document.addEventListener('DOMContentLoaded', function() {
-    initTabs();
-    
-    // Make sure pigstyleAPI is available
-    if (!window.pigstyleAPI) {
-        console.error('pigstyleAPI not loaded');
-    }
 });
 
 // Make functions available globally

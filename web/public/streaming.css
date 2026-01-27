@@ -120,77 +120,56 @@ header {
     font-weight: bold;
 }
 
-/* Combined controls row */
-.controls-row {
+/* Tab Navigation */
+.tab-navigation {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 30px;
-    margin-top: 20px;
-    width: 100%;
-    flex-wrap: wrap;
+    margin-bottom: 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Upvote control only */
-.vote-controls {
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 12px;
-    padding: 15px 25px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.vote-stats {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-}
-
-.upvote-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    width: 70px;
-    height: 70px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+.tab-button {
+    background: none;
+    border: none;
+    color: #ccc;
+    padding: 10px 20px;
+    font-size: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tab-button:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-button.active {
+    color: #fff;
+    border-bottom-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+}
+
+/* Tab Content */
+.tab-content {
     position: relative;
-    color: white;
-    font-size: 24px;
+    width: 90%;
+    max-width: 1000px;
 }
 
-.upvote-btn:hover {
-    transform: scale(1.1);
-    background: rgba(255, 255, 255, 0.15);
+.tab-pane {
+    display: none;
 }
 
-.upvote-btn.active {
-    background: rgba(39, 174, 96, 0.3);
-    border-color: #27ae60;
-    color: #27ae60;
-}
-
-.upvote-count {
-    font-size: 12px;
-    font-weight: bold;
-    margin-top: 2px;
-    color: white;
-}
-
-.upvote-btn.active .upvote-count {
-    color: #27ae60;
+.tab-pane.active {
+    display: block;
 }
 
 /* Video player */
 .video-container {
-    width: 90%;
-    max-width: 1000px;
+    width: 100%;
     height: 500px;
     border-radius: 12px;
     overflow: hidden;
@@ -315,251 +294,6 @@ header {
     transform: scale(0.95);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .header-content {
-        flex-direction: column;
-        gap: 15px;
-        align-items: center;
-    }
-    
-    .logo-container {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .genre-selector {
-        width: 100%;
-        justify-content: center;
-    }
-    
-    .genre-select {
-        min-width: 120px;
-        padding: 6px 10px;
-        font-size: 0.85rem;
-        height: 34px;
-    }
-    
-    .current-track h2 {
-        font-size: 1.8rem;
-    }
-    
-    .current-track .artist {
-        font-size: 1.4rem;
-    }
-    
-    .current-track .price {
-        font-size: 1.3rem;
-    }
-    
-    .controls-row {
-        flex-direction: column;
-        gap: 20px;
-    }
-    
-    .vote-controls {
-        width: 100%;
-        max-width: 300px;
-    }
-    
-    .upvote-btn {
-        width: 60px;
-        height: 60px;
-        font-size: 20px;
-    }
-    
-    .video-container {
-        height: 300px;
-    }
-    
-    .nav-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
-    }
-    
-    header {
-        padding: 15px;
-    }
-    
-    .logo-container img {
-        height: 50px;
-    }
-    
-    .scale-controls {
-        padding: 8px;
-        gap: 8px;
-        bottom: 15px;
-        right: 15px;
-    }
-    
-    .scale-btn {
-        width: 32px;
-        height: 32px;
-        font-size: 0.9rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .header-content {
-        flex-direction: column;
-    }
-    
-    .logo-container img {
-        height: 40px;
-    }
-    
-    .genre-select {
-        min-width: 110px;
-        padding: 5px 8px;
-        font-size: 0.8rem;
-        height: 32px;
-    }
-    
-    .current-track h2 {
-        font-size: 1.6rem;
-    }
-    
-    .current-track .artist {
-        font-size: 1.2rem;
-    }
-    
-    .current-track .price {
-        font-size: 1.1rem;
-    }
-    
-    .upvote-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 18px;
-    }
-    
-    .nav-btn {
-        width: 45px;
-        height: 45px;
-        font-size: 1.1rem;
-    }
-    
-    .scale-controls {
-        padding: 6px;
-        bottom: 10px;
-        right: 10px;
-    }
-    
-    .scale-btn {
-        width: 28px;
-        height: 28px;
-        font-size: 0.8rem;
-    }
-}
-
-/* Improved scaling for large screens */
-@media screen and (min-width: 1920px) {
-    .player-container {
-        max-width: 1600px;
-        margin: 0 auto;
-    }
-    
-    .video-container {
-        max-width: 1200px;
-        max-height: 600px;
-    }
-    
-    .current-track h2 {
-        font-size: clamp(2rem, 3vw, 3rem);
-    }
-    
-    .current-track .artist {
-        font-size: clamp(1.5rem, 2vw, 2.2rem);
-    }
-    
-    .current-track .price {
-        font-size: clamp(1.3rem, 1.5vw, 1.8rem);
-    }
-}
-
-/* Scale down large elements on big screens */
-@media screen and (min-height: 1080px) {
-    .player-container {
-        height: calc(100vh - 300px);
-        padding: 40px 20px;
-    }
-    
-    .video-container {
-        height: 450px;
-    }
-    
-    .controls-row {
-        max-width: 800px;
-        margin: 30px auto 0;
-    }
-}
-
-/* Make more elements responsive */
-.current-track {
-    max-width: 90vw;
-}
-
-/* Quick scaling fix for very large screens */
-@media screen and (min-width: 2560px) {
-    .player-container {
-        transform: scale(0.9);
-        transform-origin: center;
-    }
-}
-
-@media screen and (min-width: 3840px) {
-    .player-container {
-        transform: scale(0.8);
-        transform-origin: center;
-    }
-}
-
-/* Tab Navigation */
-.tab-navigation {
-    display: flex;
-    margin-bottom: 20px;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.tab-button {
-    background: none;
-    border: none;
-    color: #ccc;
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-bottom: 3px solid transparent;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.tab-button:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.tab-button.active {
-    color: #fff;
-    border-bottom-color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.1);
-}
-
-/* Tab Content */
-.tab-content {
-    position: relative;
-}
-
-.tab-pane {
-    display: none;
-}
-
-.tab-pane.active {
-    display: block;
-}
-
 /* Record Info Styles */
 .record-info-container {
     background: rgba(0, 0, 0, 0.7);
@@ -681,6 +415,41 @@ header {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+    }
+    
+    .logo-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .genre-selector {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .genre-select {
+        min-width: 120px;
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        height: 34px;
+    }
+    
+    .current-track h2 {
+        font-size: 1.8rem;
+    }
+    
+    .current-track .artist {
+        font-size: 1.4rem;
+    }
+    
+    .current-track .price {
+        font-size: 1.3rem;
+    }
+    
     .record-info-card {
         flex-direction: column;
     }
@@ -694,5 +463,144 @@ header {
     .tab-button {
         padding: 8px 15px;
         font-size: 14px;
+    }
+    
+    .video-container {
+        height: 300px;
+    }
+    
+    .nav-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+    
+    header {
+        padding: 15px;
+    }
+    
+    .logo-container img {
+        height: 50px;
+    }
+    
+    .scale-controls {
+        padding: 8px;
+        gap: 8px;
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .scale-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-content {
+        flex-direction: column;
+    }
+    
+    .logo-container img {
+        height: 40px;
+    }
+    
+    .genre-select {
+        min-width: 110px;
+        padding: 5px 8px;
+        font-size: 0.8rem;
+        height: 32px;
+    }
+    
+    .current-track h2 {
+        font-size: 1.6rem;
+    }
+    
+    .current-track .artist {
+        font-size: 1.2rem;
+    }
+    
+    .current-track .price {
+        font-size: 1.1rem;
+    }
+    
+    .video-container {
+        height: 250px;
+    }
+    
+    .nav-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+    }
+    
+    .scale-controls {
+        padding: 6px;
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .scale-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+    }
+}
+
+/* Improved scaling for large screens */
+@media screen and (min-width: 1920px) {
+    .player-container {
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+    
+    .video-container {
+        max-width: 1200px;
+        max-height: 600px;
+    }
+    
+    .current-track h2 {
+        font-size: clamp(2rem, 3vw, 3rem);
+    }
+    
+    .current-track .artist {
+        font-size: clamp(1.5rem, 2vw, 2.2rem);
+    }
+    
+    .current-track .price {
+        font-size: clamp(1.3rem, 1.5vw, 1.8rem);
+    }
+}
+
+/* Scale down large elements on big screens */
+@media screen and (min-height: 1080px) {
+    .player-container {
+        height: calc(100vh - 300px);
+        padding: 40px 20px;
+    }
+    
+    .video-container {
+        height: 450px;
+    }
+}
+
+/* Make more elements responsive */
+.current-track {
+    max-width: 90vw;
+}
+
+/* Quick scaling fix for very large screens */
+@media screen and (min-width: 2560px) {
+    .player-container {
+        transform: scale(0.9);
+        transform-origin: center;
+    }
+}
+
+@media screen and (min-width: 3840px) {
+    .player-container {
+        transform: scale(0.8);
+        transform-origin: center;
     }
 }

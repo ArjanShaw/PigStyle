@@ -514,3 +514,185 @@ header {
         transform-origin: center;
     }
 }
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    color: #ccc;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tab-button:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-button.active {
+    color: #fff;
+    border-bottom-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+}
+
+/* Tab Content */
+.tab-content {
+    position: relative;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Record Info Styles */
+.record-info-container {
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    padding: 20px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.record-info-loading {
+    text-align: center;
+    padding: 40px;
+    color: #ccc;
+}
+
+.no-record-info {
+    text-align: center;
+    padding: 40px;
+    color: #ccc;
+    font-style: italic;
+}
+
+.record-info-card {
+    display: flex;
+    gap: 20px;
+    color: #fff;
+}
+
+.record-info-image {
+    flex: 0 0 200px;
+}
+
+.record-info-image img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.record-info-details {
+    flex: 1;
+}
+
+.record-info-details h3 {
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    color: #fff;
+}
+
+.record-info-artist {
+    font-size: 18px;
+    color: #ff6b6b;
+    margin: 0 0 15px 0;
+}
+
+.record-info-price {
+    font-size: 20px;
+    font-weight: bold;
+    color: #4ecdc4;
+    margin: 0 0 10px 0;
+}
+
+.record-info-genre {
+    font-size: 16px;
+    color: #ccc;
+    margin: 0 0 15px 0;
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.record-condition {
+    font-size: 16px;
+    color: #ffd166;
+    margin: 0 0 15px 0;
+    padding: 5px 10px;
+    background: rgba(255, 209, 102, 0.1);
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.record-info-description {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.record-info-description h4 {
+    margin: 0 0 10px 0;
+    color: #fff;
+}
+
+.record-info-description p {
+    line-height: 1.6;
+    color: #ccc;
+}
+
+.record-info-youtube {
+    margin-top: 20px;
+}
+
+.youtube-external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #ff0000;
+    text-decoration: none;
+    padding: 8px 16px;
+    background: rgba(255, 0, 0, 0.1);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.youtube-external-link:hover {
+    background: rgba(255, 0, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .record-info-card {
+        flex-direction: column;
+    }
+    
+    .record-info-image {
+        flex: 0 0 auto;
+        max-width: 250px;
+        margin: 0 auto;
+    }
+    
+    .tab-button {
+        padding: 8px 15px;
+        font-size: 14px;
+    }
+}

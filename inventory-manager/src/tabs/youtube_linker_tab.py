@@ -44,10 +44,7 @@ class YouTubeLinkerTab:
         if not self.youtube_handler or not self.youtube_handler.is_enabled():
             st.error("❌ YouTube API not configured. Please set YOUTUBE_API_KEY in your environment variables.")
             return
-        
-        print(f"\n{'='*60}")
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] RENDER: Starting render")
-        
+         
         # Initialize dropdown state
         self._initialize_dropdown()
         

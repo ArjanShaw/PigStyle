@@ -1379,9 +1379,33 @@ class InventoryTab:
             return False
 
     def _render_database_results(self, results, search_type, user):
-        """Render database search results"""
+        """Render database search results - FIXED to filter for consignors"""
         if not results:
             st.warning("No matching records found in database")
+            return
+        
+        # Filter results for consignors - only show their own records
+        user_role = user.get('role', 'consignor')
+        user_id = user.get('id')
+        
+        if user_role == 'consignor':
+            filtered_results = []
+            for record in results:
+                # Check if record has consignor_id attribute
+                record_consignor_id = None
+                if hasattr(record, 'get'):
+                    record_consignor_id = record.get('consignor_id')
+                elif isinstance(record, dict):
+                    record_consignor_id = record.get('consignor_id')
+                
+                # Include record if it belongs to this consignor
+                if record_consignor_id == user_id:
+                    filtered_results.append(record)
+            
+            results = filtered_results
+        
+        if not results:
+            st.warning("No matching records found that belong to you")
             return
         
         st.write(f"**Found {len(results)} matching records**")
@@ -1390,7 +1414,7 @@ class InventoryTab:
             self._render_database_result_item(record, i, user)
 
     def _render_database_result_item(self, record, index, user):
-        """Render individual database result item - UPDATED to include created_at and Inactive button"""
+        """Render individual database result item - UPDATED to include created_at and delete button for consignors"""
         if hasattr(record, 'get'):
             record_id = record.get('id')
         elif hasattr(record, '__getitem__'):
@@ -1543,8 +1567,6 @@ class InventoryTab:
             can_edit = (user_role == 'admin' or 
                        (user_role == 'consignor' and user_id and record_consignor_id == user_id))
             
-            # REMOVED: Edit button
-            
             # Add "Set to Inactive" button (only for admin or record owner)
             status_id = record.get('status_id', 2) if hasattr(record, 'get') else 2
             
@@ -1606,8 +1628,18 @@ class InventoryTab:
             
             st.write(f"**Status:** {status}")
             
-            # Delete button (admin only)
-            if user_role == 'admin':
+            # Delete button - FIXED to allow consignors to delete their own records
+            user_role = user.get('role', 'consignor')
+            user_id = user.get('id')
+            record_consignor_id = record.get('consignor_id') if hasattr(record, 'get') else None
+            
+            # Allow deletion if:
+            # 1. User is admin OR
+            # 2. User is consignor and this is their record
+            can_delete = (user_role == 'admin' or 
+                         (user_role == 'consignor' and user_id and record_consignor_id == user_id))
+            
+            if can_delete:
                 if st.button("🗑️ Delete", key=f"delete_{record_id}", type="secondary", width='stretch'):
                     # Add confirmation message
                     confirm_container = st.empty()

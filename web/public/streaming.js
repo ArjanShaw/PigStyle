@@ -85,9 +85,6 @@ function extractUniqueGenres(records) {
     
     allGenres = Array.from(genreSet).sort();
     
-    // Start with all genres selected (only those with videos)
-    selectedGenres = new Set(allGenres);
-    
     console.log(`Extracted ${allGenres.length} unique genres with YouTube videos:`, allGenres);
     return allGenres;
 }
@@ -131,6 +128,9 @@ function initGenreCheckboxes() {
             
             // Auto-apply filter when checkbox changes
             applyGenreFilter();
+            
+            // Save selections
+            saveSelections();
         });
         
         const label = document.createElement('label');
@@ -156,6 +156,7 @@ function initGenreCheckboxes() {
         selectedGenres = new Set(allGenres);
         updateCheckboxes();
         applyGenreFilter();
+        saveSelections();
         console.log('All genres selected');
     });
     
@@ -167,6 +168,7 @@ function initGenreCheckboxes() {
         selectedGenres.clear();
         updateCheckboxes();
         applyGenreFilter();
+        saveSelections();
         console.log('All genres deselected');
     });
     
@@ -269,12 +271,30 @@ function loadSavedSelections() {
             const parsedGenres = JSON.parse(savedGenres);
             if (Array.isArray(parsedGenres)) {
                 // Only use saved genres that still exist in current data
-                selectedGenres = new Set(parsedGenres.filter(genre => allGenres.includes(genre)));
-                console.log('Loaded saved genre selections:', Array.from(selectedGenres));
+                const validGenres = parsedGenres.filter(genre => allGenres.includes(genre));
+                if (validGenres.length > 0) {
+                    selectedGenres = new Set(validGenres);
+                    console.log('Loaded saved genre selections:', Array.from(selectedGenres));
+                } else {
+                    // If saved genres are empty or invalid, default to all genres
+                    selectedGenres = new Set(allGenres);
+                    console.log('No valid saved genres, defaulting to all genres');
+                }
+            } else {
+                // Invalid saved data, default to all genres
+                selectedGenres = new Set(allGenres);
+                console.log('Invalid saved data, defaulting to all genres');
             }
         } catch (e) {
             console.error('Error parsing saved genres:', e);
+            // Error parsing, default to all genres
+            selectedGenres = new Set(allGenres);
+            console.log('Error parsing saved data, defaulting to all genres');
         }
+    } else {
+        // No saved data, default to all genres
+        selectedGenres = new Set(allGenres);
+        console.log('No saved selections, defaulting to all genres');
     }
 }
 
@@ -480,11 +500,11 @@ async function loadRecordsFromAPI() {
             // Extract unique genres from records (only those with YouTube videos)
             extractUniqueGenres(allRecords);
             
-            // Initialize genre checkboxes
-            initGenreCheckboxes();
-            
             // Load saved selections
             loadSavedSelections();
+            
+            // Initialize genre checkboxes
+            initGenreCheckboxes();
             
             // Update checkboxes based on saved selections
             updateCheckboxes();

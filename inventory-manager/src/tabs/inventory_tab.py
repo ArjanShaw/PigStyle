@@ -1215,7 +1215,8 @@ class InventoryTab:
                 'store_price': float(store_price),
                 'youtube_url': youtube_url,
                 'compilation': bool(compilation),
-                'advised_store_price': float(record_data.get('advised_store_price', store_price))
+                'advised_store_price': float(record_data.get('advised_store_price', store_price)),
+                'status_id': 1  # FIXED: Set to 1 (🆕 Ready for Dropoff)
             }
             
             if consignor_id:
@@ -1532,32 +1533,39 @@ class InventoryTab:
             if condition:
                 st.write(f"**Condition:** {condition}")
             
-            # YouTube link editing field
+            # YouTube link editing - ONLY FOR ADMINS
+            user_role = user.get('role', 'consignor')
             youtube_url = record.get('youtube_url', '') if hasattr(record, 'get') else ''
-            youtube_key = f"youtube_edit_{record_id}"
-            new_youtube_url = st.text_input(
-                "YouTube URL:",
-                value=youtube_url,
-                placeholder="Enter YouTube URL...",
-                key=youtube_key
-            )
             
-            # Save button for YouTube URL
-            if new_youtube_url != youtube_url:
-                if st.button("💾 Save YouTube Link", key=f"save_youtube_{record_id}", type="secondary", width='stretch'):
-                    # Add confirmation message
-                    confirm_container = st.empty()
-                    with confirm_container:
-                        st.info("Updating YouTube URL...")
-                    
-                    success = self.update_record(record_id, {'youtube_url': new_youtube_url})
-                    if success:
-                        confirm_container.empty()
-                        st.success("✅ YouTube link saved!")
-                        st.rerun()
-                    else:
-                        confirm_container.empty()
-                        st.error("❌ Failed to save YouTube link")
+            if user_role == 'admin':
+                youtube_key = f"youtube_edit_{record_id}"
+                new_youtube_url = st.text_input(
+                    "YouTube URL:",
+                    value=youtube_url,
+                    placeholder="Enter YouTube URL...",
+                    key=youtube_key
+                )
+                
+                # Save button for YouTube URL
+                if new_youtube_url != youtube_url:
+                    if st.button("💾 Save YouTube Link", key=f"save_youtube_{record_id}", type="secondary", width='stretch'):
+                        # Add confirmation message
+                        confirm_container = st.empty()
+                        with confirm_container:
+                            st.info("Updating YouTube URL...")
+                        
+                        success = self.update_record(record_id, {'youtube_url': new_youtube_url})
+                        if success:
+                            confirm_container.empty()
+                            st.success("✅ YouTube link saved!")
+                            st.rerun()
+                        else:
+                            confirm_container.empty()
+                            st.error("❌ Failed to save YouTube link")
+            else:
+                # For consignors, just display the YouTube URL if it exists
+                if youtube_url:
+                    st.write(f"**YouTube:** [Link]({youtube_url})")
         
         with col4:
             user_role = user.get('role', 'consignor')
@@ -1610,15 +1618,15 @@ class InventoryTab:
             date_removed = record.get('date_removed') if hasattr(record, 'get') else None
             
             # Correct status mapping:
-            # status_id = 1: New/Inactive
-            # status_id = 2: Active 
+            # status_id = 1: New/Ready for Dropoff
+            # status_id = 2: Active (On Shelf)
             # status_id = 3: Sold
             # status_id = 4: Removed
             
             if status_id == 1:
-                status = "⏸️ Inactive"
+                status = "🆕 Ready for Dropoff"
             elif status_id == 2:
-                status = "✅ Active"
+                status = "✅ Active (On Shelf)"
             elif status_id == 3:
                 status = "💰 Sold"
             elif status_id == 4:

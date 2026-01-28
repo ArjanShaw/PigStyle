@@ -27,35 +27,21 @@ class ConsignmentTab:
             st.info("👀 **Demo Mode**: You can simulate consignment operations in demo mode.")
             user_id = 999
         
-        if user_role == 'consignor' or is_demo:
-            with st.expander("📄 Contract & Receipt Management", expanded=False):
+        # ONLY SHOW CONTRACT/RECEIPT MANAGEMENT FOR ADMINS
+        if user_role == 'admin' and not is_demo:
+            with st.expander("📄 Contract & Receipt Management (Admin Only)", expanded=False):
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     if st.button("📝 Generate New Contract", width='stretch', 
                                help="Generate a new consignment agreement contract"):
-                        if is_demo:
-                            st.success("✅ Demo: Contract generated!")
-                            st.info("💡 In real mode, this would generate a downloadable PDF contract with your terms.")
-                            st.info("Contract includes: 180-day term, commission rates, pricing rules, and liability terms.")
-                        else:
-                            st.info("Contract generation is available when printing price tags in the '🏷️ Print Price Tags' tab.")
-                            st.info("Go to Print Price Tags, select your records, and generate contract + receipt together.")
+                        st.info("Contract generation is available when printing price tags in the '🏷️ Print Price Tags' tab.")
+                        st.info("Go to Print Price Tags, select your records, and generate contract + receipt together.")
                 
                 with col2:
                     if st.button("📋 View Receipt History", width='stretch',
                                help="View past batch receipts and consignment records"):
-                        if is_demo:
-                            with st.expander("📋 Demo Receipt History", expanded=True):
-                                st.write("**Sample Receipts:**")
-                                demo_receipts = [
-                                    {"Date": "2024-01-15", "Receipt #": "PS20240115001", "Items": 5, "Value": "$174.95", "Status": "Active"},
-                                    {"Date": "2023-12-10", "Receipt #": "PS20231210003", "Items": 3, "Value": "$89.97", "Status": "Paid"},
-                                    {"Date": "2023-11-05", "Receipt #": "PS20231105002", "Items": 2, "Value": "$49.98", "Status": "Expired"}
-                                ]
-                                st.dataframe(pd.DataFrame(demo_receipts), hide_index=True)
-                        else:
-                            st.info("Receipt history would show your past consignment batches")
+                        st.info("Receipt history would show all past consignment batches")
         
         if user_role == 'consignor' or is_demo:
             if is_demo:
@@ -141,19 +127,16 @@ class ConsignmentTab:
         
         def determine_display_status(row):
             status_id = row.get('status_id', 1)
-            barcode = row.get('barcode')
             
+            # SIMPLIFIED LOGIC - only use status_id, not barcode
             if status_id == 1:
-                if pd.isna(barcode) or barcode in [None, '', 'None']:
-                    return '🆕 New'
-                else:
-                    return '✅ Active'
+                return '🆕 Ready for Dropoff'
             elif status_id == 2:
-                return '✅ Active'
+                return '✅ Active (On Shelf)'
             elif status_id == 3:
                 return '💰 Sold'
             elif status_id == 4:
-                return '🗑️ Removed'
+                return '🗑️ Removed (Pickup Required)'
             else:
                 return '❓ Unknown'
         
@@ -161,27 +144,27 @@ class ConsignmentTab:
         
         consignment_df['record_id'] = consignment_df['id']
         
-        new_df = consignment_df[consignment_df['display_status'] == '🆕 New'].copy()
-        active_df = consignment_df[consignment_df['display_status'] == '✅ Active'].copy()
+        new_df = consignment_df[consignment_df['display_status'] == '🆕 Ready for Dropoff'].copy()
+        active_df = consignment_df[consignment_df['display_status'] == '✅ Active (On Shelf)'].copy()
         sold_df = consignment_df[consignment_df['display_status'] == '💰 Sold'].copy()
-        removed_df = consignment_df[consignment_df['display_status'] == '🗑️ Removed'].copy()
+        removed_df = consignment_df[consignment_df['display_status'] == '🗑️ Removed (Pickup Required)'].copy()
         
         if not new_df.empty:
-            self._render_consignment_table("🆕 New Records", new_df, user_role, is_demo)
+            self._render_consignment_table("🆕 Ready for Dropoff", new_df, user_role, is_demo)
         
         if not active_df.empty:
-            self._render_consignment_table("✅ Active Records", active_df, user_role, is_demo)
+            self._render_consignment_table("✅ Active (On Shelf)", active_df, user_role, is_demo)
         
         if not sold_df.empty:
             self._render_sold_table("💰 Sold Records", sold_df, user_role, is_demo)
         
         if not removed_df.empty:
-            self._render_removed_table("🗑️ Removed Records - Ready for Pickup", removed_df, user_role, is_demo)
+            self._render_removed_table("🗑️ Removed Records - Pickup Required", removed_df, user_role, is_demo)
     
     def _render_consignment_table(self, title, df, user_role, is_demo):
         st.subheader(title)
         
-        if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+        if user_role == 'consignor' and title in ['🆕 Ready for Dropoff', '✅ Active (On Shelf)']:
             col1, col2 = st.columns([1, 3])
             with col1:
                 if st.button(f"✅ Select All {title.split()[0]}", key=f"select_all_{title}"):
@@ -237,7 +220,7 @@ class ConsignmentTab:
         if 'Receipt #' in display_df.columns:
             column_config["Receipt #"] = st.column_config.TextColumn("Receipt #", disabled=True)
         
-        if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+        if user_role == 'consignor' and title in ['🆕 Ready for Dropoff', '✅ Active (On Shelf)']:
             pass
         else:
             column_config["Select"] = st.column_config.CheckboxColumn("Select", default=False, disabled=True)
@@ -251,7 +234,7 @@ class ConsignmentTab:
             disabled=[col for col in column_config.keys() if col != "Select"]
         )
         
-        if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+        if user_role == 'consignor' and title in ['🆕 Ready for Dropoff', '✅ Active (On Shelf)']:
             new_selected_records = []
             for idx, row in edited_df.iterrows():
                 if row['Select']:
@@ -267,7 +250,7 @@ class ConsignmentTab:
         if table_selected_records:
             selected_count = len(table_selected_records)
             
-            if user_role == 'consignor' and title in ['🆕 New Records', '✅ Active Records']:
+            if user_role == 'consignor' and title in ['🆕 Ready for Dropoff', '✅ Active (On Shelf)']:
                 st.warning(f"You are about to remove {selected_count} record(s) from consignment.")
                 
                 col1, col2 = st.columns(2)
@@ -464,9 +447,9 @@ class ConsignmentTab:
                     'store_price': 34.99,
                     'consignor_id': 999,
                     'commission_rate': 0.20,
-                    'status_id': 1,
+                    'status_id': 1,  # Ready for Dropoff
                     'barcode': '077774644121',
-                    'display_status': '✅ Active',
+                    'display_status': '🆕 Ready for Dropoff',
                     'genre_name': 'Rock',
                     'catalog_number': 'PCS 7088',
                     'created_at': '2024-01-15',
@@ -479,9 +462,9 @@ class ConsignmentTab:
                     'store_price': 29.99,
                     'consignor_id': 999,
                     'commission_rate': 0.20,
-                    'status_id': 1,
+                    'status_id': 2,  # Active (On Shelf)
                     'barcode': '074646300322',
-                    'display_status': '✅ Active',
+                    'display_status': '✅ Active (On Shelf)',
                     'genre_name': 'Jazz',
                     'catalog_number': 'CL 1355',
                     'created_at': '2024-01-10',
@@ -494,7 +477,7 @@ class ConsignmentTab:
                     'store_price': 39.99,
                     'consignor_id': 999,
                     'commission_rate': 0.20,
-                    'status_id': 3,
+                    'status_id': 3,  # Sold
                     'barcode': '077774644421',
                     'display_status': '💰 Sold',
                     'genre_name': 'Progressive Rock',
@@ -510,9 +493,9 @@ class ConsignmentTab:
                     'store_price': 24.99,
                     'consignor_id': 999,
                     'commission_rate': 0.20,
-                    'status_id': 4,
+                    'status_id': 4,  # Removed
                     'barcode': '072064244251',
-                    'display_status': '🗑️ Removed',
+                    'display_status': '🗑️ Removed (Pickup Required)',
                     'genre_name': 'Grunge',
                     'catalog_number': 'GEF 24425',
                     'created_at': '2023-11-15',
@@ -526,9 +509,9 @@ class ConsignmentTab:
                     'store_price': 27.99,
                     'consignor_id': 999,
                     'commission_rate': 0.20,
-                    'status_id': 4,
+                    'status_id': 4,  # Removed
                     'barcode': '724385467421',
-                    'display_status': '🗑️ Removed',
+                    'display_status': '🗑️ Removed (Pickup Required)',
                     'genre_name': 'Alternative Rock',
                     'catalog_number': '7243 8 55229 2 6',
                     'created_at': '2023-10-20',
@@ -551,13 +534,13 @@ class ConsignmentTab:
                 record['status_id'] = new_status_id
                 
                 if new_status_id == 1:
-                    record['display_status'] = '🆕 New'
+                    record['display_status'] = '🆕 Ready for Dropoff'
                 elif new_status_id == 2:
-                    record['display_status'] = '✅ Active'
+                    record['display_status'] = '✅ Active (On Shelf)'
                 elif new_status_id == 3:
                     record['display_status'] = '💰 Sold'
                 elif new_status_id == 4:
-                    record['display_status'] = '🗑️ Removed'
+                    record['display_status'] = '🗑️ Removed (Pickup Required)'
                     if 'date_removed' not in record:
                         record['date_removed'] = datetime.now().date().isoformat()
                 

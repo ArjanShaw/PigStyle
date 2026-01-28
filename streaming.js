@@ -485,7 +485,7 @@ async function loadRecordsFromAPI() {
     try {
         console.log('Loading records from API...');
         
-        const response = await fetch('https://arjanshaw.pythonanywhere.com/records?limit=500');
+        const response = await fetch('https://arjanshaw.pythonanywhere.com/records/random?limit=500&has_youtube=true');
         
         if (!response.ok) {
             throw new Error(`API error: ${response.status} ${response.statusText}`);

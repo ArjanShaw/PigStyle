@@ -66,22 +66,29 @@ function getCurrentShuffledIndex() {
 
 // ========== GENRE CHECKBOX FUNCTIONS ==========
 
-// Extract unique genres from records
+// Extract unique genres from records - ONLY GENRES WITH YOUTUBE VIDEOS
 function extractUniqueGenres(records) {
     const genreSet = new Set();
     
+    // Only add genres that have YouTube videos
     records.forEach(record => {
-        if (record.genre_name) {
-            genreSet.add(record.genre_name);
+        if (record.genre_name && record.youtube_url) {
+            // Check if this record has a YouTube URL
+            const hasYouTube = record.youtube_url.includes('youtube.com') || 
+                               record.youtube_url.includes('youtu.be');
+            
+            if (hasYouTube) {
+                genreSet.add(record.genre_name);
+            }
         }
     });
     
     allGenres = Array.from(genreSet).sort();
     
-    // Start with all genres selected
+    // Start with all genres selected (only those with videos)
     selectedGenres = new Set(allGenres);
     
-    console.log(`Extracted ${allGenres.length} unique genres:`, allGenres);
+    console.log(`Extracted ${allGenres.length} unique genres with YouTube videos:`, allGenres);
     return allGenres;
 }
 
@@ -102,7 +109,7 @@ function initGenreCheckboxes() {
     const group = document.createElement('div');
     group.className = 'genre-checkbox-group';
     
-    // Add checkboxes for each genre
+    // Add checkboxes for each genre that has YouTube videos
     allGenres.forEach(genre => {
         const item = document.createElement('div');
         item.className = 'genre-checkbox-item';
@@ -470,7 +477,7 @@ async function loadRecordsFromAPI() {
             allRecords = data.records;
             console.log(`Loaded ${allRecords.length} records from API`);
             
-            // Extract unique genres from records
+            // Extract unique genres from records (only those with YouTube videos)
             extractUniqueGenres(allRecords);
             
             // Initialize genre checkboxes

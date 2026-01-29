@@ -4,9 +4,9 @@
     <meta charset='UTF-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=0.25'>
     <link rel="icon" href="images/PigStyle.ico">
-    <title>Streaming Station - PigStyle Records</title>
+    <title>Streaming Test - PigStyle Records</title>
     
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) 可选 -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-03HFDR9PV7"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -15,12 +15,15 @@
       gtag('config', 'G-03HFDR9PV7');
     </script>
     
-    <!-- Font Awesome for icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- CSS: 关键修改，链接到你的测试 CSS 文件 -->
     <link rel="stylesheet" href="streaming-test.css">
-    <!-- External JavaScript -->
+    
+    <!-- JavaScript: 关键修改，链接到你的测试 JS 文件 -->
     <script src="streaming-test.js"></script>
+    
     <!-- YouTube IFrame API -->
     <script src="https://www.youtube.com/iframe_api"></script>
 </head>
@@ -41,15 +44,7 @@
                     <i class="fas fa-filter"></i> Filter Genres
                 </button>
                 <div class="genre-checkbox-container" id="genreCheckboxContainer">
-                    <!-- Genre checkboxes will be populated by JavaScript -->
-                    <div class="genre-checkbox-loading">
-                        <div class="loading-dots small">
-                            <div></div>
-                            <div></div>
-                            <div></div>
-                            <div></div>
-                        </div>
-                    </div>
+                    <!-- 由 JavaScript 填充 -->
                 </div>
             </div>
         </div>
@@ -71,6 +66,10 @@
                 <h2 id="trackTitle">PigStyle Records Collection</h2>
                 <p class="artist" id="trackArtist">Various Artists</p>
                 <p class="price" id="trackPrice">$0.00</p>
+                <!-- 新增的 “立即购买” 按钮 -->
+                <button id="buyNowBtn" class="buy-now-btn" style="display: none;">
+                    <i class="fas fa-shopping-cart"></i> Buy This Record
+                </button>
             </div>
             
             <!-- Tab Navigation -->
@@ -101,12 +100,6 @@
                 <div id="info-tab" class="tab-pane">
                     <div class="record-info-container" id="recordInfoContainer">
                         <div class="record-info-loading">
-                            <div class="loading-dots">
-                                <div></div>
-                                <div></div>
-                                <div></div>
-                                <div></div>
-                            </div>
                             <p>Select a track to view information</p>
                         </div>
                     </div>
@@ -123,9 +116,6 @@
         <button class="scale-btn" onclick="resetScale()">↺</button>
     </div>
 
-    <script>
-        // Remove the conflicting script from streaming.html
-        // All functionality is now in streaming.js
-    </script>
+    <!-- 注意：JavaScript 功能位于 streaming-test.js 中 -->
 </body>
 </html>

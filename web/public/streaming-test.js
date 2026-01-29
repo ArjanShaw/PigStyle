@@ -1,112 +1,106 @@
-// streaming.js - Get genres from records, true shuffle, YouTube only with checkbox genre filtering
-
-console.log('streaming.js loaded!');
+console.log('streaming-test.js loaded! Testing purchase button.');
 
 // ========== GLOBAL VARIABLES ==========
 let allRecords = [];
 let filteredRecords = [];
-let shuffledIndices = [];      // Array of shuffled indices
-let shuffleCurrentIndex = 0;   // Current position in shuffled playlist
+let shuffledIndices = [];
+let shuffleCurrentIndex = 0;
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let allGenres = [];
 let selectedGenres = new Set();
 
-// ========== YOUTUBE PLAYER FUNCTIONS ==========
+// ========== 新增: “立即购买” 按钮逻辑 ==========
+function setupBuyNowButton(currentRecord) {
+    const buyButton = document.getElementById('buyNowBtn');
+    
+    // 条件: 如果商品有ID、有价格，并且有YouTube视频（根据你的需求可选）
+    // 此处我们假设你只想为有YouTube视频的商品显示购买按钮
+    const isPurchasable = currentRecord && currentRecord.id && currentRecord.store_price && currentRecord.youtube_url;
+    
+    if (buyButton && isPurchasable) {
+        // 动态构建 WooCommerce 产品页面 URL (将 your-store.com 替换为你的真实域名)
+        const wooCommercePageUrl = 'https://your-woocommerce-store.com/buy-record'; // <<< 重要：请修改此行
+        const dynamicProductUrl = `${wooCommercePageUrl}?record_id=${currentRecord.id}`;
+        
+        buyButton.onclick = function() {
+            window.open(dynamicProductUrl, '_blank');
+            console.log('Opening purchase page for:', currentRecord.id, dynamicProductUrl);
+        };
+        
+        buyButton.style.display = 'block';
+        console.log('Buy Now button ENABLED for:', currentRecord.artist, '-', currentRecord.title);
+        
+    } else {
+        // 如果没有YouTube视频，则隐藏购买按钮
+        if (buyButton) {
+            buyButton.style.display = 'none';
+            console.log('Buy Now button HIDDEN (no YouTube video for this track).');
+        }
+    }
+}
 
-// Load YouTube IFrame API
+// ========== YOUTUBE PLAYER FUNCTIONS ==========
 function loadYouTubeAPI() {
     if (window.YT && window.YT.Player) {
         youtubeAPILoaded = true;
-        console.log('YouTube API already loaded');
         return;
     }
-    
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
     const firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-    
-    console.log('Loading YouTube API...');
 }
 
-// This function is called by YouTube API when ready
 window.onYouTubeIframeAPIReady = function() {
     youtubeAPILoaded = true;
-    console.log('YouTube API ready!');
-    
     if (filteredRecords.length > 0) {
         loadCurrentYouTubeTrack();
     }
 };
 
 // ========== SHUFFLE FUNCTIONS ==========
-
-// Generate a shuffled playlist (Fisher-Yates algorithm)
 function generateShuffledPlaylist(records) {
-    // Create array of indices [0, 1, 2, ..., n-1]
     shuffledIndices = Array.from({ length: records.length }, (_, i) => i);
-    
-    // Shuffle the indices using Fisher-Yates algorithm
     for (let i = shuffledIndices.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
     }
-    
     shuffleCurrentIndex = 0;
-    console.log(`Generated shuffled playlist of ${shuffledIndices.length} tracks`);
-    console.log('Shuffled indices:', shuffledIndices);
 }
 
-// Get the actual array index for current track (using shuffled indices)
 function getCurrentShuffledIndex() {
     if (shuffledIndices.length === 0) return 0;
     return shuffledIndices[shuffleCurrentIndex];
 }
 
-// ========== GENRE CHECKBOX FUNCTIONS ==========
-
-// Extract unique genres from records - ONLY GENRES WITH YOUTUBE VIDEOS
+// ========== GENRE MANAGEMENT ==========
 function extractUniqueGenres(records) {
     const genreSet = new Set();
-    
-    // Only add genres that have YouTube videos
     records.forEach(record => {
         if (record.genre_name && record.youtube_url) {
-            // Check if this record has a YouTube URL
-            const hasYouTube = record.youtube_url.includes('youtube.com') || 
-                               record.youtube_url.includes('youtu.be');
-            
+            const hasYouTube = record.youtube_url.includes('youtube.com') || record.youtube_url.includes('youtu.be');
             if (hasYouTube) {
                 genreSet.add(record.genre_name);
             }
         }
     });
-    
     allGenres = Array.from(genreSet).sort();
-    
-    console.log(`Extracted ${allGenres.length} unique genres with YouTube videos:`, allGenres);
     return allGenres;
 }
 
-// Initialize genre checkboxes
 function initGenreCheckboxes() {
     const container = document.getElementById('genreCheckboxContainer');
-    
-    // Clear loading indicator
     container.innerHTML = '';
     
-    // Create header
     const header = document.createElement('div');
     header.className = 'genre-checkbox-header';
     header.innerHTML = '<h3>Filter by Genre</h3>';
     container.appendChild(header);
     
-    // Create checkbox group
     const group = document.createElement('div');
     group.className = 'genre-checkbox-group';
     
-    // Add checkboxes for each genre that has YouTube videos
     allGenres.forEach(genre => {
         const item = document.createElement('div');
         item.className = 'genre-checkbox-item';
@@ -116,20 +110,13 @@ function initGenreCheckboxes() {
         checkbox.id = `genre-${genre.replace(/\s+/g, '-').toLowerCase()}`;
         checkbox.value = genre;
         checkbox.checked = selectedGenres.has(genre);
-        
         checkbox.addEventListener('change', (e) => {
             if (e.target.checked) {
                 selectedGenres.add(genre);
             } else {
                 selectedGenres.delete(genre);
             }
-            console.log(`Genre ${genre} ${e.target.checked ? 'selected' : 'deselected'}`);
-            console.log('Selected genres:', Array.from(selectedGenres));
-            
-            // Auto-apply filter when checkbox changes
             applyGenreFilter();
-            
-            // Save selections
             saveSelections();
         });
         
@@ -144,11 +131,9 @@ function initGenreCheckboxes() {
     
     container.appendChild(group);
     
-    // Add action buttons
     const actions = document.createElement('div');
     actions.className = 'genre-actions';
     
-    // Select All button
     const selectAllBtn = document.createElement('button');
     selectAllBtn.className = 'genre-action-btn genre-select-all';
     selectAllBtn.textContent = 'Select All';
@@ -157,10 +142,8 @@ function initGenreCheckboxes() {
         updateCheckboxes();
         applyGenreFilter();
         saveSelections();
-        console.log('All genres selected');
     });
     
-    // Deselect All button
     const deselectAllBtn = document.createElement('button');
     deselectAllBtn.className = 'genre-action-btn genre-deselect-all';
     deselectAllBtn.textContent = 'Deselect All';
@@ -169,10 +152,8 @@ function initGenreCheckboxes() {
         updateCheckboxes();
         applyGenreFilter();
         saveSelections();
-        console.log('All genres deselected');
     });
     
-    // Apply button (just for closing panel)
     const applyBtn = document.createElement('button');
     applyBtn.className = 'genre-action-btn genre-apply';
     applyBtn.textContent = 'Close';
@@ -187,7 +168,6 @@ function initGenreCheckboxes() {
     container.appendChild(actions);
 }
 
-// Update all checkboxes based on selectedGenres
 function updateCheckboxes() {
     allGenres.forEach(genre => {
         const checkbox = document.getElementById(`genre-${genre.replace(/\s+/g, '-').toLowerCase()}`);
@@ -197,174 +177,112 @@ function updateCheckboxes() {
     });
 }
 
-// Apply genre filter and reload tracks
 function applyGenreFilter() {
-    console.log('Applying genre filter...');
-    console.log('Selected genres:', Array.from(selectedGenres));
-    
-    // Filter records based on selected genres
     if (selectedGenres.size === 0) {
-        // If no genres selected, show nothing
         filteredRecords = [];
-        console.log('No genres selected, clearing all tracks');
     } else {
-        // Filter to records with matching genres
         filteredRecords = allRecords.filter(record => 
             record.youtube_url && 
-            (record.youtube_url.includes('youtube.com') || 
-             record.youtube_url.includes('youtu.be')) &&
+            (record.youtube_url.includes('youtube.com') || record.youtube_url.includes('youtu.be')) &&
             record.genre_name &&
             selectedGenres.has(record.genre_name)
         );
-        
-        console.log(`Filtered to ${filteredRecords.length} records with selected genres`);
     }
     
-    // Regenerate shuffled playlist with filtered records
     if (filteredRecords.length > 0) {
         generateShuffledPlaylist(filteredRecords);
         shuffleCurrentIndex = 0;
-        
-        // Load the first track
         if (youtubeAPILoaded) {
             loadCurrentYouTubeTrack();
         }
-        
-        // Show player controls
         document.getElementById('youtubeControls').style.display = 'flex';
     } else {
-        // No tracks match the filter
         if (youtubePlayer) {
             youtubePlayer.destroy();
             youtubePlayer = null;
         }
-        
         document.getElementById('youtube-player').innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
                 <h3>No Tracks Found</h3>
-                <p>No YouTube videos found for selected ${selectedGenres.size > 1 ? 'genres' : 'genre'}.</p>
-                <p>Try selecting different genres.</p>
+                <p>No YouTube videos found for selected genre(s).</p>
             </div>
         `;
-        
         document.getElementById('youtubeControls').style.display = 'none';
         document.getElementById('trackTitle').textContent = 'No Tracks Available';
         document.getElementById('trackArtist').textContent = 'Select genres to see tracks';
         document.getElementById('trackPrice').textContent = '';
-    }
-    
-    // Update info tab if active
-    if (document.querySelector('#info-tab').classList.contains('active')) {
-        const currentIndex = getCurrentShuffledIndex();
-        loadRecordInfo(currentIndex);
+        
+        // 当没有曲目时，隐藏购买按钮
+        document.getElementById('buyNowBtn').style.display = 'none';
     }
 }
 
-// ========== CORE FUNCTIONS ==========
-
-// Load saved genre selections from localStorage
+// ========== CORE PLAYER FUNCTIONS ==========
 function loadSavedSelections() {
     const savedGenres = localStorage.getItem('pigstyleStreamingGenres');
-    
     if (savedGenres) {
         try {
             const parsedGenres = JSON.parse(savedGenres);
             if (Array.isArray(parsedGenres)) {
-                // Only use saved genres that still exist in current data
                 const validGenres = parsedGenres.filter(genre => allGenres.includes(genre));
-                if (validGenres.length > 0) {
-                    selectedGenres = new Set(validGenres);
-                    console.log('Loaded saved genre selections:', Array.from(selectedGenres));
-                } else {
-                    // If saved genres are empty or invalid, default to all genres
-                    selectedGenres = new Set(allGenres);
-                    console.log('No valid saved genres, defaulting to all genres');
-                }
+                selectedGenres = validGenres.length > 0 ? new Set(validGenres) : new Set(allGenres);
             } else {
-                // Invalid saved data, default to all genres
                 selectedGenres = new Set(allGenres);
-                console.log('Invalid saved data, defaulting to all genres');
             }
         } catch (e) {
-            console.error('Error parsing saved genres:', e);
-            // Error parsing, default to all genres
             selectedGenres = new Set(allGenres);
-            console.log('Error parsing saved data, defaulting to all genres');
         }
     } else {
-        // No saved data, default to all genres
         selectedGenres = new Set(allGenres);
-        console.log('No saved selections, defaulting to all genres');
     }
 }
 
-// Save genre selections to localStorage
 function saveSelections() {
     const genresToSave = Array.from(selectedGenres);
     localStorage.setItem('pigstyleStreamingGenres', JSON.stringify(genresToSave));
-    console.log('Saved genre selections:', genresToSave);
 }
 
-// Start YouTube playback with current genre selections
 function startYouTubePlayback() {
-    console.log('Starting YouTube playback with selected genres...');
-    
     if (youtubePlayer) {
         youtubePlayer.destroy();
         youtubePlayer = null;
     }
     
-    // Show player content
     document.getElementById('loading').style.display = 'none';
     document.getElementById('playerContent').style.display = 'block';
-    
-    // Show YouTube player
     document.getElementById('youtubeContainer').style.display = 'block';
     
     if (!youtubeAPILoaded) {
         loadYouTubeAPI();
     }
     
-    // Apply genre filter
     applyGenreFilter();
 }
 
-// Load current YouTube track
 function loadCurrentYouTubeTrack() {
     if (filteredRecords.length === 0) return;
     
-    // Get the actual record index from shuffled playlist
     const actualIndex = getCurrentShuffledIndex();
     const currentRecord = filteredRecords[actualIndex];
-    
-    // Extract YouTube ID
     const youtubeId = extractYouTubeId(currentRecord.youtube_url);
     
-    console.log('=== Loading shuffled track ===');
-    console.log('Shuffle position:', shuffleCurrentIndex + 1, '/', shuffledIndices.length);
-    console.log('Actual index:', actualIndex);
-    console.log('Artist:', currentRecord.artist);
-    console.log('Title:', currentRecord.title);
-    console.log('Record ID:', currentRecord.id);
-    console.log('YouTube ID:', youtubeId);
-    console.log('Genre:', currentRecord.genre_name);
-    
-    // Update track info
+    // 更新曲目信息
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
     document.getElementById('trackArtist').textContent = currentRecord.artist || 'Unknown Artist';
-    
-    // Update price
     const priceElement = document.getElementById('trackPrice');
     if (priceElement && currentRecord.store_price) {
         priceElement.textContent = `$${parseFloat(currentRecord.store_price).toFixed(2)}`;
     }
     
+    // === 关键部分：设置“立即购买”按钮 ===
+    setupBuyNowButton(currentRecord);
+    
+    // 原有的YouTube播放器加载逻辑
     if (!youtubeId) {
         document.getElementById('youtube-player').innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
                 <h3>No YouTube Video Available</h3>
                 <p>Track: ${currentRecord.artist} - ${currentRecord.title}</p>
-                <p>YouTube URL: ${currentRecord.youtube_url || 'None'}</p>
                 <div style="margin-top: 20px;">
                     <button onclick="playNextTrack()" style="padding: 10px 20px; margin: 10px; background: #f0f0f0; color: #333; border: none; border-radius: 5px;">
                         Next Track
@@ -372,7 +290,6 @@ function loadCurrentYouTubeTrack() {
                 </div>
             </div>
         `;
-        
         setTimeout(playNextTrack, 10000);
         return;
     }
@@ -397,146 +314,88 @@ function loadCurrentYouTubeTrack() {
         }
     });
     
-    // Update info tab if it's active
     if (document.querySelector('#info-tab').classList.contains('active')) {
         loadRecordInfo(actualIndex);
     }
 }
 
-// YouTube player ready callback
 function onPlayerReady(event) {
-    console.log('YouTube player ready');
     event.target.playVideo();
 }
 
-// YouTube player state change callback
 function onPlayerStateChange(event) {
-    if (event.data === 0) { // ENDED
-        console.log('Video ended, playing next shuffled track...');
+    if (event.data === 0) {
         playNextTrack();
-    }
-    
-    if (event.data === 1) { // PLAYING
-        console.log('Video started playing');
     }
 }
 
-// YouTube player error callback
 function onPlayerError(event) {
-    console.error('YouTube player error:', event.data);
     setTimeout(playNextTrack, 3000);
 }
 
-// Extract YouTube ID from URL
 function extractYouTubeId(url) {
     if (!url) return null;
-    
     const patterns = [
         /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
         /youtu\.be\/([a-zA-Z0-9_-]{11})/,
         /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
         /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
     ];
-    
     for (const pattern of patterns) {
         const match = url.match(pattern);
         if (match && match[1]) {
             return match[1];
         }
     }
-    
     return null;
 }
 
-// Play previous track (using shuffled playlist)
 function playPreviousTrack() {
     if (filteredRecords.length === 0) return;
-    
-    // Move backward in shuffled playlist
     shuffleCurrentIndex = (shuffleCurrentIndex - 1 + shuffledIndices.length) % shuffledIndices.length;
-    
-    console.log('Playing previous shuffled track:');
-    console.log('New shuffle position:', shuffleCurrentIndex);
-    
     loadCurrentYouTubeTrack();
 }
 
-// Play next track (using shuffled playlist)
 function playNextTrack() {
     if (filteredRecords.length === 0) return;
-    
-    // Move forward in shuffled playlist
     shuffleCurrentIndex = (shuffleCurrentIndex + 1) % shuffledIndices.length;
-    
-    // If we reach the end of shuffled playlist, regenerate it
     if (shuffleCurrentIndex === 0) {
-        console.log('End of shuffled playlist, regenerating new shuffle...');
         generateShuffledPlaylist(filteredRecords);
     }
-    
-    console.log('Playing next shuffled track:');
-    console.log('New shuffle position:', shuffleCurrentIndex);
-    
     loadCurrentYouTubeTrack();
 }
 
-// Load records from API
+// ========== DATA LOADING ==========
 async function loadRecordsFromAPI() {
     try {
-        console.log('Loading records from API...');
-        
         const response = await fetch('https://arjanshaw.pythonanywhere.com/records/random?limit=500&has_youtube=true');
-        
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status} ${response.statusText}`);
-        }
-        
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
         const data = await response.json();
-        
         if (data && data.status === 'success' && data.records) {
             allRecords = data.records;
-            console.log(`Loaded ${allRecords.length} records from API`);
-            
-            // Extract unique genres from records (only those with YouTube videos)
             extractUniqueGenres(allRecords);
-            
-            // Load saved selections
             loadSavedSelections();
-            
-            // Initialize genre checkboxes
             initGenreCheckboxes();
-            
-            // Update checkboxes based on saved selections
             updateCheckboxes();
-            
-            // Save selections (in case this is first load)
             saveSelections();
-            
-            // Start playing based on current selections
             startYouTubePlayback();
-            
         } else {
             throw new Error('Invalid response from API');
         }
-        
     } catch (error) {
-        console.error('Error loading records from API:', error);
+        console.error('Error loading records:', error);
         document.getElementById('youtube-player').innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
                 <h3>Error Loading Records</h3>
-                <p>Failed to load from API: ${error.message}</p>
-                <p>Make sure your API server at arjanshaw.pythonanywhere.com is running.</p>
+                <p>${error.message}</p>
             </div>
         `;
     }
 }
 
 // ========== TAB MANAGEMENT ==========
-
-// Initialize tab functionality
 function initTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
-    
     tabButtons.forEach(button => {
         button.addEventListener('click', function() {
             const tabId = this.getAttribute('data-tab');
@@ -546,23 +405,12 @@ function initTabs() {
 }
 
 function switchTab(tabId, buttonElement) {
-    // Update active tab button
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.classList.remove('active');
-    });
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
     buttonElement.classList.add('active');
-    
-    // Hide all tab panes
-    document.querySelectorAll('.tab-pane').forEach(pane => {
-        pane.classList.remove('active');
-    });
-    
-    // Show selected tab
+    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
     const selectedPane = document.getElementById(tabId);
     if (selectedPane) {
         selectedPane.classList.add('active');
-        
-        // If switching to info tab and we have filtered records, load current track info
         if (tabId === 'info-tab' && filteredRecords.length > 0) {
             const currentIndex = getCurrentShuffledIndex();
             loadRecordInfo(currentIndex);
@@ -570,38 +418,18 @@ function switchTab(tabId, buttonElement) {
     }
 }
 
-// Load record information for the info tab
 function loadRecordInfo(recordIndex) {
     const container = document.getElementById('recordInfoContainer');
-    
     if (filteredRecords.length === 0 || recordIndex >= filteredRecords.length) {
         container.innerHTML = '<div class="no-record-info">No record information available</div>';
         return;
     }
-    
     const record = filteredRecords[recordIndex];
     if (!record) {
         container.innerHTML = '<div class="no-record-info">No record information available</div>';
         return;
     }
     
-    const artist = record.artist || 'Unknown Artist';
-    const title = record.title || 'Unknown Title';
-    const imageUrl = record.image_url || 'images/default-record.jpg';
-    const genre = record.genre_name || 'Unknown Genre';
-    const price = record.store_price ? formatPrice(record.store_price) : 'Price N/A';
-    const recordCondition = record.condition || '';
-    const description = record.description || '';
-    
-    const hasCondition = recordCondition && recordCondition.trim() !== '';
-    
-    let conditionClass = 'record-condition';
-    if (hasCondition) {
-        const conditionSlug = recordCondition.toLowerCase().replace(/\s+/g, '-');
-        conditionClass += ` condition-${conditionSlug}`;
-    }
-    
-    // Escape HTML to prevent XSS
     const escapeHtml = (text) => {
         const div = document.createElement('div');
         div.textContent = text;
@@ -611,39 +439,19 @@ function loadRecordInfo(recordIndex) {
     container.innerHTML = `
         <div class="record-info-card">
             <div class="record-info-image">
-                <img src="${imageUrl}" alt="${escapeHtml(title)}" onerror="this.src='images/default-record.jpg'">
+                <img src="${record.image_url}" alt="${escapeHtml(record.title)}" onerror="this.src='images/default-record.jpg'">
             </div>
             <div class="record-info-details">
-                <h3>${escapeHtml(title)}</h3>
-                <p class="record-info-artist">${escapeHtml(artist)}</p>
-                <p class="record-info-price">${price}</p>
-                <p class="record-info-genre">${escapeHtml(genre)}</p>
-                
-                ${hasCondition ? `
-                    <p class="${conditionClass}">Condition: ${recordCondition}</p>
-                ` : ''}
-                
-                ${description ? `
-                    <div class="record-info-description">
-                        <h4>Description</h4>
-                        <p>${escapeHtml(description)}</p>
-                    </div>
-                ` : ''}
+                <h3>${escapeHtml(record.title)}</h3>
+                <p class="record-info-artist">${escapeHtml(record.artist)}</p>
+                <p class="record-info-price">$${parseFloat(record.store_price || 0).toFixed(2)}</p>
+                <p class="record-info-genre">${escapeHtml(record.genre_name)}</p>
             </div>
         </div>
     `;
 }
 
-// Helper function to format price
-function formatPrice(price) {
-    if (!price) return 'Price N/A';
-    const numPrice = parseFloat(price);
-    return isNaN(numPrice) ? 'Price N/A' : `$${numPrice.toFixed(2)}`;
-}
-
 // ========== SCALE CONTROLS ==========
-
-// Manual scaling functionality
 let currentScale = 1;
 
 function scaleDown() {
@@ -667,92 +475,66 @@ function resetScale() {
 
 function applyScale() {
     const playerContainer = document.querySelector('.player-container');
-    
     if (playerContainer) {
         playerContainer.style.transform = `scale(${currentScale})`;
         playerContainer.style.transformOrigin = 'center';
     }
-    
-    // Update scale percentage display
     const scalePercent = document.getElementById('scalePercent');
     if (scalePercent) {
         scalePercent.textContent = `${Math.round(currentScale * 100)}%`;
     }
-    
-    // Save scale preference
     localStorage.setItem('pigstyleStreamingScale', currentScale);
 }
 
-// Load saved scale on startup
 function loadSavedScale() {
     const savedScale = localStorage.getItem('pigstyleStreamingScale');
     if (savedScale) {
         currentScale = parseFloat(savedScale);
-        // Limit scale to reasonable bounds
         currentScale = Math.max(0.5, Math.min(2.0, currentScale));
         setTimeout(() => applyScale(), 500);
     }
 }
 
 // ========== UI SETUP ==========
-
-// Setup UI event listeners
 function setupUI() {
-    // Genre toggle button
     const genreToggleBtn = document.getElementById('genreToggleBtn');
     if (genreToggleBtn) {
         genreToggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             const container = document.getElementById('genreCheckboxContainer');
             const btn = document.getElementById('genreToggleBtn');
-            
             container.classList.toggle('show');
             btn.classList.toggle('active');
         });
     }
     
-    // Close genre filter when clicking outside
     document.addEventListener('click', (e) => {
         const container = document.getElementById('genreCheckboxContainer');
         const btn = document.getElementById('genreToggleBtn');
-        
         if (container && btn && !container.contains(e.target) && !btn.contains(e.target)) {
             container.classList.remove('show');
             btn.classList.remove('active');
         }
     });
     
-    // Previous/Next buttons
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
-    
     if (prevBtn) prevBtn.addEventListener('click', playPreviousTrack);
     if (nextBtn) nextBtn.addEventListener('click', playNextTrack);
     
-    // Initialize tabs
     initTabs();
 }
 
 // ========== INITIALIZATION ==========
-
-// Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing...');
-    
-    // Setup UI
+    console.log('Test environment loaded.');
     setupUI();
-    
-    // Load YouTube API
     loadYouTubeAPI();
-    
-    // Load records and start playing
     setTimeout(loadRecordsFromAPI, 500);
-    
-    // Load saved scale
     loadSavedScale();
 });
 
-// Make functions available globally
+// 全局函数
 window.playPreviousTrack = playPreviousTrack;
 window.playNextTrack = playNextTrack;
 window.scaleDown = scaleDown;

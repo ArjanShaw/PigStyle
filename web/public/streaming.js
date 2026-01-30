@@ -1,12 +1,12 @@
-// streaming.js - Get genres from records, true shuffle, YouTube only with checkbox genre filtering
+// streaming.js - Get genres from records, YouTube only with checkbox genre filtering
+// Uses API's random order without additional shuffling
 
 console.log('streaming.js loaded!');
 
 // ========== GLOBAL VARIABLES ==========
 let allRecords = [];
 let filteredRecords = [];
-let shuffledIndices = [];      // Array of shuffled indices
-let shuffleCurrentIndex = 0;   // Current position in shuffled playlist
+let currentTrackIndex = 0;   // Current position in the current playlist
 let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let allGenres = [];
@@ -39,30 +39,6 @@ window.onYouTubeIframeAPIReady = function() {
         loadCurrentYouTubeTrack();
     }
 };
-
-// ========== SHUFFLE FUNCTIONS ==========
-
-// Generate a shuffled playlist (Fisher-Yates algorithm)
-function generateShuffledPlaylist(records) {
-    // Create array of indices [0, 1, 2, ..., n-1]
-    shuffledIndices = Array.from({ length: records.length }, (_, i) => i);
-    
-    // Shuffle the indices using Fisher-Yates algorithm
-    for (let i = shuffledIndices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
-    }
-    
-    shuffleCurrentIndex = 0;
-    console.log(`Generated shuffled playlist of ${shuffledIndices.length} tracks`);
-    console.log('Shuffled indices:', shuffledIndices);
-}
-
-// Get the actual array index for current track (using shuffled indices)
-function getCurrentShuffledIndex() {
-    if (shuffledIndices.length === 0) return 0;
-    return shuffledIndices[shuffleCurrentIndex];
-}
 
 // ========== GENRE CHECKBOX FUNCTIONS ==========
 
@@ -220,12 +196,11 @@ function applyGenreFilter() {
         console.log(`Filtered to ${filteredRecords.length} records with selected genres`);
     }
     
-    // Regenerate shuffled playlist with filtered records
+    // Reset to first track
+    currentTrackIndex = 0;
+    
+    // Load the first track
     if (filteredRecords.length > 0) {
-        generateShuffledPlaylist(filteredRecords);
-        shuffleCurrentIndex = 0;
-        
-        // Load the first track
         if (youtubeAPILoaded) {
             loadCurrentYouTubeTrack();
         }
@@ -255,8 +230,7 @@ function applyGenreFilter() {
     
     // Update info tab if active
     if (document.querySelector('#info-tab').classList.contains('active')) {
-        const currentIndex = getCurrentShuffledIndex();
-        loadRecordInfo(currentIndex);
+        loadRecordInfo(currentTrackIndex);
     }
 }
 
@@ -333,16 +307,13 @@ function startYouTubePlayback() {
 function loadCurrentYouTubeTrack() {
     if (filteredRecords.length === 0) return;
     
-    // Get the actual record index from shuffled playlist
-    const actualIndex = getCurrentShuffledIndex();
-    const currentRecord = filteredRecords[actualIndex];
+    const currentRecord = filteredRecords[currentTrackIndex];
     
     // Extract YouTube ID
     const youtubeId = extractYouTubeId(currentRecord.youtube_url);
     
-    console.log('=== Loading shuffled track ===');
-    console.log('Shuffle position:', shuffleCurrentIndex + 1, '/', shuffledIndices.length);
-    console.log('Actual index:', actualIndex);
+    console.log('=== Loading track ===');
+    console.log('Track position:', currentTrackIndex + 1, '/', filteredRecords.length);
     console.log('Artist:', currentRecord.artist);
     console.log('Title:', currentRecord.title);
     console.log('Record ID:', currentRecord.id);
@@ -399,7 +370,7 @@ function loadCurrentYouTubeTrack() {
     
     // Update info tab if it's active
     if (document.querySelector('#info-tab').classList.contains('active')) {
-        loadRecordInfo(actualIndex);
+        loadRecordInfo(currentTrackIndex);
     }
 }
 
@@ -412,7 +383,7 @@ function onPlayerReady(event) {
 // YouTube player state change callback
 function onPlayerStateChange(event) {
     if (event.data === 0) { // ENDED
-        console.log('Video ended, playing next shuffled track...');
+        console.log('Video ended, playing next track...');
         playNextTrack();
     }
     
@@ -433,7 +404,7 @@ function extractYouTubeId(url) {
     
     const patterns = [
         /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
-        /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+        /youtu\.be\/([a-zA-Z09_-]{11})/,
         /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
         /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
     ];
@@ -448,34 +419,28 @@ function extractYouTubeId(url) {
     return null;
 }
 
-// Play previous track (using shuffled playlist)
+// Play previous track
 function playPreviousTrack() {
     if (filteredRecords.length === 0) return;
     
-    // Move backward in shuffled playlist
-    shuffleCurrentIndex = (shuffleCurrentIndex - 1 + shuffledIndices.length) % shuffledIndices.length;
+    // Move backward
+    currentTrackIndex = (currentTrackIndex - 1 + filteredRecords.length) % filteredRecords.length;
     
-    console.log('Playing previous shuffled track:');
-    console.log('New shuffle position:', shuffleCurrentIndex);
+    console.log('Playing previous track:');
+    console.log('New position:', currentTrackIndex);
     
     loadCurrentYouTubeTrack();
 }
 
-// Play next track (using shuffled playlist)
+// Play next track
 function playNextTrack() {
     if (filteredRecords.length === 0) return;
     
-    // Move forward in shuffled playlist
-    shuffleCurrentIndex = (shuffleCurrentIndex + 1) % shuffledIndices.length;
+    // Move forward
+    currentTrackIndex = (currentTrackIndex + 1) % filteredRecords.length;
     
-    // If we reach the end of shuffled playlist, regenerate it
-    if (shuffleCurrentIndex === 0) {
-        console.log('End of shuffled playlist, regenerating new shuffle...');
-        generateShuffledPlaylist(filteredRecords);
-    }
-    
-    console.log('Playing next shuffled track:');
-    console.log('New shuffle position:', shuffleCurrentIndex);
+    console.log('Playing next track:');
+    console.log('New position:', currentTrackIndex);
     
     loadCurrentYouTubeTrack();
 }
@@ -564,8 +529,7 @@ function switchTab(tabId, buttonElement) {
         
         // If switching to info tab and we have filtered records, load current track info
         if (tabId === 'info-tab' && filteredRecords.length > 0) {
-            const currentIndex = getCurrentShuffledIndex();
-            loadRecordInfo(currentIndex);
+            loadRecordInfo(currentTrackIndex);
         }
     }
 }

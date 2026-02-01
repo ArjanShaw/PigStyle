@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime as dt
 import requests
+import json
+import uuid
+import time
 
 class CheckoutTab:
     def __init__(self):
@@ -19,7 +22,7 @@ class CheckoutTab:
             st.info("👀 **Demo Mode**: In a real store, checkout would be handled by a store employee.")
             st.info("You can simulate the checkout process in demo mode.")
         
-        # Only admin can view checkout (demo user cannot see this tab anymore)
+        # Only admin can view checkout
         if user_role != 'admin' and not is_demo:
             st.error("❌ Access denied. Administrator privileges required to view checkout.")
             return
@@ -27,6 +30,14 @@ class CheckoutTab:
         # Initialize checkout records in session state
         if 'checkout_records' not in st.session_state:
             st.session_state.checkout_records = []
+        
+        # Initialize Square payment status
+        if 'square_checkout_status' not in st.session_state:
+            st.session_state.square_checkout_status = None
+        
+        # Initialize polling status
+        if 'last_poll_time' not in st.session_state:
+            st.session_state.last_poll_time = 0
         
         # Two-column layout
         col1, col2 = st.columns([3, 1])
@@ -40,13 +51,14 @@ class CheckoutTab:
         # Show current checkout list if any items
         if st.session_state.checkout_records:
             self._render_checkout_summary()
+        
+        # Show Square payment status if processing
+        if st.session_state.square_checkout_status:
+            self._render_payment_status()
     
     def _render_search_section(self):
         """Render search section for adding items to checkout"""
         st.subheader("🔍 Search Items to Checkout")
-        
-        user = st.session_state.get('user', {})
-        is_demo = user.get('username') == 'demo_user'
         
         with st.form(key="checkout_search_form"):
             search_input = st.text_input(
@@ -114,8 +126,6 @@ class CheckoutTab:
             
             # Show consignor info if available
             consignor_id = record.get('consignor_id')
-            user = st.session_state.get('user', {})
-            
             if consignor_id:
                 user_info = self.api_client.get_user(consignor_id)
                 if user_info:
@@ -123,26 +133,22 @@ class CheckoutTab:
         
         with col4:
             # Show sale status
-            date_sold = record.get('date_sold')
-            date_paid = record.get('date_paid')
-            
-            if date_sold:
-                if date_paid:
-                    st.write("**Status:** ✅ Paid")
-                else:
-                    st.write("**Status:** 💳 Sold (unpaid)")
-            else:
-                st.write("**Status:** 🟢 Available")
+            status_id = record.get('status_id')
+            status_map = {
+                1: "🆕 New",
+                2: "✅ Active",
+                3: "💰 Sold",
+                4: "🗑️ Removed"
+            }
+            status_display = status_map.get(status_id, "❓ Unknown")
+            st.write(f"**Status:** {status_display}")
         
         with col5:
-            # Check if already sold or paid
-            date_sold = record.get('date_sold')
-            date_paid = record.get('date_paid')
+            # Check status - only allow adding if not sold
+            status_id = record.get('status_id')
             
-            if date_sold and not date_paid:
-                st.button("✅ In Checkout", key=f"sold_{record['id']}", disabled=True, width='stretch')
-            elif date_sold and date_paid:
-                st.button("💰 Paid", key=f"paid_{record['id']}", disabled=True, width='stretch')
+            if status_id == 3:  # Sold
+                st.button("💰 Sold", key=f"sold_{record['id']}", disabled=True, width='stretch')
             else:
                 # Check if already in checkout
                 already_in_checkout = any(r['id'] == record['id'] for r in st.session_state.checkout_records)
@@ -150,7 +156,7 @@ class CheckoutTab:
                 if already_in_checkout:
                     st.button("✅ Added", key=f"added_{record['id']}", disabled=True, width='stretch')
                 else:
-                    if st.button("➕ Add to Checkout", key=f"add_{record['id']}", width='stretch'):
+                    if st.button("➕ Add", key=f"add_{record['id']}", width='stretch'):
                         st.session_state.checkout_records.append(record)
                         st.success(f"Added {record.get('artist', '')} - {record.get('title', '')} to checkout")
                         st.rerun()
@@ -192,12 +198,13 @@ class CheckoutTab:
         # Clear all button
         if st.button("🗑️ Clear All", type="secondary", width='stretch'):
             st.session_state.checkout_records = []
+            st.session_state.square_checkout_status = None
             st.rerun()
     
     def _render_checkout_summary(self):
         """Render checkout summary and payment processing"""
         st.divider()
-        st.subheader("💳 Mark as Paid")
+        st.subheader("💳 Process Payment")
         
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
@@ -205,6 +212,7 @@ class CheckoutTab:
         # Calculate totals
         record_ids = [record['id'] for record in st.session_state.checkout_records]
         total_sales = sum(float(r.get('store_price', 0)) for r in st.session_state.checkout_records)
+        record_titles = [f"{r.get('artist', '')} - {r.get('title', '')}" for r in st.session_state.checkout_records]
         
         # Group by consignor for summary
         consignor_summary = {}
@@ -221,20 +229,27 @@ class CheckoutTab:
                         'total_sales': 0,
                         'total_commission': 0,
                         'total_payout': 0,
-                        'records': 0
+                        'records': 0,
+                        'username': ''
                     }
                 
                 consignor_summary[consignor_id]['total_sales'] += price
                 consignor_summary[consignor_id]['total_commission'] += commission
                 consignor_summary[consignor_id]['total_payout'] += payout
                 consignor_summary[consignor_id]['records'] += 1
+                
+                # Get consignor username
+                if not consignor_summary[consignor_id]['username']:
+                    user_info = self.api_client.get_user(consignor_id)
+                    if user_info:
+                        consignor_summary[consignor_id]['username'] = user_info.get('username', f'ID: {consignor_id}')
         
         # Display summary
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Items", len(record_ids))
         with col2:
-            st.metric("Total Sales", f"${total_sales:.2f}")
+            st.metric("Total Amount", f"${total_sales:.2f}")
         with col3:
             if consignor_summary:
                 total_payout = sum(info['total_payout'] for info in consignor_summary.values())
@@ -244,8 +259,7 @@ class CheckoutTab:
         if consignor_summary:
             st.write("**Consignor Breakdown:**")
             for consignor_id, summary in consignor_summary.items():
-                user_info = self.api_client.get_user(consignor_id)
-                username = user_info.get('username', f"ID: {consignor_id}") if user_info else f"ID: {consignor_id}"
+                username = summary['username'] or f"ID: {consignor_id}"
                 
                 col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
                 with col1:
@@ -257,25 +271,143 @@ class CheckoutTab:
                 with col4:
                     st.write(f"Payout: ${summary['total_payout']:.2f}")
         
-        # Single "Mark Paid" button
-        if st.button("💰 Mark Paid", type="primary", width='stretch'):
-            if is_demo:
-                st.success(f"✅ Demo: Would mark {len(record_ids)} items as paid")
-                st.info("💡 Demo: Email confirmation would be sent to consignor and check mailed.")
-                
-                # Clear checkout records for demo
-                st.session_state.checkout_records = []
-                st.rerun()
-            else:
-                success = self._mark_as_paid(record_ids)
-                
-                if success:
-                    st.success(f"✅ Successfully marked {len(record_ids)} items as paid!")
-                    st.info("💡 Email confirmation sent to consignor and check mailed.")
+        # Payment method selection
+        st.write("---")
+        st.write("**Select Payment Method:**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            use_square = st.checkbox("💳 Process with Square Terminal", value=True)
+        with col2:
+            use_cash = st.checkbox("💵 Mark as Cash/Check Payment", value=False)
+        
+        # Process payment buttons
+        if use_square and not use_cash:
+            # Square Terminal payment
+            if st.button("💳 Process with Square Terminal", type="primary", width='stretch'):
+                if is_demo:
+                    st.success(f"✅ Demo: Would process ${total_sales:.2f} payment via Square Terminal")
+                    st.info("💡 Demo: Customer would complete payment on the Square Terminal.")
                     
-                    # Clear checkout records
-                    st.session_state.checkout_records = []
-                    st.rerun()
+                    # Simulate successful payment
+                    self._handle_successful_payment(record_ids, total_sales, "square")
+                else:
+                    # Call Square Terminal endpoint
+                    with st.spinner("Initiating Square Terminal payment..."):
+                        result = self._initiate_square_checkout(record_ids, total_sales, record_titles)
+                        
+                        if result.get('status') == 'success':
+                            st.session_state.square_checkout_status = {
+                                'status': 'processing',
+                                'checkout_id': result.get('checkout_id'),
+                                'amount': total_sales,
+                                'record_ids': record_ids,
+                                'start_time': time.time()
+                            }
+                            st.success("✅ Payment initiated on Square Terminal!")
+                            st.info("💳 Please ask the customer to complete payment on the Square Terminal device.")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Failed to initiate payment: {result.get('error', 'Unknown error')}")
+        
+        elif use_cash and not use_square:
+            # Cash/Check payment
+            if st.button("💰 Mark as Cash/Check Paid", type="secondary", width='stretch'):
+                if is_demo:
+                    st.success(f"✅ Demo: Would mark ${total_sales:.2f} as cash/check payment")
+                    self._handle_successful_payment(record_ids, total_sales, "cash")
+                else:
+                    success = self._mark_as_paid(record_ids, payment_method="cash")
+                    if success:
+                        st.success(f"✅ Successfully marked {len(record_ids)} items as paid!")
+                        st.info("💡 Records updated and consignors credited.")
+                        
+                        # Clear checkout records
+                        st.session_state.checkout_records = []
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to process payment")
+        
+        else:
+            st.warning("⚠️ Please select only one payment method")
+    
+    def _render_payment_status(self):
+        """Render Square payment status and polling"""
+        status = st.session_state.square_checkout_status
+        
+        if status and status['status'] == 'processing':
+            st.divider()
+            st.subheader("⏳ Payment Status")
+            
+            # Calculate time elapsed
+            elapsed_time = time.time() - status.get('start_time', time.time())
+            elapsed_minutes = int(elapsed_time // 60)
+            elapsed_seconds = int(elapsed_time % 60)
+            
+            st.info(f"**Payment of ${status['amount']:.2f} pending on Square Terminal**")
+            st.write(f"⏱️ Elapsed time: {elapsed_minutes}:{elapsed_seconds:02d}")
+            st.write("Waiting for customer to complete payment...")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # Check payment status button
+                if st.button("🔄 Check Payment Status", key="check_payment_status"):
+                    with st.spinner("Checking payment status..."):
+                        result = self._check_square_payment_status(status['checkout_id'])
+                        
+                        if result.get('status') == 'success':
+                            payment_status = result.get('payment_status', 'UNKNOWN')
+                            
+                            if payment_status == 'COMPLETED':
+                                st.session_state.square_checkout_status['status'] = 'completed'
+                                st.success("✅ Payment completed successfully!")
+                                
+                                # Update records and credit consignors
+                                success = self._mark_as_paid(status['record_ids'], payment_method="square")
+                                if success:
+                                    st.success("✅ Records updated and consignors credited!")
+                                    
+                                    # Clear checkout records
+                                    st.session_state.checkout_records = []
+                                    st.session_state.square_checkout_status = None
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to update records after payment")
+                            
+                            elif payment_status == 'CANCELED':
+                                st.session_state.square_checkout_status = None
+                                st.warning("⚠️ Payment was cancelled")
+                                st.rerun()
+                            
+                            else:
+                                st.info(f"⏳ Payment status: {payment_status}")
+                        else:
+                            st.error(f"❌ Error checking status: {result.get('error', 'Unknown error')}")
+            
+            with col2:
+                # NEW: Cancel transaction button
+                if st.button("❌ Cancel Transaction", type="secondary", key="cancel_transaction"):
+                    with st.spinner("Cancelling transaction..."):
+                        result = self._cancel_square_checkout(status['checkout_id'])
+                        
+                        if result.get('status') == 'success':
+                            st.session_state.square_checkout_status = None
+                            st.success("✅ Transaction cancelled successfully!")
+                            
+                            # Optional: Revert record status if you want
+                            # For now, just clear the checkout
+                            st.session_state.checkout_records = []
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Failed to cancel transaction: {result.get('error', 'Unknown error')}")
+            
+            with col3:
+                # Clear status button (manual override)
+                if st.button("🗑️ Clear Status", type="secondary", key="clear_status"):
+                    if 'square_checkout_status' in st.session_state:
+                        del st.session_state.square_checkout_status
+                        st.rerun()
     
     def _search_records_for_checkout(self, search_term):
         """Search records for checkout - only shows unsold items"""
@@ -308,7 +440,60 @@ class CheckoutTab:
             st.error(f"Search error: {e}")
             return []
     
-    def _mark_as_paid(self, record_ids):
+    def _initiate_square_checkout(self, record_ids, total_amount, record_titles):
+        """Initiate Square Terminal checkout"""
+        try:
+            response = requests.post(
+                f"{self.api_client.base_url}/api/square/terminal-checkout",
+                json={
+                    'record_ids': record_ids,
+                    'total_amount': total_amount,
+                    'record_titles': record_titles[:3]  # Send first 3 titles for note
+                },
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {'status': 'error', 'error': f'API error: {response.status_code}'}
+                
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+    
+    def _check_square_payment_status(self, checkout_id):
+        """Check Square payment status"""
+        try:
+            response = requests.get(
+                f"{self.api_client.base_url}/api/square/payment-status/{checkout_id}",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {'status': 'error', 'error': f'API error: {response.status_code}'}
+                
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+    
+    def _cancel_square_checkout(self, checkout_id):
+        """Cancel a Square Terminal checkout"""
+        try:
+            response = requests.post(
+                f"{self.api_client.base_url}/api/square/cancel-checkout/{checkout_id}",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {'status': 'error', 'error': f'API error: {response.status_code}'}
+                
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+    
+    def _mark_as_paid(self, record_ids, payment_method="square"):
         """Mark items as paid - update status to sold and credit consignor"""
         if not record_ids:
             st.error("No items to process")
@@ -330,16 +515,13 @@ class CheckoutTab:
             status_text.text(f"Processing {i+1}/{len(record_ids)}: {record.get('artist', '')} - {record.get('title', '')}")
             
             # Update record status to sold (status_id = 3)
-            today = dt.now().date().isoformat()
             updates = {
                 'status_id': 3
             }
             
             update_success = self.api_client.update_record(record_id, updates)
             
-
             if update_success:
-                 
                 # Credit consignor if applicable
                 consignor_id = record.get('consignor_id')
                 if consignor_id:
@@ -369,6 +551,15 @@ class CheckoutTab:
         else:
             st.error(f"❌ Failed to process payment for {failed_count} items")
             return False
+    
+    def _handle_successful_payment(self, record_ids, total_amount, payment_method):
+        """Handle successful payment in demo mode"""
+        st.success(f"✅ Demo: Payment of ${total_amount:.2f} successful via {payment_method}")
+        
+        # Clear checkout records for demo
+        st.session_state.checkout_records = []
+        st.session_state.square_checkout_status = None
+        st.rerun()
     
     def _get_record_details(self, record_id):
         """Get record details via API"""
@@ -419,13 +610,6 @@ class APIClient:
     
     def update_record(self, record_id, updates):
         """Update a record via API"""
-        user = st.session_state.get('user', {})
-        is_demo = user.get('username') == 'demo_user'
-        
-        if is_demo:
-            st.info(f"Demo: Would update record {record_id} with {updates}")
-            return True
-            
         try:
             response = requests.put(
                 f"{self.base_url}/records/{record_id}",
@@ -438,13 +622,6 @@ class APIClient:
     
     def update_user(self, user_id, updates):
         """Update user via API"""
-        user = st.session_state.get('user', {})
-        is_demo = user.get('username') == 'demo_user'
-        
-        if is_demo:
-            st.info(f"Demo: Would update user {user_id} with {updates}")
-            return True
-            
         try:
             response = requests.put(
                 f"{self.base_url}/users/{user_id}",

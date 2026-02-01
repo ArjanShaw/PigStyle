@@ -7,9 +7,8 @@ from handlers.commission_calculator import CommissionCalculator
 from handlers.pricing_validator import PricingValidator
 from handlers.price_advise_handler import PriceAdviseHandler
 import requests
-import os
 import hashlib
-from conditions import DiscogsConditions  # FIXED: Complete import statement
+from conditions import DiscogsConditions
 
 class InventoryTab:
     def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None, config_cache=None, genre_cache=None, price_advise_handler=None, base_url="https://arjanshaw.pythonanywhere.com"):
@@ -27,24 +26,19 @@ class InventoryTab:
         self.price_advise_handler = PriceAdviseHandler(discogs_handler, ebay_handler)
 
     def _perform_database_search(self, search_term, user):
-        """Perform database search - calls the SearchHandler method"""
         return self.search_handler.perform_database_search(search_term, user)
 
     def _get_suggested_genre(self, record_data):
-        """Get suggested genre from Discogs genre using cache mapping - FIXED to handle slashes"""
         discogs_genre = record_data.get('genre', '')
         if not discogs_genre:
             return None
         
-        # FIX: Clean the discogs genre for API calls
         clean_discogs_genre = discogs_genre
         if '/' in discogs_genre:
-            # Try multiple cleaning strategies
             clean_discogs_genre = discogs_genre.replace('/', ' ')
         
         mapping_data = self.get_discogs_genre_mapping(clean_discogs_genre)
         
-        # If that fails, try the original with slash
         if (not mapping_data or mapping_data.get('status') != 'success') and '/' in discogs_genre:
             mapping_data = self.get_discogs_genre_mapping(discogs_genre)
         
@@ -53,7 +47,6 @@ class InventoryTab:
             if mapping:
                 return mapping.get('local_genre_name')
         
-        # FIX: Fallback genre mapping for common slash genres
         slash_genre_mapping = {
             'Funk/Soul': 'Funk',
             'Rock/Pop': 'Rock',
@@ -68,7 +61,6 @@ class InventoryTab:
         if discogs_genre in slash_genre_mapping:
             return slash_genre_mapping[discogs_genre]
         
-        # Try partial matching
         for slash_genre, mapped_genre in slash_genre_mapping.items():
             if slash_genre.startswith(discogs_genre.split('/')[0]):
                 return mapped_genre
@@ -76,7 +68,6 @@ class InventoryTab:
         return None
 
     def _render_ebay_listings_summary(self, price_research):
-        """Render summarized eBay listings data with all evaluated listings"""
         ebay_prices = price_research.get('ebay_prices', {})
         
         if not ebay_prices:
@@ -109,7 +100,6 @@ class InventoryTab:
                 self._render_listings_table(condition_listings, f"{condition} Listings", condition_median)
 
     def _render_listings_table(self, listings, title, median_price):
-        """Render listings in a table with median calculation info"""
         if not listings:
             st.info("No listings available")
             return
@@ -165,11 +155,9 @@ class InventoryTab:
             st.write(f"**Average Price:** ${sum(prices)/len(prices):.2f}")
 
     def _handle_add_record_direct(self, record_data, genre, user_price=None, consignor_id=None):
-        """Handle adding a record directly to the database - FIXED VERSION"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
-        # FIX: Validate genre is provided
         if genre is None or genre == "Select genre...":
             st.error("❌ **Genre is required! Please select a genre.**")
             return False, None
@@ -249,7 +237,6 @@ class InventoryTab:
         return success, record_id
 
     def delete_record(self, record_id):
-        """Delete a record via API - updates cache"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
@@ -265,6 +252,9 @@ class InventoryTab:
             print(f"API Delete Record ({record_id}) took {duration:.2f}s")
             
             if response.status_code == 200:
+                if hasattr(st.session_state, 'records_cache'):
+                    del st.session_state.records_cache
+                    
                 if 'records_updated' not in st.session_state:
                     st.session_state.records_updated = 0
                 st.session_state.records_updated += 1
@@ -275,7 +265,6 @@ class InventoryTab:
             return False
     
     def get_all_records(self):
-        """Get all records via RecordsCache"""
         try:
             if hasattr(st.session_state, 'records_cache'):
                 records = st.session_state.records_cache
@@ -290,6 +279,7 @@ class InventoryTab:
             if response.status_code == 200:
                 data = response.json()
                 records = data.get('records', [])
+                st.session_state.records_cache = records
                 return pd.DataFrame(records) if records else pd.DataFrame()
             return pd.DataFrame()
         except Exception as e:
@@ -297,7 +287,6 @@ class InventoryTab:
             return pd.DataFrame()
     
     def get_recent_records(self, limit=10):
-        """Get recent records via RecordsCache"""
         try:
             if hasattr(st.session_state, 'records_cache'):
                 records = st.session_state.records_cache
@@ -321,7 +310,6 @@ class InventoryTab:
             return pd.DataFrame()
     
     def get_record(self, record_id):
-        """Get single record via RecordsCache"""
         try:
             if hasattr(st.session_state, 'records_cache'):
                 records = st.session_state.records_cache
@@ -344,7 +332,6 @@ class InventoryTab:
             return None
     
     def update_record(self, record_id, updates):
-        """Update a record via API - updates cache"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
@@ -363,6 +350,9 @@ class InventoryTab:
             print(f"API Update Record ({record_id}) took {duration:.2f}s")
             
             if response.status_code == 200:
+                if hasattr(st.session_state, 'records_cache'):
+                    del st.session_state.records_cache
+                    
                 if 'records_updated' not in st.session_state:
                     st.session_state.records_updated = 0
                 st.session_state.records_updated += 1
@@ -373,7 +363,6 @@ class InventoryTab:
             return False
         
     def search_records(self, search_term):
-        """Search records via RecordsCache - FIXED to ensure dict format"""
         try:
             start_time = time.time()
             
@@ -428,7 +417,6 @@ class InventoryTab:
             return []
     
     def get_records_by_user(self, user_id):
-        """Get records for specific user via RecordsCache"""
         try:
             if hasattr(st.session_state, 'records_cache'):
                 records = st.session_state.records_cache
@@ -452,13 +440,11 @@ class InventoryTab:
             return []
     
     def get_config_value(self, config_key, default=None):
-        """Get config value from cache"""
         if self.config_cache:
             return self.config_cache.get(config_key, default)
         return default
     
     def get_all_config(self):
-        """Get all config values via API"""
         try:
             start_time = time.time()
             response = requests.get(f"{self.base_url}/config")
@@ -475,20 +461,15 @@ class InventoryTab:
             return {}
     
     def get_all_genres(self):
-        """Get all genres via cache"""
         if self.genre_cache:
             genres_data = self.genre_cache.load_all_genres()
             
-            # Handle the return structure
             if isinstance(genres_data, dict):
-                # Try to get genres_list
                 genre_list = genres_data.get('genres_list', [])
                 
-                # If empty, try to extract from genres_data
                 if not genre_list and 'genres_data' in genres_data:
                     genres_raw = genres_data['genres_data']
                     if isinstance(genres_raw, list):
-                        # Extract genre names from dicts
                         genre_list = []
                         for item in genres_raw:
                             if isinstance(item, dict):
@@ -501,7 +482,6 @@ class InventoryTab:
         return []
         
     def add_genre(self, genre_name):
-        """Add new genre via API"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
@@ -530,18 +510,21 @@ class InventoryTab:
             return False, None
     
     def get_discogs_genre_mapping(self, discogs_genre):
-        """Get Discogs genre mapping via cache"""
         if self.genre_cache:
             return self.genre_cache.get_discogs_genre_mapping(discogs_genre)
         return {'mapping': None, 'status': 'error'}
     
     def get_records_count(self):
-        """Get records count from cache (efficient)"""
         try:
             if hasattr(st.session_state, 'records_cache'):
                 records = st.session_state.records_cache
                 if isinstance(records, list):
                     return len(records)
+            
+            response = requests.get(f"{self.base_url}/records/count")
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('count', 0)
                 
             return 0
         except Exception as e:
@@ -549,7 +532,6 @@ class InventoryTab:
             return 0
     
     def get_user(self, user_id):
-        """Get user by ID"""
         try:
             start_time = time.time()
             response = requests.get(f"{self.base_url}/users/{user_id}")
@@ -564,7 +546,6 @@ class InventoryTab:
             return None
 
     def _get_config_value(self, config_key):
-        """Get config value using config cache"""
         value = self.get_config_value(config_key, None)
         if value is not None:
             if config_key == 'STORE_CAPACITY':
@@ -606,7 +587,6 @@ class InventoryTab:
         self._render_unified_operations(store_fill_fraction)
 
     def _calculate_store_fill_info(self, store_capacity):
-        """Calculate store fill information"""
         total_inventory = self.get_records_count()
         
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
@@ -620,7 +600,6 @@ class InventoryTab:
         }
 
     def _render_last_added_record_simple(self):
-        """Display the last record added to the database - UPDATED VERSION"""
         user = st.session_state.get('user', {})
         user_id = user.get('id')
         user_role = user.get('role')
@@ -645,7 +624,6 @@ class InventoryTab:
             st.caption(f"💡 Demo Credit Balance: ${credit_balance:.2f} (matches sold records)")
 
     def _fetch_last_added_record(self, user_role, user_id, is_demo):
-        """Fetch the last added record text from API"""
         try:
             if is_demo:
                 if 'demo_last_added' in st.session_state:
@@ -952,17 +930,14 @@ class InventoryTab:
                     stored_data['user_price'] = advised_store_price
                     st.session_state[f"{record_key}_data"] = stored_data
                 
-                # REMOVED ALL MAX PRICE CALCULATIONS
                 price_input_key = f"price_input_{record_key}"
                 user_price = st.number_input(
                     "Price ($)",
                     min_value=0.0,
-                    # COMPLETELY REMOVED: max_value parameter
                     value=float(advised_store_price) if advised_store_price else 0.0,
                     step=0.01,
                     format="%.2f",
                     key=price_input_key,
-                    # SIMPLIFIED HELP TEXT
                     help="Enter store price" if advised_store_price and advised_store_price > 0 else "Enter price"
                 )
                 
@@ -1052,7 +1027,6 @@ class InventoryTab:
         st.session_state[f"{record_key}_data"] = stored_data
     
     def _render_price_calculation_details(self, price_research):
-        """Render price calculation details from stored calculation_lines"""
         if not price_research:
             st.info("No price research data available")
             return
@@ -1071,17 +1045,13 @@ class InventoryTab:
         st.write(f"**Final advised price: ${advised_store_price:.2f}**")
     
     def _add_inventory_record(self, record_data, genre, search_term, consignor_id=None):
-        """Add inventory record to database via API - FIXED VERSION with genre validation"""
-        # FIX: Validate genre is provided
         if genre is None or genre == "Select genre...":
             st.error("❌ **Genre is required! Please select a genre.**")
             return False, None
         
-        # FIX: Get genre_id from database - CRITICAL FIX
         genre_id = None
         if genre:
             try:
-                # Call API to get genre_id for genre name
                 response = requests.get(
                     f"{self.base_url}/genres/by-name/{genre}",
                     timeout=5
@@ -1092,7 +1062,6 @@ class InventoryTab:
                     if data.get('status') == 'success':
                         genre_id = data.get('genre_id')
                 else:
-                    # Try alternative endpoint if exists
                     response = requests.get(
                         f"{self.base_url}/genres",
                         timeout=5
@@ -1107,14 +1076,12 @@ class InventoryTab:
                                         genre_id = g.get('id')
                                         break
                                 elif g == genre:
-                                    # Handle simple string list
-                                    genre_id = 1  # Default or find better mapping
+                                    genre_id = 1
                                     break
             except Exception as e:
                 st.error(f"Error getting genre ID: {e}")
                 return False, None
         
-        # Throw error if genre_id still not set
         if genre_id is None:
             st.error(f"❌ **Genre '{genre}' not found in database! Please check the genre exists.**")
             return False, None
@@ -1170,7 +1137,6 @@ class InventoryTab:
         
         discogs_genre = record_data.get('discogs_genre', '')
         
-        # FIX: Clean discogs_genre for API calls
         discogs_genre_for_api = discogs_genre
         if '/' in discogs_genre:
             discogs_genre_for_api = discogs_genre.replace('/', ' ')
@@ -1188,15 +1154,10 @@ class InventoryTab:
             original_consignor_price = store_price
         
         try:
-            # GENERATE BARCODE BEFORE INSERTING RECORD
-            # Use a combination of timestamp and record data to create a unique barcode
             import time
-            import hashlib
             
-            # Create a unique barcode using timestamp, artist, and title
             barcode_seed = f"{time.time()}_{artist}_{title}"
             barcode_hash = hashlib.md5(barcode_seed.encode()).hexdigest()[:12]
-            # Ensure it's numeric for barcode standards
             barcode_number = ''.join(filter(str.isdigit, barcode_hash))
             if len(barcode_number) < 8:
                 barcode_number = barcode_number.ljust(8, '0')[:8]
@@ -1206,8 +1167,8 @@ class InventoryTab:
             record_data_to_save = {
                 'artist': artist,
                 'title': title,
-                'barcode': barcode_number,  # BARCODE ASSIGNED BEFORE INSERTION
-                'genre_id': genre_id,  # NOW HAS VALID GENRE ID
+                'barcode': barcode_number,
+                'genre_id': genre_id,
                 'image_url': image_url,
                 'catalog_number': catalog_number,
                 'format': format_selected,
@@ -1216,7 +1177,7 @@ class InventoryTab:
                 'youtube_url': youtube_url,
                 'compilation': bool(compilation),
                 'advised_store_price': float(record_data.get('advised_store_price', store_price)),
-                'status_id': 1  # FIXED: Set to 1 (🆕 Ready for Dropoff)
+                'status_id': 1
             }
             
             if consignor_id:
@@ -1228,26 +1189,17 @@ class InventoryTab:
                 record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
                 record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
             
-            # DEBUG: Show what's being sent
-            # st.write("Sending data:", record_data_to_save)
-            
             response = requests.post(
                 f"{self.base_url}/records",
                 json=record_data_to_save,
                 timeout=10
             )
             
-            # DEBUG: Show response
-            st.write("Response status:", response.status_code)
-            if response.status_code != 200:
-                st.write("Response body:", response.text)
-            
             if response.status_code == 200:
                 response_data = response.json()
                 if response_data.get('status') == 'success':
                     record_id = response_data.get('record_id')
                     
-                    # Optional: Save genre mapping
                     if discogs_genre_for_api and genre_id:
                         mapping_data = {
                             'discogs_genre': discogs_genre_for_api,
@@ -1276,7 +1228,6 @@ class InventoryTab:
             return False, None
     
     def update_database_record(self, record_data, genre, store_credit_option=None, user_price=None):
-        """Update database record with enhanced consignment features via API - FIXED VERSION"""
         if genre is None:
             raise Exception("genre parameter is required but was None")
         
@@ -1286,10 +1237,8 @@ class InventoryTab:
             st.error("No record ID provided")
             return False
         
-        # First, get the genre_id for the genre name
         genre_id = None
         try:
-            # Call API to get genre_id for genre name
             response = requests.get(
                 f"{self.base_url}/genres/by-name/{genre}",
                 timeout=5
@@ -1309,21 +1258,17 @@ class InventoryTab:
             st.error(f"Error getting genre ID: {e}")
             return False
         
-        # Prepare updates
         updates = {
             'genre_id': genre_id
         }
         
-        # Get compilation status from record_data
         compilation = record_data.get('compilation', False)
         updates['compilation'] = compilation
         
-        # Get consignment info from record_data
         consignor_id = record_data.get('consignor_id')
         commission_rate = record_data.get('commission_rate')
         store_return_days = record_data.get('store_return_days')
         
-        # Add consignor fields if provided
         if consignor_id is not None:
             updates['consignor_id'] = int(consignor_id) if consignor_id else None
         
@@ -1333,16 +1278,13 @@ class InventoryTab:
         if store_return_days is not None:
             updates['store_return_days'] = int(store_return_days)
         
-        # Update store credit option if provided
         if store_credit_option is not None:
             updates['store_credit_option'] = bool(store_credit_option)
         
-        # Update price if provided
         if user_price is not None:
             updates['store_price'] = float(user_price)
             updates['original_consignor_price'] = float(user_price)
         
-        # If consignor is being added, set consignment dates
         if consignor_id and not record_data.get('consignment_start_date'):
             updates['consignment_start_date'] = datetime.now().date().isoformat()
             try:
@@ -1351,7 +1293,6 @@ class InventoryTab:
                 full_price_days = 90
             updates['discount_eligible_date'] = (datetime.now().date() + timedelta(days=full_price_days)).isoformat()
         
-        # Call API to update record
         try:
             base_url = "https://arjanshaw.pythonanywhere.com"
             response = requests.put(
@@ -1380,26 +1321,22 @@ class InventoryTab:
             return False
 
     def _render_database_results(self, results, search_type, user):
-        """Render database search results - FIXED to filter for consignors"""
         if not results:
             st.warning("No matching records found in database")
             return
         
-        # Filter results for consignors - only show their own records
         user_role = user.get('role', 'consignor')
         user_id = user.get('id')
         
         if user_role == 'consignor':
             filtered_results = []
             for record in results:
-                # Check if record has consignor_id attribute
                 record_consignor_id = None
                 if hasattr(record, 'get'):
                     record_consignor_id = record.get('consignor_id')
                 elif isinstance(record, dict):
                     record_consignor_id = record.get('consignor_id')
                 
-                # Include record if it belongs to this consignor
                 if record_consignor_id == user_id:
                     filtered_results.append(record)
             
@@ -1415,7 +1352,6 @@ class InventoryTab:
             self._render_database_result_item(record, i, user)
 
     def _render_database_result_item(self, record, index, user):
-        """Render individual database result item - UPDATED to include created_at and delete button for consignors"""
         if hasattr(record, 'get'):
             record_id = record.get('id')
         elif hasattr(record, '__getitem__'):
@@ -1441,33 +1377,47 @@ class InventoryTab:
                 st.write("No image")
         
         with col2:
-            artist = record.get('artist', '') if hasattr(record, 'get') else ''
-            title = record.get('title', '') if hasattr(record, 'get') else ''
+            if hasattr(record, 'get'):
+                artist = record.get('artist', '')
+                title = record.get('title', '')
+                genre = record.get('genre_name', '') or record.get('genre', '')
+                catalog = record.get('catalog_number', '')
+                barcode = record.get('barcode', '')
+                consignor_name = record.get('consignor_name', '')
+                created_at = record.get('created_at', '')
+            else:
+                try:
+                    artist = record.get('artist', '') if hasattr(record, 'get') else getattr(record, 'artist', '')
+                    title = record.get('title', '') if hasattr(record, 'get') else getattr(record, 'title', '')
+                    genre = getattr(record, 'genre_name', getattr(record, 'genre', ''))
+                    catalog = getattr(record, 'catalog_number', '')
+                    barcode = getattr(record, 'barcode', '')
+                    consignor_name = getattr(record, 'consignor_name', '')
+                    created_at = getattr(record, 'created_at', '')
+                except:
+                    artist = str(getattr(record, 'artist', ''))
+                    title = str(getattr(record, 'title', ''))
+                    genre = str(getattr(record, 'genre_name', getattr(record, 'genre', '')))
+                    catalog = str(getattr(record, 'catalog_number', ''))
+                    barcode = str(getattr(record, 'barcode', ''))
+                    consignor_name = str(getattr(record, 'consignor_name', ''))
+                    created_at = str(getattr(record, 'created_at', ''))
             
             st.write(f"**{artist} - {title}**")
-            
-            catalog = record.get('catalog_number', '') if hasattr(record, 'get') else ''
-            genre = record.get('genre', '') if hasattr(record, 'get') else ''
-            barcode = record.get('barcode', '') if hasattr(record, 'get') else ''
-            consignor_name = record.get('consignor_name', '') if hasattr(record, 'get') else ''
             
             info_lines = []
             if catalog:
                 info_lines.append(f"**Catalog:** {catalog}")
             if genre:
-                info_lines.append(f"**Genre:** {genre}")
+                info_lines.append(f"**Current Genre:** {genre}")
             if barcode:
                 info_lines.append(f"**Barcode:** {barcode}")
             if consignor_name:
                 info_lines.append(f"**Consignor:** {consignor_name}")
             
-            # NEW: Add created_at field if available
-            created_at = record.get('created_at', '') if hasattr(record, 'get') else ''
             if created_at:
-                # Format the date for display
                 try:
                     if 'T' in created_at:
-                        # Handle ISO format with T separator
                         date_part = created_at.split('T')[0]
                         info_lines.append(f"**Created:** {date_part}")
                     else:
@@ -1479,63 +1429,73 @@ class InventoryTab:
                 for line in info_lines:
                     st.write(line)
             
-            # NEW: Genre editing field (just like YouTube URL)
-            if hasattr(record, 'get'):
-                current_genre = record.get('genre', '')
-                genre_key = f"genre_edit_{record_id}"
+            current_genre = genre
+            genre_key = f"genre_edit_{record_id}"
+            
+            all_genres = self.get_all_genres()
+            
+            default_index = 0
+            
+            if current_genre and all_genres:
+                clean_current = str(current_genre).strip()
                 
-                # Get all available genres
-                all_genres = self.get_all_genres()
-                
-                # Find current genre index
-                current_index = 0  # Default to first option
-                if current_genre in all_genres:
-                    current_index = all_genres.index(current_genre) + 1
-                
-                # Genre selection dropdown
-                new_genre = st.selectbox(
-                    "Genre:",
-                    options=["Select genre..."] + all_genres,
-                    index=current_index,
-                    key=genre_key
-                )
-                
-                # Show save button if genre changed
-                if new_genre != "Select genre..." and new_genre != current_genre:
-                    if st.button("💾 Save Genre", key=f"save_genre_{record_id}", type="secondary", width='stretch'):
-                        # Add confirmation message
-                        confirm_container = st.empty()
-                        with confirm_container:
-                            st.info(f"Updating genre from '{current_genre}' to '{new_genre}'...")
-                        
-                        # Update the record with new genre
-                        success = self.update_database_record(
-                            record,
-                            new_genre,
-                            store_credit_option=None,
-                            user_price=None
-                        )
-                        
-                        if success:
-                            confirm_container.empty()
-                            st.success(f"✅ Genre updated successfully from '{current_genre}' to '{new_genre}'!")
-                            st.rerun()
-                        else:
-                            confirm_container.empty()
-                            st.error("❌ Failed to update genre")
+                if clean_current in all_genres:
+                    default_index = all_genres.index(clean_current) + 1
+                else:
+                    found = False
+                    for i, g in enumerate(all_genres):
+                        if str(g).strip().lower() == clean_current.lower():
+                            default_index = i + 1
+                            found = True
+                            break
+                    
+                    if not found:
+                        st.warning(f"Genre '{clean_current}' not found in list!")
+            
+            new_genre = st.selectbox(
+                "Change Genre:",
+                options=["Select genre..."] + all_genres,
+                index=default_index,
+                key=genre_key
+            )
+            
+            if new_genre != "Select genre..." and new_genre != current_genre:
+                if st.button("💾 Save Genre", key=f"save_genre_{record_id}", type="secondary", width='stretch'):
+                    confirm_container = st.empty()
+                    with confirm_container:
+                        st.info(f"Updating genre from '{current_genre}' to '{new_genre}'...")
+                    
+                    success = self.update_database_record(
+                        record,
+                        new_genre,
+                        store_credit_option=None,
+                        user_price=None
+                    )
+                    
+                    if success:
+                        confirm_container.empty()
+                        st.success(f"✅ Genre updated successfully from '{current_genre}' to '{new_genre}'!")
+                        st.rerun()
+                    else:
+                        confirm_container.empty()
+                        st.error("❌ Failed to update genre")
         
         with col3:
-            store_price = record.get('store_price', 0.0) if hasattr(record, 'get') else 0.0
+            if hasattr(record, 'get'):
+                store_price = record.get('store_price', 0.0)
+                condition = record.get('condition', '')
+                youtube_url = record.get('youtube_url', '')
+            else:
+                store_price = getattr(record, 'store_price', 0.0)
+                condition = getattr(record, 'condition', '')
+                youtube_url = getattr(record, 'youtube_url', '')
             
             st.write(f"**Store Price:** ${store_price:.2f}")
             
-            condition = record.get('condition', '') if hasattr(record, 'get') else ''
             if condition:
                 st.write(f"**Condition:** {condition}")
             
-            # YouTube link editing - ONLY FOR ADMINS
             user_role = user.get('role', 'consignor')
-            youtube_url = record.get('youtube_url', '') if hasattr(record, 'get') else ''
             
             if user_role == 'admin':
                 youtube_key = f"youtube_edit_{record_id}"
@@ -1546,10 +1506,8 @@ class InventoryTab:
                     key=youtube_key
                 )
                 
-                # Save button for YouTube URL
                 if new_youtube_url != youtube_url:
                     if st.button("💾 Save YouTube Link", key=f"save_youtube_{record_id}", type="secondary", width='stretch'):
-                        # Add confirmation message
                         confirm_container = st.empty()
                         with confirm_container:
                             st.info("Updating YouTube URL...")
@@ -1563,93 +1521,118 @@ class InventoryTab:
                             confirm_container.empty()
                             st.error("❌ Failed to save YouTube link")
             else:
-                # For consignors, just display the YouTube URL if it exists
                 if youtube_url:
                     st.write(f"**YouTube:** [Link]({youtube_url})")
         
         with col4:
             user_role = user.get('role', 'consignor')
             user_id = user.get('id')
-            record_consignor_id = record.get('consignor_id') if hasattr(record, 'get') else None
+            
+            if hasattr(record, 'get'):
+                record_consignor_id = record.get('consignor_id')
+            else:
+                record_consignor_id = getattr(record, 'consignor_id', None)
             
             can_edit = (user_role == 'admin' or 
-                       (user_role == 'consignor' and user_id and record_consignor_id == user_id))
+                    (user_role == 'consignor' and user_id and record_consignor_id == user_id))
             
-            # Add "Set to Inactive" button (only for admin or record owner)
-            status_id = record.get('status_id', 2) if hasattr(record, 'get') else 2
+            is_admin = user_role == 'admin'
             
-            # Show inactive button for active records (status_id = 2)
-            if can_edit and status_id == 2:  # Only show for active records
-                if st.button("⏸️ Inactive", key=f"inactive_{record_id}", type="secondary", width='stretch', 
-                           help="Set record to inactive status (status_id = 1)"):
-                    # Add confirmation message
-                    confirm_container = st.empty()
-                    with confirm_container:
-                        st.info("Setting record to inactive...")
-                    
-                    if self._set_record_inactive(record_id):
-                        confirm_container.empty()
-                        st.success(f"✅ Record set to inactive!")
-                        st.rerun()
-                    else:
-                        confirm_container.empty()
-                        st.error("Failed to set record to inactive")
-            # Show reactivate button for inactive records (status_id = 1)
-            elif can_edit and status_id == 1:
-                if st.button("▶️ Activate", key=f"activate_{record_id}", type="secondary", width='stretch',
-                           help="Reactivate record (status_id = 2)"):
-                    # Add confirmation message
-                    confirm_container = st.empty()
-                    with confirm_container:
-                        st.info("Reactivating record...")
-                    
-                    if self._set_record_active(record_id):
-                        confirm_container.empty()
-                        st.success(f"✅ Record reactivated!")
-                        st.rerun()
-                    else:
-                        confirm_container.empty()
-                        st.error("Failed to reactivate record")
+            if hasattr(record, 'get'):
+                status = record.get('status', 'active')
+                status_id = record.get('status_id', 2)
+            else:
+                status = getattr(record, 'status', 'active')
+                status_id = getattr(record, 'status_id', 2)
+            
+            if is_admin:
+                status_key = f"status_select_{record_id}"
+                
+                status_options = ["new", "active", "sold", "removed"]
+                current_index = 1
+                if status in status_options:
+                    current_index = status_options.index(status)
+                
+                selected_status = st.selectbox(
+                    "Status:",
+                    options=status_options,
+                    index=current_index,
+                    key=status_key
+                )
+                
+                status_to_id_map = {
+                    'new': 1,
+                    'active': 2,
+                    'sold': 3,
+                    'removed': 4
+                }
+                selected_status_id = status_to_id_map.get(selected_status, 2)
+                
+                if selected_status_id is not None and selected_status_id != status_id:
+                    if st.button("💾 Save Status", key=f"save_status_{record_id}", type="secondary", width='stretch'):
+                        confirm_container = st.empty()
+                        with confirm_container:
+                            st.info(f"Updating status from '{status}' to '{selected_status}'...")
+                        
+                        if self.update_record(record_id, {'status_id': selected_status_id}):
+                            confirm_container.empty()
+                            st.success(f"✅ Status updated to '{selected_status}'!")
+                            st.rerun()
+                        else:
+                            confirm_container.empty()
+                            st.error("❌ Failed to update status")
+            else:
+                if can_edit:
+                    if status == 'active':
+                        if st.button("⏸️ Inactive", key=f"inactive_{record_id}", type="secondary", width='stretch', 
+                                help="Set record to inactive status"):
+                            confirm_container = st.empty()
+                            with confirm_container:
+                                st.info("Setting record to inactive...")
+                            
+                            if self._set_record_inactive(record_id):
+                                confirm_container.empty()
+                                st.success(f"✅ Record set to inactive!")
+                                st.rerun()
+                            else:
+                                confirm_container.empty()
+                                st.error("Failed to set record to inactive")
+                    elif status == 'new':
+                        if st.button("▶️ Activate", key=f"activate_{record_id}", type="secondary", width='stretch',
+                                help="Activate record"):
+                            confirm_container = st.empty()
+                            with confirm_container:
+                                st.info("Activating record...")
+                            
+                            if self._set_record_active(record_id):
+                                confirm_container.empty()
+                                st.success(f"✅ Record activated!")
+                                st.rerun()
+                            else:
+                                confirm_container.empty()
+                                st.error("Failed to activate record")
         
         with col5:
-            # Display status with better icons based on actual status IDs
-            status_id = record.get('status_id', 2) if hasattr(record, 'get') else 2
-            date_sold = record.get('date_sold') if hasattr(record, 'get') else None
-            date_removed = record.get('date_removed') if hasattr(record, 'get') else None
-            
-            # Correct status mapping:
-            # status_id = 1: New/Ready for Dropoff
-            # status_id = 2: Active (On Shelf)
-            # status_id = 3: Sold
-            # status_id = 4: Removed
-            
-            if status_id == 1:
-                status = "🆕 Ready for Dropoff"
-            elif status_id == 2:
-                status = "✅ Active (On Shelf)"
-            elif status_id == 3:
-                status = "💰 Sold"
-            elif status_id == 4:
-                status = "🗑️ Removed"
+            if hasattr(record, 'get'):
+                status = record.get('status', 'active')
             else:
-                status = f"❓ Unknown ({status_id})"
+                status = getattr(record, 'status', 'active')
             
             st.write(f"**Status:** {status}")
             
-            # Delete button - FIXED to allow consignors to delete their own records
             user_role = user.get('role', 'consignor')
             user_id = user.get('id')
-            record_consignor_id = record.get('consignor_id') if hasattr(record, 'get') else None
             
-            # Allow deletion if:
-            # 1. User is admin OR
-            # 2. User is consignor and this is their record
+            if hasattr(record, 'get'):
+                record_consignor_id = record.get('consignor_id')
+            else:
+                record_consignor_id = getattr(record, 'consignor_id', None)
+            
             can_delete = (user_role == 'admin' or 
-                         (user_role == 'consignor' and user_id and record_consignor_id == user_id))
+                        (user_role == 'consignor' and user_id and record_consignor_id == user_id))
             
             if can_delete:
                 if st.button("🗑️ Delete", key=f"delete_{record_id}", type="secondary", width='stretch'):
-                    # Add confirmation message
                     confirm_container = st.empty()
                     with confirm_container:
                         st.info("Deleting record...")
@@ -1665,7 +1648,6 @@ class InventoryTab:
         st.divider()
     
     def _set_record_inactive(self, record_id):
-        """Set a record to inactive status (status_id = 1)"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
@@ -1675,11 +1657,14 @@ class InventoryTab:
             
         try:
             updates = {
-                'status_id': 1  # Set to inactive
+                'status_id': 1
             }
             
             success = self.update_record(record_id, updates)
             if success:
+                if hasattr(st.session_state, 'records_cache'):
+                    del st.session_state.records_cache
+                st.rerun()
                 return True
             else:
                 st.error("Failed to update record status")
@@ -1689,7 +1674,6 @@ class InventoryTab:
             return False
     
     def _set_record_active(self, record_id):
-        """Reactivate a record (status_id = 2)"""
         user = st.session_state.get('user', {})
         is_demo = user.get('username') == 'demo_user'
         
@@ -1699,11 +1683,14 @@ class InventoryTab:
             
         try:
             updates = {
-                'status_id': 2  # Set to active
+                'status_id': 2
             }
             
             success = self.update_record(record_id, updates)
             if success:
+                if hasattr(st.session_state, 'records_cache'):
+                    del st.session_state.records_cache
+                st.rerun()
                 return True
             else:
                 st.error("Failed to update record status")

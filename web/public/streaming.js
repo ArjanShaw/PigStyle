@@ -11,6 +11,7 @@ let youtubePlayer = null;
 let youtubeAPILoaded = false;
 let allGenres = [];
 let selectedGenres = new Set();
+let lastAddedDate = null;  // To track the most recent addition date
 
 // ========== YOUTUBE PLAYER FUNCTIONS ==========
 
@@ -120,6 +121,31 @@ function initGenreCheckboxes() {
     
     container.appendChild(group);
     
+    // Add New Additions checkbox
+    const newAdditionsItem = document.createElement('div');
+    newAdditionsItem.className = 'genre-checkbox-item';
+    
+    const newAdditionsCheckbox = document.createElement('input');
+    newAdditionsCheckbox.type = 'checkbox';
+    newAdditionsCheckbox.id = 'new-additions-filter';
+    newAdditionsCheckbox.value = 'new-additions';
+    
+    newAdditionsCheckbox.addEventListener('change', (e) => {
+        console.log('New additions filter:', e.target.checked ? 'enabled' : 'disabled');
+        // Auto-apply filter when checkbox changes
+        applyGenreFilter();
+    });
+    
+    const newAdditionsLabel = document.createElement('label');
+    newAdditionsLabel.htmlFor = 'new-additions-filter';
+    newAdditionsLabel.textContent = '🎉 New Additions Only';
+    
+    newAdditionsItem.appendChild(newAdditionsCheckbox);
+    newAdditionsItem.appendChild(newAdditionsLabel);
+    group.appendChild(newAdditionsItem);
+    
+    container.appendChild(group);
+    
     // Add action buttons
     const actions = document.createElement('div');
     actions.className = 'genre-actions';
@@ -173,10 +199,48 @@ function updateCheckboxes() {
     });
 }
 
+// Find the most recent addition date from all records
+function findLastAddedDate(records) {
+    let latestDate = null;
+    
+    records.forEach(record => {
+        if (record.created_at) {
+            const recordDate = new Date(record.created_at);
+            // Only consider date part (not time)
+            const dateOnly = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+            
+            if (!latestDate || dateOnly > latestDate) {
+                latestDate = dateOnly;
+            }
+        }
+    });
+    
+    lastAddedDate = latestDate;
+    console.log('Last added date found:', lastAddedDate);
+    
+    return latestDate;
+}
+
+// Check if a record is a new addition (added on the last addition date)
+function isNewAddition(record) {
+    if (!lastAddedDate || !record.created_at) {
+        return false;
+    }
+    
+    const recordDate = new Date(record.created_at);
+    const recordDateOnly = new Date(recordDate.getFullYear(), recordDate.getMonth(), recordDate.getDate());
+    
+    return recordDateOnly.getTime() === lastAddedDate.getTime();
+}
+
 // Apply genre filter and reload tracks
 function applyGenreFilter() {
     console.log('Applying genre filter...');
     console.log('Selected genres:', Array.from(selectedGenres));
+    
+    // Check if "New Additions Only" is checked
+    const newAdditionsOnly = document.getElementById('new-additions-filter')?.checked || false;
+    console.log('New additions only filter:', newAdditionsOnly);
     
     // Filter records based on selected genres
     if (selectedGenres.size === 0) {
@@ -185,15 +249,33 @@ function applyGenreFilter() {
         console.log('No genres selected, clearing all tracks');
     } else {
         // Filter to records with matching genres
-        filteredRecords = allRecords.filter(record => 
-            record.youtube_url && 
-            (record.youtube_url.includes('youtube.com') || 
-             record.youtube_url.includes('youtu.be')) &&
-            record.genre_name &&
-            selectedGenres.has(record.genre_name)
-        );
+        filteredRecords = allRecords.filter(record => {
+            // Must have YouTube URL
+            if (!record.youtube_url || 
+                (!record.youtube_url.includes('youtube.com') && 
+                 !record.youtube_url.includes('youtu.be'))) {
+                return false;
+            }
+            
+            // Must have genre and match selected genres
+            if (!record.genre_name || !selectedGenres.has(record.genre_name)) {
+                return false;
+            }
+            
+            // Apply new additions filter if enabled
+            if (newAdditionsOnly && !isNewAddition(record)) {
+                return false;
+            }
+            
+            return true;
+        });
         
         console.log(`Filtered to ${filteredRecords.length} records with selected genres`);
+        
+        // Show message if new additions filter is on but no matches
+        if (newAdditionsOnly && filteredRecords.length === 0) {
+            console.log('No new additions found for selected genres');
+        }
     }
     
     // Reset to first track
@@ -214,10 +296,18 @@ function applyGenreFilter() {
             youtubePlayer = null;
         }
         
+        let message = 'No tracks found';
+        if (selectedGenres.size > 0) {
+            message = 'No YouTube videos found for selected genres';
+            if (newAdditionsOnly) {
+                message = 'No new additions found for selected genres';
+            }
+        }
+        
         document.getElementById('youtube-player').innerHTML = `
             <div style="padding: 40px; text-align: center; color: white;">
                 <h3>No Tracks Found</h3>
-                <p>No YouTube videos found for selected ${selectedGenres.size > 1 ? 'genres' : 'genre'}.</p>
+                <p>${message}.</p>
                 <p>Try selecting different genres.</p>
             </div>
         `;
@@ -319,6 +409,8 @@ function loadCurrentYouTubeTrack() {
     console.log('Record ID:', currentRecord.id);
     console.log('YouTube ID:', youtubeId);
     console.log('Genre:', currentRecord.genre_name);
+    console.log('Created at:', currentRecord.created_at);
+    console.log('Is new addition:', isNewAddition(currentRecord));
     
     // Update track info
     document.getElementById('trackTitle').textContent = currentRecord.title || 'Unknown Title';
@@ -462,6 +554,9 @@ async function loadRecordsFromAPI() {
             allRecords = data.records;
             console.log(`Loaded ${allRecords.length} records from API`);
             
+            // Find the most recent addition date
+            findLastAddedDate(allRecords);
+            
             // Extract unique genres from records (only those with YouTube videos)
             extractUniqueGenres(allRecords);
             
@@ -556,6 +651,8 @@ function loadRecordInfo(recordIndex) {
     const price = record.store_price ? formatPrice(record.store_price) : 'Price N/A';
     const recordCondition = record.condition || '';
     const description = record.description || '';
+    const createdAt = record.created_at || '';
+    const isNewAdditionFlag = isNewAddition(record);
     
     const hasCondition = recordCondition && recordCondition.trim() !== '';
     
@@ -563,6 +660,17 @@ function loadRecordInfo(recordIndex) {
     if (hasCondition) {
         const conditionSlug = recordCondition.toLowerCase().replace(/\s+/g, '-');
         conditionClass += ` condition-${conditionSlug}`;
+    }
+    
+    // Format date for display
+    let formattedDate = '';
+    if (createdAt) {
+        const date = new Date(createdAt);
+        formattedDate = date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
     }
     
     // Escape HTML to prevent XSS
@@ -582,6 +690,14 @@ function loadRecordInfo(recordIndex) {
                 <p class="record-info-artist">${escapeHtml(artist)}</p>
                 <p class="record-info-price">${price}</p>
                 <p class="record-info-genre">${escapeHtml(genre)}</p>
+                
+                ${isNewAdditionFlag ? `
+                    <p class="record-info-new-addition">🎉 New Addition!</p>
+                ` : ''}
+                
+                ${formattedDate ? `
+                    <p class="record-info-date">Added: ${formattedDate}</p>
+                ` : ''}
                 
                 ${hasCondition ? `
                     <p class="${conditionClass}">Condition: ${recordCondition}</p>

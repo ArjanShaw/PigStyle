@@ -12,6 +12,7 @@ let youtubeAPILoaded = false;
 let allGenres = [];
 let selectedGenres = new Set();
 let lastAddedDate = null;  // To track the most recent addition date
+let showNewAdditionsOnly = false;  // New additions filter state
 
 // ========== YOUTUBE PLAYER FUNCTIONS ==========
 
@@ -41,7 +42,7 @@ window.onYouTubeIframeAPIReady = function() {
     }
 };
 
-// ========== GENRE CHECKBOX FUNCTIONS ==========
+// ========== FILTER FUNCTIONS ==========
 
 // Extract unique genres from records - ONLY GENRES WITH YOUTUBE VIDEOS
 function extractUniqueGenres(records) {
@@ -75,18 +76,18 @@ function initGenreCheckboxes() {
     
     // Create header
     const header = document.createElement('div');
-    header.className = 'genre-checkbox-header';
+    header.className = 'filter-checkbox-header';
     header.innerHTML = '<h3>Filter by Genre</h3>';
     container.appendChild(header);
     
     // Create checkbox group
     const group = document.createElement('div');
-    group.className = 'genre-checkbox-group';
+    group.className = 'filter-checkbox-group';
     
     // Add checkboxes for each genre that has YouTube videos
     allGenres.forEach(genre => {
         const item = document.createElement('div');
-        item.className = 'genre-checkbox-item';
+        item.className = 'filter-checkbox-item';
         
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -104,7 +105,7 @@ function initGenreCheckboxes() {
             console.log('Selected genres:', Array.from(selectedGenres));
             
             // Auto-apply filter when checkbox changes
-            applyGenreFilter();
+            applyFilters();
             
             // Save selections
             saveSelections();
@@ -121,62 +122,37 @@ function initGenreCheckboxes() {
     
     container.appendChild(group);
     
-    // Add New Additions checkbox
-    const newAdditionsItem = document.createElement('div');
-    newAdditionsItem.className = 'genre-checkbox-item';
-    
-    const newAdditionsCheckbox = document.createElement('input');
-    newAdditionsCheckbox.type = 'checkbox';
-    newAdditionsCheckbox.id = 'new-additions-filter';
-    newAdditionsCheckbox.value = 'new-additions';
-    
-    newAdditionsCheckbox.addEventListener('change', (e) => {
-        console.log('New additions filter:', e.target.checked ? 'enabled' : 'disabled');
-        // Auto-apply filter when checkbox changes
-        applyGenreFilter();
-    });
-    
-    const newAdditionsLabel = document.createElement('label');
-    newAdditionsLabel.htmlFor = 'new-additions-filter';
-    newAdditionsLabel.textContent = '🎉 New Additions Only';
-    
-    newAdditionsItem.appendChild(newAdditionsCheckbox);
-    newAdditionsItem.appendChild(newAdditionsLabel);
-    group.appendChild(newAdditionsItem);
-    
-    container.appendChild(group);
-    
     // Add action buttons
     const actions = document.createElement('div');
-    actions.className = 'genre-actions';
+    actions.className = 'filter-actions';
     
     // Select All button
     const selectAllBtn = document.createElement('button');
-    selectAllBtn.className = 'genre-action-btn genre-select-all';
+    selectAllBtn.className = 'filter-action-btn filter-select-all';
     selectAllBtn.textContent = 'Select All';
     selectAllBtn.addEventListener('click', () => {
         selectedGenres = new Set(allGenres);
         updateCheckboxes();
-        applyGenreFilter();
+        applyFilters();
         saveSelections();
         console.log('All genres selected');
     });
     
     // Deselect All button
     const deselectAllBtn = document.createElement('button');
-    deselectAllBtn.className = 'genre-action-btn genre-deselect-all';
+    deselectAllBtn.className = 'filter-action-btn filter-deselect-all';
     deselectAllBtn.textContent = 'Deselect All';
     deselectAllBtn.addEventListener('click', () => {
         selectedGenres.clear();
         updateCheckboxes();
-        applyGenreFilter();
+        applyFilters();
         saveSelections();
         console.log('All genres deselected');
     });
     
     // Apply button (just for closing panel)
     const applyBtn = document.createElement('button');
-    applyBtn.className = 'genre-action-btn genre-apply';
+    applyBtn.className = 'filter-action-btn filter-apply';
     applyBtn.textContent = 'Close';
     applyBtn.addEventListener('click', () => {
         document.getElementById('genreCheckboxContainer').classList.remove('show');
@@ -233,14 +209,31 @@ function isNewAddition(record) {
     return recordDateOnly.getTime() === lastAddedDate.getTime();
 }
 
-// Apply genre filter and reload tracks
-function applyGenreFilter() {
-    console.log('Applying genre filter...');
-    console.log('Selected genres:', Array.from(selectedGenres));
+// Toggle new additions filter
+function toggleNewAdditionsFilter() {
+    showNewAdditionsOnly = !showNewAdditionsOnly;
     
-    // Check if "New Additions Only" is checked
-    const newAdditionsOnly = document.getElementById('new-additions-filter')?.checked || false;
-    console.log('New additions only filter:', newAdditionsOnly);
+    // Update button appearance
+    const newAdditionsBtn = document.getElementById('newAdditionsToggleBtn');
+    if (showNewAdditionsOnly) {
+        newAdditionsBtn.classList.add('active');
+        newAdditionsBtn.innerHTML = '<i class="fas fa-clock"></i> Showing New Additions';
+        console.log('New additions filter: ENABLED');
+    } else {
+        newAdditionsBtn.classList.remove('active');
+        newAdditionsBtn.innerHTML = '<i class="fas fa-clock"></i> Show New Additions';
+        console.log('New additions filter: DISABLED');
+    }
+    
+    // Apply filters
+    applyFilters();
+}
+
+// Apply all active filters
+function applyFilters() {
+    console.log('Applying filters...');
+    console.log('Selected genres:', Array.from(selectedGenres));
+    console.log('Show new additions only:', showNewAdditionsOnly);
     
     // Filter records based on selected genres
     if (selectedGenres.size === 0) {
@@ -263,17 +256,17 @@ function applyGenreFilter() {
             }
             
             // Apply new additions filter if enabled
-            if (newAdditionsOnly && !isNewAddition(record)) {
+            if (showNewAdditionsOnly && !isNewAddition(record)) {
                 return false;
             }
             
             return true;
         });
         
-        console.log(`Filtered to ${filteredRecords.length} records with selected genres`);
+        console.log(`Filtered to ${filteredRecords.length} records with current filters`);
         
         // Show message if new additions filter is on but no matches
-        if (newAdditionsOnly && filteredRecords.length === 0) {
+        if (showNewAdditionsOnly && filteredRecords.length === 0) {
             console.log('No new additions found for selected genres');
         }
     }
@@ -299,7 +292,7 @@ function applyGenreFilter() {
         let message = 'No tracks found';
         if (selectedGenres.size > 0) {
             message = 'No YouTube videos found for selected genres';
-            if (newAdditionsOnly) {
+            if (showNewAdditionsOnly) {
                 message = 'No new additions found for selected genres';
             }
         }
@@ -389,8 +382,8 @@ function startYouTubePlayback() {
         loadYouTubeAPI();
     }
     
-    // Apply genre filter
-    applyGenreFilter();
+    // Apply filters
+    applyFilters();
 }
 
 // Load current YouTube track
@@ -692,7 +685,7 @@ function loadRecordInfo(recordIndex) {
                 <p class="record-info-genre">${escapeHtml(genre)}</p>
                 
                 ${isNewAdditionFlag ? `
-                    <p class="record-info-new-addition">🎉 New Addition!</p>
+                    <p class="record-info-new-addition">New Addition</p>
                 ` : ''}
                 
                 ${formattedDate ? `
@@ -788,17 +781,34 @@ function setupUI() {
             
             container.classList.toggle('show');
             btn.classList.toggle('active');
+            
+            // Ensure only one filter panel is open at a time
+            document.getElementById('newAdditionsToggleBtn').classList.remove('active');
+        });
+    }
+    
+    // New additions toggle button
+    const newAdditionsToggleBtn = document.getElementById('newAdditionsToggleBtn');
+    if (newAdditionsToggleBtn) {
+        newAdditionsToggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleNewAdditionsFilter();
+            
+            // Close genre filter if open
+            document.getElementById('genreCheckboxContainer').classList.remove('show');
+            document.getElementById('genreToggleBtn').classList.remove('active');
         });
     }
     
     // Close genre filter when clicking outside
     document.addEventListener('click', (e) => {
         const container = document.getElementById('genreCheckboxContainer');
-        const btn = document.getElementById('genreToggleBtn');
+        const genreBtn = document.getElementById('genreToggleBtn');
+        const newAdditionsBtn = document.getElementById('newAdditionsToggleBtn');
         
-        if (container && btn && !container.contains(e.target) && !btn.contains(e.target)) {
+        if (container && genreBtn && !container.contains(e.target) && !genreBtn.contains(e.target)) {
             container.classList.remove('show');
-            btn.classList.remove('active');
+            genreBtn.classList.remove('active');
         }
     });
     

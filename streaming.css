@@ -759,3 +759,55 @@ header {
     color: #999;
     font-style: italic;
 }
+/* New additions styling */
+.record-info-new-addition {
+    color: #ff6b6b;
+    font-weight: bold;
+    margin: 5px 0;
+    padding: 5px 10px;
+    background: rgba(255, 107, 107, 0.1);
+    border-radius: 4px;
+    display: inline-block;
+    font-size: 14px;
+}
+
+.record-info-date {
+    color: #aaa;
+    font-size: 14px;
+    margin: 5px 0 15px 0;
+}
+
+/* Make the new additions checkbox stand out */
+#new-additions-filter:checked + label {
+    font-weight: bold;
+    color: #ff6b6b;
+}
+
+#new-additions-filter:checked + label::before {
+    content: "🎉 ";
+}
+
+/* Update genre checkbox container for new additions */
+.genre-checkbox-group {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.genre-checkbox-group::-webkit-scrollbar {
+    width: 8px;
+}
+
+.genre-checkbox-group::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.genre-checkbox-group::-webkit-scrollbar-thumb {
+    background: #ff4081;
+    border-radius: 4px;
+}
+
+.genre-checkbox-group::-webkit-scrollbar-thumb:hover {
+    background: #e91e63;
+}

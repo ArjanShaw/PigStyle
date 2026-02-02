@@ -7,6 +7,7 @@ from handlers.commission_calculator import CommissionCalculator
 from handlers.pricing_validator import PricingValidator
 from handlers.price_advise_handler import PriceAdviseHandler
 import requests
+import streamlit as st
 import hashlib
 from conditions import DiscogsConditions
 
@@ -1281,9 +1282,11 @@ class InventoryTab:
         if store_credit_option is not None:
             updates['store_credit_option'] = bool(store_credit_option)
         
+        # ADDED: Include price in updates if provided
         if user_price is not None:
             updates['store_price'] = float(user_price)
-            updates['original_consignor_price'] = float(user_price)
+            if 'original_consignor_price' in record_data:
+                updates['original_consignor_price'] = float(user_price)
         
         if consignor_id and not record_data.get('consignment_start_date'):
             updates['consignment_start_date'] = datetime.now().date().isoformat()
@@ -1490,7 +1493,42 @@ class InventoryTab:
                 condition = getattr(record, 'condition', '')
                 youtube_url = getattr(record, 'youtube_url', '')
             
-            st.write(f"**Store Price:** ${store_price:.2f}")
+            # ADDED: Price editing functionality
+            current_price = float(store_price)
+            
+            # Price input field
+            price_key = f"price_edit_{record_id}"
+            new_price = st.number_input(
+                "Store Price ($)",
+                min_value=0.0,
+                value=current_price,
+                step=0.01,
+                format="%.2f",
+                key=price_key,
+                help="Edit the store price"
+            )
+            
+            if new_price != current_price:
+                if st.button("💾 Save Price", key=f"save_price_{record_id}", type="secondary", width='stretch'):
+                    confirm_container = st.empty()
+                    with confirm_container:
+                        st.info(f"Updating price from ${current_price:.2f} to ${new_price:.2f}...")
+                    
+                    # Update record with new price
+                    success = self.update_database_record(
+                        record,
+                        genre,  # Keep current genre
+                        store_credit_option=None,
+                        user_price=new_price  # Pass new price to update method
+                    )
+                    
+                    if success:
+                        confirm_container.empty()
+                        st.success(f"✅ Price updated successfully from ${current_price:.2f} to ${new_price:.2f}!")
+                        st.rerun()
+                    else:
+                        confirm_container.empty()
+                        st.error("❌ Failed to update price")
             
             if condition:
                 st.write(f"**Condition:** {condition}")

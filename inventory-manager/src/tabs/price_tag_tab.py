@@ -612,7 +612,24 @@ class PriceTagTab:
         labels_per_page = rows * columns
         current_label = 0
         
-         
+        # Pre-fetch consignor data for all records
+        consignor_cache = {}
+        consignor_ids = set()
+        
+        # Collect unique consignor IDs
+        for record in records:
+            consignor_id = record.get('consignor_id')
+            if consignor_id:
+                consignor_ids.add(consignor_id)
+        
+        # Fetch consignor data for all unique IDs
+        for consignor_id in consignor_ids:
+            initials = self._get_consignor_initials(consignor_id)
+            if initials:
+                consignor_cache[consignor_id] = initials
+                print(f"[INITIALS LOG] Consignor ID {consignor_id} -> Initials: '{initials}'")
+            else:
+                print(f"[INITIALS LOG] Consignor ID {consignor_id} -> No initials found")
         
         for idx, record in enumerate(records):
             if current_label % labels_per_page == 0 and current_label > 0:
@@ -625,16 +642,20 @@ class PriceTagTab:
             x = left_margin + col * (label_width + gutter_spacing)
             y = letter[1] - top_margin - (row+1) * label_height  # CHANGED: row instead of (row + 1)
             
-             
             barcode_number = record.get('barcode')
 
             if not barcode_number:
                 raise ValueError(f"Record ID {record.get('id')} has null barcode. Artist: {record.get('artist', 'Unknown')}, Title: {record.get('title', 'Unknown')}")
 
+            # Get consignor initials from cache
+            consignor_id = record.get('consignor_id')
+            consignor_initials = consignor_cache.get(consignor_id) if consignor_id else None
             
-            error = self._draw_tag(c, x, y, label_width, label_height, record, barcode_number)
+            print(f"[TAG LOG] Generating tag #{idx+1}: Record ID {record.get('id')}, Artist: {record.get('artist')}, Consignor ID: {consignor_id}, Initials: '{consignor_initials}'")
+            
+            error = self._draw_tag(c, x, y, label_width, label_height, record, barcode_number, consignor_initials)
             if error:
-                print(f"  ERROR: {error}")
+                print(f"[TAG ERROR] {error}")
 
             current_label += 1
         
@@ -649,12 +670,11 @@ class PriceTagTab:
         
         return pdf_data
 
-    def _draw_tag(self, c, x, y, label_width, label_height, record, barcode_number):
-
+    def _draw_tag(self, c, x, y, label_width, label_height, record, barcode_number, consignor_initials=None):
+        """Draw a single price tag with consignor initials in format: genre|artist|(consignor initials)"""
         if not barcode_number:
             raise ValueError(f"Record ID {record.get('id')} has null barcode. Artist: {record.get('artist', 'Unknown')}, Title: {record.get('title', 'Unknown')}")
 
-        """Draw a single price tag"""
         # Use lowercase keys from session_state
         params = {
             'price_font_size': st.session_state.price_font_size,
@@ -689,24 +709,70 @@ class PriceTagTab:
         price_y = top_start - (params['price_y_pos'] * mm)
         c.drawString(price_x, price_y, price_text)
         
-        # Draw genre and artist - FIXED: Use genre_name field
+        # Draw genre, artist, and consignor initials
         genre = record.get('genre_name', 'Unknown')[:15]
         artist = record.get('artist', 'Unknown')[:20]
         
-        genre_artist_text = f"{genre} | {artist}"
+        # Build the text with consignor initials
+        if consignor_initials and consignor_initials.strip():
+            # Format: genre|artist|(initials)
+            genre_artist_text = f"{genre} | {artist} | ({consignor_initials})"
+            print(f"[DRAW LOG] With initials: {genre_artist_text}")
+        else:
+            # Format: genre|artist
+            genre_artist_text = f"{genre} | {artist}"
+            print(f"[DRAW LOG] Without initials: {genre_artist_text}")
         
-        MAX_LENGTH = 35
+        MAX_LENGTH = 40  # Increased from 35 to accommodate initials
         SEPARATOR = ' | '
         
+        # Truncate text if too long
         if len(genre_artist_text) > MAX_LENGTH:
-            max_artist_length = MAX_LENGTH - len(genre) - len(SEPARATOR)
-            
-            if max_artist_length > 0:
-                if len(artist) > max_artist_length:
-                    artist = artist[:max_artist_length-1] + '…'
-                genre_artist_text = f"{genre}{SEPARATOR}{artist}"
-            else:
-                genre_artist_text = genre[:MAX_LENGTH-1] + '…'
+            # Try to truncate artist first
+            parts = genre_artist_text.split(SEPARATOR)
+            if len(parts) >= 3:  # Has initials: genre, artist, (initials)
+                genre_part = parts[0]
+                artist_part = parts[1]
+                initials_part = parts[2] if len(parts) > 2 else ""
+                
+                # Calculate available space for artist
+                available_length = MAX_LENGTH - len(genre_part) - len(SEPARATOR)*2 - len(initials_part)
+                if available_length > 3:  # Need at least 3 chars for artist (e.g., "A…")
+                    artist_part = artist_part[:available_length-1] + '…'
+                    genre_artist_text = f"{genre_part}{SEPARATOR}{artist_part}{SEPARATOR}{initials_part}"
+                else:
+                    # Artist too short, truncate genre instead
+                    available_length = MAX_LENGTH - len(artist_part) - len(SEPARATOR)*2 - len(initials_part)
+                    if available_length > 3:
+                        genre_part = genre_part[:available_length-1] + '…'
+                        genre_artist_text = f"{genre_part}{SEPARATOR}{artist_part}{SEPARATOR}{initials_part}"
+                    else:
+                        # Everything too long, use just genre and initials
+                        available_length = MAX_LENGTH - len(initials_part) - len(SEPARATOR)
+                        if available_length > 3:
+                            genre_part = genre_part[:available_length-1] + '…'
+                            genre_artist_text = f"{genre_part}{SEPARATOR}{initials_part}"
+                        else:
+                            # Still too long, use just genre
+                            genre_artist_text = genre_part[:MAX_LENGTH-1] + '…'
+            elif len(parts) == 2:  # No initials: genre, artist
+                genre_part = parts[0]
+                artist_part = parts[1]
+                
+                # Calculate available space
+                available_length = MAX_LENGTH - len(genre_part) - len(SEPARATOR)
+                if available_length > 3:
+                    artist_part = artist_part[:available_length-1] + '…'
+                    genre_artist_text = f"{genre_part}{SEPARATOR}{artist_part}"
+                else:
+                    # Artist too short, truncate genre instead
+                    available_length = MAX_LENGTH - len(artist_part) - len(SEPARATOR)
+                    if available_length > 3:
+                        genre_part = genre_part[:available_length-1] + '…'
+                        genre_artist_text = f"{genre_part}{SEPARATOR}{artist_part}"
+                    else:
+                        # Everything too long, use just genre
+                        genre_artist_text = genre_part[:MAX_LENGTH-1] + '…'
         
         c.setFont("Helvetica", params['text_font_size'])
         genre_artist_width = c.stringWidth(genre_artist_text, "Helvetica", params['text_font_size'])
@@ -717,8 +783,6 @@ class PriceTagTab:
         genre_artist_x = left_bound + (printable_width - genre_artist_width) / 2
         genre_artist_y = price_y - 4 * mm
         c.drawString(genre_artist_x, genre_artist_y, genre_artist_text)
-        
-
 
         # Draw barcode
         if barcode_number:
@@ -740,6 +804,44 @@ class PriceTagTab:
                 
                 c.drawImage(temp_path, barcode_x, barcode_y, width=barcode_width, height=barcode_height)
                 os.unlink(temp_path)
+        
+        return None
+
+    def _get_consignor_initials(self, consignor_id):
+        """Get consignor initials by ID"""
+        if not consignor_id:
+            print(f"[INITIALS LOG] No consignor_id provided")
+            return None
+            
+        try:
+            print(f"[INITIALS LOG] Getting initials for consignor_id: {consignor_id}")
+            
+            # First try to get from the users list if we have it cached
+            if hasattr(st.session_state, 'users_cache') and st.session_state.users_cache:
+                print(f"[INITIALS LOG] Checking users_cache (size: {len(st.session_state.users_cache)})")
+                for user in st.session_state.users_cache:
+                    if user['id'] == consignor_id:
+                        initials = user.get('initials')
+                        print(f"[INITIALS LOG] Found in cache: user {user.get('username')}, initials='{initials}'")
+                        if initials and str(initials).strip():
+                            return str(initials).strip()
+                        return None
+            
+            # If not in cache, fetch directly from API
+            print(f"[INITIALS LOG] Fetching from API: {self.base_url}/users/{consignor_id}")
+            response = requests.get(f"{self.base_url}/users/{consignor_id}")
+            if response.status_code == 200:
+                user_data = response.json()
+                initials = user_data.get('initials')
+                print(f"[INITIALS LOG] API response: initials='{initials}'")
+                if initials and str(initials).strip():
+                    return str(initials).strip()
+                else:
+                    print(f"[INITIALS LOG] No initials in API response or empty")
+            else:
+                print(f"[INITIALS LOG] API error: {response.status_code}")
+        except Exception as e:
+            print(f"[INITIALS LOG] Exception getting initials: {e}")
         
         return None
     
@@ -886,6 +988,9 @@ class PriceTagTab:
                     users = data.get('users', [])
                     # Cache the users
                     st.session_state.users_cache = users
+                    print(f"[USERS LOG] Loaded {len(users)} users into cache")
+                    for user in users:
+                        print(f"[USERS LOG] User: {user.get('username')} (ID: {user.get('id')}), Initials: '{user.get('initials')}'")
                     return users
             # Return empty list instead of None
             return []
@@ -917,6 +1022,7 @@ class PriceTagTab:
                     # Sort by creation date (NEWEST first)
                     new_records.sort(key=lambda x: x.get('created_at', '') or '', reverse=True)
                     
+                    print(f"[RECORDS LOG] Found {len(new_records)} new records for user_id: {user_id}")
                     return new_records
             return []
         except Exception as e:

@@ -245,92 +245,76 @@ class InventoryTab:
             st.info(f"Demo: Would delete record {record_id}")
             return True
             
-        try:
-            start_time = time.time()
-            response = requests.delete(f"{self.base_url}/records/{record_id}")
-            duration = time.time() - start_time
-            
-            print(f"API Delete Record ({record_id}) took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                if hasattr(st.session_state, 'records_cache'):
-                    del st.session_state.records_cache
-                    
-                if 'records_updated' not in st.session_state:
-                    st.session_state.records_updated = 0
-                st.session_state.records_updated += 1
-                return True
-            return False
-        except Exception as e:
-            st.error(f"API Error deleting record: {e}")
-            return False
+        start_time = time.time()
+        response = requests.delete(f"{self.base_url}/records/{record_id}")
+        duration = time.time() - start_time
+        
+        print(f"API Delete Record ({record_id}) took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            if hasattr(st.session_state, 'records_cache'):
+                del st.session_state.records_cache
+                
+            if 'records_updated' not in st.session_state:
+                st.session_state.records_updated = 0
+            st.session_state.records_updated += 1
+            return True
+        return False
     
     def get_all_records(self):
-        try:
-            if hasattr(st.session_state, 'records_cache'):
-                records = st.session_state.records_cache
-                return pd.DataFrame(records) if isinstance(records, list) and records else pd.DataFrame()
-            
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/records")
-            duration = time.time() - start_time
-            
-            print(f"API Get All Records took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                records = data.get('records', [])
-                st.session_state.records_cache = records
-                return pd.DataFrame(records) if records else pd.DataFrame()
-            return pd.DataFrame()
-        except Exception as e:
-            st.error(f"API Error getting records: {e}")
-            return pd.DataFrame()
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            return pd.DataFrame(records) if isinstance(records, list) and records else pd.DataFrame()
+        
+        start_time = time.time()
+        response = requests.get(f"{self.base_url}/records")
+        duration = time.time() - start_time
+        
+        print(f"API Get All Records took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            data = response.json()
+            records = data.get('records', [])
+            st.session_state.records_cache = records
+            return pd.DataFrame(records) if records else pd.DataFrame()
+        return pd.DataFrame()
     
     def get_recent_records(self, limit=10):
-        try:
-            if hasattr(st.session_state, 'records_cache'):
-                records = st.session_state.records_cache
-                if isinstance(records, list) and records:
-                    sorted_records = sorted(records, key=lambda x: x.get('id', 0), reverse=True)
-                    return pd.DataFrame(sorted_records[:limit]) if sorted_records else pd.DataFrame()
-            
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/records?limit={limit}&order_by=id&order=desc")
-            duration = time.time() - start_time
-            
-            print(f"API Get Recent Records ({limit}) took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                records = data.get('records', [])
-                return pd.DataFrame(records) if records else pd.DataFrame()
-            return pd.DataFrame()
-        except Exception as e:
-            st.error(f"API Error getting recent records: {e}")
-            return pd.DataFrame()
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            if isinstance(records, list) and records:
+                sorted_records = sorted(records, key=lambda x: x.get('id', 0), reverse=True)
+                return pd.DataFrame(sorted_records[:limit]) if sorted_records else pd.DataFrame()
+        
+        start_time = time.time()
+        response = requests.get(f"{self.base_url}/records?limit={limit}&order_by=id&order=desc")
+        duration = time.time() - start_time
+        
+        print(f"API Get Recent Records ({limit}) took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            data = response.json()
+            records = data.get('records', [])
+            return pd.DataFrame(records) if records else pd.DataFrame()
+        return pd.DataFrame()
     
     def get_record(self, record_id):
-        try:
-            if hasattr(st.session_state, 'records_cache'):
-                records = st.session_state.records_cache
-                if isinstance(records, list) and records:
-                    for record in records:
-                        if record.get('id') == record_id:
-                            return record
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            if isinstance(records, list) and records:
+                for record in records:
+                    if record.get('id') == record_id:
+                        return record
+        
+        start_time = time.time()
+        response = requests.get(f"{self.base_url}/records/{record_id}")
+        duration = time.time() - start_time
+        
+        print(f"API Get Record ({record_id}) took {duration:.2f}s")
             
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/records/{record_id}")
-            duration = time.time() - start_time
-            
-            print(f"API Get Record ({record_id}) took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except Exception as e:
-            st.error(f"API Error getting record: {e}")
-            return None
+        if response.status_code == 200:
+            return response.json()
+        return None
     
     def update_record(self, record_id, updates):
         user = st.session_state.get('user', {})
@@ -340,105 +324,89 @@ class InventoryTab:
             st.info(f"Demo: Would update record {record_id} with {updates}")
             return True
             
-        try:
-            start_time = time.time()
-            response = requests.put(
-                f"{self.base_url}/records/{record_id}",
-                json=updates
-            )
-            duration = time.time() - start_time
-            
-            print(f"API Update Record ({record_id}) took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                if hasattr(st.session_state, 'records_cache'):
-                    del st.session_state.records_cache
-                    
-                if 'records_updated' not in st.session_state:
-                    st.session_state.records_updated = 0
-                st.session_state.records_updated += 1
-                return True
-            return False
-        except Exception as e:
-            st.error(f"API Error updating record: {e}")
-            return False
+        start_time = time.time()
+        response = requests.put(
+            f"{self.base_url}/records/{record_id}",
+            json=updates
+        )
+        duration = time.time() - start_time
+        
+        print(f"API Update Record ({record_id}) took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            if hasattr(st.session_state, 'records_cache'):
+                del st.session_state.records_cache
+                
+            if 'records_updated' not in st.session_state:
+                st.session_state.records_updated = 0
+            st.session_state.records_updated += 1
+            return True
+        return False
         
     def search_records(self, search_term):
-        try:
-            start_time = time.time()
-            
-            search_term = search_term.strip()
-            if not search_term:
-                return []
-            
-            if hasattr(st.session_state, 'records_cache'):
-                records = st.session_state.records_cache
-                if isinstance(records, list) and records:
-                    search_lower = search_term.lower()
-                    filtered = []
-                    
-                    for record in records:
-                        artist = str(record.get('artist', '')).lower()
-                        title = str(record.get('title', '')).lower()
-                        catalog = str(record.get('catalog_number', '')).lower()
-                        barcode = str(record.get('barcode', '')).lower()
-                        
-                        if (search_lower in artist or 
-                            search_lower in title or 
-                            search_lower in catalog or 
-                            search_lower in barcode):
-                            filtered.append(record)
-                    
-                    duration = time.time() - start_time
-                    print(f"Cached Search: {search_term[:30]}... took {duration:.2f}s")
-                    return filtered
-            
-            response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
-            
-            duration = time.time() - start_time
-            
-            print(f"API Search: {search_term[:30]}... took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, dict) and data.get('status') == 'success':
-                    records = data.get('records', [])
-                    if records:
-                        return [dict(r) if not isinstance(r, dict) else r for r in records]
-                
-                return []
-            else:
-                return []
-                
-        except requests.exceptions.Timeout:
-            st.warning("Search timeout")
+        search_term = search_term.strip()
+        if not search_term:
             return []
-        except Exception as e:
-            st.error(f"API Error searching records: {e}")
+        
+        start_time = time.time()
+        
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            if isinstance(records, list) and records:
+                search_lower = search_term.lower()
+                filtered = []
+                
+                for record in records:
+                    artist = str(record.get('artist', '')).lower()
+                    title = str(record.get('title', '')).lower()
+                    catalog = str(record.get('catalog_number', '')).lower()
+                    barcode = str(record.get('barcode', '')).lower()
+                    
+                    if (search_lower in artist or 
+                        search_lower in title or 
+                        search_lower in catalog or 
+                        search_lower in barcode):
+                        filtered.append(record)
+                
+                duration = time.time() - start_time
+                print(f"Cached Search: {search_term[:30]}... took {duration:.2f}s")
+                return filtered
+        
+        response = requests.get(f"{self.base_url}/search?q={search_term}", timeout=10)
+        
+        duration = time.time() - start_time
+        
+        print(f"API Search: {search_term[:30]}... took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, dict) and data.get('status') == 'success':
+                records = data.get('records', [])
+                if records:
+                    return [dict(r) if not isinstance(r, dict) else r for r in records]
+            
+            return []
+        else:
             return []
     
     def get_records_by_user(self, user_id):
-        try:
-            if hasattr(st.session_state, 'records_cache'):
-                records = st.session_state.records_cache
-                if isinstance(records, list) and records:
-                    user_records = [r for r in records if r.get('consignor_id') == user_id]
-                    return user_records
-            
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/records/user/{user_id}")
-            duration = time.time() - start_time
-            
-            print(f"API Get User Records ({user_id}) took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    return data.get('records', [])
-            return []
-        except Exception as e:
-            st.error(f"API Error getting user records: {e}")
-            return []
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            if isinstance(records, list) and records:
+                user_records = [r for r in records if r.get('consignor_id') == user_id]
+                return user_records
+        
+        start_time = time.time()
+        response = requests.get(f"{self.base_url}/records/user/{user_id}")
+        duration = time.time() - start_time
+        
+        print(f"API Get User Records ({user_id}) took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                return data.get('records', [])
+        return []
     
     def get_config_value(self, config_key, default=None):
         if self.config_cache:
@@ -446,20 +414,16 @@ class InventoryTab:
         return default
     
     def get_all_config(self):
-        try:
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/config")
-            duration = time.time() - start_time
-            
-            print(f"API Get All Config took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('configs', {})
-            return {}
-        except Exception as e:
-            st.error(f"API Error getting all config: {e}")
-            return {}
+        start_time = time.time()
+        response = requests.get(f"{self.base_url}/config")
+        duration = time.time() - start_time
+        
+        print(f"API Get All Config took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('configs', {})
+        return {}
     
     def get_all_genres(self):
         if self.genre_cache:
@@ -490,25 +454,21 @@ class InventoryTab:
             st.info(f"Demo: Would add genre '{genre_name}'")
             return True, 999
             
-        try:
-            start_time = time.time()
-            response = requests.post(
-                f"{self.base_url}/genres",
-                json={'genre_name': genre_name}
-            )
-            duration = time.time() - start_time
-            
-            print(f"API Add Genre: {genre_name} took {duration:.2f}s")
-            
-            if response.status_code == 200:
-                data = response.json()
-                if self.genre_cache:
-                    self.genre_cache.refresh()
-                return True, data.get('genre_id')
-            return False, None
-        except Exception as e:
-            st.error(f"API Error adding genre: {e}")
-            return False, None
+        start_time = time.time()
+        response = requests.post(
+            f"{self.base_url}/genres",
+            json={'genre_name': genre_name}
+        )
+        duration = time.time() - start_time
+        
+        print(f"API Add Genre: {genre_name} took {duration:.2f}s")
+        
+        if response.status_code == 200:
+            data = response.json()
+            if self.genre_cache:
+                self.genre_cache.refresh()
+            return True, data.get('genre_id')
+        return False, None
     
     def get_discogs_genre_mapping(self, discogs_genre):
         if self.genre_cache:
@@ -516,35 +476,27 @@ class InventoryTab:
         return {'mapping': None, 'status': 'error'}
     
     def get_records_count(self):
-        try:
-            if hasattr(st.session_state, 'records_cache'):
-                records = st.session_state.records_cache
-                if isinstance(records, list):
-                    return len(records)
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            if isinstance(records, list):
+                return len(records)
+        
+        response = requests.get(f"{self.base_url}/records/count")
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('count', 0)
             
-            response = requests.get(f"{self.base_url}/records/count")
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('count', 0)
-                
-            return 0
-        except Exception as e:
-            print(f"Error getting records count: {e}")
-            return 0
+        return 0
     
     def get_user(self, user_id):
-        try:
-            start_time = time.time()
-            response = requests.get(f"{self.base_url}/users/{user_id}")
-            duration = time.time() - start_time
-            
-            print(f"API Get User ({user_id}) took {duration:.2f}s")            
-            if response.status_code == 200:
-                return response.json()
-            return None
-        except Exception as e:
-            st.error(f"API Error getting user: {e}")
-            return None
+        start_time = time.time()
+        response = requests.get(f"{self.base_url}/users/{user_id}")
+        duration = time.time() - start_time
+        
+        print(f"API Get User ({user_id}) took {duration:.2f}s")            
+        if response.status_code == 200:
+            return response.json()
+        return None
 
     def _get_config_value(self, config_key):
         value = self.get_config_value(config_key, None)
@@ -625,41 +577,36 @@ class InventoryTab:
             st.caption(f"💡 Demo Credit Balance: ${credit_balance:.2f} (matches sold records)")
 
     def _fetch_last_added_record(self, user_role, user_id, is_demo):
-        try:
-            if is_demo:
-                if 'demo_last_added' in st.session_state:
-                    last_record = st.session_state.demo_last_added
-                    artist = last_record.get('artist', 'Demo Artist')
-                    title = last_record.get('title', 'Demo Album')
-                    store_price = last_record.get('store_price', 19.99)
+        if is_demo:
+            if 'demo_last_added' in st.session_state:
+                last_record = st.session_state.demo_last_added
+                artist = last_record.get('artist', 'Demo Artist')
+                title = last_record.get('title', 'Demo Album')
+                store_price = last_record.get('store_price', 19.99)
+                return f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
+            return "**📝 Last Added:** No records yet"
+        
+        base_url = "https://arjanshaw.pythonanywhere.com"
+        
+        if user_role == 'admin':
+            response = requests.get(f"{base_url}/records?limit=1&order_by=id&order=desc")
+        elif user_id:
+            response = requests.get(f"{base_url}/records/user/{user_id}?limit=1&order_by=id&order=desc")
+        else:
+            return "**📝 Last Added:** Error loading"
+        
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, dict) and data.get('status') == 'success':
+                records = data.get('records', [])
+                if records:
+                    last_record = records[0]
+                    artist = last_record.get('artist', 'Unknown Artist')
+                    title = last_record.get('title', 'Unknown Title')
+                    store_price = last_record.get('store_price', 0.0)
                     return f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
-                return "**📝 Last Added:** No records yet"
-            
-            base_url = "https://arjanshaw.pythonanywhere.com"
-            
-            if user_role == 'admin':
-                response = requests.get(f"{base_url}/records?limit=1&order_by=id&order=desc")
-            elif user_id:
-                response = requests.get(f"{base_url}/records/user/{user_id}?limit=1&order_by=id&order=desc")
-            else:
-                return "**📝 Last Added:** Error loading"
-            
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, dict) and data.get('status') == 'success':
-                    records = data.get('records', [])
-                    if records:
-                        last_record = records[0]
-                        artist = last_record.get('artist', 'Unknown Artist')
-                        title = last_record.get('title', 'Unknown Title')
-                        store_price = last_record.get('store_price', 0.0)
-                        return f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
-                return "**📝 Last Added:** No records yet"
-            return "**📝 Last Added:** Error loading"
-            
-        except Exception as e:
-            print(f"Error loading last added record: {e}")
-            return "**📝 Last Added:** Error loading"
+            return "**📝 Last Added:** No records yet"
+        return "**📝 Last Added:** Error loading"
 
     def _render_unified_operations(self, store_fill_fraction):
         if 'search_type' not in st.session_state:
@@ -1051,37 +998,33 @@ class InventoryTab:
             return False, None
         
         genre_id = None
-        if genre:
-            try:
-                response = requests.get(
-                    f"{self.base_url}/genres/by-name/{genre}",
-                    timeout=5
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get('status') == 'success':
-                        genre_id = data.get('genre_id')
-                else:
-                    response = requests.get(
-                        f"{self.base_url}/genres",
-                        timeout=5
-                    )
-                    if response.status_code == 200:
-                        genres_data = response.json()
-                        if genres_data.get('status') == 'success':
-                            genres_list = genres_data.get('genres', [])
-                            for g in genres_list:
-                                if isinstance(g, dict):
-                                    if g.get('genre_name') == genre:
-                                        genre_id = g.get('id')
-                                        break
-                                elif g == genre:
-                                    genre_id = 1
-                                    break
-            except Exception as e:
-                st.error(f"Error getting genre ID: {e}")
-                return False, None
+        
+        response = requests.get(
+            f"{self.base_url}/genres/by-name/{genre}",
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                genre_id = data.get('genre_id')
+        else:
+            response = requests.get(
+                f"{self.base_url}/genres",
+                timeout=5
+            )
+            if response.status_code == 200:
+                genres_data = response.json()
+                if genres_data.get('status') == 'success':
+                    genres_list = genres_data.get('genres', [])
+                    for g in genres_list:
+                        if isinstance(g, dict):
+                            if g.get('genre_name') == genre:
+                                genre_id = g.get('id')
+                                break
+                        elif g == genre:
+                            genre_id = 1
+                            break
         
         if genre_id is None:
             st.error(f"❌ **Genre '{genre}' not found in database! Please check the genre exists.**")
@@ -1154,78 +1097,68 @@ class InventoryTab:
             discount_eligible_date = consignment_start_date + timedelta(days=full_price_days)
             original_consignor_price = store_price
         
-        try:
-            import time
-            
-            barcode_seed = f"{time.time()}_{artist}_{title}"
-            barcode_hash = hashlib.md5(barcode_seed.encode()).hexdigest()[:12]
-            barcode_number = ''.join(filter(str.isdigit, barcode_hash))
-            if len(barcode_number) < 8:
-                barcode_number = barcode_number.ljust(8, '0')[:8]
-            else:
-                barcode_number = barcode_number[:12]
-            
-            record_data_to_save = {
-                'artist': artist,
-                'title': title,
-                'barcode': barcode_number,
-                'genre_id': genre_id,
-                'image_url': image_url,
-                'catalog_number': catalog_number,
-                'format': format_selected,
-                'condition': selected_condition,
-                'store_price': float(store_price),
-                'youtube_url': youtube_url,
-                'compilation': bool(compilation),
-                'advised_store_price': float(record_data.get('advised_store_price', store_price)),
-                'status_id': 1
-            }
-            
-            if consignor_id:
-                record_data_to_save['consignor_id'] = int(consignor_id)
-                record_data_to_save['commission_rate'] = float(commission_rate)
-                record_data_to_save['store_return_days'] = int(store_return_days)
-                record_data_to_save['store_credit_option'] = st.session_state.get('store_credit_option', False)
-                record_data_to_save['consignment_start_date'] = consignment_start_date.isoformat() if consignment_start_date else None
-                record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
-                record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
-            
-            response = requests.post(
-                f"{self.base_url}/records",
-                json=record_data_to_save,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                if response_data.get('status') == 'success':
-                    record_id = response_data.get('record_id')
-                    
-                    if discogs_genre_for_api and genre_id:
-                        mapping_data = {
-                            'discogs_genre': discogs_genre_for_api,
-                            'local_genre_id': genre_id
-                        }
-                        mapping_response = requests.post(
-                            f"{self.base_url}/discogs-genre-mappings",
-                            json=mapping_data,
-                            timeout=5
-                        )
-                    
-                    return True, record_id
-                else:
-                    error_msg = response_data.get('error', 'Unknown error from API')
-                    st.error(f"Failed to save record: {error_msg}")
-                    return False, None
-            else:
-                st.error(f"API request failed with status {response.status_code}")
-                return False, None
+        barcode_seed = f"{time.time()}_{artist}_{title}"
+        barcode_hash = hashlib.md5(barcode_seed.encode()).hexdigest()[:12]
+        barcode_number = ''.join(filter(str.isdigit, barcode_hash))
+        if len(barcode_number) < 8:
+            barcode_number = barcode_number.ljust(8, '0')[:8]
+        else:
+            barcode_number = barcode_number[:12]
+        
+        record_data_to_save = {
+            'artist': artist,
+            'title': title,
+            'barcode': barcode_number,
+            'genre_id': genre_id,
+            'image_url': image_url,
+            'catalog_number': catalog_number,
+            'format': format_selected,
+            'condition': selected_condition,
+            'store_price': float(store_price),
+            'youtube_url': youtube_url,
+            'compilation': bool(compilation),
+            'advised_store_price': float(record_data.get('advised_store_price', store_price)),
+            'status_id': 1
+        }
+        
+        if consignor_id:
+            record_data_to_save['consignor_id'] = int(consignor_id)
+            record_data_to_save['commission_rate'] = float(commission_rate)
+            record_data_to_save['store_return_days'] = int(store_return_days)
+            record_data_to_save['store_credit_option'] = st.session_state.get('store_credit_option', False)
+            record_data_to_save['consignment_start_date'] = consignment_start_date.isoformat() if consignment_start_date else None
+            record_data_to_save['discount_eligible_date'] = discount_eligible_date.isoformat() if discount_eligible_date else None
+            record_data_to_save['original_consignor_price'] = float(original_consignor_price) if original_consignor_price else None
+        
+        response = requests.post(
+            f"{self.base_url}/records",
+            json=record_data_to_save,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            if response_data.get('status') == 'success':
+                record_id = response_data.get('record_id')
                 
-        except requests.exceptions.Timeout:
-            st.error("API request timed out. Please try again.")
-            return False, None
-        except Exception as e:
-            st.error(f"Error saving record: {str(e)}")
+                if discogs_genre_for_api and genre_id:
+                    mapping_data = {
+                        'discogs_genre': discogs_genre_for_api,
+                        'local_genre_id': genre_id
+                    }
+                    mapping_response = requests.post(
+                        f"{self.base_url}/discogs-genre-mappings",
+                        json=mapping_data,
+                        timeout=5
+                    )
+                
+                return True, record_id
+            else:
+                error_msg = response_data.get('error', 'Unknown error from API')
+                st.error(f"Failed to save record: {error_msg}")
+                return False, None
+        else:
+            st.error(f"API request failed with status {response.status_code}")
             return False, None
     
     def update_database_record(self, record_data, genre, store_credit_option=None, user_price=None):
@@ -1238,25 +1171,20 @@ class InventoryTab:
             st.error("No record ID provided")
             return False
         
-        genre_id = None
-        try:
-            response = requests.get(
-                f"{self.base_url}/genres/by-name/{genre}",
-                timeout=5
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    genre_id = data.get('genre_id')
-                else:
-                    st.error(f"Genre '{genre}' not found")
-                    return False
+        response = requests.get(
+            f"{self.base_url}/genres/by-name/{genre}",
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                genre_id = data.get('genre_id')
             else:
-                st.error(f"Failed to get genre ID for '{genre}'")
+                st.error(f"Genre '{genre}' not found")
                 return False
-        except Exception as e:
-            st.error(f"Error getting genre ID: {e}")
+        else:
+            st.error(f"Failed to get genre ID for '{genre}'")
             return False
         
         updates = {
@@ -1290,37 +1218,26 @@ class InventoryTab:
         
         if consignor_id and not record_data.get('consignment_start_date'):
             updates['consignment_start_date'] = datetime.now().date().isoformat()
-            try:
-                full_price_days = int(self.get_config_value('CONSIGNMENT_FULL_PRICE_DAYS', '90'))
-            except:
-                full_price_days = 90
+            full_price_days = int(self.get_config_value('CONSIGNMENT_FULL_PRICE_DAYS', '90'))
             updates['discount_eligible_date'] = (datetime.now().date() + timedelta(days=full_price_days)).isoformat()
         
-        try:
-            base_url = "https://arjanshaw.pythonanywhere.com"
-            response = requests.put(
-                f"{base_url}/records/{record_id}",
-                json=updates,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                if response_data.get('status') == 'success':
-                    return True
-                else:
-                    error_msg = response_data.get('error', 'Unknown error')
-                    st.error(f"API returned error: {error_msg}")
-                    return False
+        base_url = "https://arjanshaw.pythonanywhere.com"
+        response = requests.put(
+            f"{base_url}/records/{record_id}",
+            json=updates,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            if response_data.get('status') == 'success':
+                return True
             else:
-                st.error(f"API request failed with status {response.status_code}")
+                error_msg = response_data.get('error', 'Unknown error')
+                st.error(f"API returned error: {error_msg}")
                 return False
-                
-        except requests.exceptions.Timeout:
-            st.error("API request timed out")
-            return False
-        except Exception as e:
-            st.error(f"Error updating record: {str(e)}")
+        else:
+            st.error(f"API request failed with status {response.status_code}")
             return False
 
     def _render_database_results(self, results, search_type, user):
@@ -1355,20 +1272,24 @@ class InventoryTab:
             self._render_database_result_item(record, i, user)
 
     def _render_database_result_item(self, record, index, user):
+        # Extract record_id - throw error if None
+        record_id = None
+        
         if hasattr(record, 'get'):
             record_id = record.get('id')
         elif hasattr(record, '__getitem__'):
-            try:
-                record_id = record['id']
-            except (KeyError, TypeError):
-                if hasattr(record, 'id'):
-                    record_id = record.id
-                elif 'id' in record:
-                    record_id = record['id']
-                else:
-                    record_id = index
-        else:
-            record_id = index
+            record_id = record['id']
+        elif hasattr(record, 'id'):
+            record_id = record.id
+        elif 'id' in record:
+            record_id = record['id']
+        
+        # THROW UNHANDLED ERROR IF RECORD_ID IS NONE
+        if record_id is None:
+            raise ValueError(f"Record ID is None for record at index {index}. Record: {record}")
+        
+        # Create unique key
+        unique_key = f"{record_id}_{index}"
         
         col1, col2, col3, col4, col5 = st.columns([1, 3, 2, 2, 1])
         
@@ -1389,22 +1310,13 @@ class InventoryTab:
                 consignor_name = record.get('consignor_name', '')
                 created_at = record.get('created_at', '')
             else:
-                try:
-                    artist = record.get('artist', '') if hasattr(record, 'get') else getattr(record, 'artist', '')
-                    title = record.get('title', '') if hasattr(record, 'get') else getattr(record, 'title', '')
-                    genre = getattr(record, 'genre_name', getattr(record, 'genre', ''))
-                    catalog = getattr(record, 'catalog_number', '')
-                    barcode = getattr(record, 'barcode', '')
-                    consignor_name = getattr(record, 'consignor_name', '')
-                    created_at = getattr(record, 'created_at', '')
-                except:
-                    artist = str(getattr(record, 'artist', ''))
-                    title = str(getattr(record, 'title', ''))
-                    genre = str(getattr(record, 'genre_name', getattr(record, 'genre', '')))
-                    catalog = str(getattr(record, 'catalog_number', ''))
-                    barcode = str(getattr(record, 'barcode', ''))
-                    consignor_name = str(getattr(record, 'consignor_name', ''))
-                    created_at = str(getattr(record, 'created_at', ''))
+                artist = getattr(record, 'artist', '')
+                title = getattr(record, 'title', '')
+                genre = getattr(record, 'genre_name', getattr(record, 'genre', ''))
+                catalog = getattr(record, 'catalog_number', '')
+                barcode = getattr(record, 'barcode', '')
+                consignor_name = getattr(record, 'consignor_name', '')
+                created_at = getattr(record, 'created_at', '')
             
             st.write(f"**{artist} - {title}**")
             
@@ -1419,13 +1331,10 @@ class InventoryTab:
                 info_lines.append(f"**Consignor:** {consignor_name}")
             
             if created_at:
-                try:
-                    if 'T' in created_at:
-                        date_part = created_at.split('T')[0]
-                        info_lines.append(f"**Created:** {date_part}")
-                    else:
-                        info_lines.append(f"**Created:** {created_at}")
-                except:
+                if 'T' in created_at:
+                    date_part = created_at.split('T')[0]
+                    info_lines.append(f"**Created:** {date_part}")
+                else:
                     info_lines.append(f"**Created:** {created_at}")
             
             if info_lines:
@@ -1433,7 +1342,7 @@ class InventoryTab:
                     st.write(line)
             
             current_genre = genre
-            genre_key = f"genre_edit_{record_id}"
+            genre_key = f"genre_edit_{unique_key}"
             
             all_genres = self.get_all_genres()
             
@@ -1463,7 +1372,7 @@ class InventoryTab:
             )
             
             if new_genre != "Select genre..." and new_genre != current_genre:
-                if st.button("💾 Save Genre", key=f"save_genre_{record_id}", type="secondary", width='stretch'):
+                if st.button("💾 Save Genre", key=f"save_genre_{unique_key}", type="secondary", width='stretch'):
                     confirm_container = st.empty()
                     with confirm_container:
                         st.info(f"Updating genre from '{current_genre}' to '{new_genre}'...")
@@ -1497,7 +1406,7 @@ class InventoryTab:
             current_price = float(store_price)
             
             # Price input field
-            price_key = f"price_edit_{record_id}"
+            price_key = f"price_edit_{unique_key}"
             new_price = st.number_input(
                 "Store Price ($)",
                 min_value=0.0,
@@ -1509,7 +1418,7 @@ class InventoryTab:
             )
             
             if new_price != current_price:
-                if st.button("💾 Save Price", key=f"save_price_{record_id}", type="secondary", width='stretch'):
+                if st.button("💾 Save Price", key=f"save_price_{unique_key}", type="secondary", width='stretch'):
                     confirm_container = st.empty()
                     with confirm_container:
                         st.info(f"Updating price from ${current_price:.2f} to ${new_price:.2f}...")
@@ -1536,7 +1445,7 @@ class InventoryTab:
             user_role = user.get('role', 'consignor')
             
             if user_role == 'admin':
-                youtube_key = f"youtube_edit_{record_id}"
+                youtube_key = f"youtube_edit_{unique_key}"
                 new_youtube_url = st.text_input(
                     "YouTube URL:",
                     value=youtube_url,
@@ -1545,7 +1454,7 @@ class InventoryTab:
                 )
                 
                 if new_youtube_url != youtube_url:
-                    if st.button("💾 Save YouTube Link", key=f"save_youtube_{record_id}", type="secondary", width='stretch'):
+                    if st.button("💾 Save YouTube Link", key=f"save_youtube_{unique_key}", type="secondary", width='stretch'):
                         confirm_container = st.empty()
                         with confirm_container:
                             st.info("Updating YouTube URL...")
@@ -1584,7 +1493,7 @@ class InventoryTab:
                 status_id = getattr(record, 'status_id', 2)
             
             if is_admin:
-                status_key = f"status_select_{record_id}"
+                status_key = f"status_select_{unique_key}"
                 
                 status_options = ["new", "active", "sold", "removed"]
                 current_index = 1
@@ -1607,7 +1516,7 @@ class InventoryTab:
                 selected_status_id = status_to_id_map.get(selected_status, 2)
                 
                 if selected_status_id is not None and selected_status_id != status_id:
-                    if st.button("💾 Save Status", key=f"save_status_{record_id}", type="secondary", width='stretch'):
+                    if st.button("💾 Save Status", key=f"save_status_{unique_key}", type="secondary", width='stretch'):
                         confirm_container = st.empty()
                         with confirm_container:
                             st.info(f"Updating status from '{status}' to '{selected_status}'...")
@@ -1622,7 +1531,7 @@ class InventoryTab:
             else:
                 if can_edit:
                     if status == 'active':
-                        if st.button("⏸️ Inactive", key=f"inactive_{record_id}", type="secondary", width='stretch', 
+                        if st.button("⏸️ Inactive", key=f"inactive_{unique_key}", type="secondary", width='stretch', 
                                 help="Set record to inactive status"):
                             confirm_container = st.empty()
                             with confirm_container:
@@ -1636,7 +1545,7 @@ class InventoryTab:
                                 confirm_container.empty()
                                 st.error("Failed to set record to inactive")
                     elif status == 'new':
-                        if st.button("▶️ Activate", key=f"activate_{record_id}", type="secondary", width='stretch',
+                        if st.button("▶️ Activate", key=f"activate_{unique_key}", type="secondary", width='stretch',
                                 help="Activate record"):
                             confirm_container = st.empty()
                             with confirm_container:
@@ -1670,7 +1579,7 @@ class InventoryTab:
                         (user_role == 'consignor' and user_id and record_consignor_id == user_id))
             
             if can_delete:
-                if st.button("🗑️ Delete", key=f"delete_{record_id}", type="secondary", width='stretch'):
+                if st.button("🗑️ Delete", key=f"delete_{unique_key}", type="secondary", width='stretch'):
                     confirm_container = st.empty()
                     with confirm_container:
                         st.info("Deleting record...")
@@ -1693,22 +1602,18 @@ class InventoryTab:
             st.info(f"Demo: Would set record {record_id} to inactive")
             return True
             
-        try:
-            updates = {
-                'status_id': 1
-            }
-            
-            success = self.update_record(record_id, updates)
-            if success:
-                if hasattr(st.session_state, 'records_cache'):
-                    del st.session_state.records_cache
-                st.rerun()
-                return True
-            else:
-                st.error("Failed to update record status")
-                return False
-        except Exception as e:
-            st.error(f"Error setting record to inactive: {e}")
+        updates = {
+            'status_id': 1
+        }
+        
+        success = self.update_record(record_id, updates)
+        if success:
+            if hasattr(st.session_state, 'records_cache'):
+                del st.session_state.records_cache
+            st.rerun()
+            return True
+        else:
+            st.error("Failed to update record status")
             return False
     
     def _set_record_active(self, record_id):
@@ -1719,20 +1624,16 @@ class InventoryTab:
             st.info(f"Demo: Would reactivate record {record_id}")
             return True
             
-        try:
-            updates = {
-                'status_id': 2
-            }
-            
-            success = self.update_record(record_id, updates)
-            if success:
-                if hasattr(st.session_state, 'records_cache'):
-                    del st.session_state.records_cache
-                st.rerun()
-                return True
-            else:
-                st.error("Failed to update record status")
-                return False
-        except Exception as e:
-            st.error(f"Error reactivating record: {e}")
+        updates = {
+            'status_id': 2
+        }
+        
+        success = self.update_record(record_id, updates)
+        if success:
+            if hasattr(st.session_state, 'records_cache'):
+                del st.session_state.records_cache
+            st.rerun()
+            return True
+        else:
+            st.error("Failed to update record status")
             return False

@@ -167,6 +167,7 @@ class AdminConfigTab:
                 username = st.text_input("Username", placeholder="Enter username")
                 email = st.text_input("Email*", placeholder="Enter email address")
                 full_name = st.text_input("Full Name", placeholder="Enter full name")
+                initials = st.text_input("Initials", placeholder="Enter user initials (e.g., AS)", max_chars=5)
             
             with col2:
                 password = st.text_input("Password*", type="password", placeholder="Enter password")
@@ -174,6 +175,7 @@ class AdminConfigTab:
                 role = st.selectbox("Role", options=["consignor", "admin"])
             
             st.caption("*Email is required for notifications. Password must be at least 8 characters.")
+            st.caption("Initials: 2-3 characters recommended for labeling/tracking purposes")
             
             if st.form_submit_button("➕ Create User", width='stretch'):
                 if not all([username, email, password, confirm_password]):
@@ -184,8 +186,10 @@ class AdminConfigTab:
                     st.error("Password must be at least 8 characters long")
                 elif '@' not in email or '.' not in email:
                     st.error("Please enter a valid email address")
+                elif initials and len(initials) > 5:
+                    st.error("Initials should be 5 characters or less")
                 else:
-                    success = self._create_user_api(username, email, password, role, full_name)
+                    success = self._create_user_api(username, email, password, role, full_name, initials)
                     if success:
                         st.success(f"✅ User '{username}' created successfully!")
                         st.rerun()
@@ -196,42 +200,73 @@ class AdminConfigTab:
         users = self._get_all_users()
 
         if users:
-            st.write("**Reset User Passwords:**")
+            st.write("**Manage Users:**")
             
             for user in users:
                 with st.expander(f"User: {user['username']} ({user['full_name'] or 'No name'}) - {user['role']} | Email: {user['email']}", expanded=False):
-                    col1, col2, col3 = st.columns([2, 1, 1])
+                    # User details editor
+                    col1, col2 = st.columns(2)
                     
                     with col1:
-                        new_password = st.text_input(
-                            "New Password",
-                            type="password",
-                            placeholder="Enter new password",
-                            key=f"new_password_{user['id']}"
+                        # Basic info
+                        new_username = st.text_input(
+                            "Username",
+                            value=user['username'],
+                            key=f"username_{user['id']}"
+                        )
+                        
+                        new_email = st.text_input(
+                            "Email*",
+                            value=user['email'],
+                            key=f"email_{user['id']}"
+                        )
+                        
+                        new_full_name = st.text_input(
+                            "Full Name",
+                            value=user.get('full_name', ''),
+                            key=f"full_name_{user['id']}"
+                        )
+                        
+                        new_initials = st.text_input(
+                            "Initials*",
+                            value=user.get('initials', ''),
+                            placeholder="Enter initials (e.g., AS)",
+                            max_chars=5,
+                            key=f"initials_{user['id']}"
+                        )
+                        
+                        new_role = st.selectbox(
+                            "Role",
+                            options=["consignor", "admin"],
+                            index=0 if user.get('role') == 'consignor' else 1,
+                            key=f"role_{user['id']}"
                         )
                     
                     with col2:
-                        if st.button("Reset Password", key=f"reset_btn_{user['id']}", width='stretch'):
-                            if new_password:
-                                if len(new_password) < 8:
-                                    st.error("Password must be at least 8 characters long")
-                                elif not any(c.isupper() for c in new_password):
-                                    st.error("Password must contain at least one uppercase letter")
-                                elif not any(c.islower() for c in new_password):
-                                    st.error("Password must contain at least one lowercase letter")
-                                elif not any(c.isdigit() for c in new_password):
-                                    st.error("Password must contain at least one number")
-                                else:
-                                    success = self._reset_password_api(user['id'], new_password)
-                                    if success:
-                                        st.success(f"✅ Password reset for {user['username']}")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"❌ Failed to reset password for {user['username']}")
-                            else:
-                                st.error("Please enter a new password")
-                    
-                    with col3:
+                        # Contact info
+                        phone = st.text_input(
+                            "Phone",
+                            value=user.get('phone', ''),
+                            key=f"phone_{user['id']}"
+                        )
+                        
+                        address = st.text_area(
+                            "Address",
+                            value=user.get('address', ''),
+                            height=100,
+                            key=f"address_{user['id']}"
+                        )
+                        
+                        # Password reset section
+                        st.write("**Password Reset**")
+                        new_password = st.text_input(
+                            "New Password",
+                            type="password",
+                            placeholder="Enter new password (leave blank to keep current)",
+                            key=f"new_password_{user['id']}"
+                        )
+                        
+                        # Store credit
                         store_credit = st.number_input(
                             "Store Credit",
                             min_value=0.0,
@@ -239,12 +274,78 @@ class AdminConfigTab:
                             step=1.0,
                             key=f"store_credit_{user['id']}"
                         )
-                        
-                        if st.button("Update Credit", key=f"credit_btn_{user['id']}", width='stretch'):
-                            success = self._update_store_credit_api(user['id'], store_credit)
+                    
+                    # Action buttons
+                    col_btn1, col_btn2, col_btn3 = st.columns(3)
+                    
+                    with col_btn1:
+                        if st.button("💾 Update User Info", key=f"update_btn_{user['id']}", width='stretch'):
+                            if not new_email:
+                                st.error("Email is required")
+                            elif new_initials and len(new_initials) > 5:
+                                st.error("Initials should be 5 characters or less")
+                            else:
+                                # Prepare update data
+                                update_data = {
+                                    'username': new_username,
+                                    'email': new_email,
+                                    'full_name': new_full_name,
+                                    'initials': new_initials,
+                                    'role': new_role,
+                                    'phone': phone,
+                                    'address': address,
+                                    'store_credit_balance': store_credit
+                                }
+                                
+                                success = self._update_user_api(user['id'], update_data)
+                                if success:
+                                    st.success(f"✅ User information updated for {new_username}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Failed to update user information")
+                    
+                    with col_btn2:
+                        if new_password and st.button("🔐 Reset Password", key=f"reset_btn_{user['id']}", width='stretch'):
+                            if len(new_password) < 8:
+                                st.error("Password must be at least 8 characters long")
+                            elif not any(c.isupper() for c in new_password):
+                                st.error("Password must contain at least one uppercase letter")
+                            elif not any(c.islower() for c in new_password):
+                                st.error("Password must contain at least one lowercase letter")
+                            elif not any(c.isdigit() for c in new_password):
+                                st.error("Password must contain at least one number")
+                            else:
+                                success = self._reset_password_api(user['id'], new_password)
+                                if success:
+                                    st.success(f"✅ Password reset for {user['username']}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Failed to reset password")
+                        elif not new_password:
+                            st.write("")  # Empty space for alignment
+                    
+                    with col_btn3:
+                        if st.button("🚫 Deactivate User", key=f"deactivate_btn_{user['id']}", width='stretch'):
+                            success = self._toggle_user_active_api(user['id'], not user.get('is_active', True))
                             if success:
-                                st.success(f"✅ Store credit updated for {user['username']}")
+                                status = "deactivated" if user.get('is_active', True) else "activated"
+                                st.success(f"✅ User {status} successfully")
                                 st.rerun()
+                            else:
+                                st.error(f"❌ Failed to update user status")
+                    
+                    # User status info
+                    status_col1, status_col2, status_col3 = st.columns(3)
+                    with status_col1:
+                        st.caption(f"**Status:** {'✅ Active' if user.get('is_active', True) else '❌ Inactive'}")
+                    with status_col2:
+                        created = user.get('created_at', '')
+                        if created:
+                            st.caption(f"**Created:** {created}")
+                    with status_col3:
+                        last_login = user.get('last_login', '')
+                        if last_login:
+                            st.caption(f"**Last Login:** {last_login}")
         else:
             st.info("No users found")
     
@@ -261,18 +362,23 @@ class AdminConfigTab:
             st.error(f"Error getting users: {e}")
             return []
     
-    def _create_user_api(self, username, email, password, role, full_name):
+    def _create_user_api(self, username, email, password, role, full_name, initials=None):
         """Create a new user via API"""
         try:
+            user_data = {
+                'username': username,
+                'email': email,
+                'password': password,
+                'role': role,
+                'full_name': full_name
+            }
+            
+            if initials:
+                user_data['initials'] = initials
+            
             response = requests.post(
                 f"{self.base_url}/users",
-                json={
-                    'username': username,
-                    'email': email,
-                    'password': password,
-                    'role': role,
-                    'full_name': full_name
-                }
+                json=user_data
             )
             return response.status_code == 200
         except Exception as e:
@@ -291,14 +397,26 @@ class AdminConfigTab:
             st.error(f"Error resetting password: {e}")
             return False
     
-    def _update_store_credit_api(self, user_id, store_credit):
-        """Update user store credit via API"""
+    def _update_user_api(self, user_id, update_data):
+        """Update user information via API"""
         try:
             response = requests.put(
                 f"{self.base_url}/users/{user_id}",
-                json={'store_credit_balance': store_credit}
+                json=update_data
             )
             return response.status_code == 200
         except Exception as e:
-            st.error(f"Error updating store credit: {e}")
+            st.error(f"Error updating user: {e}")
+            return False
+    
+    def _toggle_user_active_api(self, user_id, is_active):
+        """Toggle user active status via API"""
+        try:
+            response = requests.put(
+                f"{self.base_url}/users/{user_id}/status",
+                json={'is_active': is_active}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            st.error(f"Error updating user status: {e}")
             return False

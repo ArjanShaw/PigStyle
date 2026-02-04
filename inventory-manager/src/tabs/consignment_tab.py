@@ -164,19 +164,11 @@ class ConsignmentTab:
     def _render_consignment_table(self, title, df, user_role, is_demo):
         st.subheader(title)
         
+        # REMOVED SELECT ALL BUTTON SECTION
         if user_role == 'consignor' and title in ['🆕 Ready for Dropoff', '✅ Active (On Shelf)']:
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                if st.button(f"✅ Select All {title.split()[0]}", key=f"select_all_{title}"):
-                    st.session_state.select_all_consignment = True
-                    st.session_state.selected_consignment_records = df['record_id'].tolist()
-                    st.session_state.needs_refresh = True
-                    st.stop()
-            
-            with col2:
-                selected_count = len([r for r in st.session_state.selected_consignment_records if r in df['record_id'].tolist()])
-                if selected_count > 0:
-                    st.write(f"**{selected_count} records selected**")
+            selected_count = len([r for r in st.session_state.selected_consignment_records if r in df['record_id'].tolist()])
+            if selected_count > 0:
+                st.write(f"**{selected_count} records selected**")
         
         display_data = []
         
@@ -245,7 +237,7 @@ class ConsignmentTab:
             other_selected = [r for r in st.session_state.selected_consignment_records if r not in current_table_ids]
             st.session_state.selected_consignment_records = other_selected + new_selected_records
         
-        table_selected_records = [r for r in st.session_state.selected_consignment_records if r in current_table_ids]
+        table_selected_records = [r for r in st.session_state.selected_consignment_records if r in df['record_id'].tolist()]
         
         if table_selected_records:
             selected_count = len(table_selected_records)

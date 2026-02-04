@@ -488,6 +488,21 @@ class InventoryTab:
             
         return 0
     
+    def get_records_count_by_user(self, user_id):
+        """Get count of records for a specific user"""
+        if hasattr(st.session_state, 'records_cache'):
+            records = st.session_state.records_cache
+            if isinstance(records, list):
+                user_records = [r for r in records if r.get('consignor_id') == user_id]
+                return len(user_records)
+        
+        response = requests.get(f"{self.base_url}/records/user/{user_id}/count")
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('count', 0)
+            
+        return 0
+    
     def get_user(self, user_id):
         start_time = time.time()
         response = requests.get(f"{self.base_url}/users/{user_id}")
@@ -514,24 +529,45 @@ class InventoryTab:
             st.session_state.search_query = ""
             st.rerun()
         
-        records_count = self.get_records_count()
+        user = st.session_state.get('user', {})
+        user_role = user.get('role', 'consignor')
+        user_id = user.get('id')
+        
+        # Get appropriate records count based on user role
+        if user_role == 'admin':
+            records_count = self.get_records_count()
+        else:
+            records_count = self.get_records_count_by_user(user_id) if user_id else 0
+        
         store_capacity = float(self.get_config_value('STORE_CAPACITY'))
         
-        store_fill_info = self._calculate_store_fill_info(store_capacity)
+        store_fill_info = self._calculate_store_fill_info(store_capacity, user_role, user_id)
         current_commission_rate = st.session_state.commission_calculator.get_current_commission_rate()
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Inventory Records", records_count)
+            if user_role == 'admin':
+                st.metric("Total Inventory Records", records_count)
+            else:
+                st.metric("Your Consignment Records", records_count)
         with col2:
-            st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
+            if user_role == 'admin':
+                st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
+            else:
+                st.metric("Your Fill", f"{store_fill_info['fill_percentage']:.1f}%")
         with col3:
             st.metric("Commission Rate", f"{current_commission_rate*100:.1f}%")
         
-        if store_fill_info['fill_fraction'] > 1.10:
-            st.error("🚨 Store is over capacity! Cannot add new items.")
-        elif store_fill_info['fill_fraction'] > 0.90:
-            st.warning("⚠️ Store is near capacity ({:.1f}%)".format(store_fill_info['fill_percentage']))
+        if user_role == 'admin':
+            if store_fill_info['fill_fraction'] > 1.10:
+                st.error("🚨 Store is over capacity! Cannot add new items.")
+            elif store_fill_info['fill_fraction'] > 0.90:
+                st.warning("⚠️ Store is near capacity ({:.1f}%)".format(store_fill_info['fill_percentage']))
+        else:
+            if store_fill_info['fill_fraction'] > 1.10:
+                st.error("🚨 You're over your allocation! Cannot add new items.")
+            elif store_fill_info['fill_fraction'] > 0.90:
+                st.warning("⚠️ You're near your allocation ({:.1f}%)".format(store_fill_info['fill_percentage']))
                 
         self._render_last_added_record_simple()
         
@@ -539,8 +575,14 @@ class InventoryTab:
         
         self._render_unified_operations(store_fill_fraction)
 
-    def _calculate_store_fill_info(self, store_capacity):
-        total_inventory = self.get_records_count()
+    def _calculate_store_fill_info(self, store_capacity, user_role, user_id):
+        """Calculate store fill info based on user role"""
+        if user_role == 'admin':
+            # Admin sees total store inventory
+            total_inventory = self.get_records_count()
+        else:
+            # Consignor sees only their own records
+            total_inventory = self.get_records_count_by_user(user_id) if user_id else 0
         
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0
         fill_percentage = fill_fraction * 100

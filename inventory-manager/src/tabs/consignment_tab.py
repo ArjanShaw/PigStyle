@@ -179,7 +179,6 @@ class ConsignmentTab:
             
             display_row = {
                 'Select': is_selected,
-                'ID': record_id,
                 'Status': record['display_status']
             }
             
@@ -190,6 +189,10 @@ class ConsignmentTab:
             display_row['Title'] = record['title']
             display_row['Price'] = f"${record['store_price']:.2f}"
             
+            # Add commission/consignment rate column
+            commission_rate = record.get('commission_rate', 0.20)  # Default to 20% if not specified
+            display_row['Commission Rate'] = f"{commission_rate * 100:.0f}%"
+            
             if record.get('receipt_number'):
                 display_row['Receipt #'] = record['receipt_number']
             
@@ -199,11 +202,11 @@ class ConsignmentTab:
         
         column_config = {
             "Select": st.column_config.CheckboxColumn("Select", default=False),
-            "ID": st.column_config.NumberColumn("ID", disabled=True),
             "Status": st.column_config.TextColumn("Status", disabled=True),
             "Artist": st.column_config.TextColumn("Artist", disabled=True),
             "Title": st.column_config.TextColumn("Title", disabled=True),
             "Price": st.column_config.TextColumn("Price", disabled=True),
+            "Commission Rate": st.column_config.TextColumn("Commission Rate", disabled=True),
         }
         
         if user_role == 'admin' and not is_demo:
@@ -230,8 +233,11 @@ class ConsignmentTab:
             new_selected_records = []
             for idx, row in edited_df.iterrows():
                 if row['Select']:
-                    record_id = row['ID']
-                    new_selected_records.append(record_id)
+                    # We need to get the record_id from the original df since we removed ID column
+                    original_idx = idx
+                    if original_idx < len(df):
+                        record_id = df.iloc[original_idx]['record_id']
+                        new_selected_records.append(record_id)
             
             current_table_ids = df['record_id'].tolist()
             other_selected = [r for r in st.session_state.selected_consignment_records if r not in current_table_ids]
@@ -265,7 +271,6 @@ class ConsignmentTab:
         
         for idx, record in df.iterrows():
             display_row = {
-                'ID': record['record_id'],
                 'Status': record['display_status']
             }
             
@@ -275,6 +280,10 @@ class ConsignmentTab:
             display_row['Artist'] = record['artist']
             display_row['Title'] = record['title']
             display_row['Price'] = f"${record['store_price']:.2f}"
+            
+            # Add commission/consignment rate column
+            commission_rate = record.get('commission_rate', 0.20)
+            display_row['Commission Rate'] = f"{commission_rate * 100:.0f}%"
             
             if record.get('date_sold'):
                 display_row['Date Sold'] = record['date_sold']
@@ -287,11 +296,11 @@ class ConsignmentTab:
         display_df = pd.DataFrame(display_data)
         
         column_config = {
-            "ID": st.column_config.NumberColumn("ID", disabled=True),
             "Status": st.column_config.TextColumn("Status", disabled=True),
             "Artist": st.column_config.TextColumn("Artist", disabled=True),
             "Title": st.column_config.TextColumn("Title", disabled=True),
             "Price": st.column_config.TextColumn("Price", disabled=True),
+            "Commission Rate": st.column_config.TextColumn("Commission Rate", disabled=True),
         }
         
         if user_role == 'admin' and not is_demo:
@@ -322,7 +331,6 @@ class ConsignmentTab:
             record_id = record['record_id']
             
             display_row = {
-                'ID': record_id,
                 'Status': record['display_status']
             }
             
@@ -337,6 +345,10 @@ class ConsignmentTab:
             display_row['Title'] = record['title']
             display_row['Price'] = f"${record['store_price']:.2f}"
             
+            # Add commission/consignment rate column
+            commission_rate = record.get('commission_rate', 0.20)
+            display_row['Commission Rate'] = f"{commission_rate * 100:.0f}%"
+            
             if record.get('receipt_number'):
                 display_row['Receipt #'] = record['receipt_number']
             
@@ -350,11 +362,11 @@ class ConsignmentTab:
         if user_role == 'admin' and not is_demo:
             column_config = {
                 "Select": st.column_config.CheckboxColumn("Select", default=False),
-                "ID": st.column_config.NumberColumn("ID", disabled=True),
                 "Status": st.column_config.TextColumn("Status", disabled=True),
                 "Artist": st.column_config.TextColumn("Artist", disabled=True),
                 "Title": st.column_config.TextColumn("Title", disabled=True),
                 "Price": st.column_config.TextColumn("Price", disabled=True),
+                "Commission Rate": st.column_config.TextColumn("Commission Rate", disabled=True),
             }
             
             if 'Consignor' in display_df.columns:
@@ -369,11 +381,11 @@ class ConsignmentTab:
             disabled_columns = [col for col in column_config.keys() if col != "Select"]
         else:
             column_config = {
-                "ID": st.column_config.NumberColumn("ID", disabled=True),
                 "Status": st.column_config.TextColumn("Status", disabled=True),
                 "Artist": st.column_config.TextColumn("Artist", disabled=True),
                 "Title": st.column_config.TextColumn("Title", disabled=True),
                 "Price": st.column_config.TextColumn("Price", disabled=True),
+                "Commission Rate": st.column_config.TextColumn("Commission Rate", disabled=True),
             }
             
             if 'Receipt #' in display_df.columns:
@@ -397,8 +409,11 @@ class ConsignmentTab:
             new_selected_records = []
             for idx, row in edited_df.iterrows():
                 if row['Select']:
-                    record_id = row['ID']
-                    new_selected_records.append(record_id)
+                    # We need to get the record_id from the original df since we removed ID column
+                    original_idx = idx
+                    if original_idx < len(df):
+                        record_id = df.iloc[original_idx]['record_id']
+                        new_selected_records.append(record_id)
             
             current_table_ids = df['record_id'].tolist()
             other_selected = [r for r in st.session_state.selected_consignment_records if r not in current_table_ids]

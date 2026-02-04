@@ -9,7 +9,7 @@ import traceback
 class YouTubeLinkerTab:
     def __init__(self, youtube_handler):
         self.youtube_handler = youtube_handler
-        self.base_url = "https://arjanshaw.pythonanywhere.com"
+        self.base_url = "https://www.pigstylemusic.com"
         
         # Initialize session state for dropdown
         if 'youtube_dropdown_state' not in st.session_state:

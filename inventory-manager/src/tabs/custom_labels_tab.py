@@ -10,7 +10,7 @@ from reportlab.lib.units import mm
 class CustomLabelsTab:
     def __init__(self, config_cache=None):
         self.config_cache = config_cache
-        self.base_url = "https://arjanshaw.pythonanywhere.com"
+        self.base_url = "https://www.pigstylemusic.com"
         
         # Initialize config values
         self._validate_configuration()

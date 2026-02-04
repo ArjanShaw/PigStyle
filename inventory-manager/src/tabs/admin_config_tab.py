@@ -6,7 +6,7 @@ import os
 
 class AdminConfigTab:
     def __init__(self):
-        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
     
     def render(self):
         st.header("⚙️ Admin Configuration")

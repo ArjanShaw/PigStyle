@@ -4,7 +4,7 @@ import requests
 class AppConfig:
     def __init__(self):
         """Initialize config with database-only approach"""
-        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
     
     def get(self, key, default=None):
         """Get a configuration value from API - throws error if key doesn't exist when no default provided"""

@@ -8,7 +8,7 @@ from handlers.rounding_handler import RoundingHandler
 from handlers.config_handler import ConfigHandler  # NEW IMPORT
 
 class ExportHandler:
-    def __init__(self, price_handler, base_url="https://arjanshaw.pythonanywhere.com"):
+    def __init__(self, price_handler, base_url="https://www.pigstylemusic.com"):
         self.price_handler = price_handler
         self.base_url = base_url
         self.config_handler = ConfigHandler()  # NEW: ConfigHandler instance

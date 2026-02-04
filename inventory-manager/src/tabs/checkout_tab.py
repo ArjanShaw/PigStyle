@@ -594,7 +594,7 @@ class CheckoutTab:
 class APIClient:
     """API client for checkout operations"""
     
-    def __init__(self, base_url="https://arjanshaw.pythonanywhere.com"):
+    def __init__(self, base_url="https://www.pigstylemusic.com"):
         self.base_url = base_url
     
     def get_user(self, user_id):

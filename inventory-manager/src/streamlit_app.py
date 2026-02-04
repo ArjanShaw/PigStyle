@@ -54,7 +54,7 @@ class ConfigCache:
         return cls._instance
     
     def __init__(self):
-        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
         self._cache = None
         self._last_load_time = 0
         self._cache_ttl = 300
@@ -93,7 +93,7 @@ class GenreCache:
         return cls._instance
     
     def __init__(self):
-        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
         self._cache = None
         self._last_load_time = 0
         self._cache_ttl = 300
@@ -256,7 +256,7 @@ class RecordsCache:
         return cls._instance
     
     def __init__(self):
-        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
         self._cache = None
         self._last_load_time = 0
         self._cache_ttl = 300  # 5 minutes cache TTL
@@ -501,7 +501,7 @@ def render_main_app():
     if "email_service" not in st.session_state:
         class SimpleAPIClient:
             def __init__(self):
-                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
             
             def get_user_by_id(self, user_id):
                 try:
@@ -524,7 +524,7 @@ def render_main_app():
     if "commission_calculator" not in st.session_state:
         class SimpleAPIClient2:
             def __init__(self):
-                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
                 self.config_handler = config_handler  # Use ConfigHandler
             
             def get_config_value(self, key, default=None):
@@ -548,7 +548,7 @@ def render_main_app():
     if "pricing_validator" not in st.session_state:
         class SimpleAPIClient3:
             def __init__(self):
-                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
                 self.config_handler = config_handler  # Use ConfigHandler
                 self.genre_cache = genre_cache
             
@@ -568,7 +568,7 @@ def render_main_app():
     if "contract_handler" not in st.session_state:
         class SimpleAPIClientForContract:
             def __init__(self):
-                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+                self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
                 self.config_handler = config_handler  # Use ConfigHandler
             
             def get_config_value(self, key, default=None):
@@ -609,7 +609,7 @@ def render_main_app():
     # Create API client for InventoryTab that uses caches
     class InventoryTabAPIClient:
         def __init__(self, config_handler, genre_cache, records_cache):
-            self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+            self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
             self.config_handler = config_handler  # Use ConfigHandler
             self.genre_cache = genre_cache
             self.records_cache = records_cache

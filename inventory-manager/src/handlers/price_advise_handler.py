@@ -535,7 +535,7 @@ class PriceAdviseHandler:
                 start_time = time.time()
                 logger.info(f"CONFIG API CALL [START]: GET /config/{config_key}")
                 
-                response = requests.get(f"https://arjanshaw.pythonanywhere.com/config/{config_key}")
+                response = requests.get(f"https://www.pigstylemusic.com/config/{config_key}")
                 
                 duration = time.time() - start_time
                 logger.info(f"CONFIG API CALL [END]: GET /config/{config_key} - {duration:.3f}s - Status: {response.status_code}")

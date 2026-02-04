@@ -31,7 +31,7 @@ CORS(app, resources={
             "http://127.0.0.1:8000",
             "http://localhost:5000",
             "http://127.0.0.1:5000",
-            "https://arjanshaw.pythonanywhere.com",
+            "https://www.pigstylemusic.com",
             "http://arjanshaw.pythonanywhere.com"
         ],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -48,7 +48,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "records.db")
 # Spotify configuration
 SPOTIFY_CLIENT_ID = os.environ.get('SPOTIFY_CLIENT_ID', 'your-client-id-here')
 SPOTIFY_CLIENT_SECRET = os.environ.get('SPOTIFY_CLIENT_SECRET', 'your-client-secret-here')
-SPOTIFY_REDIRECT_URI = 'https://arjanshaw.pythonanywhere.com/spotify/callback'
+SPOTIFY_REDIRECT_URI = 'https://www.pigstylemusic.com/spotify/callback'
 
 # Token storage and background job storage
 user_tokens = {}
@@ -1423,7 +1423,7 @@ def process_spotify_update(job_id, code, state, limit, return_url):
 
         # Exchange code for token
         background_jobs[job_id]['message'] = 'Exchanging code for access token...'
-        token_data = exchange_code_for_token(code, 'https://arjanshaw.pythonanywhere.com/spotify/callback')
+        token_data = exchange_code_for_token(code, 'https://www.pigstylemusic.com/spotify/callback')
 
         if not token_data:
             background_jobs[job_id]['status'] = 'failed'
@@ -1676,7 +1676,7 @@ def authorize_and_update():
     params = {
         'client_id': SPOTIFY_CLIENT_ID,
         'response_type': 'code',
-        'redirect_uri': 'https://arjanshaw.pythonanywhere.com/spotify/callback',
+        'redirect_uri': 'https://www.pigstylemusic.com/spotify/callback',
         'scope': 'playlist-modify-public playlist-modify-private',
         'state': state,
         'show_dialog': 'false'
@@ -1740,7 +1740,7 @@ def authorize_callback():
         "status": "processing",
         "message": "Spotify playlist update started in background",
         "job_id": job_id,
-        "check_status_url": f"https://arjanshaw.pythonanywhere.com/spotify/job-status/{job_id}",
+        "check_status_url": f"https://www.pigstylemusic.com/spotify/job-status/{job_id}",
         "estimated_time": "Several minutes (processing all records)",
         "note": "Keep this job_id to check status later"
     })

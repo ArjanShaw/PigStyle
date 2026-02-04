@@ -12,7 +12,7 @@ import math
 class EBayTab:
     """Combined eBay handler and tab functionality in one class"""
     
-    def __init__(self, client_id=None, client_secret=None, base_url="https://arjanshaw.pythonanywhere.com"):
+    def __init__(self, client_id=None, client_secret=None, base_url="https://www.pigstylemusic.com"):
         self.client_id = client_id
         self.client_secret = client_secret
         self.base_url = base_url

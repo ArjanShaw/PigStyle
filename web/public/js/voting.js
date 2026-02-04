@@ -1,7 +1,7 @@
 // Voting system for PigStyle Records - Uses artist-title as key
 class VotingSystem {
     constructor() {
-        this.apiBaseUrl = 'https://arjanshaw.pythonanywhere.com/api';
+        this.apiBaseUrl = 'https://www.pigstylemusic.com/api';
         this.voteCounts = {};
         this.initialized = false;
     }

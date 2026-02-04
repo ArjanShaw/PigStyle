@@ -5,7 +5,7 @@ const pigstyleAPI = {
     // Base API URL - change this based on your deployment environment
     baseURL: window.location.hostname.includes('localhost') 
         ? 'http://localhost:5000' 
-        : 'https://arjanshaw.pythonanywhere.com',
+        : 'https://www.pigstylemusic.com',
     
     // Common headers for all requests
     headers: {

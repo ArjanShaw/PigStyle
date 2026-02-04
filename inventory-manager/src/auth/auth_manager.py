@@ -13,7 +13,7 @@ class AuthManager:
     def __init__(self, api_base_url: str = None):
         if api_base_url is None:
             # Get from environment or use default
-            api_base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+            api_base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
         
         self.api_base_url = api_base_url
         self.session = requests.Session()

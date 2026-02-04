@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SearchHandler:
-    def __init__(self, discogs_handler, base_url="https://arjanshaw.pythonanywhere.com"):
+    def __init__(self, discogs_handler, base_url="https://www.pigstylemusic.com"):
         self.discogs_handler = discogs_handler
         self.base_url = base_url
         self._search_cache = {}

@@ -12,7 +12,7 @@ import hashlib
 from conditions import DiscogsConditions
 
 class InventoryTab:
-    def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None, config_cache=None, genre_cache=None, price_advise_handler=None, base_url="https://arjanshaw.pythonanywhere.com"):
+    def __init__(self, discogs_handler, ebay_handler=None, youtube_handler=None, config_cache=None, genre_cache=None, price_advise_handler=None, base_url="https://www.pigstylemusic.com"):
         self.discogs_handler = discogs_handler
         self.ebay_handler = ebay_handler
         self.youtube_handler = youtube_handler
@@ -623,7 +623,7 @@ class InventoryTab:
                 return f"**📝 Last Added:** {artist} - {title} (${store_price:.2f})"
             return "**📝 Last Added:** No records yet"
         
-        base_url = "https://arjanshaw.pythonanywhere.com"
+        base_url = "https://www.pigstylemusic.com"
         
         if user_role == 'admin':
             response = requests.get(f"{base_url}/records?limit=1&order_by=id&order=desc")
@@ -1258,7 +1258,7 @@ class InventoryTab:
             full_price_days = int(self.get_config_value('CONSIGNMENT_FULL_PRICE_DAYS', '90'))
             updates['discount_eligible_date'] = (datetime.now().date() + timedelta(days=full_price_days)).isoformat()
         
-        base_url = "https://arjanshaw.pythonanywhere.com"
+        base_url = "https://www.pigstylemusic.com"
         response = requests.put(
             f"{base_url}/records/{record_id}",
             json=updates,

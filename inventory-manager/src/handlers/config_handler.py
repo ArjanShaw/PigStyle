@@ -24,7 +24,7 @@ class ConfigHandler:
     
     def _init_config_handler(self):
         """Initialize the config handler"""
-        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://arjanshaw.pythonanywhere.com')
+        self.base_url = os.getenv('PYTHONANYWHERE_API_URL', 'https://www.pigstylemusic.com')
         self._cache = {}
         self._last_load_time = 0
     

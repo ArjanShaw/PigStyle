@@ -24,7 +24,7 @@ class PriceTagTab:
         self.genre_cache = genre_cache  # Store genre cache reference
         self.contract_handler = None  # Will be initialized when needed
         
-        self.base_url = "https://arjanshaw.pythonanywhere.com"
+        self.base_url = "https://www.pigstylemusic.com"
 
         # Initialize config values from database
         self._validate_configuration()
@@ -92,7 +92,7 @@ class PriceTagTab:
         
         # If not in cache, try API call
         try:
-            response = requests.get(f"https://arjanshaw.pythonanywhere.com/config/{config_key}")
+            response = requests.get(f"https://www.pigstylemusic.com/config/{config_key}")
             if response.status_code == 200:
                 data = response.json()
                 value = data.get('config_value', default)
@@ -147,7 +147,7 @@ class PriceTagTab:
         """Save config value via API"""
         try:
             response = requests.put(
-                f"https://arjanshaw.pythonanywhere.com/config/{config_key}",
+                f"https://www.pigstylemusic.com/config/{config_key}",
                 json={'config_value': config_value}
             )
             
@@ -981,7 +981,7 @@ class PriceTagTab:
                 return st.session_state.users_cache
             
             # Otherwise make API call
-            response = requests.get(f"https://arjanshaw.pythonanywhere.com/users")
+            response = requests.get(f"https://www.pigstylemusic.com/users")
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -1090,7 +1090,7 @@ class PriceTagTab:
         """Get records by IDs via API"""
         try:
             response = requests.post(
-                f"https://arjanshaw.pythonanywhere.com/records/by-ids",
+                f"https://www.pigstylemusic.com/records/by-ids",
                 json={'record_ids': record_ids}
             )
             if response.status_code == 200:
@@ -1108,7 +1108,7 @@ class PriceTagTab:
         """Update record via API"""
         try:
             response = requests.put(
-                f"https://arjanshaw.pythonanywhere.com/records/{record_id}",
+                f"https://www.pigstylemusic.com/records/{record_id}",
                 json=updates
             )
             return response.status_code == 200

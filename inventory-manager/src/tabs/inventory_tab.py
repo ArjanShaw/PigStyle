@@ -536,42 +536,37 @@ class InventoryTab:
         # Get appropriate records count based on user role
         if user_role == 'admin':
             records_count = self.get_records_count()
-        else:
-            records_count = self.get_records_count_by_user(user_id) if user_id else 0
-        
-        store_capacity = float(self.get_config_value('STORE_CAPACITY'))
-        
-        store_fill_info = self._calculate_store_fill_info(store_capacity, user_role, user_id)
-        current_commission_rate = st.session_state.commission_calculator.get_current_commission_rate()
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if user_role == 'admin':
-                st.metric("Total Inventory Records", records_count)
-            else:
-                st.metric("Your Consignment Records", records_count)
-        with col2:
-            if user_role == 'admin':
-                st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
-            else:
-                st.metric("Your Fill", f"{store_fill_info['fill_percentage']:.1f}%")
-        with col3:
-            st.metric("Commission Rate", f"{current_commission_rate*100:.1f}%")
-        
-        if user_role == 'admin':
+            st.metric("Total Inventory Records", records_count)
+            
+            # Calculate store fill percentage for admin only
+            store_capacity = float(self.get_config_value('STORE_CAPACITY'))
+            store_fill_info = self._calculate_store_fill_info(store_capacity, user_role, user_id)
+            
+            st.metric("Store Fill", f"{store_fill_info['fill_percentage']:.1f}%")
+            
             if store_fill_info['fill_fraction'] > 1.10:
                 st.error("🚨 Store is over capacity! Cannot add new items.")
             elif store_fill_info['fill_fraction'] > 0.90:
                 st.warning("⚠️ Store is near capacity ({:.1f}%)".format(store_fill_info['fill_percentage']))
         else:
-            if store_fill_info['fill_fraction'] > 1.10:
-                st.error("🚨 You're over your allocation! Cannot add new items.")
-            elif store_fill_info['fill_fraction'] > 0.90:
-                st.warning("⚠️ You're near your allocation ({:.1f}%)".format(store_fill_info['fill_percentage']))
-                
+            # Consignor only sees their own record count
+            records_count = self.get_records_count_by_user(user_id) if user_id else 0
+            st.metric("Your Consignment Records", records_count)
+            
+            # Consignors don't see store fill percentage
+        
+        current_commission_rate = st.session_state.commission_calculator.get_current_commission_rate()
+        st.metric("Commission Rate", f"{current_commission_rate*100:.1f}%")
+        
         self._render_last_added_record_simple()
         
+        # For consignors, we still need store_fill_fraction for disabling add functionality
+        store_capacity = float(self.get_config_value('STORE_CAPACITY'))
+        store_fill_info = self._calculate_store_fill_info(store_capacity, user_role, user_id)
         store_fill_fraction = store_fill_info['fill_fraction']
+        
+        if user_role != 'admin' and store_fill_info['fill_fraction'] > 1.10:
+            st.error("🚨 You're over your allocation! Cannot add new items.")
         
         self._render_unified_operations(store_fill_fraction)
 
@@ -581,7 +576,7 @@ class InventoryTab:
             # Admin sees total store inventory
             total_inventory = self.get_records_count()
         else:
-            # Consignor sees only their own records
+            # Consignor sees only their own records for their allocation
             total_inventory = self.get_records_count_by_user(user_id) if user_id else 0
         
         fill_fraction = total_inventory / store_capacity if store_capacity > 0 else 0

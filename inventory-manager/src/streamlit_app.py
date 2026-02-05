@@ -413,11 +413,8 @@ def main():
     else:
         render_main_app()
 
-# File: inventory-manager/src/streamlit_app.py
-# (Only showing the updated render_login_page function)
-
 def render_login_page():
-    """Render login page with CORS debugging and better error handling"""
+    """Render clean login page"""
     st.set_page_config(page_title="PigStyle Login", page_icon="🎵", layout="centered")
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -425,11 +422,8 @@ def render_login_page():
         st.title("🎵 PigStyle Records")
         st.subheader("Inventory Manager")
         
-        # Make demo mode more prominent
-        st.info("⚠️ **Streamlit Cloud Mode**: Using demo mode for testing")
-        
-        # Always show demo mode button first
-        if st.button("👀 Enter Demo Mode", key="demo_button", width='stretch', type="primary", use_container_width=True):
+        # Demo Mode Button
+        if st.button("👀 Demo Mode", key="demo_button", width='stretch', type="primary"):
             st.session_state.authenticated = True
             st.session_state.user = {
                 'username': 'demo_user',
@@ -451,94 +445,30 @@ def render_login_page():
             st.rerun()
         
         st.markdown("---")
-        
-        # Test API connection first
-        st.write("**Test Backend Connection**")
-        col_test1, col_test2 = st.columns(2)
-        
-        with col_test1:
-            if st.button("🔗 Test Connection", type="secondary", use_container_width=True):
-                try:
-                    response = requests.get("https://www.pigstylemusic.com/", timeout=5)
-                    if response.status_code == 200:
-                        st.success("✅ Backend API is reachable")
-                        
-                        # Check CORS headers
-                        if 'Access-Control-Allow-Origin' in response.headers:
-                            cors_header = response.headers.get('Access-Control-Allow-Origin')
-                            st.info(f"CORS Header: `{cors_header}`")
-                            if 'streamlit.app' in cors_header or cors_header == '*':
-                                st.success("✅ CORS is properly configured!")
-                            else:
-                                st.warning(f"⚠️ CORS might not allow Streamlit Cloud")
-                        else:
-                            st.error("❌ No CORS headers found!")
-                            
-                    else:
-                        st.error(f"❌ Backend responded with status {response.status_code}")
-                except Exception as e:
-                    st.error(f"❌ Cannot reach backend: {e}")
-                    st.info("Please use Demo Mode or ensure the backend server is running")
-        
-        with col_test2:
-            if st.button("🔍 Debug CORS", type="secondary", use_container_width=True):
-                try:
-                    # Test with Origin header
-                    headers = {'Origin': 'https://pigstyle.streamlit.app'}
-                    response = requests.get(
-                        "https://www.pigstylemusic.com/", 
-                        headers=headers, 
-                        timeout=5
-                    )
-                    
-                    st.write("**CORS Debug Results:**")
-                    st.write(f"Status: {response.status_code}")
-                    st.write(f"Response Headers:")
-                    
-                    cors_headers = {
-                        'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin', 'NOT FOUND'),
-                        'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials', 'NOT FOUND'),
-                        'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods', 'NOT FOUND'),
-                    }
-                    
-                    for key, value in cors_headers.items():
-                        st.write(f"  - `{key}`: `{value}`")
-                        
-                except Exception as e:
-                    st.error(f"Debug failed: {e}")
-        
-        st.markdown("---")
-        st.write("**Regular Login (requires backend)**")
+        st.write("**Regular Login**")
         
         with st.form("login_form"):
             username = st.text_input("Username or Email", placeholder="Enter your username or email")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
             
-            login_button = st.form_submit_button("🚀 Login", width='stretch', use_container_width=True)
+            login_button = st.form_submit_button("🚀 Login", width='stretch')
         
         if login_button:
             if username and password:
-                try:
-                    auth_manager = AuthManager()
-                    session_manager = SessionManager(auth_manager)
-                    success, message = session_manager.login(username, password, False)
-                    if success:
-                        st.success(message)
-                        st.rerun()
-                    else:
-                        st.error(message)
-                        st.info("Try Demo Mode if you don't have backend access")
-                except Exception as e:
-                    st.error(f"Login failed: {e}")
-                    st.info("⚠️ Backend might not be accessible from Streamlit Cloud")
-                    st.info("Please use Demo Mode instead")
+                auth_manager = AuthManager()
+                session_manager = SessionManager(auth_manager)
+                success, message = session_manager.login(username, password, False)
+                if success:
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
             else:
                 st.error("Please enter both username and password")
         
         st.markdown("---")
         st.caption("💡 Contact administrator for account creation")
-        st.caption("🔧 Demo Mode: Full functionality with sample data")
- 
+
 def render_main_app():
     """Render the main application after authentication"""
     user = st.session_state.user

@@ -17,6 +17,7 @@ class AuthManager:
         
         self.api_base_url = api_base_url
         self.session = requests.Session()
+        self.session.timeout = 10
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
         """Make API request with error handling"""
@@ -70,61 +71,61 @@ class AuthManager:
     
     def authenticate_user(self, username: str, password: str, ip_address: str = "", user_agent: str = "") -> tuple[bool, str, Optional[Dict]]:
         """Authenticate user via API"""
-        # Use the debug endpoint to verify login
-        # First, get user by username/email to find user_id
-        users_result = self._make_request('GET', '/users')
-        if not users_result or 'users' not in users_result:
-            return False, "Unable to access user database", None
-        
-        # Find user by username or email
-        user_data = None
-        user_id = None
-        
-        for user in users_result['users']:
-            if user['username'] == username or user['email'] == username:
-                user_data = user
-                user_id = user['id']
-                break
-        
-        if not user_data:
-            return False, "Invalid username or password", None
-        
-        # Now verify the password using the debug endpoint
-        verify_result = self._make_request(
-            'POST', 
-            f'/debug/verify-login/{user_id}',
-            json={'password': password}
-        )
-        
-        if not verify_result:
-            return False, "Authentication service unavailable", None
-        
-        if verify_result.get('login_valid'):
-            # Successful login - create session info
-            user_info = {
-                'id': user_id,
-                'username': user_data['username'],
-                'email': user_data['email'],
-                'role': user_data['role'],
-                'full_name': user_data.get('full_name', ''),
-                'session_token': secrets.token_urlsafe(32)  # Generate local session token
-            }
+        try:
+            # First, get user by username/email to find user_id
+            users_result = self._make_request('GET', '/users')
+            if not users_result or 'users' not in users_result:
+                return False, "Unable to access user database", None
             
-            return True, "Login successful", user_info
-        else:
-            return False, "Invalid password", None
+            # Find user by username or email
+            user_data = None
+            user_id = None
+            
+            for user in users_result['users']:
+                if user['username'] == username or user['email'] == username:
+                    user_data = user
+                    user_id = user['id']
+                    break
+            
+            if not user_data:
+                return False, "Invalid username or password", None
+            
+            # Verify the password using the debug endpoint
+            verify_result = self._make_request(
+                'POST', 
+                f'/debug/verify-login/{user_id}',
+                json={'password': password}
+            )
+            
+            if not verify_result:
+                return False, "Authentication service unavailable", None
+            
+            if verify_result.get('login_valid'):
+                # Successful login - create session info
+                user_info = {
+                    'id': user_id,
+                    'username': user_data['username'],
+                    'email': user_data['email'],
+                    'role': user_data['role'],
+                    'full_name': user_data.get('full_name', ''),
+                    'session_token': secrets.token_urlsafe(32)  # Generate local session token
+                }
+                
+                return True, "Login successful", user_info
+            else:
+                return False, "Invalid password", None
+                
+        except Exception as e:
+            return False, f"Authentication error: {str(e)}", None
     
     def validate_session(self, session_token: str) -> tuple[bool, Optional[Dict]]:
-        """Validate session token - for now, just check if user exists in session state"""
-        # This is a simplified session validation for Streamlit
-        # In a production app, you'd want more robust session management
+        """Validate session token - check if user exists in session state"""
         if hasattr(st.session_state, 'user') and st.session_state.user:
             return True, st.session_state.user
         return False, None
     
     def logout_user(self, session_token: str):
         """Invalidate user session - clear session state"""
-        # Clear session state
         if hasattr(st.session_state, 'user'):
             st.session_state.user = None
         if hasattr(st.session_state, 'authenticated'):
@@ -184,10 +185,8 @@ class AuthManager:
     
     def create_user(self, username: str, email: str, password: str, role: str = "consignor", full_name: str = "", phone: str = "", address: str = "") -> tuple[bool, str]:
         """Create a new user account - NOT IMPLEMENTED IN API YET"""
-        # This would require a new API endpoint for user creation
         return False, "User creation not available via API"
     
     def update_user_role(self, user_id: int, new_role: str, admin_id: int) -> tuple[bool, str]:
         """Update user role - NOT IMPLEMENTED IN API YET"""
-        # This would require a new API endpoint for role updates
         return False, "Role updates not available via API"
